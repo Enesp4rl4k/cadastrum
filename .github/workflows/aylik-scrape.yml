@@ -1,11 +1,10 @@
-name: Aylık Sahibinden Scraper
+name: Sahibinden Scraper (manuel — deneysel)
 
-# Tetik:
-#   1. Otomatik: her ayın 1'i 03:00 UTC (06:00 TR)
-#   2. Manuel: workflow_dispatch (Actions tab → Run workflow)
+# NOT: Sahibinden PerimeterX bot koruması datacenter IP'lerini (GitHub Actions)
+# neredeyse kesin bloklar → otomatik cron KALDIRILDI. Aylık tazeleme artık
+# aylik-emlakjet.yml ile yapılır (fetch-based, güvenilir). Bu workflow yalnız
+# manuel deneme için bırakıldı (PerimeterX bir gün gevşerse diye).
 on:
-  schedule:
-    - cron: "0 3 1 * *"
   workflow_dispatch:
     inputs:
       il:

@@ -1,0 +1,77 @@
+name: Aylık Emlakjet Veri Tazeleme
+
+# Emlakjet fetch-based (bot blok yok, Chromium gerektirmez) → en sağlam kaynak.
+# SADECE SQL üretir + repo'ya commit eder. D1 yüklemesi MANUEL (insan onayı):
+#   wrangler d1 execute cadastrum-db --remote --file=scripts/emlakjet-data-turkiye.sql
+# Bu sayede workflow hiçbir production credential taşımaz.
+#
+# Tetik:
+#   1. Otomatik: her ayın 1'i 03:00 UTC (06:00 TR)
+#   2. Manuel: Actions → Run workflow (il / sayfa / ilçe parametreleriyle)
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+    inputs:
+      il:
+        description: "Tek il (örn istanbul, boş = tüm 81 il)"
+        required: false
+      max_sayfa:
+        description: "İlçe başına sayfa (varsayılan 2 — yeni ilanlar)"
+        required: false
+        default: "2"
+      maks_ilce:
+        description: "Max ilçe sayısı (boş = tümü)"
+        required: false
+
+permissions:
+  contents: write  # taze SQL'i repo'ya commit etmek için
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340  # GitHub Actions free 6h limitinin altında
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # Emlakjet puppeteer kullanmaz → Chromium indirmesini atla (hızlı + hafif install)
+      - name: Install dependencies
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+        run: npm ci --no-fund --no-audit
+
+      - name: Emlakjet scrape (resume — mevcut SQL üzerine yeni ilanlar)
+        env:
+          EMLAKJET_ILCE_MAX_SAYFA: ${{ github.event.inputs.max_sayfa || '2' }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.il }}" ]; then ARGS="$ARGS --il=${{ github.event.inputs.il }}"; fi
+          if [ -n "${{ github.event.inputs.maks_ilce }}" ]; then ARGS="$ARGS --maks-ilce=${{ github.event.inputs.maks_ilce }}"; fi
+          node scripts/emlakjet-scrape-turkiye.mjs $ARGS
+
+      - name: Upload SQL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emlakjet-data-turkiye-sql
+          path: scripts/emlakjet-data-turkiye.sql
+          retention-days: 90
+
+      - name: Commit fresh data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/emlakjet-data-turkiye.sql
+          if git diff --staged --quiet; then
+            echo "Değişiklik yok — yeni ilan bulunamadı."
+          else
+            ADET=$(grep -c "^('extension'" scripts/emlakjet-data-turkiye.sql || echo "?")
+            git commit -m "data: aylık emlakjet tazeleme (~${ADET} ilan) [skip ci]"
+            git push
+          fi
