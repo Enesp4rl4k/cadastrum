@@ -39,13 +39,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
-      # Emlakjet puppeteer kullanmaz → Chromium indirmesini atla (hızlı + hafif install)
-      - name: Install dependencies
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: "1"
-        run: npm ci --no-fund --no-audit
+      # NOT: emlakjet-scrape-turkiye.mjs + emlakjet-lib.mjs yalnız node built-in
+      # (fetch/fs/path/url) kullanır → npm install GEREKMEZ. Bu sayede workflow
+      # esbuild/puppeteer lock sorunlarından bağımsız ve çok hızlı.
 
       - name: Emlakjet scrape (resume — mevcut SQL üzerine yeni ilanlar)
         env:
