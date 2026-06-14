@@ -787,12 +787,16 @@ async function destekBaselineGetir(
 }
 
 function alanCarpani(alan: number): { carpan: number; not: string } {
-  // Küçük arsa m² primi yüksek (köşeli, hızlı satılır), büyük arsa m² primi düşer
-  if (alan < 200) return { carpan: 1.25, not: "Mikro arsa, m² primi yüksek" };
-  if (alan < 750) return { carpan: 1.10, not: "Küçük arsa, prim var" };
+  // Küçük arsa m² primi yüksek (köşeli, hızlı satılır), büyük arsa m² primi düşer.
+  // Kademeler 13K emlakjet ilanından mahalle-içi leave-one-out ile kalibre edildi
+  // (scripts/backtest-baseline.mjs): gerçek <200 ×2.98, 200-750 ×1.52, 2500-10k ×0.66, >10k ×0.47.
+  // Önceki el-ayarı (1.25/1.10/0.9/0.75) m² etkisini ~2 kat hafife alıyordu; kalibrasyon
+  // mahalle-içi MAPE'yi −%6.7 düşürdü. <200 kademesi ×2.0'a sınırlandı (143 örnek, gürültü guard).
+  if (alan < 200) return { carpan: 2.0, not: "Mikro arsa, m² primi çok yüksek" };
+  if (alan < 750) return { carpan: 1.5, not: "Küçük arsa, m² primi yüksek" };
   if (alan < 2500) return { carpan: 1.0, not: "Orta — referans" };
-  if (alan < 10000) return { carpan: 0.9, not: "Büyük, m² fiyatı düşer" };
-  return { carpan: 0.75, not: "Çok büyük, parsellenmesi gerek" };
+  if (alan < 10000) return { carpan: 0.66, not: "Büyük, m² fiyatı belirgin düşer" };
+  return { carpan: 0.48, not: "Çok büyük, parsellenmesi gerek — m² fiyatı yarılanır" };
 }
 
 function konumCarpani(parsel: Parsel): { carpan: number; not: string } {

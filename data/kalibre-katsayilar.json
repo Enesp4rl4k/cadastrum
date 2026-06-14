@@ -1,0 +1,140 @@
+{
+  "tarih": "2026-06-14T20:37:38.890Z",
+  "yontem": "veriden-turetme (median ratio)",
+  "segmentler": {
+    "tarla": {
+      "baz": 1,
+      "kademeCarpan": {
+        "anayol_yakin": 1.134,
+        "ilMerkez_yakin": 1.163,
+        "ilMerkez_orta": 1,
+        "ilMerkez_sapa": 1,
+        "anayol_orta": 1.054,
+        "metro_orta": 1.262,
+        "sahil_bolge": 1.043,
+        "sahil_yakin": 1.299,
+        "uni_yakin": 1.191,
+        "sahil_cokYakin": 1.23
+      },
+      "katsayilar": {
+        "sahil": {
+          "cokYakinKm": 0.5,
+          "cokYakinX": 1.23,
+          "yakinKm": 2,
+          "yakinX": 1.299,
+          "bolgeKm": 5,
+          "bolgeX": 1.043
+        },
+        "metro": {
+          "yakinKm": 0.5,
+          "yakinX": 1.1,
+          "ortaKm": 1.5,
+          "ortaX": 1.262
+        },
+        "uni": {
+          "yakinKm": 1,
+          "yakinX": 1.191
+        },
+        "anayol": {
+          "yakinKm": 1,
+          "yakinX": 1.134,
+          "ortaKm": 3,
+          "ortaX": 1.054
+        },
+        "ilMerkez": {
+          "yakinKm": 15,
+          "yakinX": 1.163,
+          "ortaKm": 30,
+          "ortaX": 1,
+          "sapaKm": 60,
+          "sapaX": 1
+        },
+        "kappa": {
+          "arsa": 30,
+          "konut": 25,
+          "tarla": 45
+        },
+        "baz": 1
+      },
+      "def": {
+        "n": 879,
+        "mape": 72.26,
+        "medyanApe": 45.98,
+        "within20": 23.8,
+        "bias": 34.56
+      },
+      "kal": {
+        "n": 879,
+        "mape": 74.57,
+        "medyanApe": 45.19,
+        "within20": 23.7,
+        "bias": 38.54
+      }
+    },
+    "arsa": {
+      "baz": 1,
+      "kademeCarpan": {
+        "anayol_orta": 1,
+        "ilMerkez_yakin": 1.109,
+        "ilMerkez_orta": 1,
+        "anayol_yakin": 1,
+        "sahil_bolge": 1.011,
+        "ilMerkez_sapa": 1
+      },
+      "katsayilar": {
+        "sahil": {
+          "cokYakinKm": 0.5,
+          "cokYakinX": 1.18,
+          "yakinKm": 2,
+          "yakinX": 1.1,
+          "bolgeKm": 5,
+          "bolgeX": 1.011
+        },
+        "metro": {
+          "yakinKm": 0.5,
+          "yakinX": 1.1,
+          "ortaKm": 1.5,
+          "ortaX": 1.04
+        },
+        "uni": {
+          "yakinKm": 1,
+          "yakinX": 1.05
+        },
+        "anayol": {
+          "yakinKm": 1,
+          "yakinX": 1,
+          "ortaKm": 3,
+          "ortaX": 1
+        },
+        "ilMerkez": {
+          "yakinKm": 15,
+          "yakinX": 1.109,
+          "ortaKm": 30,
+          "ortaX": 1,
+          "sapaKm": 60,
+          "sapaX": 1
+        },
+        "kappa": {
+          "arsa": 30,
+          "konut": 25,
+          "tarla": 45
+        },
+        "baz": 1
+      },
+      "def": {
+        "n": 58,
+        "mape": 153.51,
+        "medyanApe": 62.18,
+        "within20": 12.1,
+        "bias": 120.76
+      },
+      "kal": {
+        "n": 58,
+        "mape": 149.04,
+        "medyanApe": 60.85,
+        "within20": 12.1,
+        "bias": 115.13
+      }
+    }
+  }
+}

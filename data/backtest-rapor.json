@@ -1,0 +1,100 @@
+{
+  "tarih": "2026-06-14T21:53:53.477Z",
+  "katsayiKaynagi": "default",
+  "segmentler": {
+    "arsa": {
+      "ozellikli": {
+        "n": 58,
+        "mape": 153.51,
+        "medyanApe": 62.18,
+        "p90Ape": 417.59,
+        "bias": 120.76,
+        "within10": 6.9,
+        "within20": 12.1
+      },
+      "duz": {
+        "n": 58,
+        "mape": 147.69,
+        "medyanApe": 63.62,
+        "p90Ape": 362.14,
+        "bias": 111.76,
+        "within10": 8.6,
+        "within20": 13.8
+      },
+      "koy": {
+        "n": 55,
+        "mape": 158.4,
+        "medyanApe": 59.88,
+        "p90Ape": 417.59,
+        "bias": 128.42,
+        "within10": 7.3,
+        "within20": 12.7
+      },
+      "sehir": {
+        "n": 3,
+        "mape": 63.83,
+        "medyanApe": 66.38,
+        "p90Ape": 68.33,
+        "bias": -19.58,
+        "within10": 0,
+        "within20": 0
+      }
+    },
+    "tarla": {
+      "ozellikli": {
+        "n": 879,
+        "mape": 72.26,
+        "medyanApe": 45.98,
+        "p90Ape": 155.19,
+        "bias": 34.56,
+        "within10": 12.7,
+        "within20": 23.8
+      },
+      "duz": {
+        "n": 879,
+        "mape": 71.15,
+        "medyanApe": 45.19,
+        "p90Ape": 146.4,
+        "bias": 31.48,
+        "within10": 12.3,
+        "within20": 23.5
+      },
+      "koy": {
+        "n": 858,
+        "mape": 72.9,
+        "medyanApe": 46.23,
+        "p90Ape": 156.52,
+        "bias": 35.56,
+        "within10": 12.5,
+        "within20": 23.7
+      },
+      "sehir": {
+        "n": 21,
+        "mape": 46.26,
+        "medyanApe": 45.75,
+        "p90Ape": 86.54,
+        "bias": -6.38,
+        "within10": 23.8,
+        "within20": 28.6
+      }
+    }
+  },
+  "mahalleIci": {
+    "arsa": {
+      "mahalleSayi": 139,
+      "ilanSayi": 693,
+      "mape": 91.12,
+      "medyanApe": 27.04,
+      "within10": 28.4,
+      "within20": 42.7
+    },
+    "tarla": {
+      "mahalleSayi": 2042,
+      "ilanSayi": 12556,
+      "mape": 92.04,
+      "medyanApe": 31.73,
+      "within10": 24.3,
+      "within20": 36.5
+    }
+  }
+}
