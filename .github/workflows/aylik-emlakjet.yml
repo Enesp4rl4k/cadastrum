@@ -68,7 +68,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Değişiklik yok — yeni ilan bulunamadı."
           else
-            ADET=$(grep -c "^('extension'" scripts/emlakjet-data-turkiye.sql || echo "?")
+            ADET=$(grep -aoc "ej_" scripts/emlakjet-data-turkiye.sql || echo "?")
             git commit -m "data: aylık emlakjet tazeleme (~${ADET} ilan) [skip ci]"
             git push
           fi
