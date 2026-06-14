@@ -1,0 +1,36 @@
+scripts/backtest-baseline.mjs
+  s_8ab9402d172c7c::t_4301c4c25ac6d8 118-187
+  s_8ab9402d172c7c::t_b93813c72e3281 216-227
+  s_8ab9402d172c7c::t_aa0d0d46a6ec33 1-117,188-215,228-236
+data/backtest-rapor.json
+  s_8ab9402d172c7c::t_b5f258e4210175 1,3-79,98-100
+  s_8ab9402d172c7c::t_44bd6a2f2ffc8f 2,80-97
+scripts/baseline-cekirdek.mjs
+  s_8ab9402d172c7c::t_7e887324d79962 1-101
+scripts/kalibrasyon.mjs
+  s_8ab9402d172c7c::t_3c6256de630590 21
+  s_8ab9402d172c7c::t_8decf1abc9bc59 107-108
+  s_8ab9402d172c7c::t_37f2cef0a23bb9 1-20,22-77,80-106,109-158
+  s_8ab9402d172c7c::t_c70fa4b9b18edd 78-79
+data/kalibre-katsayilar.json
+  s_8ab9402d172c7c::t_f59d9fa4ea261a 1,3-140
+  s_8ab9402d172c7c::t_1d638cb59f6789 2
+src/lib/fiyat-tahmin.ts
+  s_8ab9402d172c7c::t_867f7bb116bf0f 790-796,798-799
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "d6e8d375923edd5133cac90134995ac0f117555d",
+  "prompts": {},
+  "sessions": {
+    "s_8ab9402d172c7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2de12641-4638-4155-be5a-e961c200d40e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
