@@ -1,0 +1,22 @@
+OTOMATIK-SCRAPER-KURULUM.md
+  s_8ab9402d172c7c::t_de04027d98bdbe 1-177
+.gitignore
+  s_8ab9402d172c7c::t_03985abb9ef3f8 22-25
+  s_8ab9402d172c7c::t_fefc8536b92a40 34-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "fffeb813d31052a77a5be467a2923056a4efe03a",
+  "prompts": {},
+  "sessions": {
+    "s_8ab9402d172c7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2de12641-4638-4155-be5a-e961c200d40e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
