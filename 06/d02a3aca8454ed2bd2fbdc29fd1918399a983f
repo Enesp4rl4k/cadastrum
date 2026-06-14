@@ -1,0 +1,19 @@
+.github/workflows/aylik-emlakjet.yml
+  s_8ab9402d172c7c::t_77c7f36fb4a938 71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "06d02a3aca8454ed2bd2fbdc29fd1918399a983f",
+  "prompts": {},
+  "sessions": {
+    "s_8ab9402d172c7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2de12641-4638-4155-be5a-e961c200d40e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
