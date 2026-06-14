@@ -1,0 +1,159 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Müşterilerim — Cadastrum CRM">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Müşterilerim</h1>
+        <p class="text-slate-600 text-sm">CRM Lite — Kurumsal tier özelliği</p>
+      </div>
+      <button id="yeni-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium">
+        + Yeni Müşteri
+      </button>
+    </div>
+
+    <div id="liste" class="space-y-2"></div>
+    <div id="bos" class="hidden text-center py-12 text-slate-500">
+      Henüz müşteri eklemediniz.
+    </div>
+    <div id="auth-uyari" class="hidden text-center py-12 text-amber-700">
+      Bu sayfa Kurumsal tier'ı gerektirir. <a href="/giris" class="underline">Giriş yapın</a>.
+    </div>
+
+    <!-- Yeni müşteri modal -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-[92%] max-w-md">
+        <h2 class="text-lg font-bold mb-4">Yeni Müşteri</h2>
+        <form id="form" class="space-y-3">
+          <input type="text" id="ad" placeholder="Ad" required class="w-full px-3 py-2 border rounded" />
+          <input type="tel" id="telefon" placeholder="Telefon (opsiyonel)" class="w-full px-3 py-2 border rounded" />
+          <input type="email" id="email" placeholder="Email (opsiyonel)" class="w-full px-3 py-2 border rounded" />
+          <textarea id="notlar" placeholder="Notlar (opsiyonel)" class="w-full px-3 py-2 border rounded h-20"></textarea>
+          <div class="flex gap-2 justify-end">
+            <button type="button" id="iptal" class="px-3 py-1.5 text-slate-700 hover:bg-slate-100 rounded">
+              İptal
+            </button>
+            <button type="submit" class="px-4 py-1.5 bg-indigo-600 text-white rounded font-medium">
+              Kaydet
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+    const liste = document.getElementById("liste") as HTMLDivElement;
+    const bos = document.getElementById("bos") as HTMLDivElement;
+    const authUyari = document.getElementById("auth-uyari") as HTMLDivElement;
+    const modal = document.getElementById("modal") as HTMLDivElement;
+    const yeniBtn = document.getElementById("yeni-btn") as HTMLButtonElement;
+    const iptalBtn = document.getElementById("iptal") as HTMLButtonElement;
+    const form = document.getElementById("form") as HTMLFormElement;
+
+    function token(): string | null {
+      return localStorage.getItem("cadastrum_token");
+    }
+
+    interface Musteri {
+      id: number;
+      ad: string;
+      telefon: string | null;
+      email: string | null;
+      notlar: string | null;
+      etiketler: string | null;
+      olusturuldu: number;
+      guncellendi: number;
+    }
+
+    function render(musteriler: Musteri[]) {
+      if (musteriler.length === 0) {
+        bos.classList.remove("hidden");
+        liste.innerHTML = "";
+        return;
+      }
+      bos.classList.add("hidden");
+      liste.innerHTML = musteriler.map((m) => `
+        <div class="bg-white rounded shadow p-4 border border-slate-200 hover:shadow-md transition">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-lg">${m.ad}</div>
+              <div class="text-sm text-slate-600 mt-0.5">
+                ${m.telefon ? `📞 ${m.telefon}` : ""}
+                ${m.email ? `· ✉ ${m.email}` : ""}
+              </div>
+              ${m.notlar ? `<div class="text-sm text-slate-500 mt-1">${m.notlar}</div>` : ""}
+              <div class="text-xs text-slate-400 mt-1">
+                Eklenme: ${new Date(m.olusturuldu).toLocaleDateString("tr-TR")}
+              </div>
+            </div>
+            <div class="flex flex-col gap-1">
+              <a href="/musteri?id=${m.id}" class="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-center">
+                Detay
+              </a>
+              <button data-id="${m.id}" class="del-btn text-xs px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded">
+                Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+      liste.querySelectorAll<HTMLButtonElement>(".del-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Müşteriyi silmek istediğinize emin misiniz? Atanmış parseller ve notlar da silinir.")) return;
+          const res = await fetch(`${API_BASE}/crm/musteri/${btn.dataset.id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token()}` },
+          });
+          if (res.ok) yukle();
+        });
+      });
+    }
+
+    async function yukle() {
+      const t = token();
+      if (!t) {
+        authUyari.classList.remove("hidden");
+        return;
+      }
+      const res = await fetch(`${API_BASE}/crm/musteri`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        authUyari.classList.remove("hidden");
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json() as { musteriler: Musteri[] };
+      render(data.musteriler);
+    }
+
+    yeniBtn.addEventListener("click", () => modal.classList.remove("hidden"));
+    iptalBtn.addEventListener("click", () => modal.classList.add("hidden"));
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const ad = (document.getElementById("ad") as HTMLInputElement).value.trim();
+      const telefon = (document.getElementById("telefon") as HTMLInputElement).value.trim() || null;
+      const email = (document.getElementById("email") as HTMLInputElement).value.trim() || null;
+      const notlar = (document.getElementById("notlar") as HTMLTextAreaElement).value.trim() || null;
+      if (!ad) return;
+      const res = await fetch(`${API_BASE}/crm/musteri`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ad, telefon, email, notlar }),
+      });
+      if (res.ok) {
+        modal.classList.add("hidden");
+        form.reset();
+        yukle();
+      }
+    });
+
+    yukle();
+  </script>
+</Base>

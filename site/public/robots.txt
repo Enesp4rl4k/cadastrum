@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Auth-protected ve dinamik veri sayfaları
+Disallow: /giris
+Disallow: /kayit
+Disallow: /dogrulama
+Disallow: /sifre-sifirla
+Disallow: /sifre-yenile
+Disallow: /veri/detay/
+Disallow: /admin
+Disallow: /admin/
+
+# Sitemap
+Sitemap: https://cadastrum.com.tr/sitemap.xml

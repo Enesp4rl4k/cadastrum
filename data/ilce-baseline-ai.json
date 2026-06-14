@@ -1,0 +1,1332 @@
+{
+  "edirne__havsa": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Edirne ili, kırsal bölge",
+    "il": "Edirne",
+    "ilce": "Havsa",
+    "zaman": 1778825473446
+  },
+  "kirklareli__luleburgaz": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Kırklareli",
+    "ilce": "Lüleburgaz",
+    "zaman": 1778825475783
+  },
+  "kirklareli__babaeski": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "Kırklareli'nin Babaeski ilçesi",
+    "il": "Kırklareli",
+    "ilce": "Babaeski",
+    "zaman": 1778825478113
+  },
+  "tekirdag__saray": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Tekirdağ Saray'da arsa ve tarla fiyatları",
+    "il": "Tekirdağ",
+    "ilce": "Saray",
+    "zaman": 1778825482038
+  },
+  "istanbul__basaksehir": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 40
+    },
+    "not": "İstanbul Başakşehir arsa fiyatı",
+    "il": "İstanbul",
+    "ilce": "Başakşehir",
+    "zaman": 1778825484354
+  },
+  "edirne__kesan": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Edirne Keşan'da arsa ve tarla fiyatları",
+    "il": "Edirne",
+    "ilce": "Keşan",
+    "zaman": 1778825560746
+  },
+  "karabuk__karabuk merkez": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Karabük Merkez ortalama fiyatları",
+    "il": "Karabük",
+    "ilce": "Karabük Merkez",
+    "zaman": 1778825563506
+  },
+  "bartin__kurucasile": {
+    "arsa": {
+      "tlm2": 4000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Köy ağırlıklı ilçe, düşük arsa fiyatı",
+    "il": "Bartın",
+    "ilce": "Kurucaşile",
+    "zaman": 1778825565833
+  },
+  "bartin__amasra": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sahil ilçesi, turizm etkisi",
+    "il": "Bartın",
+    "ilce": "Amasra",
+    "zaman": 1778825568146
+  },
+  "ardahan__cildir": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 20
+    },
+    "tarla": {
+      "tlm2": 150,
+      "guven": 20
+    },
+    "not": "Köy ağırlıklı ilçe, düşük fiyatlar",
+    "il": "Ardahan",
+    "ilce": "Çıldır",
+    "zaman": 1778825570613
+  },
+  "ankara__mamak": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 50
+    },
+    "not": "Ankara'nın merkezi olmayan ilçesi",
+    "il": "Ankara",
+    "ilce": "Mamak",
+    "zaman": 1778825573359
+  },
+  "kirikkale__yahsihan": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Kırıkkale",
+    "ilce": "Yahşihan",
+    "zaman": 1778825575783
+  },
+  "antalya__demre": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sahil ilçesi, turizm etkisi",
+    "il": "Antalya",
+    "ilce": "Demre",
+    "zaman": 1778825578160
+  },
+  "nevsehir__nevsehir merkez": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "İl merkezi, turizm etkisi",
+    "il": "Nevşehir",
+    "ilce": "Nevşehir Merkez",
+    "zaman": 1778825580642
+  },
+  "istanbul__esenyurt": {
+    "arsa": {
+      "tlm2": 18200,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 2600,
+      "guven": 40
+    },
+    "not": "Esenyurt'ta arsa fiyatları 2025'ten sonra enflasyonla arttı",
+    "il": "İstanbul",
+    "ilce": "Esenyurt",
+    "zaman": 1778825583494
+  },
+  "tekirdag__sarkoy": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sahil ilçesi, turizm etkisi",
+    "il": "Tekirdağ",
+    "ilce": "Şarköy",
+    "zaman": 1778825586106
+  },
+  "tekirdag__malkara": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Tekirdağ Malkara'da arsa ve tarla fiyatları",
+    "il": "Tekirdağ",
+    "ilce": "Malkara",
+    "zaman": 1778825588469
+  },
+  "eskisehir__seyitgazi": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 50
+    },
+    "not": "Eskişehir'in tarihi ilçesi",
+    "il": "Eskişehir",
+    "ilce": "Seyitgazi",
+    "zaman": 1778825653218
+  },
+  "eskisehir__han": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 20
+    },
+    "tarla": {
+      "tlm2": 150,
+      "guven": 20
+    },
+    "not": "Köy ağırlıklı ilçe",
+    "il": "Eskişehir",
+    "ilce": "Han",
+    "zaman": 1778825655544
+  },
+  "eskisehir__odunpazari": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 50
+    },
+    "not": "Eskişehir Odunpazarı",
+    "il": "Eskişehir",
+    "ilce": "Odunpazarı",
+    "zaman": 1778825657829
+  },
+  "bursa__inegol": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Bursa",
+    "ilce": "İnegöl",
+    "zaman": 1778825660215
+  },
+  "ankara__pursaklar": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Ankara Pursaklar için genel tahmin",
+    "il": "Ankara",
+    "ilce": "Pursaklar",
+    "zaman": 1778825662547
+  },
+  "mersin__erdemli": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sahil ilçesi, turizm etkisi",
+    "il": "Mersin",
+    "ilce": "Erdemli",
+    "zaman": 1778825664891
+  },
+  "nevsehir__avanos": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Nevşehir Avanos'ta arsa ve tarla fiyatları",
+    "il": "Nevşehir",
+    "ilce": "Avanos",
+    "zaman": 1778825667271
+  },
+  "nevsehir__urgup": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Nevşehir Ürgüp turistik",
+    "il": "Nevşehir",
+    "ilce": "Ürgüp",
+    "zaman": 1778825669640
+  },
+  "aksaray__guzelyurt": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Aksaray",
+    "ilce": "Güzelyurt",
+    "zaman": 1778825672065
+  },
+  "nigde__bor": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Niğde",
+    "ilce": "Bor",
+    "zaman": 1778825674392
+  },
+  "konya__karatay": {
+    "arsa": {
+      "tlm2": 4200,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 280,
+      "guven": 30
+    },
+    "not": "Konya ili, Karatay ilçesi",
+    "il": "Konya",
+    "ilce": "Karatay",
+    "zaman": 1778825676837
+  },
+  "isparta__egirdir": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Isparta",
+    "ilce": "Eğirdir",
+    "zaman": 1778825679170
+  },
+  "nigde__ulukisla": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arazi fiyatları",
+    "il": "Niğde",
+    "ilce": "Ulukışla",
+    "zaman": 1778825681541
+  },
+  "nigde__nigde merkez": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İl merkezi, tarımsal faaliyetler",
+    "il": "Niğde",
+    "ilce": "Niğde Merkez",
+    "zaman": 1778825683857
+  },
+  "konya__eregli": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "Konya Ereğli, il merkezine uzak",
+    "il": "Konya",
+    "ilce": "Ereğli",
+    "zaman": 1778825686378
+  },
+  "kayseri__incesu": {
+    "arsa": {
+      "tlm2": 4200,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 280,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve köyler arası fiyat farkı",
+    "il": "Kayseri",
+    "ilce": "İncesu",
+    "zaman": 1778825688724
+  },
+  "karaman__karaman merkez": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İl merkezi, tarımsal faaliyetler",
+    "il": "Karaman",
+    "ilce": "Karaman Merkez",
+    "zaman": 1778825691043
+  },
+  "diyarbakir__kocakoy": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 120,
+      "guven": 30
+    },
+    "not": "Diyarbakır Kocaköy arsa ve tarla fiyatları",
+    "il": "Diyarbakır",
+    "ilce": "Kocaköy",
+    "zaman": 1778825693486
+  },
+  "kars__kars merkez": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Doğu Anadolu Bölgesi",
+    "il": "Kars",
+    "ilce": "Kars Merkez",
+    "zaman": 1778825695818
+  },
+  "el zig__el zig merkez": {
+    "arsa": {
+      "tlm2": 4500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 300,
+      "guven": 30
+    },
+    "not": "İl merkezi, iç Anadolu",
+    "il": "Elâzığ",
+    "ilce": "Elâzığ Merkez",
+    "zaman": 1778825698158
+  },
+  "isparta__gelendost": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Isparta",
+    "ilce": "Gelendost",
+    "zaman": 1778825700556
+  },
+  "isparta__yalvac": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Isparta",
+    "ilce": "Yalvaç",
+    "zaman": 1778825702921
+  },
+  "kayseri__kocasinan": {
+    "arsa": {
+      "tlm2": 4200,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 600,
+      "guven": 30
+    },
+    "not": "Kayseri Kocasinan ortalama fiyatları",
+    "il": "Kayseri",
+    "ilce": "Kocasinan",
+    "zaman": 1778825705889
+  },
+  "nevsehir__derinkuyu": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal tahmin",
+    "il": "Nevşehir",
+    "ilce": "Derinkuyu",
+    "zaman": 1778825708192
+  },
+  "sivas__kangal": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Sivas",
+    "ilce": "Kangal",
+    "zaman": 1778825710524
+  },
+  "sivas__yildizeli": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İl merkezi ve köyler arası fiyat farkı",
+    "il": "Sivas",
+    "ilce": "Yıldızeli",
+    "zaman": 1778825713336
+  },
+  "kayseri__pinarbasi": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "Kayseri'nin Pınarbaşı ilçesi için tahmin",
+    "il": "Kayseri",
+    "ilce": "Pınarbaşı",
+    "zaman": 1778825715798
+  },
+  "corum__sungurlu": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arazi fiyatları",
+    "il": "Çorum",
+    "ilce": "Sungurlu",
+    "zaman": 1778825718894
+  },
+  "ankara__bal": {
+    "arsa": {
+      "tlm2": 4000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezinden uzak, köy ağırlıklı",
+    "il": "Ankara",
+    "ilce": "Balâ",
+    "zaman": 1778825721362
+  },
+  "gumushane__kelkit": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 150,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve köyler arası fiyat farkı",
+    "il": "Gümüşhane",
+    "ilce": "Kelkit",
+    "zaman": 1778825723702
+  },
+  "mus__bulanik": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 20
+    },
+    "tarla": {
+      "tlm2": 150,
+      "guven": 20
+    },
+    "not": "Doğu Anadolu Bölgesi",
+    "il": "Muş",
+    "ilce": "Bulanık",
+    "zaman": 1778825726011
+  },
+  "erzurum__hinis": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Doğu Anadolu Bölgesi",
+    "il": "Erzurum",
+    "ilce": "Hınıs",
+    "zaman": 1778825728309
+  },
+  "erzurum__tekman": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Doğu Anadolu Bölgesi",
+    "il": "Erzurum",
+    "ilce": "Tekman",
+    "zaman": 1778825730688
+  },
+  "erzurum__karayazi": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 150,
+      "guven": 30
+    },
+    "not": "Erzurum'un kırsal ilçesi",
+    "il": "Erzurum",
+    "ilce": "Karayazı",
+    "zaman": 1778825733008
+  },
+  "mus__malazgirt": {
+    "arsa": {
+      "tlm2": 800,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 150,
+      "guven": 30
+    },
+    "not": "Doğu Anadolu Bölgesi",
+    "il": "Muş",
+    "ilce": "Malazgirt",
+    "zaman": 1778825735630
+  },
+  "denizli__tavas": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Denizli Tavas ilçe merkezi",
+    "il": "Denizli",
+    "ilce": "Tavas",
+    "zaman": 1778825738127
+  },
+  "nevsehir__acigol": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arazi fiyatları",
+    "il": "Nevşehir",
+    "ilce": "Acıgöl",
+    "zaman": 1778825740483
+  },
+  "kirikkale__kirikkale merkez": {
+    "arsa": {
+      "tlm2": 4500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 300,
+      "guven": 30
+    },
+    "not": "İl merkezi, iç Anadolu",
+    "il": "Kırıkkale",
+    "ilce": "Kırıkkale Merkez",
+    "zaman": 1778825742790
+  },
+  "burdur__bucak": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Burdur",
+    "ilce": "Bucak",
+    "zaman": 1778825745100
+  },
+  "antalya__korkuteli": {
+    "arsa": {
+      "tlm2": 4000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 300,
+      "guven": 30
+    },
+    "not": "Korkuteli'nin genel fiyatları",
+    "il": "Antalya",
+    "ilce": "Korkuteli",
+    "zaman": 1778825747436
+  },
+  "yozgat__sorgun": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Yozgat",
+    "ilce": "Sorgun",
+    "zaman": 1778825749798
+  },
+  "yozgat__yerkoy": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İl merkezi dışında, köy ağırlıklı",
+    "il": "Yozgat",
+    "ilce": "Yerköy",
+    "zaman": 1778825814285
+  },
+  "kayseri__talas": {
+    "arsa": {
+      "tlm2": 4500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 300,
+      "guven": 30
+    },
+    "not": "Kayseri Talas ortalama fiyatları",
+    "il": "Kayseri",
+    "ilce": "Talas",
+    "zaman": 1778825816636
+  },
+  "adana__tufanbeyli": {
+    "arsa": {
+      "tlm2": 2000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 300,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Adana",
+    "ilce": "Tufanbeyli",
+    "zaman": 1778825819289
+  },
+  "nigde__altunhisar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "İlçe merkezinden uzak köyler",
+    "il": "Niğde",
+    "ilce": "Altunhisar",
+    "zaman": 1778825821614
+  },
+  "konya__karapinar": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "Konya ili, Karapınar ilçesi",
+    "il": "Konya",
+    "ilce": "Karapınar",
+    "zaman": 1778825823919
+  },
+  "aksaray__gulagac": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 350,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Aksaray",
+    "ilce": "Gülağaç",
+    "zaman": 1778825826246
+  },
+  "antalya__ibradi": {
+    "arsa": {
+      "tlm2": 4000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Antalya",
+    "ilce": "İbradı",
+    "zaman": 1778825828565
+  },
+  "konya__cumra": {
+    "arsa": {
+      "tlm2": 4200,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 280,
+      "guven": 40
+    },
+    "not": "Konya ili, Çumra ilçesi için tahmini değerler",
+    "il": "Konya",
+    "ilce": "Çumra",
+    "zaman": 1778825830888
+  },
+  "konya__kulu": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Konya ili, Kulu ilçesi için tahmini değerler",
+    "il": "Konya",
+    "ilce": "Kulu",
+    "zaman": 1778825833207
+  },
+  "konya__derebucak": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Konya'nın kırsal ilçesi",
+    "il": "Konya",
+    "ilce": "Derebucak",
+    "zaman": 1778825835527
+  },
+  "karaman__kazimkarabekir": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Köy ağırlıklı ilçe, tarımsal faaliyetler",
+    "il": "Karaman",
+    "ilce": "Kazımkarabekir",
+    "zaman": 1778825837877
+  },
+  "denizli__cal": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Denizli",
+    "ilce": "Çal",
+    "zaman": 1778825840238
+  },
+  "usak__esme": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Uşak",
+    "ilce": "Eşme",
+    "zaman": 1778825842572
+  },
+  "nevsehir__hacibektas": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arazi fiyatları",
+    "il": "Nevşehir",
+    "ilce": "Hacıbektaş",
+    "zaman": 1778825844963
+  },
+  "nevsehir__kozakli": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Nevşehir Kozaklı, köy ağırlıklı ilçe",
+    "il": "Nevşehir",
+    "ilce": "Kozaklı",
+    "zaman": 1778825847293
+  },
+  "nevsehir__gulsehir": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Nevşehir'in kırsal ilçesi",
+    "il": "Nevşehir",
+    "ilce": "Gülşehir",
+    "zaman": 1778825849603
+  },
+  "ardahan__posof": {
+    "arsa": {
+      "tlm2": 2000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Köy ağırlıklı ilçe",
+    "il": "Ardahan",
+    "ilce": "Posof",
+    "zaman": 1778825851956
+  },
+  "kayseri__develi": {
+    "arsa": {
+      "tlm2": 1040,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "İlçe merkezi ve kırsal arası ortalama",
+    "il": "Kayseri",
+    "ilce": "Develi",
+    "zaman": 1778825854293
+  },
+  "ankara__nallihan": {
+    "arsa": {
+      "tlm2": 4000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Ankara'nın kırsal ilçesi",
+    "il": "Ankara",
+    "ilce": "Nallıhan",
+    "zaman": 1778825856638
+  },
+  "istanbul__bahcelievler": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 40
+    },
+    "not": "İstanbul'un merkezi ilçelerine yakınlığı",
+    "il": "İstanbul",
+    "ilce": "Bahçelievler",
+    "zaman": 1778825859012
+  },
+  "kahramanmaras__afsin": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 30
+    },
+    "not": "Kahramanmaraş Afşin'de arsa ve tarla fiyatları",
+    "il": "Kahramanmaraş",
+    "ilce": "Afşin",
+    "zaman": 1778825861321
+  },
+  "yalova__cinarcik": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sahil ilçesi, turizm etkisi",
+    "il": "Yalova",
+    "ilce": "Çınarcık",
+    "zaman": 1778825863665
+  },
+  "istanbul__kadikoy": {
+    "arsa": {
+      "tlm2": 42000,
+      "guven": 85
+    },
+    "tarla": {
+      "tlm2": 6000,
+      "guven": 60
+    },
+    "not": "Kadıköy, İstanbul'un merkezi ilçelerinden",
+    "il": "İstanbul",
+    "ilce": "Kadıköy",
+    "zaman": 1778825866016
+  },
+  "istanbul__maltepe": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 40
+    },
+    "not": "İstanbul Maltepe'de arsa fiyatları yüksek",
+    "il": "İstanbul",
+    "ilce": "Maltepe",
+    "zaman": 1778825868356
+  },
+  "istanbul__atasehir": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 70
+    },
+    "tarla": {
+      "tlm2": 3000,
+      "guven": 40
+    },
+    "not": "İstanbul Ataşehir arsa fiyatı yüksek",
+    "il": "İstanbul",
+    "ilce": "Ataşehir",
+    "zaman": 1778825870691
+  },
+  "istanbul__besiktas": {
+    "arsa": {
+      "tlm2": 85000,
+      "guven": 80
+    },
+    "tarla": {
+      "tlm2": 3000,
+      "guven": 40
+    },
+    "not": "Beşiktaş merkezi, yüksek arsa fiyatı",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "zaman": 1778825873054
+  },
+  "istanbul__sariyer": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 70
+    },
+    "tarla": {
+      "tlm2": 4000,
+      "guven": 60
+    },
+    "not": "Sarıyer'de arsa fiyatları yüksek",
+    "il": "İstanbul",
+    "ilce": "Sarıyer",
+    "zaman": 1778825875424
+  },
+  "istanbul__uskudar": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 40
+    },
+    "not": "İstanbul'un merkezi ilçelerinden",
+    "il": "İstanbul",
+    "ilce": "Üsküdar",
+    "zaman": 1778825877768
+  },
+  "yalova__yalova merkez": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 50
+    },
+    "not": "Yalova Merkez, turistik ve sahil ilçesi",
+    "il": "Yalova",
+    "ilce": "Yalova Merkez",
+    "zaman": 1778825880109
+  },
+  "istanbul__kartal": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 4000,
+      "guven": 40
+    },
+    "not": "İstanbul'un bir ilçesi",
+    "il": "İstanbul",
+    "ilce": "Kartal",
+    "zaman": 1778825882415
+  },
+  "istanbul__sancaktepe": {
+    "arsa": {
+      "tlm2": 18000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 40
+    },
+    "not": "İstanbul'un yeni gelişen ilçesi",
+    "il": "İstanbul",
+    "ilce": "Sancaktepe",
+    "zaman": 1778825884768
+  },
+  "istanbul__cekmekoy": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "İstanbul'un doğu ilçesi, arsa fiyatı orta",
+    "il": "İstanbul",
+    "ilce": "Çekmeköy",
+    "zaman": 1778825887189
+  },
+  "istanbul__pendik": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 60
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 40
+    },
+    "not": "İstanbul Pendik için 2026 başı tahmini",
+    "il": "İstanbul",
+    "ilce": "Pendik",
+    "zaman": 1778825889558
+  },
+  "istanbul__tuzla": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "İstanbul'un sanayi ilçesi",
+    "il": "İstanbul",
+    "ilce": "Tuzla",
+    "zaman": 1778825891925
+  },
+  "bursa__orhangazi": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 400,
+      "guven": 30
+    },
+    "not": "Bursa Orhangazi için orta düzeyde tahmin",
+    "il": "Bursa",
+    "ilce": "Orhangazi",
+    "zaman": 1778825894262
+  },
+  "yalova__ciftlikkoy": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sahil ilçesi, turizm etkisi",
+    "il": "Yalova",
+    "ilce": "Çiftlikköy",
+    "zaman": 1778825896613
+  },
+  "yalova__altinova": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Yalova'nın turistik ilçesi",
+    "il": "Yalova",
+    "ilce": "Altınova",
+    "zaman": 1778825900198
+  }
+}

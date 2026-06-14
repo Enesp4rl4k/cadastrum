@@ -1,0 +1,266 @@
+---
+import Logo from "./Logo.astro";
+
+const navItems = [
+  { href: "/#ozellikler", label: "Özellikler" },
+  { href: "/sorgu", label: "Sorgu" },
+  { href: "/veri", label: "Veri" },
+  { href: "/fiyat", label: "Fiyat" },
+  { href: "/blog", label: "Blog" },
+  { href: "/api-docs", label: "API" },
+];
+
+---
+
+<!-- Email doğrulama bandı (giriş yapmış + doğrulanmamış kullanıcılarda görünür) -->
+<div id="dogrulama-band" class="hidden bg-amber-50 border-b border-amber-200 text-amber-900 text-xs">
+  <div class="container-prose py-2 flex items-center justify-between gap-4">
+    <span>📧 Email adresinizi doğrulayın — Pro özelliklere geçiş için zorunlu.</span>
+    <a href="/dogrulama" class="font-semibold underline hover:text-amber-700">Şimdi doğrula →</a>
+  </div>
+</div>
+
+<header class="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+  <div class="container-prose flex h-16 items-center justify-between gap-4">
+    <a href="/" class="flex items-center gap-2 group">
+      <Logo size={32} className="shadow-sm rounded-md transition-transform group-hover:scale-105" />
+      <span class="font-display text-lg font-semibold text-ink tracking-tight">
+        Cadastrum
+      </span>
+    </a>
+
+    <nav class="hidden md:flex items-center gap-7">
+      {
+        navItems.map((item) => (
+          <a
+            href={item.href}
+            class="text-sm font-medium text-slate-600 transition hover:text-ink"
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <!-- Mobile hamburger button — md altında görünür -->
+    <button
+      id="mobile-nav-btn"
+      aria-label="Menüyü aç"
+      class="md:hidden inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100"
+    >
+      <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-2">
+      <!-- Misafir görünümü -->
+      <div id="nav-misafir" class="flex items-center gap-2">
+        <a href="/giris" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-ink">
+          Giriş
+        </a>
+        <a href="/kayit" class="btn-primary text-xs sm:text-sm py-2 px-3 sm:px-4">
+          Hesap aç
+        </a>
+      </div>
+
+      <!-- Giriş yapılmış görünümü -->
+      <div id="nav-kullanici" class="hidden items-center gap-2 relative">
+        <span id="nav-tier-rozet" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded-full bg-champagne-100 text-champagne-700 uppercase tracking-wide"></span>
+        <button id="nav-menu-btn" class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 hover:border-slate-300 transition">
+          <span id="nav-avatar" class="flex h-6 w-6 items-center justify-center rounded-full bg-imperial text-white text-[11px] font-semibold">?</span>
+          <span id="nav-ad" class="text-sm font-medium text-slate-700 max-w-[140px] truncate hidden sm:inline"></span>
+          <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 7.5L10 12l4.5-4.5z"/></svg>
+        </button>
+        <div id="nav-menu" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-100">
+            <div id="nav-menu-ad" class="text-sm font-semibold text-slate-800 truncate"></div>
+            <div id="nav-menu-email" class="text-xs text-slate-500 truncate"></div>
+          </div>
+          <a href="/hesap" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">Hesabım</a>
+          <a href="/hesap/bildirimler" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">Bildirimlerim</a>
+          <a href="/musteriler" id="nav-musteriler" class="hidden px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">Müşterilerim</a>
+          <a href="/hesap/api-tokens" id="nav-api-tokens" class="hidden px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">API Tokenları</a>
+          <a href="/fiyat" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">Aboneliğim</a>
+          <button id="nav-cikis" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">Çıkış yap</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Mobile drawer — slide-in nav, md altı viewport -->
+<div
+  id="mobile-nav-drawer"
+  class="md:hidden fixed inset-0 z-50 hidden"
+  aria-hidden="true"
+>
+  <div id="mobile-nav-overlay" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+  <aside class="absolute right-0 top-0 bottom-0 w-72 max-w-[85%] bg-white shadow-2xl overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-200">
+      <span class="font-display text-lg font-semibold">Menü</span>
+      <button id="mobile-nav-close" aria-label="Kapat" class="rounded-md p-2 hover:bg-slate-100">
+        <svg class="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+    <nav class="flex flex-col py-2">
+      {navItems.map((item) => (
+        <a href={item.href} class="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {item.label}
+        </a>
+      ))}
+      <div class="border-t border-slate-200 my-2"></div>
+      <a href="/hesap" class="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50" id="mob-hesap">Hesabım</a>
+      <a href="/hesap/bildirimler" class="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50" id="mob-bildirim">Bildirimlerim</a>
+      <a href="/musteriler" class="hidden px-4 py-3 text-sm text-slate-700 hover:bg-slate-50" id="mob-musteri">Müşterilerim</a>
+      <a href="/hesap/api-tokens" class="hidden px-4 py-3 text-sm text-slate-700 hover:bg-slate-50" id="mob-apitok">API Tokenları</a>
+      <a href="/giris" class="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50" id="mob-giris">Giriş Yap</a>
+      <a href="/kayit" class="px-4 py-3 text-sm font-semibold text-imperial hover:bg-slate-50" id="mob-kayit">Hesap Aç</a>
+      <button id="mob-cikis" class="hidden text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50">Çıkış Yap</button>
+    </nav>
+  </aside>
+</div>
+
+<script>
+  import { kullaniciAl, cikisYap, tazele } from "../lib/auth";
+
+  function mobileNavInit() {
+    const btn = document.getElementById("mobile-nav-btn");
+    const drawer = document.getElementById("mobile-nav-drawer");
+    const overlay = document.getElementById("mobile-nav-overlay");
+    const closeBtn = document.getElementById("mobile-nav-close");
+    if (!btn || !drawer) return;
+
+    const ac = () => {
+      drawer.classList.remove("hidden");
+      drawer.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    };
+    const kapat = () => {
+      drawer.classList.add("hidden");
+      drawer.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+    };
+
+    btn.addEventListener("click", ac);
+    closeBtn?.addEventListener("click", kapat);
+    overlay?.addEventListener("click", kapat);
+    // ESC tuşu
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") kapat();
+    });
+    // Mobil cikis butonu
+    document.getElementById("mob-cikis")?.addEventListener("click", () => {
+      cikisYap();
+      location.href = "/";
+    });
+  }
+
+  function navGuncelle() {
+    const u = kullaniciAl();
+    const misafir = document.getElementById("nav-misafir");
+    const kul = document.getElementById("nav-kullanici");
+    const band = document.getElementById("dogrulama-band");
+    if (!misafir || !kul) return;
+
+    // Doğrulama bandı: kullanıcı var ama email doğrulanmamış
+    if (band) {
+      if (u && u.emailDogrulandi === false) {
+        band.classList.remove("hidden");
+      } else {
+        band.classList.add("hidden");
+      }
+    }
+
+    // Mobile drawer auth toggle
+    const mobGiris = document.getElementById("mob-giris");
+    const mobKayit = document.getElementById("mob-kayit");
+    const mobCikis = document.getElementById("mob-cikis");
+    const mobHesap = document.getElementById("mob-hesap");
+    const mobBildirim = document.getElementById("mob-bildirim");
+    const mobMusteri = document.getElementById("mob-musteri");
+    const mobApitok = document.getElementById("mob-apitok");
+
+    if (!u) {
+      misafir.classList.remove("hidden");
+      misafir.classList.add("flex");
+      kul.classList.add("hidden");
+      kul.classList.remove("flex");
+      mobGiris?.classList.remove("hidden");
+      mobKayit?.classList.remove("hidden");
+      mobCikis?.classList.add("hidden");
+      mobHesap?.classList.add("hidden");
+      mobBildirim?.classList.add("hidden");
+      mobMusteri?.classList.add("hidden");
+      mobApitok?.classList.add("hidden");
+      return;
+    }
+    mobGiris?.classList.add("hidden");
+    mobKayit?.classList.add("hidden");
+    mobCikis?.classList.remove("hidden");
+    mobHesap?.classList.remove("hidden");
+    mobBildirim?.classList.remove("hidden");
+
+    misafir.classList.add("hidden");
+    misafir.classList.remove("flex");
+    kul.classList.remove("hidden");
+    kul.classList.add("flex");
+
+    const ad = u.ad?.trim() || u.email.split("@")[0];
+    document.getElementById("nav-ad")!.textContent = ad;
+    document.getElementById("nav-avatar")!.textContent = ad.charAt(0).toUpperCase();
+    document.getElementById("nav-menu-ad")!.textContent = ad;
+    document.getElementById("nav-menu-email")!.textContent = u.email;
+
+    const rozet = document.getElementById("nav-tier-rozet")!;
+    if (u.tier !== "free") {
+      rozet.textContent = u.tier === "pro_plus" ? "Pro+" : u.tier === "kurumsal" ? "Kurumsal" : "Pro";
+      rozet.classList.remove("hidden");
+    } else {
+      rozet.classList.add("hidden");
+    }
+
+    // Tier-bazlı menü öğeleri (desktop + mobile)
+    const musteriler = document.getElementById("nav-musteriler");
+    const apiTokens = document.getElementById("nav-api-tokens");
+    // Müşterilerim: pro_plus + kurumsal (Kurumsal Standart+ eşdeğeri)
+    const musteriGoster = u.tier === "pro_plus" || u.tier === "kurumsal";
+    if (musteriler) {
+      musteriler.classList.toggle("hidden", !musteriGoster);
+      musteriler.classList.toggle("block", musteriGoster);
+    }
+    mobMusteri?.classList.toggle("hidden", !musteriGoster);
+    // API tokens: kurumsal (Kurumsal Pro)
+    const apiGoster = u.tier === "kurumsal";
+    if (apiTokens) {
+      apiTokens.classList.toggle("hidden", !apiGoster);
+      apiTokens.classList.toggle("block", apiGoster);
+    }
+    mobApitok?.classList.toggle("hidden", !apiGoster);
+  }
+
+  function init() {
+    navGuncelle();
+    tazele().then(navGuncelle).catch(() => {});
+    mobileNavInit();
+
+    const menuBtn = document.getElementById("nav-menu-btn");
+    const menu = document.getElementById("nav-menu");
+    menuBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu?.classList.toggle("hidden");
+    });
+    document.addEventListener("click", () => menu?.classList.add("hidden"));
+
+    document.getElementById("nav-cikis")?.addEventListener("click", () => {
+      cikisYap();
+      location.href = "/";
+    });
+  }
+
+  document.addEventListener("astro:page-load", init);
+  if (document.readyState !== "loading") init();
+  else document.addEventListener("DOMContentLoaded", init);
+</script>

@@ -1,0 +1,256 @@
+---
+import Base from "../../layouts/Base.astro";
+
+const norm = (s: string) => s.toLocaleLowerCase("tr").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ö/g,"o").replace(/ç/g,"c").replace(/\s+/g, "-");
+
+// Featured cities — dashboard'da öne çıkar
+const FEATURED = [
+  { il: "İstanbul", aciklama: "39 ilçe, 970+ mahalle", fiyat: "20.5K", kategori: "ortalama" },
+  { il: "Ankara", aciklama: "25 ilçe, 1300+ mahalle", fiyat: "12K", kategori: "ortalama" },
+  { il: "İzmir", aciklama: "30 ilçe, 1300+ mahalle", fiyat: "18K", kategori: "ortalama" },
+  { il: "Antalya", aciklama: "19 ilçe, sahil bölgesi", fiyat: "20K", kategori: "ortalama" },
+  { il: "Muğla", aciklama: "13 ilçe, lüks sahil", fiyat: "45K", kategori: "Bodrum" },
+  { il: "Bursa", aciklama: "17 ilçe, sanayi+turizm", fiyat: "9K", kategori: "ortalama" },
+  { il: "Balıkesir", aciklama: "20 ilçe, kıyı+iç", fiyat: "8.4K", kategori: "Bandırma Yalı" },
+  { il: "Aydın", aciklama: "17 ilçe, Ege sahil", fiyat: "18K", kategori: "Kuşadası" },
+];
+
+// Top 5 ücretsiz şehir (acquisition + SEO için tam erişim)
+const FREE_ILLER_DISPLAY = new Set(["İstanbul", "Ankara", "İzmir", "Antalya", "Muğla"]);
+
+const ALL_ILLER = [
+  "İstanbul","Ankara","İzmir","Bursa","Antalya","Adana","Konya","Gaziantep","Mersin","Diyarbakır",
+  "Kayseri","Samsun","Eskişehir","Denizli","Şanlıurfa","Trabzon","Hatay","Manisa","Kahramanmaraş",
+  "Balıkesir","Aydın","Tekirdağ","Sakarya","Muğla","Kocaeli","Malatya","Erzurum","Van","Ordu",
+  "Yalova","Çanakkale","Edirne","Adıyaman","Afyonkarahisar","Ağrı","Aksaray","Amasya","Ardahan",
+  "Artvin","Bartın","Batman","Bayburt","Bilecik","Bingöl","Bitlis","Bolu","Burdur","Çankırı",
+  "Çorum","Düzce","Elazığ","Erzincan","Giresun","Gümüşhane","Hakkari","Iğdır","Isparta","Karabük",
+  "Karaman","Kars","Kastamonu","Kırıkkale","Kırklareli","Kırşehir","Kilis","Kütahya","Mardin",
+  "Muş","Nevşehir","Niğde","Osmaniye","Rize","Siirt","Sinop","Sivas","Şırnak","Tokat","Tunceli",
+  "Uşak","Zonguldak"
+].sort((a, b) => a.localeCompare(b, "tr"));
+---
+
+<Base title="Türkiye Mahalle Bazlı Arsa Konut Tarla Fiyat Verisi 2026 | Cadastrum"
+      description="65.000 mahalle, 81 il, 957 ilçe — güncel TL/m² verisi. Sahibinden + Hepsiemlak ilan medyanı, AI baseline, topluluk verisi. Her mahalle için arsa, konut, tarla fiyatı."
+      breadcrumb={[
+        { ad: "Anasayfa", url: "/" },
+        { ad: "Veri", url: "/veri" },
+      ]}
+      keywords={[
+        "Türkiye arsa fiyatları",
+        "mahalle bazlı arsa fiyat",
+        "65000 mahalle veri",
+        "81 il fiyat",
+        "TKGM mahalle medyan",
+        "Sahibinden Hepsiemlak emsal",
+        "konut tarla fiyat 2026",
+      ]}>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white">
+    <div class="absolute inset-0 opacity-10">
+      <div class="absolute top-0 right-0 w-96 h-96 rounded-full bg-champagne-400 blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-champagne-500 blur-3xl"></div>
+    </div>
+
+    <div class="relative max-w-6xl mx-auto px-4 py-16 md:py-24">
+      <nav class="text-sm text-imperial-100 mb-6">
+        <a href="/" class="hover:text-white transition">Cadastrum</a>
+        <span class="mx-2 opacity-50">›</span>
+        <span class="text-white font-medium">Veri</span>
+      </nav>
+
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-champagne-200 text-xs font-medium mb-4">
+        <span class="w-1.5 h-1.5 rounded-full bg-champagne-400 animate-pulse"></span>
+        Canlı veri · Saat başı güncelleme
+      </div>
+
+      <h1 class="font-display text-4xl md:text-6xl font-bold leading-tight mb-4 max-w-4xl text-white">
+        Türkiye Mahalle Bazlı<br/>
+        <span class="text-champagne-200">Arsa & Konut Fiyat Verisi</span>
+      </h1>
+      <p class="text-imperial-50 text-lg md:text-xl max-w-2xl mb-8 leading-relaxed">
+        81 il · 957 ilçe · 65.000 mahalle. Sahibinden + Hepsiemlak ilanlarından canlı medyan,
+        AI destekli baseline, topluluk verisi.
+      </p>
+
+      <div class="flex flex-wrap gap-6 text-sm">
+        <div>
+          <div class="font-display text-3xl font-bold">81</div>
+          <div class="text-imperial-100 text-xs uppercase tracking-wider">İl</div>
+        </div>
+        <div class="hidden sm:block w-px bg-white/20"></div>
+        <div>
+          <div class="font-display text-3xl font-bold">957</div>
+          <div class="text-imperial-100 text-xs uppercase tracking-wider">İlçe</div>
+        </div>
+        <div class="hidden sm:block w-px bg-white/20"></div>
+        <div>
+          <div class="font-display text-3xl font-bold">65K+</div>
+          <div class="text-imperial-100 text-xs uppercase tracking-wider">Mahalle</div>
+        </div>
+        <div class="hidden sm:block w-px bg-white/20"></div>
+        <div>
+          <div class="font-display text-3xl font-bold">3</div>
+          <div class="text-imperial-100 text-xs uppercase tracking-wider">Kategori</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURED CITIES -->
+  <section class="bg-slate-50 py-12 md:py-16">
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="flex items-end justify-between mb-8">
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">Öne Çıkanlar</div>
+          <h2 class="font-display text-3xl md:text-4xl font-bold text-imperial-700">Büyük şehirler</h2>
+        </div>
+        <a href="#tum-iller" class="text-sm text-imperial-700 hover:underline hidden md:inline">Tüm iller ↓</a>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        {FEATURED.map((c) => (
+          <a href={`/veri/${norm(c.il)}`}
+             class="group relative block p-5 bg-white rounded-2xl border border-slate-200 hover:border-imperial hover:shadow-lg transition overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-champagne-50 to-transparent rounded-bl-3xl opacity-50 group-hover:opacity-100 transition"></div>
+            <div class="relative">
+              <div class="font-display text-xl font-bold text-imperial-700 mb-1 group-hover:text-imperial-500 transition">{c.il}</div>
+              <div class="text-[11px] text-slate-500 mb-3 leading-tight">{c.aciklama}</div>
+              <div class="font-display text-2xl font-bold text-imperial mb-0.5">{c.fiyat}<span class="text-sm text-slate-400 font-normal ml-1">TL/m²</span></div>
+              <div class="text-[10px] text-slate-400">{c.kategori}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- TÜM ILLER -->
+  <section id="tum-iller" class="py-12 md:py-16 bg-white">
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="mb-8">
+        <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">Tüm Türkiye</div>
+        <h2 class="font-display text-3xl md:text-4xl font-bold text-imperial-700 mb-2">81 il</h2>
+        <p class="text-slate-600">İlçe ve mahalle bazlı detay için il seç.</p>
+      </div>
+
+      <!-- Search -->
+      <div class="relative mb-6 max-w-md">
+        <input
+          type="text"
+          id="il-search"
+          placeholder="İl ara..."
+          class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:border-imperial focus:outline-none transition"
+        />
+        <svg class="absolute left-3 top-3 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+
+      <!-- Free badge açıklama -->
+      <div class="mb-4 flex items-center gap-3 text-xs">
+        <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          Ücretsiz erişim
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-medium">
+          🔒 Pro üyelik
+        </span>
+        <span class="text-slate-500">— ilk 5 şehir herkese açık, kalan 76 il Pro üyelere</span>
+      </div>
+
+      <div id="il-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {ALL_ILLER.map((il) => {
+          const isFree = FREE_ILLER_DISPLAY.has(il);
+          return (
+            <a href={`/veri/${norm(il)}`}
+               data-il={il.toLocaleLowerCase("tr")}
+               data-free={isFree ? "1" : "0"}
+               class={`il-card flex items-center justify-between px-3 py-2.5 text-sm bg-white border border-slate-200 rounded-lg hover:border-imperial hover:bg-imperial-50 hover:text-imperial-700 transition ${!isFree ? "il-locked" : ""}`}>
+              <span>{il}</span>
+              {isFree
+                ? <span class="text-[10px] text-emerald-600 font-semibold">FREE</span>
+                : <span class="text-amber-600 text-xs">🔒</span>}
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+
+  <!-- METHODOLOGY / FOOTER INFO -->
+  <section class="bg-slate-50 py-12">
+    <div class="max-w-6xl mx-auto px-4">
+      <h3 class="font-display text-2xl font-bold text-imperial-700 mb-6">Veri nasıl hesaplanır?</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="p-5 bg-white rounded-xl border border-slate-200">
+          <div class="w-10 h-10 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 text-lg font-bold">1</div>
+          <h4 class="font-display font-semibold text-imperial-700 mb-2">Canlı ilan medyanı</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Sahibinden + Hepsiemlak'tan extension kullanıcıları gezerken topluluk verisi birikir.
+            Tukey IQR ile aykırı değerler temizlenir, mahalle başına minimum 2 ilan.
+          </p>
+        </div>
+        <div class="p-5 bg-white rounded-xl border border-slate-200">
+          <div class="w-10 h-10 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 text-lg font-bold">2</div>
+          <h4 class="font-display font-semibold text-imperial-700 mb-2">AI baseline (cold start)</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Gerçek ilan birikmediği yerlerde Llama 3.3 araştırma + KNN coğrafi yumuşatma.
+            65.000 mahalle için tahmini medyan.
+          </p>
+        </div>
+        <div class="p-5 bg-white rounded-xl border border-slate-200">
+          <div class="w-10 h-10 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 text-lg font-bold">3</div>
+          <h4 class="font-display font-semibold text-imperial-700 mb-2">TCMB + bias düzeltme</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            TCMB Konut Fiyat Endeksi (NUTS-2 bölge) ile aylık enflasyon kalibrasyonu.
+            Cross-validation ile her ilçe için bias düzeltme çarpanı.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        <strong>Önemli:</strong> Asking (talep) fiyat verisidir. Gerçek satış değeri tipik olarak %12-20 daha düşüktür.
+        Veri eğitim/araştırma amaçlıdır, finansal karar için profesyonel ekspertiz gerekir.
+      </div>
+    </div>
+  </section>
+
+</Base>
+
+<script>
+  // İl arama (client-side filter)
+  const search = document.getElementById("il-search");
+  const cards = document.querySelectorAll(".il-card");
+  search?.addEventListener("input", (e) => {
+    const q = (e.target as HTMLInputElement).value.toLocaleLowerCase("tr");
+    cards.forEach((card) => {
+      const il = (card as HTMLElement).dataset.il || "";
+      (card as HTMLElement).style.display = il.includes(q) ? "" : "none";
+    });
+  });
+
+  // Pro kullanıcıysa kilit ikonlarını kaldır (tier kontrolü)
+  function tierAl(): string {
+    try {
+      const raw = localStorage.getItem("cadastrum_user");
+      if (!raw) return "free";
+      const u = JSON.parse(raw);
+      if (u.tierBitis && u.tierBitis < Date.now()) return "free";
+      return u.tier || "free";
+    } catch { return "free"; }
+  }
+  const tier = tierAl();
+  if (tier === "pro" || tier === "pro_plus" || tier === "kurumsal") {
+    document.querySelectorAll(".il-card[data-free='0']").forEach(el => {
+      el.classList.remove("il-locked");
+      const lock = el.querySelector("span:last-child");
+      if (lock && lock.textContent?.includes("🔒")) {
+        lock.textContent = "✓";
+        lock.className = "text-[10px] text-emerald-600 font-semibold";
+      }
+    });
+  }
+</script>

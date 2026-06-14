@@ -1,0 +1,171 @@
+---
+// CRM müşteri detay sayfası — query param `?id=X` ile çalışır.
+// Dinamik route yerine query param kullanılıyor çünkü Astro prerender=true
+// modda [id].astro getStaticPaths gerektirir. Bu yaklaşım static build'le uyumlu.
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Müşteri Detay — Cadastrum">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="mb-6">
+      <a href="/musteriler" class="text-sm text-slate-600 hover:text-imperial">← Tüm müşteriler</a>
+    </div>
+
+    <div id="auth-uyari" class="hidden text-center py-12 text-amber-700">
+      Bu sayfa Kurumsal tier'ı gerektirir.
+      <a href="/giris" class="underline">Giriş yapın</a>.
+    </div>
+
+    <div id="loading" class="text-center py-12 text-slate-500">Yükleniyor…</div>
+    <div id="hata" class="hidden text-center py-12 text-red-700"></div>
+
+    <div id="icerik" class="hidden">
+      <div class="bg-white rounded shadow p-6 border border-slate-200 mb-6">
+        <h1 class="text-2xl font-bold" id="musteri-ad"></h1>
+        <div class="text-sm text-slate-600 mt-1" id="musteri-iletisim"></div>
+        <div class="text-xs text-slate-500 mt-2" id="musteri-notlar"></div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-white rounded shadow p-4 border border-slate-200">
+          <h2 class="font-bold mb-3">🏠 Atanan Parseller</h2>
+          <div id="parseller" class="space-y-2 text-sm"></div>
+          <div id="parseller-bos" class="hidden text-xs text-slate-500 italic py-4 text-center">
+            Henüz parsel atanmamış. Extension'da bir parsel açıp "Bu parseli müşterime ata".
+          </div>
+        </div>
+
+        <div class="bg-white rounded shadow p-4 border border-slate-200">
+          <h2 class="font-bold mb-3">📝 Notlar</h2>
+          <form id="not-form" class="mb-3">
+            <textarea id="not-metin" placeholder="Yeni not ekle…" rows="2"
+              class="w-full px-2 py-1 border rounded text-sm"></textarea>
+            <button type="submit" class="mt-1 px-3 py-1 bg-imperial text-white text-xs rounded">
+              Ekle
+            </button>
+          </form>
+          <div id="notlar" class="space-y-2 text-sm max-h-96 overflow-y-auto"></div>
+          <div id="notlar-bos" class="hidden text-xs text-slate-500 italic py-4 text-center">
+            Henüz not yok.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { PUBLIC_API_BASE } from "../lib/config";
+
+    const idParam = new URLSearchParams(location.search).get("id");
+    const MUSTERI_ID = parseInt(idParam ?? "0", 10);
+
+    const auth = document.getElementById("auth-uyari")!;
+    const loading = document.getElementById("loading")!;
+    const hata = document.getElementById("hata")!;
+    const icerik = document.getElementById("icerik")!;
+
+    function token(): string | null {
+      return localStorage.getItem("cadastrum_token");
+    }
+
+    async function yukle() {
+      if (!MUSTERI_ID || Number.isNaN(MUSTERI_ID)) {
+        loading.classList.add("hidden");
+        hata.textContent = "Geçersiz müşteri id.";
+        hata.classList.remove("hidden");
+        return;
+      }
+      const t = token();
+      if (!t) { loading.classList.add("hidden"); auth.classList.remove("hidden"); return; }
+
+      const liste = await fetch(`${PUBLIC_API_BASE}/crm/musteri`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (liste.status === 401 || liste.status === 403) {
+        loading.classList.add("hidden"); auth.classList.remove("hidden"); return;
+      }
+      const data = await liste.json() as { musteriler: Array<{
+        id: number; ad: string; telefon: string|null; email: string|null; notlar: string|null;
+      }> };
+      const m = data.musteriler.find((x) => x.id === MUSTERI_ID);
+      if (!m) {
+        loading.classList.add("hidden");
+        hata.textContent = "Müşteri bulunamadı.";
+        hata.classList.remove("hidden");
+        return;
+      }
+
+      document.getElementById("musteri-ad")!.textContent = m.ad;
+      document.getElementById("musteri-iletisim")!.textContent =
+        [m.telefon && `📞 ${m.telefon}`, m.email && `✉ ${m.email}`].filter(Boolean).join(" · ");
+      document.getElementById("musteri-notlar")!.textContent = m.notlar ?? "";
+
+      await Promise.all([yukleParseller(t), yukleNotlar(t)]);
+
+      loading.classList.add("hidden");
+      icerik.classList.remove("hidden");
+    }
+
+    async function yukleParseller(t: string) {
+      const res = await fetch(`${PUBLIC_API_BASE}/crm/musteri/${MUSTERI_ID}/parsel`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { parseller: Array<{
+        id: number; il_norm: string|null; ilce_norm: string|null; mahalle_norm: string|null;
+        ada_no: number|null; parsel_no: number|null; alan_m2: number|null;
+        fiyat_tahmin_tlm2: number|null; durum: string;
+      }> };
+      const list = document.getElementById("parseller")!;
+      const bos = document.getElementById("parseller-bos")!;
+      if (data.parseller.length === 0) { bos.classList.remove("hidden"); return; }
+      bos.classList.add("hidden");
+      list.innerHTML = data.parseller.map((p) => `
+        <div class="rounded border border-slate-200 p-2 text-xs">
+          <div class="font-medium">${p.il_norm}/${p.ilce_norm} · ${p.mahalle_norm ?? "?"}</div>
+          <div class="text-slate-500">Ada ${p.ada_no ?? "?"} · Parsel ${p.parsel_no ?? "?"} · ${p.alan_m2 ?? "?"} m²</div>
+          ${p.fiyat_tahmin_tlm2 ? `<div class="text-slate-600">Tahmin: ₺${p.fiyat_tahmin_tlm2.toLocaleString("tr-TR")}/m²</div>` : ""}
+          <div class="text-3xs text-slate-400 mt-1">Durum: ${p.durum}</div>
+        </div>
+      `).join("");
+    }
+
+    async function yukleNotlar(t: string) {
+      const res = await fetch(`${PUBLIC_API_BASE}/crm/musteri/${MUSTERI_ID}/not`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { notlar: Array<{ id: number; metin: string; ts: number }> };
+      const list = document.getElementById("notlar")!;
+      const bos = document.getElementById("notlar-bos")!;
+      if (data.notlar.length === 0) { bos.classList.remove("hidden"); return; }
+      bos.classList.add("hidden");
+      list.innerHTML = data.notlar.map((n) => `
+        <div class="rounded border border-slate-100 bg-slate-50 p-2 text-xs">
+          <div>${n.metin}</div>
+          <div class="text-3xs text-slate-400 mt-1">${new Date(n.ts).toLocaleString("tr-TR")}</div>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("not-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const metin = (document.getElementById("not-metin") as HTMLTextAreaElement).value.trim();
+      if (!metin) return;
+      const t = token();
+      if (!t) return;
+      const res = await fetch(`${PUBLIC_API_BASE}/crm/musteri/${MUSTERI_ID}/not`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ metin }),
+      });
+      if (res.ok) {
+        (document.getElementById("not-metin") as HTMLTextAreaElement).value = "";
+        yukleNotlar(t);
+      }
+    });
+
+    yukle();
+  </script>
+</Base>

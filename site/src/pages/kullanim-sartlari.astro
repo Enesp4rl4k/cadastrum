@@ -1,0 +1,101 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+
+const sonGuncelleme = "Mayıs 2026";
+---
+
+<Base title="Kullanım Şartları — Cadastrum">
+  <section class="py-16 md:py-24">
+    <div class="container-prose">
+      <article class="max-w-prose mx-auto prose-slate">
+        <h1 class="font-display text-4xl font-bold text-ink mb-2">Kullanım Şartları</h1>
+        <p class="text-sm text-slate-500 mb-10">Son güncelleme: {sonGuncelleme}</p>
+
+        <div class="space-y-8 text-slate-700 leading-relaxed text-base">
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">1. Hizmet tanımı</h2>
+            <p>
+              Cadastrum, TKGM resmi parsel verisi, e-Plan imar durumu ve emsal piyasa analizini
+              tek bir Chrome eklentisinde sunan <strong>karar destek aracıdır</strong>. Cadastrum
+              ekspertiz raporu, hukuki danışmanlık veya yatırım tavsiyesi <strong>vermez</strong>.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">2. Sorumluluk reddi</h2>
+            <p>
+              Cadastrum'un sunduğu fiyat tahminleri, imar bilgileri ve emsal verileri
+              <strong>indikatif</strong>dir. Yatırım kararından önce yetkili gayrimenkul
+              danışmanı, hukukçu ve mali müşavirden görüş almanız zorunludur.
+            </p>
+            <p class="mt-3">
+              Cadastrum'un ürettiği bilgilere dayanarak alınan kararlardan doğan zararlardan
+              Cadastrum sorumlu tutulamaz.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">3. Veri kaynakları</h2>
+            <p>
+              Cadastrum üçüncü taraf servisleri (TKGM, e-Plan, Sahibinden, Hepsiemlak vs.)
+              kullanır. Bu kaynakların doğruluğu ve erişilebilirliği konusunda
+              Cadastrum garanti veremez. Kaynaklarda kesinti, hata veya değişiklik olabilir.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">4. Adil kullanım</h2>
+            <p>
+              Cadastrum'u aşağıdaki amaçlarla kullanmak yasaktır:
+            </p>
+            <ul class="list-disc pl-6 mt-3 space-y-1">
+              <li>Üçüncü taraf hizmetleri (TKGM API'si vb.) yoğun otomatik sorgulamayla zorlamak</li>
+              <li>Topluca veri kazımak (scraping) — bireysel kullanım sınırı dışı</li>
+              <li>Cadastrum'u tersine mühendislikle yeniden satmak veya yeniden paketlemek</li>
+              <li>Lisans anahtarı paylaşmak veya yetkisiz çoğaltmak</li>
+            </ul>
+            <p class="mt-3">
+              İhlal tespit edilirse abonelik iade edilmeden iptal edilir.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">5. Abonelik ve ödeme</h2>
+            <p>
+              Pro abonelikler aylık ya da yıllık yenilenir. Ödemeler LemonSqueezy üzerinden
+              alınır; iptal etmediğiniz sürece otomatik yenilenir. <strong>İlk 7 gün
+              koşulsuz iade</strong> hakkı vardır.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">6. Fikri mülkiyet</h2>
+            <p>
+              Cadastrum yazılımı, marka, logo ve içerikleri Cadastrum'a aittir.
+              Yetkisiz kopyalama, dağıtım veya türev çalışma üretmek yasaktır.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">7. Değişiklikler</h2>
+            <p>
+              Bu şartlar zaman zaman güncellenebilir. Önemli değişikliklerde abonelere
+              e-posta ile bildirim yaparız. Şartların güncellenmiş haliyle aboneliğe
+              devam etmek, yeni şartları kabul ettiğiniz anlamına gelir.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-display text-xl font-semibold text-ink mb-3">8. İletişim</h2>
+            <p>
+              Sorularınız için
+              <a href="mailto:iletisim@cadastrum.com.tr" class="text-brand hover:underline">iletisim@cadastrum.com.tr</a>
+              adresine yazın.
+            </p>
+          </section>
+        </div>
+      </article>
+    </div>
+  </section>
+</Base>

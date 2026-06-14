@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" role="img" aria-label="Cadastrum">
+  <!-- WORDMARK: Header'da kullanılacak yatay logo + text -->
+
+  <!-- Sol: emblem (V1 tarzı) -->
+  <rect x="2" y="2" width="60" height="60" rx="3"
+        fill="#FFFFFF" stroke="#1B2A4A" stroke-width="1.5"/>
+  <rect x="6" y="6" width="52" height="52" rx="1"
+        fill="none" stroke="#C9A86A" stroke-width="0.6"/>
+  <text x="32" y="46" font-family="Georgia, 'Source Serif 4', serif"
+        font-size="44" font-weight="700"
+        fill="#1B2A4A" text-anchor="middle" letter-spacing="-1">C</text>
+  <circle cx="50" cy="14" r="2" fill="#C9A86A"/>
+
+  <!-- Sağ: "CADASTRUM" wordmark -->
+  <text x="78" y="36" font-family="'Source Serif 4', Georgia, serif"
+        font-size="22" font-weight="600"
+        fill="#1B2A4A" letter-spacing="3">CADASTRUM</text>
+
+  <!-- Tagline -->
+  <text x="78" y="52" font-family="Inter, sans-serif"
+        font-size="9" font-weight="400"
+        fill="#64748B" letter-spacing="1.5">PARSEL ZEKÂSI</text>
+
+  <!-- Champagne underline detail under wordmark -->
+  <rect x="78" y="40" width="50" height="0.8" fill="#C9A86A"/>
+</svg>

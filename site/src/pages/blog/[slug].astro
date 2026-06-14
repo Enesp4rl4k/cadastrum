@@ -1,0 +1,229 @@
+---
+export const prerender = true;
+import Base from "../../layouts/Base.astro";
+import { BLOG_YAZILAR } from "../../data/blog-yazilar.ts";
+
+export function getStaticPaths() {
+  return BLOG_YAZILAR.map(y => ({
+    params: { slug: y.slug },
+    props: { yazi: y },
+  }));
+}
+
+const { yazi } = Astro.props;
+const tarih = new Date(yazi.yayinTarihi);
+const tarihStr = tarih.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+
+// İlgili yazılar (aynı kategoriden 2)
+const ilgili = BLOG_YAZILAR
+  .filter(y => y.kategori === yazi.kategori && y.slug !== yazi.slug)
+  .slice(0, 2);
+---
+
+<Base title={`${yazi.baslik} | Cadastrum Blog`}
+      description={yazi.aciklama}
+      pageType="Article"
+      breadcrumb={[
+        { ad: "Anasayfa", url: "/" },
+        { ad: "Blog", url: "/blog" },
+        { ad: yazi.baslik, url: `/blog/${yazi.slug}` },
+      ]}
+      keywords={yazi.keywords}>
+
+  <!-- Article schema (Google rich result) -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": yazi.baslik,
+    "description": yazi.aciklama,
+    "datePublished": yazi.yayinTarihi,
+    "dateModified": yazi.yayinTarihi,
+    "author": { "@type": "Organization", "name": yazi.yazar, "url": "https://cadastrum.com.tr" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Cadastrum",
+      "logo": { "@type": "ImageObject", "url": "https://cadastrum.com.tr/favicon-32.png" },
+    },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": `https://cadastrum.com.tr/blog/${yazi.slug}` },
+    "keywords": yazi.keywords.join(", "),
+  })} />
+
+  <article class="bg-white">
+    <header class="bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white py-12 md:py-16">
+      <div class="max-w-3xl mx-auto px-4">
+        <nav class="text-sm text-imperial-100 mb-4">
+          <a href="/" class="hover:text-white transition">Cadastrum</a>
+          <span class="mx-2 opacity-50">›</span>
+          <a href="/blog" class="hover:text-white transition">Blog</a>
+        </nav>
+        <div class="flex items-center gap-3 mb-4 text-sm text-imperial-100">
+          <span class="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur text-xs font-semibold uppercase tracking-wide">
+            {yazi.kategori}
+          </span>
+          <span>·</span>
+          <span>{tarihStr}</span>
+          <span>·</span>
+          <span>{yazi.okumaSuresi} dk okuma</span>
+        </div>
+        <h1 class="font-display text-3xl md:text-5xl font-bold leading-tight text-white">{yazi.baslik}</h1>
+        <p class="mt-4 text-lg text-imperial-50 leading-relaxed">{yazi.aciklama}</p>
+      </div>
+    </header>
+
+    <section class="py-12 md:py-16">
+      <div class="max-w-3xl mx-auto px-4 blog-content" set:html={yazi.icerik}></div>
+    </section>
+
+    {ilgili.length > 0 && (
+      <section class="py-12 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-3xl mx-auto px-4">
+          <h3 class="font-display text-xl font-bold text-imperial-700 mb-6">İlgili yazılar</h3>
+          <div class="grid md:grid-cols-2 gap-4">
+            {ilgili.map(y => (
+              <a href={`/blog/${y.slug}`}
+                 class="group block bg-white border border-slate-200 rounded-xl p-5 hover:border-imperial transition">
+                <h4 class="font-display font-bold text-imperial-700 mb-2 group-hover:text-imperial transition">
+                  {y.baslik}
+                </h4>
+                <p class="text-sm text-slate-600">{y.aciklama}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+  </article>
+</Base>
+
+<style is:global>
+  .blog-content {
+    color: #334155;
+    line-height: 1.75;
+    font-size: 1.05rem;
+  }
+  .blog-content .lead {
+    font-size: 1.2rem;
+    color: #475569;
+    border-left: 4px solid #C9A86A;
+    padding-left: 1rem;
+    margin-bottom: 2rem;
+    font-weight: 500;
+  }
+  .blog-content h2 {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1B2A4A;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+  .blog-content h3 {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1B2A4A;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+  }
+  .blog-content p {
+    margin-bottom: 1.25rem;
+  }
+  .blog-content ul, .blog-content ol {
+    margin: 1.25rem 0;
+    padding-left: 1.5rem;
+  }
+  .blog-content ul { list-style: disc; }
+  .blog-content ol { list-style: decimal; }
+  .blog-content li { margin-bottom: 0.5rem; }
+  .blog-content strong { color: #1B2A4A; font-weight: 600; }
+  .blog-content em { font-style: italic; }
+  .blog-content code {
+    background: #F1F5F9;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+    font-family: "Menlo", monospace;
+    color: #1B2A4A;
+  }
+  .blog-content pre {
+    background: #0F1A33;
+    color: #E2E8F0;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    font-size: 0.875rem;
+  }
+  .blog-content pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  .blog-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+  }
+  .blog-content table th {
+    background: #F1F5F9;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    color: #1B2A4A;
+    border-bottom: 2px solid #E2E8F0;
+  }
+  .blog-content table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .blog-content .formula {
+    background: linear-gradient(135deg, #FAF5E8, #F0E4BD);
+    border-left: 4px solid #C9A86A;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 0.25rem;
+    font-family: "Menlo", monospace;
+    color: #7E662F;
+    font-weight: 600;
+  }
+  .blog-content .cta-box {
+    background: linear-gradient(135deg, #1B2A4A, #2C4275);
+    color: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    margin: 3rem 0 1rem;
+    text-align: center;
+  }
+  .blog-content .cta-box h3 {
+    color: white;
+    margin-top: 0;
+  }
+  .blog-content .cta-box p {
+    color: #D5DCEC;
+    margin-bottom: 1rem;
+  }
+  .blog-content .cta-box .btn-primary {
+    display: inline-block;
+    background: #C9A86A;
+    color: #1B2A4A;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .blog-content .cta-box .btn-primary:hover {
+    background: #E0CB8A;
+  }
+  .blog-content a {
+    color: #1B2A4A;
+    text-decoration: underline;
+    text-decoration-color: #C9A86A;
+    font-weight: 500;
+  }
+  .blog-content a:hover {
+    color: #2C4275;
+  }
+</style>

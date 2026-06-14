@@ -1,0 +1,168 @@
+openapi: 3.1.0
+info:
+  title: Cadastrum Public API
+  version: 1.1.0
+  description: |
+    Cadastrum API — gayrimenkul fiyat tahmin, emsal sorgu ve risk verisi.
+    Kurumsal Pro tier'a özel programmatic erişim.
+
+    Token formatı: `cdrm_<32-hex>`. /v1/api/tokens endpoint'inden üretilir.
+    Rate limit varsayılan: 60 req/dakika/token (oluştururken özelleştirilebilir).
+  contact:
+    name: Cadastrum
+    email: eparlak996@gmail.com
+servers:
+  - url: https://cadastrum-api.cadastrum-tr.workers.dev/v1/api
+    description: Production (Cloudflare Worker)
+  - url: https://api.cadastrum.com.tr/v1/api
+    description: Production (custom domain — gelecek)
+security:
+  - ApiKeyAuth: []
+paths:
+  /health:
+    get:
+      summary: Sağlık kontrolü
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  ts: { type: integer }
+  /fiyat/mahalle/{il}/{ilce}/{mahalle}:
+    get:
+      summary: Mahalle bazlı fiyat istatistiği
+      parameters:
+        - { name: il, in: path, required: true, schema: { type: string } }
+        - { name: ilce, in: path, required: true, schema: { type: string } }
+        - { name: mahalle, in: path, required: true, schema: { type: string } }
+        - { name: kategori, in: query, schema: { type: string, default: arsa, enum: [arsa, tarla, konut] } }
+      responses:
+        "200":
+          description: Mahalle istatistik
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  il_norm: { type: string }
+                  ilce_norm: { type: string }
+                  mahalle_norm: { type: string }
+                  kategori: { type: string }
+                  medyan: { type: number }
+                  q1: { type: number }
+                  q3: { type: number }
+                  ortalama: { type: number }
+                  ilan_adet: { type: integer }
+                  son_guncelleme: { type: integer }
+        "404":
+          description: Veri yok
+  /emsal/spatial:
+    get:
+      summary: Koord bazlı spatial emsal sorgu
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number } }
+        - { name: lng, in: query, required: true, schema: { type: number } }
+        - { name: radius_km, in: query, schema: { type: number, default: 5 } }
+        - { name: kategori, in: query, schema: { type: string, default: arsa } }
+      responses:
+        "200":
+          description: Emsal listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lat: { type: number }
+                  lng: { type: number }
+                  radius_km: { type: number }
+                  kategori: { type: string }
+                  emsaller:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        fiyat_per_m2: { type: number }
+                        m2: { type: number, nullable: true }
+                        lat: { type: number }
+                        lng: { type: number }
+                        yakalanma_tarihi: { type: integer }
+  /risk/deprem:
+    get:
+      summary: İl bazlı deprem risk (PGA + zon)
+      parameters:
+        - { name: il, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Risk bilgisi
+  /risk/taskin:
+    get:
+      summary: İl bazlı taşkın risk
+      parameters:
+        - { name: il, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Taşkın risk bilgisi (yuksek/orta/dusuk)
+  /tokens:
+    post:
+      summary: Yeni API token oluştur (Kurumsal Pro tier, JWT Bearer auth)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ad]
+              properties:
+                ad: { type: string, description: 'Token etiketi (örn "prod-backend")' }
+                rate_limit_per_min: { type: integer, default: 60, minimum: 1, maximum: 600 }
+      responses:
+        "201":
+          description: Token oluşturuldu (sadece bir kez gösterilir)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  token: { type: string, example: "cdrm_a1b2c3..." }
+                  prefix: { type: string }
+        "401":
+          description: JWT yok
+        "403":
+          description: Kurumsal Pro tier gerekli
+    get:
+      summary: Mevcut API token'ları listele
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Token listesi (token_hash gizli)
+  /tokens/{id}:
+    delete:
+      summary: Token iptal et
+      security:
+        - BearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: İptal edildi
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: 'Token formatı: `cdrm_<32-hex>`. /v1/api/tokens endpoint''inden oluşturulur (Kurumsal Pro tier).'
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'JWT token — /v1/auth/giris endpoint''inden alınır. /tokens CRUD için gerekli.'

@@ -1,0 +1,102 @@
+---
+// PWA Install prompt — Faz 5 Sprint K.
+// beforeinstallprompt event'i yakalanır (Chrome/Edge Android + masaüstü).
+// iOS Safari beforeinstallprompt'u desteklemiyor → ayrı bir hint.
+---
+
+<div
+  id="install-prompt"
+  class="hidden fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm bg-white border border-slate-200 shadow-lg rounded-lg p-4 z-40"
+>
+  <div class="flex items-start gap-3">
+    <div class="text-2xl">📱</div>
+    <div class="flex-1">
+      <div class="font-semibold text-sm">Cadastrum'u ana ekrana ekle</div>
+      <div class="text-xs text-slate-600 mt-0.5">
+        Hızlı erişim + offline destek.
+      </div>
+    </div>
+    <button id="install-close" class="text-slate-400 hover:text-slate-700 text-lg leading-none">
+      ×
+    </button>
+  </div>
+  <div class="flex gap-2 mt-3">
+    <button id="install-btn" class="flex-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded font-medium hover:bg-indigo-700">
+      Yükle
+    </button>
+    <button id="install-later" class="px-3 py-1.5 text-slate-600 text-sm hover:bg-slate-100 rounded">
+      Daha sonra
+    </button>
+  </div>
+</div>
+
+<div
+  id="ios-hint"
+  class="hidden fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm bg-white border border-slate-200 shadow-lg rounded-lg p-4 z-40"
+>
+  <div class="flex items-start gap-3">
+    <div class="text-2xl">📱</div>
+    <div class="flex-1 text-sm">
+      <div class="font-semibold">iOS'ta ana ekrana ekle</div>
+      <div class="text-xs text-slate-600 mt-1">
+        Safari'de aşağı paylaş butonuna (📤) tıkla → "Ana Ekrana Ekle" seç.
+      </div>
+    </div>
+    <button id="ios-close" class="text-slate-400 hover:text-slate-700 text-lg leading-none">
+      ×
+    </button>
+  </div>
+</div>
+
+<script>
+  /* eslint-disable */
+  type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+  let deferred: BIPEvent | null = null;
+  const prompt = document.getElementById("install-prompt") as HTMLDivElement;
+  const iosHint = document.getElementById("ios-hint") as HTMLDivElement;
+  const installBtn = document.getElementById("install-btn") as HTMLButtonElement;
+  const installClose = document.getElementById("install-close") as HTMLButtonElement;
+  const installLater = document.getElementById("install-later") as HTMLButtonElement;
+  const iosClose = document.getElementById("ios-close") as HTMLButtonElement;
+
+  const DISMISS_KEY = "cadastrum_pwa_dismissed_ts";
+  const COOLDOWN = 7 * 24 * 60 * 60 * 1000; // 7 gün
+  const dismissed = localStorage.getItem(DISMISS_KEY);
+  const cooldownActive = dismissed && Date.now() - parseInt(dismissed, 10) < COOLDOWN;
+
+  function dismiss() {
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    prompt.classList.add("hidden");
+    iosHint.classList.add("hidden");
+  }
+
+  if (!cooldownActive) {
+    // iOS Safari tespiti
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = (window.matchMedia("(display-mode: standalone)").matches) ||
+      (navigator as any).standalone;
+    if (isIOS && !isStandalone) {
+      // 3 saniye sonra göster (kullanıcı sayfayı tanısın)
+      setTimeout(() => iosHint.classList.remove("hidden"), 3000);
+    } else {
+      window.addEventListener("beforeinstallprompt", (e: Event) => {
+        e.preventDefault();
+        deferred = e as BIPEvent;
+        prompt.classList.remove("hidden");
+      });
+    }
+  }
+
+  installBtn.addEventListener("click", async () => {
+    if (!deferred) return;
+    await deferred.prompt();
+    const choice = await deferred.userChoice;
+    if (choice.outcome === "accepted") {
+      prompt.classList.add("hidden");
+    }
+    deferred = null;
+  });
+  installClose.addEventListener("click", dismiss);
+  installLater.addEventListener("click", dismiss);
+  iosClose.addEventListener("click", dismiss);
+</script>

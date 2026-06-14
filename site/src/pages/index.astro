@@ -1,0 +1,575 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+import HeroMock from "../components/HeroMock.astro";
+import IntegrationsMarquee from "../components/IntegrationsMarquee.astro";
+import Step from "../components/Step.astro";
+import TopoBg from "../components/TopoBg.astro";
+
+import { CTA, LAUNCHED, CHROME_STORE_URL } from "../config/launch";
+const cwsUrl = CHROME_STORE_URL;
+
+const features = [
+  {
+    label: "Resmi veri",
+    title: "TKGM doğrulama",
+    desc: "İlandaki ada-parsel bilgisini TKGM kaydıyla eşleştirir. Alan, nitelik ve sahiplik durumu tek tıkla görünür.",
+    accent: "bg-brand text-brand-700",
+  },
+  {
+    label: "Resmi imar",
+    title: "e-Plan imar sorgusu",
+    desc: "Bakanlığın e-Plan portalından imar durumunu otomatik çeker. Konut, ticari, tarım, koruma ayrımı belgeli gelir.",
+    accent: "bg-accent-info/10 text-accent-info",
+  },
+  {
+    label: "Piyasa",
+    title: "Mahalle bazlı emsal fiyat",
+    desc: "Sahibinden ve Hepsiemlak ilanlarından mahalle medyanı. Aykırı değerler IQR ile temizlenir, eski ilanlar dışarıda bırakılır.",
+    accent: "bg-accent-success/10 text-accent-success",
+  },
+  {
+    label: "Harita",
+    title: "TKGM yoğunluk katmanı",
+    desc: "İlçe genelinde alım-satım, ipotek, haciz yoğunluğu. Harita üzerinde renk kodlu likidite okunur.",
+    accent: "bg-accent-danger/10 text-accent-danger",
+  },
+  {
+    label: "Tahmin",
+    title: "Çoklu kaynak fiyat tahmini",
+    desc: "Mahalle baseline, banka değerleme ve TCMB endeksini birlikte değerlendirir. Tek noktadan ağırlıklı sonuç çıkar.",
+    accent: "bg-accent-ai/10 text-accent-ai",
+  },
+  {
+    label: "Kütüphane",
+    title: "Parsel arşivi",
+    desc: "Baktığınız parsellerin not, m² ve fiyat geçmişi otomatik tutulur. Kişisel araştırma defterine dönüşür.",
+    accent: "bg-accent-warning/10 text-accent-warning",
+  },
+];
+---
+
+<Base>
+  <!-- Hero — Imperial Blue + Champagne + 2026 gradient mesh -->
+  <section class="hero-stage relative overflow-hidden aurora">
+    <!-- Gradient mesh blobs (2026 SaaS trend) -->
+    <div aria-hidden="true" class="absolute inset-0 pointer-events-none overflow-hidden">
+      <div class="absolute top-[-20%] left-[-10%] w-[40rem] h-[40rem] rounded-full bg-gradient-to-br from-imperial-200 via-imperial-100 to-transparent blur-3xl opacity-50"></div>
+      <div class="absolute top-[10%] right-[-15%] w-[35rem] h-[35rem] rounded-full bg-gradient-to-bl from-champagne-200 via-champagne-100 to-transparent blur-3xl opacity-40"></div>
+      <div class="absolute bottom-[-20%] left-[20%] w-[45rem] h-[45rem] rounded-full bg-gradient-to-tr from-imperial-100 via-transparent to-transparent blur-3xl opacity-30"></div>
+    </div>
+
+    <!-- Topografik harita çizgileri (Cadastrum tematik) -->
+    <TopoBg />
+
+    <!-- Champagne shimmer sweep — bir kez geçer, drama ekler -->
+    <div class="hero-shimmer" aria-hidden="true"></div>
+
+    <div class="container-prose pt-20 pb-24 md:pt-28 md:pb-32 relative" style="z-index: 1;">
+      <div class="grid gap-14 lg:grid-cols-12 items-center">
+        <!-- Left: Copy -->
+        <div class="lg:col-span-7">
+          <!-- Modern animated badge (2026 trend: live + early access) -->
+          <div class="flex flex-wrap items-center gap-2 mb-7">
+            <div class="hero-pill inline-flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md ring-1 ring-imperial/10 px-3 py-1.5 text-xs font-medium text-imperial-700 shadow-sm">
+              <span class="relative flex h-2 w-2">
+                <span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span class="tracking-wide">Beta — canlı veri akıyor</span>
+            </div>
+            <div class="hero-pill inline-flex items-center gap-1.5 rounded-full bg-champagne-50 ring-1 ring-champagne-200 px-3 py-1.5 text-xs font-medium text-champagne-700">
+              <span>🎁</span>
+              <span class="tracking-wide">İlk 100 üyeye 6 ay <strong>%40</strong></span>
+            </div>
+          </div>
+
+          <h1 class="hero-headline font-display text-4xl md:text-5xl lg:text-[3.75rem] font-bold text-imperial tracking-tight leading-[1.02]">
+            <span class="hero-line block">İlandan parsele,</span>
+            <span class="hero-line block">parselden <span class="accent-underline">karara</span>.</span>
+            <span class="hero-line block">Bir adımda.</span>
+          </h1>
+
+          <p class="hero-desc mt-7 text-lg text-slate-600 max-w-xl leading-relaxed">
+            Sahibinden ve Hepsiemlak ilanlarını TKGM kaydıyla eşleştirir, e-Plan imar durumunu çeker,
+            mahalle emsalinden gerçekçi bir fiyat aralığı çıkarır. Hepsi yan panelde, ilan açıkken.
+          </p>
+
+          {LAUNCHED ? (
+            <div class="hero-cta-group mt-10 flex flex-col sm:flex-row gap-3">
+              <a href={cwsUrl} target="_blank" rel="noopener" class="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 19.5l-7.5-13h6.273A6 6 0 0112 6a5.985 5.985 0 014.227 1.75L12 15.5z"/>
+                </svg>
+                Chrome'a ekle, ücretsiz
+              </a>
+              <a href="/fiyat" class="btn-secondary">Planları gör →</a>
+            </div>
+            <p class="mt-4 text-xs text-slate-500 flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">🚀 Canlı</span>
+              Chrome Web Store onaylandı · İlk 100 üye: ERKEN100 ile 6 ay %40 indirim
+            </p>
+          ) : (
+            <>
+              <form id="hero-waitlist" class="hero-cta-group mt-10 flex flex-col sm:flex-row gap-2 max-w-lg">
+                <input type="email" name="email" required placeholder="email@adresin.com" aria-label="Email adresin"
+                  class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/15 focus:outline-none transition" />
+                <button type="submit" class="btn-primary whitespace-nowrap">Erken erişim al →</button>
+              </form>
+              <p id="hero-waitlist-msg" class="hidden mt-3 text-sm font-medium"></p>
+              <p class="mt-3 text-xs text-slate-500">
+                Chrome Web Store inceleme aşamasında. <a href="/fiyat" class="text-imperial-700 hover:underline font-medium">Planları gör →</a>
+              </p>
+            </>
+          )}
+
+          <p class="hero-trust mt-6 text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span class="flex items-center gap-1.5">
+              <svg class="h-3.5 w-3.5 text-champagne-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              30 saniye kurulum
+            </span>
+            <span class="text-slate-300">·</span>
+            <span class="flex items-center gap-1.5">
+              <svg class="h-3.5 w-3.5 text-champagne-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              KVKK uyumlu
+            </span>
+            <span class="text-slate-300">·</span>
+            <span class="flex items-center gap-1.5">
+              <svg class="h-3.5 w-3.5 text-champagne-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              Resmi kaynaklar
+            </span>
+          </p>
+        </div>
+
+        <!-- Right: Live mock card (sağdan slide-in) -->
+        <div class="hero-mock-wrap lg:col-span-5">
+          <HeroMock />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Integrations marquee -->
+  <IntegrationsMarquee />
+
+  <!-- /veri CTA — Türkiye mahalle bazlı fiyat verisi keşif -->
+  <section class="py-16 md:py-20 border-t border-slate-100" data-reveal-stagger>
+    <div class="container-prose">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-medium mb-3">
+          81 il, 957 ilçe, 65 bin mahalle
+        </div>
+        <h2 class="font-display text-3xl md:text-4xl font-bold text-ink mb-3">
+          Türkiye'nin mahalle fiyat haritası
+        </h2>
+        <p class="text-slate-600 max-w-2xl mx-auto">
+          Sahibinden ve Hepsiemlak ilan medyanını, AI baseline'ı ve topluluk verisini
+          her mahalle için arsa, konut ve tarla olarak ayrı ayrı sunuyoruz.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        {[
+          { il: "İstanbul", url: "/veri/istanbul", ilce: "Beşiktaş", fiyat: "87.000" },
+          { il: "Ankara", url: "/veri/ankara", ilce: "Çankaya", fiyat: "12.000" },
+          { il: "İzmir", url: "/veri/izmir", ilce: "Konak", fiyat: "18.000" },
+          { il: "Antalya", url: "/veri/antalya", ilce: "Muratpaşa", fiyat: "20.000" },
+          { il: "Muğla", url: "/veri/mugla", ilce: "Bodrum", fiyat: "45.000" },
+          { il: "Bursa", url: "/veri/bursa", ilce: "Nilüfer", fiyat: "9.000" },
+          { il: "Balıkesir", url: "/veri/balikesir", ilce: "Bandırma", fiyat: "3.500" },
+          { il: "Kocaeli", url: "/veri/kocaeli", ilce: "Gebze", fiyat: "8.000" },
+        ].map((c) => (
+          <a
+            href={c.url}
+            class="group block p-4 bg-white border border-slate-200 rounded-xl hover:border-brand hover:shadow-md transition"
+          >
+            <div class="text-xs text-slate-500 mb-1">{c.il}</div>
+            <div class="font-semibold text-ink mb-2">{c.ilce}</div>
+            <div class="text-2xl font-bold text-brand-700">{c.fiyat}</div>
+            <div class="text-xs text-slate-500 mt-1">TL/m² arsa</div>
+          </a>
+        ))}
+      </div>
+
+      <div class="text-center mt-8">
+        <a
+          href="/veri"
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand text-white font-medium text-sm hover:bg-brand-700 transition"
+        >
+          Tüm İller ve Mahalleler →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sayılar (animated counters) -->
+  <section class="py-16 md:py-20" data-reveal-stagger>
+    <div class="container-prose">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
+        <div class="text-center">
+          <div class="font-display text-4xl md:text-5xl font-bold text-brand counter">
+            <span data-counter="81">0</span>
+          </div>
+          <div class="mt-2 text-xs md:text-sm text-slate-500">il kapsama</div>
+        </div>
+        <div class="text-center">
+          <div class="font-display text-4xl md:text-5xl font-bold text-brand counter">
+            <span data-counter="65" data-counter-suffix="K">0</span>
+          </div>
+          <div class="mt-2 text-xs md:text-sm text-slate-500">mahalle baseline</div>
+        </div>
+        <div class="text-center">
+          <div class="font-display text-4xl md:text-5xl font-bold text-brand counter">
+            <span data-counter="180" data-counter-suffix="g">0</span>
+          </div>
+          <div class="mt-2 text-xs md:text-sm text-slate-500">tazelik penceresi</div>
+        </div>
+        <div class="text-center">
+          <div class="font-display text-4xl md:text-5xl font-bold text-brand counter">
+            <span data-counter="6">0</span>
+          </div>
+          <div class="mt-2 text-xs md:text-sm text-slate-500">veri kaynağı</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Özellikler — Bento Grid (2026 modern asimetrik layout) -->
+  <section id="ozellikler" class="py-24 border-t border-slate-100">
+    <div class="container-prose">
+      <div class="max-w-2xl mb-14" data-reveal>
+        <p class="text-xs uppercase tracking-[0.2em] text-brand-700 font-semibold mb-3">
+          Ne işe yarıyor
+        </p>
+        <h2 class="font-display text-3xl md:text-4xl font-bold text-ink tracking-tight">
+          Bir parsele bakarken sorduğunuz altı soru,
+          <em class="not-italic text-brand">aynı pencerede</em>.
+        </h2>
+        <p class="mt-4 text-slate-600 text-lg">
+          Eskiden beş sekme açıp on dakika harcadığınız iş, ilan açıkken arka planda tamamlanır.
+        </p>
+      </div>
+
+      <!-- BENTO GRID: 6 cell, asimetrik (2 büyük + 4 küçük) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 auto-rows-[200px]" data-reveal-stagger>
+
+        <!-- Cell 1: TKGM (büyük — 2 col x 2 row, hero feature) -->
+        <article class="bento-card md:col-span-2 lg:col-span-3 lg:row-span-2 group relative overflow-hidden rounded-2xl border border-imperial/20 bg-gradient-to-br from-imperial via-imperial-600 to-imperial-700 p-8 text-white">
+          <div class="absolute inset-0 opacity-20 dot-grid pointer-events-none"></div>
+          <!-- Animated parsel grid bg -->
+          <svg class="absolute right-0 top-0 w-64 h-64 opacity-15 group-hover:opacity-25 transition-opacity" viewBox="0 0 200 200" fill="none">
+            <g stroke="currentColor" stroke-width="0.5">
+              <path d="M0 50 L200 50 M0 100 L200 100 M0 150 L200 150 M50 0 L50 200 M100 0 L100 200 M150 0 L150 200"/>
+            </g>
+            <rect x="50" y="50" width="50" height="50" fill="#C9A86A" opacity="0.4"/>
+          </svg>
+          <div class="relative z-10 flex flex-col h-full">
+            <div class="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur px-3 py-1 text-[10px] uppercase tracking-wider font-semibold mb-5 self-start">
+              <span class="w-1.5 h-1.5 rounded-full bg-champagne animate-pulse"></span>
+              Resmi Veri
+            </div>
+            <h3 class="font-display text-3xl font-bold mb-3 tracking-tight">TKGM Doğrulama</h3>
+            <p class="text-imperial-100 leading-relaxed mb-auto max-w-md">
+              İlandaki ada-parsel bilgisini Tapu ve Kadastro'nun resmi kaydıyla saniyede eşleştirir. Alan, nitelik, sahiplik durumu — tek tıkla.
+            </p>
+            <div class="mt-4 flex items-baseline gap-3">
+              <div class="font-display text-4xl font-bold">81</div>
+              <div class="text-xs text-imperial-200">il · 957 ilçe · 65K mahalle</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Cell 2: e-Plan -->
+        <article class="bento-card md:col-span-1 lg:col-span-3 group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
+          <div class="flex flex-col h-full">
+            <div class="inline-flex items-center gap-1.5 rounded-md bg-accent-info/10 text-accent-info px-2 py-1 text-[10px] uppercase tracking-wider font-semibold mb-3 self-start">
+              <span class="h-1 w-1 rounded-full bg-current"></span>
+              Resmi İmar
+            </div>
+            <h3 class="font-display text-xl font-semibold text-ink mb-2">e-Plan İmar Sorgusu</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-auto">
+              Çevre Bakanlığı'nın e-Plan portalından TAKS, Emsal, Maks Kat ve Kullanım Kararı otomatik çekilir. Belge bazlı.
+            </p>
+            <div class="mt-3 flex flex-wrap gap-1.5 text-[10px]">
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">TAKS</span>
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Emsal</span>
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Maks Kat</span>
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Yapı Nizamı</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Cell 3: AI fiyat tahmini -->
+        <article class="bento-card md:col-span-2 lg:col-span-3 group relative overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-violet-50 p-6">
+          <!-- Sparkles bg -->
+          <svg class="absolute -right-4 -top-4 w-32 h-32 text-violet-300 opacity-30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5z"/>
+          </svg>
+          <div class="relative flex flex-col h-full">
+            <div class="inline-flex items-center gap-1.5 rounded-md bg-violet-100 text-violet-700 px-2 py-1 text-[10px] uppercase tracking-wider font-semibold mb-3 self-start">
+              <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2L11.5 7L17 8L11.5 9L10 14L8.5 9L3 8L8.5 7z"/></svg>
+              Yapay Zekâ
+            </div>
+            <h3 class="font-display text-xl font-semibold text-ink mb-2">AI Fiyat Tahmini</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-auto">
+              Gemini 2.5 Flash ile çoklu kaynak triangulation. Mahalle baseline + emsal + AI yorumu.
+              <strong class="text-violet-700">Free planda günde 3 ücretsiz analiz.</strong>
+            </p>
+          </div>
+        </article>
+
+        <!-- Cell 4: Mahalle -->
+        <article class="bento-card md:col-span-1 lg:col-span-2 group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
+          <div class="flex flex-col h-full">
+            <div class="inline-flex items-center gap-1.5 rounded-md bg-accent-success/10 text-accent-success px-2 py-1 text-[10px] uppercase tracking-wider font-semibold mb-3 self-start">
+              <span class="h-1 w-1 rounded-full bg-current"></span>
+              Piyasa
+            </div>
+            <h3 class="font-display text-lg font-semibold text-ink mb-2">Mahalle Bazlı Emsal</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Sahibinden + Hepsiemlak medyanı, IQR aykırı temizleme, tazelik filtresi.
+            </p>
+          </div>
+        </article>
+
+        <!-- Cell 5: Risk -->
+        <article class="bento-card md:col-span-1 lg:col-span-2 group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
+          <div class="flex flex-col h-full">
+            <div class="inline-flex items-center gap-1.5 rounded-md bg-accent-danger/10 text-accent-danger px-2 py-1 text-[10px] uppercase tracking-wider font-semibold mb-3 self-start">
+              <span class="h-1 w-1 rounded-full bg-current"></span>
+              Risk
+            </div>
+            <h3 class="font-display text-lg font-semibold text-ink mb-2">Deprem · Taşkın</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              AFAD PGA + Çevre Bakanlığı taşkın haritası. Z1-Z5 zon + fay hattı.
+            </p>
+          </div>
+        </article>
+
+        <!-- Cell 6: Likidite -->
+        <article class="bento-card md:col-span-1 lg:col-span-2 group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
+          <div class="flex flex-col h-full">
+            <div class="inline-flex items-center gap-1.5 rounded-md bg-purple-100 text-purple-700 px-2 py-1 text-[10px] uppercase tracking-wider font-semibold mb-3 self-start">
+              <span class="h-1 w-1 rounded-full bg-current"></span>
+              Likidite
+            </div>
+            <h3 class="font-display text-lg font-semibold text-ink mb-2">TKGM Yıllık Aktivite</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Bölge alım-satım yoğunluğu, ipotek oranı, 5 yıllık trend. Likidite skoru.
+            </p>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Akış -->
+  <section class="py-24 bg-slate-50 border-y border-slate-100 relative overflow-hidden">
+    <div class="absolute inset-0 dot-grid opacity-30 pointer-events-none" aria-hidden="true"></div>
+    <div class="container-prose relative">
+      <div class="max-w-2xl mx-auto text-center mb-14" data-reveal>
+        <p class="text-xs uppercase tracking-[0.2em] text-brand-700 font-semibold mb-3">
+          Nasıl çalışıyor
+        </p>
+        <h2 class="font-display text-3xl md:text-4xl font-bold text-ink tracking-tight">
+          Üç adımda kuruluyor.
+        </h2>
+      </div>
+
+      <div class="grid gap-10 md:grid-cols-3" data-reveal-stagger>
+        <Step
+          n="01"
+          title="Eklentiyi yükleyin"
+          desc="Chrome Web Store'dan tek tıkla. Kurulum 30 saniye, hesap açmak ya da kart girmek gerekmiyor."
+        />
+        <Step
+          n="02"
+          title="İlana bakın"
+          desc="Sahibinden ya da Hepsiemlak'ta bir arsa açtığınızda yan panel ilanı otomatik tanır."
+        />
+        <Step
+          n="03"
+          title="Sonucu okuyun"
+          desc="TKGM kaydı, e-Plan imar, mahalle emsali ve fiyat aralığı yan panelde sıralı gelir."
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Social Proof + Early Access (2026 trend: testimonial cluster + scarcity) -->
+  <section class="py-24" data-reveal>
+    <div class="container-prose">
+      <div class="grid lg:grid-cols-2 gap-10 items-center">
+
+        <!-- Testimonial -->
+        <div class="relative">
+          <!-- Quote mark decorative -->
+          <svg class="absolute -top-4 -left-2 h-16 w-16 text-imperial-100" fill="currentColor" viewBox="0 0 32 32">
+            <path d="M9 8c-3 0-5 2-5 5v8h7v-8H7c0-2 2-3 4-3V8H9zm12 0c-3 0-5 2-5 5v8h7v-8h-4c0-2 2-3 4-3V8h-2z"/>
+          </svg>
+          <blockquote class="relative font-display text-xl md:text-2xl text-ink leading-snug tracking-tight">
+            "İlan açtığımda TKGM, e-Plan, mahalle, kıyas — hepsini ayrı sekmede arıyordum. Şimdi
+            <em class="not-italic text-brand">tek pencere</em>
+            aynı işi yapıyor. 5 dakikalık iş 5 saniyeye düştü."
+          </blockquote>
+          <figcaption class="mt-6 flex items-center gap-3">
+            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-imperial to-imperial-700 text-white flex items-center justify-center font-display font-bold text-sm">
+              EE
+            </div>
+            <div>
+              <div class="text-sm font-semibold text-ink">Erken Erişim Kullanıcısı</div>
+              <div class="text-xs text-slate-500">Gayrimenkul Yatırımcısı · İstanbul</div>
+            </div>
+          </figcaption>
+
+          <!-- Trust micro-stats -->
+          <div class="mt-8 flex items-center gap-6 text-xs text-slate-600">
+            <div class="flex items-center gap-1.5">
+              <svg class="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span>30 sn kurulum</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <svg class="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span>Resmi veri kaynakları</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <svg class="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span>KVKK uyumlu</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Early Access kartı (scarcity / urgency) -->
+        <div class="relative rounded-2xl border-2 border-champagne-300 bg-gradient-to-br from-champagne-50 to-white p-8 shadow-lg overflow-hidden">
+          <!-- Decorative glow -->
+          <div aria-hidden="true" class="absolute -top-20 -right-20 w-40 h-40 bg-champagne-200 rounded-full blur-3xl opacity-50"></div>
+
+          <div class="relative">
+            <div class="inline-flex items-center gap-1.5 rounded-full bg-champagne-500 text-white px-3 py-1 text-[10px] uppercase tracking-wider font-bold mb-4">
+              🎁 İlk 100 Üye Kampanyası
+            </div>
+            <h3 class="font-display text-2xl font-bold text-imperial-700 mb-3">
+              6 ay boyunca <span class="text-champagne-700">%40 indirim</span>
+            </h3>
+            <p class="text-sm text-slate-700 leading-relaxed mb-5">
+              Lansmanın ilk 100 üyesi için Pro plan <strong>₺499 → ₺299/ay</strong>.
+              Pro+ plan <strong>₺999 → ₺599/ay</strong>. 7 gün ücretsiz deneme dahil.
+            </p>
+
+            <!-- Yer durumu progress (canlı) -->
+            <div class="mb-5">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="text-slate-600">Erken üye yeri</span>
+                <span class="font-semibold text-champagne-700"><span id="waitlist-count">…</span> / 100 dolu</span>
+              </div>
+              <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div id="waitlist-bar" class="h-full bg-gradient-to-r from-champagne-400 to-champagne-600 rounded-full transition-all duration-700" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <a href="/kayit" class="inline-flex items-center justify-center gap-2 w-full rounded-lg bg-imperial text-white font-semibold py-3 hover:bg-imperial-700 transition shadow-sm">
+              Erken üye ol
+              <span>→</span>
+            </a>
+            <p class="mt-3 text-[10px] text-slate-500 text-center">
+              Kod: <code class="px-1.5 py-0.5 bg-slate-100 rounded font-mono">ERKEN100</code> · Kayıt ücretsiz
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="pb-24" data-reveal>
+    <div class="container-prose">
+      <div class="relative rounded-3xl overflow-hidden bg-gradient-to-br from-brand-700 via-brand to-brand-600 p-10 md:p-16 text-center text-white shadow-2xl">
+        <!-- Subtle pattern overlay -->
+        <div class="absolute inset-0 opacity-10 dot-grid" aria-hidden="true"></div>
+        <div class="relative">
+          <h2 class="font-display text-3xl md:text-4xl font-bold tracking-tight">
+            Ücretsiz kurun, ihtiyaç doğunca yükseltin.
+          </h2>
+          <p class="mt-4 text-brand-100 text-lg max-w-xl mx-auto">
+            TKGM doğrulaması ve mahalle baseline'ı her zaman ücretsiz. Sınırsız sorgu, fiyat tahmini
+            ve PDF rapor için Pro plana geçilir.
+          </p>
+          <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+            <a href={cwsUrl} target="_blank" rel="noopener" class="inline-flex items-center justify-center rounded-md bg-white px-6 py-3 text-sm font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50 hover:scale-[1.02]">
+              Chrome'a ekle
+            </a>
+            <a href="/fiyat" class="inline-flex items-center justify-center rounded-md border border-white/30 bg-white/10 backdrop-blur px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20">
+              Planları karşılaştır
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Hero waitlist form — backend /v1/newsletter/abone-ol
+  const heroForm = document.getElementById("hero-waitlist") as HTMLFormElement | null;
+  const heroMsg = document.getElementById("hero-waitlist-msg") as HTMLParagraphElement | null;
+  heroForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = new FormData(heroForm);
+    const email = String(data.get("email") || "").trim();
+    if (!email) return;
+    const btn = heroForm.querySelector("button[type=submit]") as HTMLButtonElement;
+    if (btn) { btn.disabled = true; btn.textContent = "..."; }
+    try {
+      const r = await fetch("https://cadastrum-api.cadastrum-tr.workers.dev/v1/newsletter/abone-ol", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, kaynak: "hero" }),
+      });
+      const j = await r.json();
+      if (heroMsg) {
+        if (r.ok) {
+          heroMsg.textContent = `✓ ${email} listede ${j.sira ? `(${j.sira}. sıra)` : ""} — Lansmanda haberdar olacaksın. ERKEN100 ile %40 indirim.`;
+          heroMsg.className = "mt-3 text-sm font-medium text-emerald-700";
+          heroForm.reset();
+          // Sayım güncelle
+          guncelleSayim();
+        } else {
+          heroMsg.textContent = j.hata || "Hata oluştu";
+          heroMsg.className = "mt-3 text-sm font-medium text-rose-600";
+        }
+        heroMsg.classList.remove("hidden");
+      }
+    } catch (err) {
+      if (heroMsg) {
+        heroMsg.textContent = "Bağlantı hatası, tekrar dene";
+        heroMsg.className = "mt-3 text-sm font-medium text-rose-600";
+        heroMsg.classList.remove("hidden");
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Erken erişim al →"; }
+    }
+  });
+
+  // Waitlist sayım — canlı social proof
+  async function guncelleSayim() {
+    try {
+      const r = await fetch("https://cadastrum-api.cadastrum-tr.workers.dev/v1/newsletter/sayim");
+      const j = await r.json();
+      // Tabandan başla — gerçek sayı + base ekleyebiliriz isteğe bağlı
+      const toplam = Math.min(100, Math.max(0, j.toplam ?? 0));
+      const cnt = document.getElementById("waitlist-count");
+      const bar = document.getElementById("waitlist-bar");
+      if (cnt) cnt.textContent = String(toplam);
+      if (bar) (bar as HTMLElement).style.width = `${toplam}%`;
+    } catch {
+      // Sessizce başarısız ol — fallback "23"
+      const cnt = document.getElementById("waitlist-count");
+      const bar = document.getElementById("waitlist-bar");
+      if (cnt) cnt.textContent = "—";
+      if (bar) (bar as HTMLElement).style.width = "0%";
+    }
+  }
+  guncelleSayim();
+</script>

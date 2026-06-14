@@ -1,0 +1,146 @@
+---
+// Topografik harita çizgileri — Cadastrum tematik arka plan animasyonu.
+// SVG çizgiler imperial+champagne tonlarda çok düşük opacity ile drift eder.
+// Sayfa içeriğini hiç gölgelemez, sadece kurumsal+tematik atmosfer verir.
+---
+
+<div class="topo-bg" aria-hidden="true">
+  <svg
+    class="topo-svg topo-svg-1"
+    viewBox="0 0 1200 800"
+    fill="none"
+    preserveAspectRatio="xMidYMid slice"
+  >
+    <!-- Topografik kontur çizgileri — imperial tonu -->
+    <path d="M-100,200 Q200,150 400,180 T800,160 T1300,140" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.18" fill="none"/>
+    <path d="M-100,250 Q220,200 420,230 T820,210 T1300,195" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.15" fill="none"/>
+    <path d="M-100,300 Q240,250 440,280 T840,260 T1300,245" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.13" fill="none"/>
+    <path d="M-100,360 Q260,310 460,340 T860,320 T1300,305" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.11" fill="none"/>
+    <path d="M-100,420 Q280,370 480,400 T880,380 T1300,365" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.10" fill="none"/>
+    <path d="M-100,490 Q300,440 500,470 T900,450 T1300,435" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.09" fill="none"/>
+    <path d="M-100,570 Q320,520 520,550 T920,530 T1300,515" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.08" fill="none"/>
+    <path d="M-100,660 Q340,610 540,640 T940,620 T1300,605" stroke="#1B2A4A" stroke-width="0.7" stroke-opacity="0.07" fill="none"/>
+
+    <!-- Champagne accent çizgileri — yavaşça "çizilen" terrain analizi -->
+    <path
+      class="topo-draw topo-draw-1"
+      d="M-100,150 Q180,100 380,130 T780,110 T1300,90"
+      stroke="#C9A86A"
+      stroke-width="0.9"
+      stroke-opacity="0.45"
+      fill="none"
+      pathLength="100"
+    />
+    <path
+      class="topo-draw topo-draw-2"
+      d="M-100,540 Q310,490 510,520 T910,500 T1300,485"
+      stroke="#C9A86A"
+      stroke-width="0.9"
+      stroke-opacity="0.30"
+      fill="none"
+      pathLength="100"
+    />
+  </svg>
+
+  <!-- Ters yönde ikinci katman — derinlik için yavaş ters drift -->
+  <svg
+    class="topo-svg topo-svg-2"
+    viewBox="0 0 1200 800"
+    fill="none"
+    preserveAspectRatio="xMidYMid slice"
+  >
+    <!-- Kapalı kontur halkaları (ada/parsel sınırı çağrışımı) -->
+    <ellipse cx="300" cy="350" rx="180" ry="120" stroke="#1B2A4A" stroke-width="0.6" stroke-opacity="0.10" fill="none" stroke-dasharray="2 4"/>
+    <ellipse cx="320" cy="360" rx="220" ry="150" stroke="#1B2A4A" stroke-width="0.6" stroke-opacity="0.08" fill="none" stroke-dasharray="2 4"/>
+    <ellipse cx="340" cy="370" rx="270" ry="180" stroke="#1B2A4A" stroke-width="0.6" stroke-opacity="0.06" fill="none" stroke-dasharray="2 4"/>
+
+    <ellipse cx="900" cy="500" rx="160" ry="100" stroke="#C9A86A" stroke-width="0.7" stroke-opacity="0.22" fill="none"/>
+    <ellipse cx="920" cy="510" rx="200" ry="130" stroke="#C9A86A" stroke-width="0.6" stroke-opacity="0.16" fill="none"/>
+    <ellipse cx="940" cy="520" rx="240" ry="160" stroke="#C9A86A" stroke-width="0.6" stroke-opacity="0.10" fill="none"/>
+  </svg>
+
+  <!-- Köşe koordinat işaretleri — mimari çizim / kadastro plakası tonu -->
+  <svg class="topo-corner topo-corner-tl" viewBox="0 0 40 40" fill="none">
+    <path d="M2 14V2H14" stroke="#1B2A4A" stroke-width="1.2" stroke-opacity="0.35" stroke-linecap="square"/>
+    <circle cx="2" cy="2" r="1.5" fill="#C9A86A"/>
+  </svg>
+  <svg class="topo-corner topo-corner-tr" viewBox="0 0 40 40" fill="none">
+    <path d="M26 2H38V14" stroke="#1B2A4A" stroke-width="1.2" stroke-opacity="0.35" stroke-linecap="square"/>
+    <circle cx="38" cy="2" r="1.5" fill="#C9A86A"/>
+  </svg>
+  <svg class="topo-corner topo-corner-bl" viewBox="0 0 40 40" fill="none">
+    <path d="M2 26V38H14" stroke="#1B2A4A" stroke-width="1.2" stroke-opacity="0.35" stroke-linecap="square"/>
+    <circle cx="2" cy="38" r="1.5" fill="#C9A86A"/>
+  </svg>
+  <svg class="topo-corner topo-corner-br" viewBox="0 0 40 40" fill="none">
+    <path d="M26 38H38V26" stroke="#1B2A4A" stroke-width="1.2" stroke-opacity="0.35" stroke-linecap="square"/>
+    <circle cx="38" cy="38" r="1.5" fill="#C9A86A"/>
+  </svg>
+</div>
+
+<style>
+  .topo-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .topo-svg {
+    position: absolute;
+    width: 110%;
+    height: 110%;
+    top: -5%;
+    left: -5%;
+  }
+
+  /* Yavaş drift — topo katman 1 */
+  @media (prefers-reduced-motion: no-preference) {
+    .topo-svg-1 {
+      animation: topo-drift-1 60s linear infinite alternate;
+    }
+    .topo-svg-2 {
+      animation: topo-drift-2 80s linear infinite alternate;
+    }
+    @keyframes topo-drift-1 {
+      from { transform: translate(0, 0); }
+      to { transform: translate(-2%, 1%); }
+    }
+    @keyframes topo-drift-2 {
+      from { transform: translate(0, 0) rotate(0deg); }
+      to { transform: translate(1.5%, -1%) rotate(0.5deg); }
+    }
+  }
+
+  /* Köşe koordinat işaretleri — kadastro / mimari çizim tonu */
+  .topo-corner {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    pointer-events: none;
+  }
+  .topo-corner-tl { top: 24px; left: 24px; }
+  .topo-corner-tr { top: 24px; right: 24px; }
+  .topo-corner-bl { bottom: 24px; left: 24px; }
+  .topo-corner-br { bottom: 24px; right: 24px; }
+
+  /* Champagne çizgilerinin yavaşça "çizilme" animasyonu — terrain analizi metaforu */
+  @media (prefers-reduced-motion: no-preference) {
+    .topo-draw {
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      animation: topo-stroke-draw 12s ease-in-out infinite;
+    }
+    .topo-draw-1 { animation-delay: 0s; }
+    .topo-draw-2 { animation-delay: 4s; }
+
+    @keyframes topo-stroke-draw {
+      0% { stroke-dashoffset: 100; opacity: 0; }
+      15% { opacity: 1; }
+      55% { stroke-dashoffset: 0; opacity: 1; }
+      85% { stroke-dashoffset: 0; opacity: 1; }
+      100% { stroke-dashoffset: -100; opacity: 0; }
+    }
+  }
+</style>

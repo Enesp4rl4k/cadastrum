@@ -1,0 +1,147 @@
+---
+export const prerender = true;
+import Yasal from "../layouts/YasalLayout.astro";
+---
+
+<Yasal
+  title="Kullanım Koşulları — Cadastrum"
+  description="Cadastrum hizmetinin kullanımına ilişkin koşullar ve sorumluluk reddi."
+  baslik="Kullanım Koşulları"
+  altBaslik="Cadastrum hizmetini kullanan herkes bu koşulları kabul etmiş sayılır."
+  guncellendi="9 Mayıs 2026"
+>
+  <p>
+    Bu Kullanım Koşulları, <strong>cadastrum.com.tr</strong> web sitesi, Cadastrum Chrome
+    eklentisi ve ilgili API'ları ("Hizmet") kullananlar ile <strong>[İşletme Adı]</strong>
+    ("Cadastrum", "biz") arasındaki sözleşmeyi düzenler.
+  </p>
+
+  <div class="uyari">
+    <strong>Önemli:</strong> Cadastrum bir <strong>karar destek aracıdır</strong>; ekspertiz
+    raporu, hukuki danışmanlık veya yatırım tavsiyesi değildir. Sunulan veriler bilgilendirme
+    amaçlıdır. Yatırım kararlarınızdan yalnızca siz sorumlusunuz.
+  </div>
+
+  <h2>1. Hizmet Tanımı</h2>
+  <p>
+    Cadastrum, kullanıcının Sahibinden veya Hepsiemlak ilanlarına bakarken Tapu ve Kadastro
+    Genel Müdürlüğü (TKGM) parsel verisini, e-Plan imar durumunu ve mahalle bazlı emsal
+    fiyat verisini sunar. Hizmet bedelsiz (Free) ve ücretli (Pro, Pro+, Kurumsal) planlarda
+    sunulmaktadır.
+  </p>
+
+  <h2>2. Hesap ve Kayıt</h2>
+  <ul>
+    <li>Pro ve üzeri planlar için hesap oluşturmak zorunludur.</li>
+    <li>Verdiğiniz bilgilerin doğru ve güncel olması sizin sorumluluğunuzdadır.</li>
+    <li>Hesap erişiminin güvenliği size aittir; şifrenizi paylaşmamalısınız.</li>
+    <li>18 yaşından küçükler hesap açamaz.</li>
+    <li>Bir kişi/kurum birden fazla ücretsiz hesap açarak günlük kullanım sınırlarını aşamaz.</li>
+  </ul>
+
+  <h2>3. Veri Doğruluğu ve Sorumluluk Reddi</h2>
+  <p>
+    Cadastrum'un sunduğu veriler aşağıdaki kaynaklardan derlenir:
+  </p>
+  <ul>
+    <li>TKGM resmi parsel sorgu sistemi (parselsorgu.tkgm.gov.tr)</li>
+    <li>Çevre, Şehircilik ve İklim Değişikliği Bakanlığı e-Plan portalı</li>
+    <li>Sahibinden ve Hepsiemlak ilan medyanları (mahalle bazlı, anonim)</li>
+    <li>TCMB Konut Fiyat Endeksi (KFE) verileri</li>
+    <li>AFAD deprem zonları ve Çevre Bakanlığı taşkın haritaları</li>
+    <li>Bağımsız AI baseline ve KNN coğrafi yumuşatma</li>
+  </ul>
+  <p>
+    Tüm bu kaynaklar üçüncü taraflara aittir; veri doğruluğu, güncelliği ve eksiksizliği
+    konusunda <strong>Cadastrum tarafından garanti verilmemektedir</strong>. Yatırım, satın
+    alma veya satış kararı vermeden önce profesyonel ekspertiz, kadastro ve hukuki danışmanlık
+    almak kullanıcının sorumluluğundadır.
+  </p>
+
+  <h2>4. Kabul Edilebilir Kullanım</h2>
+  <p>Hizmeti aşağıdaki şekillerde kullanmak yasaktır:</p>
+  <ul>
+    <li>Otomatik scraping, scripted erişim veya rate-limit aşma girişimi</li>
+    <li>Hizmetin tersine mühendislik, klonlama veya rakip ürün üretimi için kullanılması</li>
+    <li>Hesap bilgilerinin paylaşılması veya satılması</li>
+    <li>Üçüncü tarafların kişisel verilerinin toplanması veya yayınlanması</li>
+    <li>Hizmetin altyapısına zarar verecek istek hacmi (DoS) veya yük testi</li>
+    <li>Yasalara aykırı, dolandırıcılık veya kara para aklama amacıyla kullanım</li>
+  </ul>
+  <p>
+    Bu maddelere aykırı kullanım tespit edilirse hesap önceden bildirilmeksizin askıya
+    alınır veya kalıcı olarak kapatılır; ödenmiş abonelik bedeli iade edilmez.
+  </p>
+
+  <h2>5. Fikri Mülkiyet</h2>
+  <p>
+    Cadastrum yazılımı, tasarımı, marka adı ve içeriği <strong>[İşletme Adı]</strong>'na
+    aittir. Hizmet kullanım hakkı kişisel ve devredilemez bir lisanstır; mülkiyet devri
+    içermez.
+  </p>
+  <p>
+    Pro+ ve Kurumsal kullanıcıların ürettiği PDF raporlar, sunulan veri kaynaklarına atıfla,
+    ticari amaçla kendi müşterilerine sunulabilir. Cadastrum logosunun veya içeriğinin
+    raporlardan çıkarılması yalnızca beyaz etiket lisansı kapsamında mümkündür.
+  </p>
+
+  <h2>6. Üçüncü Taraf Hizmetler</h2>
+  <p>
+    Hizmet, TKGM, e-Plan, Sahibinden, Hepsiemlak gibi üçüncü taraf platformlarla etkileşime
+    girer. Bu platformların sunduğu hizmetlerin kesintisi, içerik değişikliği veya kullanım
+    şartlarındaki değişiklik Cadastrum'un kontrolünde değildir; bu nedenle Hizmet'in
+    bazı özellikleri zaman zaman kullanılamayabilir.
+  </p>
+
+  <h2>7. Hizmet Değişiklikleri</h2>
+  <p>
+    Cadastrum, hizmetin özelliklerini, fiyatlarını ve sınırlarını önceden bildirmek koşuluyla
+    değiştirme hakkını saklı tutar. Aktif aboneler için fiyat artışı ancak mevcut dönemin
+    bitiminde uygulanır; bu durumda iptal hakkınız vardır.
+  </p>
+
+  <h2>8. Sorumluluğun Sınırlandırılması</h2>
+  <p>
+    Yasaların izin verdiği azami ölçüde, Cadastrum dolaylı, arızi, özel veya cezai zararlardan
+    (kâr kaybı, veri kaybı, iş kaybı dahil) sorumlu tutulamaz. Cadastrum'un toplam
+    sorumluluğu, son 12 ayda ödediğiniz abonelik bedelini aşamaz.
+  </p>
+  <p>
+    Bu sınırlama, ağır kusur veya kasıt halinde geçerli değildir.
+  </p>
+
+  <h2>9. Sözleşmenin Sona Ermesi</h2>
+  <ul>
+    <li>Aboneliğinizi istediğiniz zaman hesap panelinden iptal edebilirsiniz.</li>
+    <li>İptal sonrası dönem sonuna kadar Pro özellikleri kullanmaya devam edersiniz.</li>
+    <li>Cadastrum, ihlal halinde sözleşmeyi tek taraflı feshedebilir.</li>
+    <li>İade hakkınız için <a href="/iade-iptal">İade ve İptal Politikası</a>'na bakın.</li>
+  </ul>
+
+  <h2>10. Mücbir Sebepler</h2>
+  <p>
+    Doğal afet, savaş, salgın, internet altyapısı kesintisi, üçüncü taraf hizmet kesintisi
+    (Cloudflare, TKGM, e-Plan vb.) gibi mücbir sebep hallerinde Hizmet'in geçici olarak
+    sunulamamasından Cadastrum sorumlu tutulamaz.
+  </p>
+
+  <h2>11. Uyuşmazlıkların Çözümü</h2>
+  <p>
+    Bu sözleşmeden doğan uyuşmazlıklarda Türk hukuku uygulanır. Tüketici işlemlerinde
+    tüketicinin yerleşim yerindeki Tüketici Hakem Heyeti veya Tüketici Mahkemeleri,
+    diğer hallerde <strong>İstanbul Mahkemeleri ve İcra Daireleri</strong> yetkilidir.
+  </p>
+
+  <h2>12. Koşul Değişiklikleri</h2>
+  <p>
+    Bu Kullanım Koşulları zaman zaman güncellenebilir. Önemli değişikliklerde kayıtlı
+    kullanıcılara email ile bildirim yapılır. Değişiklik sonrası Hizmet'i kullanmaya devam
+    etmek yeni koşulların kabulü anlamına gelir.
+  </p>
+
+  <div class="bilgi">
+    <strong>Sorularınız için:</strong>
+    <a href="mailto:iletisim@cadastrum.com.tr">iletisim@cadastrum.com.tr</a> ·
+    <a href="/iletisim">iletişim formu</a>
+  </div>
+</Yasal>

@@ -1,0 +1,65 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Şifremi Unuttum — Cadastrum" description="Şifrenizi sıfırlayın.">
+  <section class="min-h-[80vh] flex items-center justify-center py-16 bg-slate-50">
+    <div class="w-full max-w-md mx-auto px-4">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div class="text-center mb-6">
+          <h1 class="font-display text-2xl font-bold text-imperial-700">Şifrenizi mi unuttunuz?</h1>
+          <p class="text-sm text-slate-500 mt-1">Email adresinizi girin, sıfırlama bağlantısı gönderelim.</p>
+        </div>
+
+        <form id="form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+            <input type="email" name="email" required autocomplete="email"
+              class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition" />
+          </div>
+          <div id="basarili" class="hidden text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2"></div>
+          <div id="hata" class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+          <button type="submit" id="submit-btn"
+            class="w-full py-2.5 rounded-lg bg-imperial text-white font-semibold text-sm hover:bg-imperial-700 transition disabled:opacity-50">
+            Sıfırlama bağlantısı gönder
+          </button>
+        </form>
+
+        <div class="text-center mt-6 text-sm text-slate-500">
+          <a href="/giris" class="text-imperial font-medium hover:underline">← Giriş ekranına dön</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { sifreSifirlamaIste } from "../lib/auth";
+
+  const form = document.getElementById("form") as HTMLFormElement;
+  const btn = document.getElementById("submit-btn") as HTMLButtonElement;
+  const hataEl = document.getElementById("hata") as HTMLDivElement;
+  const basariliEl = document.getElementById("basarili") as HTMLDivElement;
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hataEl.classList.add("hidden");
+    basariliEl.classList.add("hidden");
+    btn.disabled = true;
+    btn.textContent = "Gönderiliyor...";
+
+    const fd = new FormData(form);
+    try {
+      await sifreSifirlamaIste(fd.get("email") as string);
+      basariliEl.textContent = "Email adresinize sıfırlama bağlantısı gönderildi (eğer hesap varsa). 1 saat geçerli.";
+      basariliEl.classList.remove("hidden");
+      btn.textContent = "Gönderildi ✓";
+    } catch (err: any) {
+      hataEl.textContent = err.message ?? "Hata";
+      hataEl.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Sıfırlama bağlantısı gönder";
+    }
+  });
+</script>

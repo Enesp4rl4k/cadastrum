@@ -1,0 +1,53 @@
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
+.env
+.env.local
+
+# Internal scraper tooling — Sahibinden bootstrap. NOT for distribution.
+# Source code is tracked, but local data (cache, snapshots, progress) is not.
+tools/scraper/data/raw-ilanlar.json
+tools/scraper/data/raw-ilanlar.jsonl
+tools/scraper/data/progress.json
+tools/scraper/data/ilce-listesi.json
+tools/scraper/.playwright/
+tools/scraper/chrome-profile/
+
+# Aylık scraper — secret içeren batch ve log dosyaları
+scripts/aylik-scrape-baslat.bat
+logs/
+
+# Credential/secret içeren batch dosyaları — ASLA commit edilmez
+SET-SCRAPER-SECRET.bat
+SIFRE-SIFIRLA.bat
+
+# Büyük cache dosyaları (OSM/anayol/sahil/üniversite/metro — yeniden üretilebilir)
+data/.cache-*.json
+data/.ai-log*.txt
+data/.ozellik-log*.txt
+data/.seed-log.txt
+data/emlakjet-progress*.json
+data/emlakjet-scrape-progress.json
+
+# Pipeline ara çıktıları — SQL'den yeniden üretilir (nihai src/lib/data/*.ts track'te)
+# Zincir: emlakjet-*.sql → scrape-baseline-uret → knn-yumusatma → baseline-ts-uret
+data/mahalle-baseline-final.json
+data/mahalle-scrape-baseline.json
+data/mahalle-centroid.json
+data/ilce-baseline-scrape.json
+
+# Wrangler / Cloudflare local state
+.wrangler/
+
+# Build artifact (TS incremental)
+tsconfig.tsbuildinfo
+vite.config.ts.timestamp-*.mjs
+
+# IDE
+.vscode/
+.idea/
+
+# Zip dağıtım paketleri (dist'ten üretilir)
+cadastrum-extension-v*.zip

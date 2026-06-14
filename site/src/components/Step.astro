@@ -1,0 +1,17 @@
+---
+interface Props {
+  n: string;
+  title: string;
+  desc: string;
+}
+
+const { n, title, desc } = Astro.props;
+---
+
+<div class="relative">
+  <div class="font-display text-5xl font-bold text-brand/30 leading-none mb-3">
+    {n}
+  </div>
+  <h3 class="font-display text-xl font-semibold text-ink mb-2">{title}</h3>
+  <p class="text-sm text-slate-600 leading-relaxed">{desc}</p>
+</div>

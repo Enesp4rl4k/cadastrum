@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tema initial — flash önle */
+html.dark {
+  color-scheme: dark;
+  background-color: #0f172a;
+}
+
+html.dark body {
+  color: #e2e8f0;
+}
+
+/* MapLibre attribution dark mode */
+html.dark .maplibregl-ctrl-attrib {
+  background: rgba(15, 23, 42, 0.8) !important;
+  color: #cbd5e1 !important;
+}
+html.dark .maplibregl-ctrl-attrib a {
+  color: #94a3b8 !important;
+}
+
+/* ----- GLOBAL DARK MODE RETROFIT ---------------------------------------
+ * 30+ component'i tek tek düzeltmek yerine en yaygın Tailwind class'ları
+ * için dark mode override. Spesifik dark: variant'ları bu kuralları ezer.
+ * Bu sayede mevcut light-mode class'lar dark mode'da otomatik adapt olur.
+ */
+
+/* Backgrounds */
+html.dark .bg-white:not(.dark\:bg-white) { background-color: #1e293b; } /* slate-800 */
+html.dark .bg-slate-50:not([class*="dark:bg-"]) { background-color: #0f172a; } /* slate-900 */
+html.dark .bg-slate-100:not([class*="dark:bg-"]) { background-color: #1e293b; }
+html.dark .bg-slate-200:not([class*="dark:bg-"]) { background-color: #334155; } /* slate-700 */
+
+/* Borders */
+html.dark .border-slate-100:not([class*="dark:border-"]) { border-color: #334155; }
+html.dark .border-slate-200:not([class*="dark:border-"]) { border-color: #334155; }
+html.dark .border-slate-300:not([class*="dark:border-"]) { border-color: #475569; } /* slate-600 */
+
+/* Text — koyu tonlu metinleri açıklaştır */
+html.dark .text-slate-800:not([class*="dark:text-"]),
+html.dark .text-slate-900:not([class*="dark:text-"]),
+html.dark .text-tkgm-ink:not([class*="dark:text-"]) { color: #f1f5f9; } /* slate-100 */
+html.dark .text-slate-700:not([class*="dark:text-"]) { color: #e2e8f0; } /* slate-200 */
+html.dark .text-slate-600:not([class*="dark:text-"]) { color: #cbd5e1; } /* slate-300 */
+html.dark .text-slate-500:not([class*="dark:text-"]),
+html.dark .text-tkgm-muted:not([class*="dark:text-"]) { color: #94a3b8; } /* slate-400 */
+html.dark .text-slate-400:not([class*="dark:text-"]) { color: #64748b; } /* slate-500 */
+
+/* Hafif yarı saydam slate katmanları (bg-slate-50/60 vb.) */
+html.dark [class*="bg-slate-50/"]:not([class*="dark:bg-"]) { background-color: rgba(30, 41, 59, 0.6); }
+html.dark [class*="bg-slate-100/"]:not([class*="dark:bg-"]) { background-color: rgba(51, 65, 85, 0.5); }
+
+/* Form elemanları */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([class*="dark:bg-"]),
+html.dark select:not([class*="dark:bg-"]),
+html.dark textarea:not([class*="dark:bg-"]) {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b; }
+
+/* Card shadow — koyu modda glow yerine subtle border */
+html.dark .shadow-card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(51, 65, 85, 0.5); }
+html.dark .shadow-card-hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(71, 85, 105, 0.6); }
+
+/* Renkli pastel arkaplanlar (red-50, emerald-50, amber-50, violet-50, orange-50, sky-50) */
+html.dark .bg-red-50:not([class*="dark:bg-"]) { background-color: rgba(127, 29, 29, 0.25); }
+html.dark .bg-emerald-50:not([class*="dark:bg-"]) { background-color: rgba(6, 78, 59, 0.25); }
+html.dark .bg-amber-50:not([class*="dark:bg-"]) { background-color: rgba(120, 53, 15, 0.25); }
+html.dark .bg-violet-50:not([class*="dark:bg-"]),
+html.dark [class*="bg-violet-50/"]:not([class*="dark:bg-"]) { background-color: rgba(76, 29, 149, 0.25); }
+html.dark .bg-orange-50:not([class*="dark:bg-"]) { background-color: rgba(124, 45, 18, 0.25); }
+html.dark .bg-sky-50:not([class*="dark:bg-"]) { background-color: rgba(12, 74, 110, 0.25); }
+html.dark .bg-blue-50:not([class*="dark:bg-"]) { background-color: rgba(30, 58, 138, 0.25); }
+html.dark .bg-green-50:not([class*="dark:bg-"]) { background-color: rgba(20, 83, 45, 0.25); }
+
+/* Renkli border'lar */
+html.dark .border-red-200:not([class*="dark:border-"]) { border-color: rgba(127, 29, 29, 0.5); }
+html.dark .border-emerald-200:not([class*="dark:border-"]) { border-color: rgba(6, 78, 59, 0.5); }
+html.dark .border-amber-200:not([class*="dark:border-"]) { border-color: rgba(120, 53, 15, 0.5); }
+html.dark .border-violet-200:not([class*="dark:border-"]) { border-color: rgba(91, 33, 182, 0.5); }
+html.dark .border-orange-200:not([class*="dark:border-"]),
+html.dark .border-orange-300:not([class*="dark:border-"]) { border-color: rgba(154, 52, 18, 0.6); }
+
+/* hover:bg-slate-50, hover:bg-slate-100 — dark hover */
+html.dark .hover\:bg-slate-50:hover:not([class*="dark:hover:bg-"]) { background-color: #334155 !important; }
+html.dark .hover\:bg-slate-100:hover:not([class*="dark:hover:bg-"]) { background-color: #475569 !important; }
+html.dark .hover\:bg-orange-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(154, 52, 18, 0.4) !important; }
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}

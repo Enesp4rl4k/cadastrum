@@ -1,0 +1,25 @@
+---
+interface Props {
+  label: string;
+  v1: string;
+  v2: string;
+  v3: string;
+  v4: string;
+}
+
+const { label, v1, v2, v3, v4 } = Astro.props;
+
+function cellClass(v: string) {
+  if (v === "✓") return "text-accent-success font-semibold";
+  if (v === "—") return "text-slate-300";
+  return "text-slate-700";
+}
+---
+
+<tr>
+  <td class="py-3 px-4 text-slate-700 font-medium">{label}</td>
+  <td class={`text-center py-3 px-4 ${cellClass(v1)}`}>{v1}</td>
+  <td class={`text-center py-3 px-4 bg-brand/5 ${cellClass(v2)}`}>{v2}</td>
+  <td class={`text-center py-3 px-4 ${cellClass(v3)}`}>{v3}</td>
+  <td class={`text-center py-3 px-4 ${cellClass(v4)}`}>{v4}</td>
+</tr>

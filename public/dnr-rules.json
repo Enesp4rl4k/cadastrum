@@ -1,0 +1,73 @@
+[
+  {
+    "id": 1, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Referer", "operation": "set", "value": "https://parselsorgu.tkgm.gov.tr/" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" },
+      { "header": "Sec-Fetch-Mode", "operation": "remove" },
+      { "header": "Sec-Fetch-Dest", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||cbsapi.tkgm.gov.tr/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 2, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Referer", "operation": "set", "value": "https://parselsorgu.tkgm.gov.tr/" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||parselsorgu.tkgm.gov.tr/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 3, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||overpass-api.de/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 4, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||nominatim.openstreetmap.org/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 5, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||api.open-meteo.com/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 6, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||overpass.private.coffee/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 7, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||maps.mail.ru/", "resourceTypes": ["xmlhttprequest"] }
+  },
+  {
+    "id": 8, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "set", "value": "https://e-plan.gov.tr" },
+      { "header": "Referer", "operation": "set", "value": "https://e-plan.gov.tr/e-plan/html/imarDurumu.html" },
+      { "header": "Sec-Fetch-Site", "operation": "set", "value": "same-origin" },
+      { "header": "Sec-Fetch-Mode", "operation": "set", "value": "cors" },
+      { "header": "Sec-Fetch-Dest", "operation": "set", "value": "empty" }
+    ]},
+    "condition": { "urlFilter": "||e-plan.gov.tr/api/", "resourceTypes": ["xmlhttprequest"] }
+  }
+]

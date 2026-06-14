@@ -1,0 +1,26 @@
+name = "cadastrum-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-09"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Production: api.cadastrum.com (custom domain)
+# routes = [{ pattern = "api.cadastrum.com/*", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cadastrum-db"
+database_id = "6d8b1c0c-6cb7-420c-92a2-0dabe5735ae9"
+
+# Cron Triggers:
+#   "0 3 * * *"  — günde bir, istatistik refresh (mahalle_istatistik agregasyonu)
+#   "0 * * * *"  — saatlik, bildirim abonelik kontrolü (fiyat-degisimi/yeni-emsal)
+#   "0 2 1 * *"  — ayın 1'i 02:00 UTC, Sahibinden otomatik scraper run
+[triggers]
+crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *"]
+
+[vars]
+ENVIRONMENT = "production"
+RATE_LIMIT_PER_HOUR = "100"
+
+# Secret: SCRAPER_API_SECRET — wrangler secret put SCRAPER_API_SECRET

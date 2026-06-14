@@ -1,0 +1,57 @@
+name: Aylık Sahibinden Scraper
+
+# Tetik:
+#   1. Otomatik: her ayın 1'i 03:00 UTC (06:00 TR)
+#   2. Manuel: workflow_dispatch (Actions tab → Run workflow)
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+    inputs:
+      il:
+        description: "Tek il (örn istanbul, boş = tüm hedefler)"
+        required: false
+      maks:
+        description: "Max ilçe sayısı (varsayılan 80)"
+        required: false
+        default: "80"
+      maks_ilan:
+        description: "Her ilçeden max ilan (varsayılan 15)"
+        required: false
+        default: "15"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350  # 5h 50m, GitHub Actions free 6h limit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install --no-fund --no-audit
+
+      - name: Install Puppeteer (Chromium)
+        run: npm install puppeteer --no-fund --no-audit
+
+      - name: Run scraper
+        env:
+          SCRAPER_API_SECRET: ${{ secrets.SCRAPER_API_SECRET }}
+          API_BASE: https://cadastrum-api.cadastrum-tr.workers.dev/v1
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.il }}" ]; then ARGS="$ARGS --il=${{ inputs.il }}"; fi
+          if [ -n "${{ inputs.maks }}" ]; then ARGS="$ARGS --maks=${{ inputs.maks }}"; fi
+          if [ -n "${{ inputs.maks_ilan }}" ]; then ARGS="$ARGS --maks-ilan=${{ inputs.maks_ilan }}"; fi
+          # Headless şart (no display)
+          node scripts/aylik-scrape.mjs $ARGS
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "Scraper failed — backend cron will email admin on next monthly tick."

@@ -1,0 +1,372 @@
+/* Cadastrum — kurumsal restrained animasyon paleti
+ * Prensip: 200-500ms süre, ease-out, mesafeler küçük (< 24px),
+ * her şey isteğe bağlı (prefers-reduced-motion respect).
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* === Reveal on scroll ===
+   * data-reveal element'leri ilk başta görünmez/aşağıda durur,
+   * IntersectionObserver tarafından .is-visible eklenince ortaya çıkar.
+   */
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  [data-reveal].is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  /* Stagger child'lar */
+  [data-reveal-stagger] > * {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  [data-reveal-stagger].is-visible > *:nth-child(1) { transition-delay: 0ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(2) { transition-delay: 80ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(3) { transition-delay: 160ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(4) { transition-delay: 240ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(5) { transition-delay: 320ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(6) { transition-delay: 400ms; }
+  [data-reveal-stagger].is-visible > * {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* === Hero text reveal (sayfa yüklenince tetiklenir) === */
+  .hero-line {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: hero-line-in 800ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .hero-line:nth-child(2) { animation-delay: 100ms; }
+  .hero-line:nth-child(3) { animation-delay: 200ms; }
+  .hero-line:nth-child(4) { animation-delay: 300ms; }
+
+  @keyframes hero-line-in {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* === Marquee — sürekli kaydıran integration logoları === */
+  .marquee-track {
+    animation: marquee 40s linear infinite;
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* === Mock card pulsing dot === */
+  .pulse-dot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.5;
+    animation: pulse-ring 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+
+  /* === Mock card field reveal === */
+  .field-row {
+    opacity: 0;
+    transform: translateX(-8px);
+    animation: field-in 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .field-row:nth-child(1) { animation-delay: 800ms; }
+  .field-row:nth-child(2) { animation-delay: 1000ms; }
+  .field-row:nth-child(3) { animation-delay: 1200ms; }
+  .field-row:nth-child(4) { animation-delay: 1400ms; }
+  .field-row:nth-child(5) { animation-delay: 1600ms; }
+  @keyframes field-in {
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* === Number counter — basit fade-in (gerçek count-up JS ile) === */
+  .counter {
+    font-variant-numeric: tabular-nums;
+    transition: opacity 400ms ease-out;
+  }
+
+  /* === Button hover === */
+  .btn-primary, .btn-secondary {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out, background-color 200ms;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -8px rgba(13, 110, 253, 0.5);
+  }
+
+  /* === Card hover lift === */
+  .card-lift {
+    transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 250ms cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 250ms;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px -16px rgba(15, 23, 42, 0.15);
+  }
+
+  /* === Pricing popular tier glow === */
+  .tier-popular {
+    position: relative;
+    overflow: hidden;
+  }
+  .tier-popular::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #0d6efd, #60a5fa, #0d6efd);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    background-size: 200% 200%;
+    animation: gradient-shift 4s ease infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}
+
+/* === Mesh gradient (Imperial + Champagne, premium) === */
+.mesh-gradient {
+  background-color: #FBFAF7;
+  background-image:
+    radial-gradient(at 15% 15%, rgba(27, 42, 74, 0.08) 0px, transparent 50%),
+    radial-gradient(at 85% 5%, rgba(201, 168, 106, 0.10) 0px, transparent 45%),
+    radial-gradient(at 80% 85%, rgba(27, 42, 74, 0.05) 0px, transparent 50%);
+}
+
+/* === Aurora — yavaş yavaş kayan animasyonlu mesh (hero arka planı için) === */
+.aurora {
+  background-color: #FBFAF7;
+  background-image:
+    radial-gradient(at 20% 25%, rgba(27, 42, 74, 0.10) 0px, transparent 45%),
+    radial-gradient(at 75% 10%, rgba(201, 168, 106, 0.14) 0px, transparent 40%),
+    radial-gradient(at 60% 75%, rgba(44, 66, 117, 0.07) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, rgba(201, 168, 106, 0.05) 0px, transparent 45%);
+  background-size: 200% 200%;
+  background-position: 0% 0%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aurora {
+    animation: aurora-drift 20s ease-in-out infinite alternate;
+  }
+}
+@keyframes aurora-drift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+/* === Dot grid pattern (imperial subtle) === */
+.dot-grid {
+  background-image: radial-gradient(circle at 1px 1px, rgba(27, 42, 74, 0.10) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* ========================================================================
+ * HERO BÜYÜK AÇILIŞ SEKANSI — sinematik, ~2 saniye orchestrated
+ * Sıra: aurora fade → pill scale → text mask wipe → underline draw →
+ *       açıklama fade → CTA stagger → trust badge → mock card slide
+ * ======================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* 0-400ms: Aurora arka plan opacity'si fade-in */
+  .hero-stage {
+    animation: stage-in 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+  }
+  @keyframes stage-in {
+    to { opacity: 1; }
+  }
+
+  /* 200ms: Yeni özellik pill — küçük scale-up + opacity */
+  .hero-pill {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.92);
+    animation: hero-pill-in 600ms cubic-bezier(0.34, 1.4, 0.64, 1) 200ms forwards;
+  }
+  @keyframes hero-pill-in {
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* 400-1400ms: Hero text — clip-path wipe (aşağıdan yukarıya beliren maske) */
+  .hero-headline > .hero-line {
+    /* Bu .hero-line var olan animasyonu override ediyor */
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 100% 0);
+    animation: hero-mask-reveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .hero-headline > .hero-line:nth-child(1) { animation-delay: 400ms; }
+  .hero-headline > .hero-line:nth-child(2) { animation-delay: 600ms; }
+  .hero-headline > .hero-line:nth-child(3) { animation-delay: 800ms; }
+  @keyframes hero-mask-reveal {
+    from { clip-path: inset(0 0 100% 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+
+  /* Champagne underline — "resmi veriyle" altında çizilen çizgi (1100ms) */
+  .accent-underline {
+    position: relative;
+    display: inline-block;
+  }
+  .accent-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.06em;
+    height: 0.12em;
+    background: linear-gradient(90deg, #C9A86A 0%, #D2B375 100%);
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: underline-draw 700ms cubic-bezier(0.65, 0, 0.35, 1) 1200ms forwards;
+    border-radius: 999px;
+  }
+  @keyframes underline-draw {
+    to { transform: scaleX(1); }
+  }
+
+  /* 1500ms: Açıklama fade-up */
+  .hero-desc {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: hero-fade-up 700ms cubic-bezier(0.16, 1, 0.3, 1) 1500ms forwards;
+  }
+  @keyframes hero-fade-up {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 1700-1850ms: CTA butonları stagger */
+  .hero-cta-group > * {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: hero-fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .hero-cta-group > *:nth-child(1) { animation-delay: 1700ms; }
+  .hero-cta-group > *:nth-child(2) { animation-delay: 1850ms; }
+
+  /* 2000ms: Trust badges */
+  .hero-trust {
+    opacity: 0;
+    animation: stage-in 600ms ease-out 2000ms forwards;
+  }
+
+  /* 800ms: Mock card sağdan slide-in + scale */
+  .hero-mock-wrap {
+    opacity: 0;
+    transform: translateX(40px) scale(0.96);
+    animation: mock-slide-in 1000ms cubic-bezier(0.16, 1, 0.3, 1) 800ms forwards;
+  }
+  @keyframes mock-slide-in {
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
+  /* Mock card içindeki field-row reveal'lerini geciktirelim — mock card geldikten sonra */
+  .hero-mock-wrap .field-row {
+    animation-delay: calc(var(--field-delay, 0ms) + 1500ms);
+  }
+
+  /* Background highlight — büyük açılışta hero zemininde geçen ışık efekti */
+  .hero-shimmer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .hero-shimmer::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -100%;
+    width: 50%;
+    height: 200%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(201, 168, 106, 0.15),
+      transparent
+    );
+    transform: rotate(15deg);
+    animation: shimmer-sweep 2.5s cubic-bezier(0.16, 1, 0.3, 1) 200ms forwards;
+  }
+  @keyframes shimmer-sweep {
+    to {
+      left: 200%;
+    }
+  }
+}
+
+/* Reduced motion: animasyonsuz, anında görünür */
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage,
+  .hero-pill,
+  .hero-headline > .hero-line,
+  .hero-desc,
+  .hero-cta-group > *,
+  .hero-trust,
+  .hero-mock-wrap {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    animation: none !important;
+  }
+  .accent-underline::after {
+    transform: scaleX(1) !important;
+    animation: none !important;
+  }
+  .hero-shimmer::before {
+    display: none;
+  }
+}
+
+/* === Reduced motion respect === */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal-stagger] > *,
+  .hero-line,
+  .field-row {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  .marquee-track {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,137 @@
+---
+export const prerender = true;
+import Yasal from "../layouts/YasalLayout.astro";
+---
+
+<Yasal
+  title="Mesafeli Satış Sözleşmesi — Cadastrum"
+  description="Cadastrum abonelik hizmetlerine ait mesafeli satış sözleşmesi."
+  baslik="Mesafeli Satış Sözleşmesi"
+  altBaslik="Pro, Pro+ ve Kurumsal abonelikleri için 6502 sayılı Tüketicinin Korunması Hakkında Kanun kapsamında ön bilgilendirme."
+  guncellendi="9 Mayıs 2026"
+>
+  <h2>1. Taraflar</h2>
+  <h3>1.1. Satıcı</h3>
+  <ul>
+    <li>Ünvan: <strong>[İşletme Adı]</strong></li>
+    <li>Adres: <strong>[Açık Adres]</strong></li>
+    <li>Mersis / Vergi No: <strong>[Numara]</strong></li>
+    <li>Email: <a href="mailto:iletisim@cadastrum.com.tr">iletisim@cadastrum.com.tr</a></li>
+    <li>Web: <a href="https://cadastrum.com.tr">cadastrum.com.tr</a></li>
+  </ul>
+
+  <h3>1.2. Alıcı (Tüketici / Müşteri)</h3>
+  <p>
+    Cadastrum sitesi üzerinden Pro, Pro+ veya Kurumsal aboneliği satın alan gerçek veya
+    tüzel kişidir. Satın alma sırasında girilen ad, email ve fatura bilgileri sözleşmeye
+    esas alınır.
+  </p>
+
+  <h2>2. Sözleşme Konusu Hizmet</h2>
+  <p>
+    Cadastrum web tabanlı SaaS aboneliği ve Chrome eklentisi üzerinden sunulan dijital
+    hizmettir. Plan özellikleri ve fiyatları
+    <a href="/fiyat">cadastrum.com.tr/fiyat</a> sayfasında ayrıntılı olarak yer alır:
+  </p>
+
+  <table>
+    <tr>
+      <th>Plan</th>
+      <th>Aylık Bedel</th>
+      <th>Yıllık Bedel</th>
+      <th>KDV</th>
+    </tr>
+    <tr><td>Free</td><td>₺0</td><td>—</td><td>Dahil</td></tr>
+    <tr><td>Pro</td><td>₺499</td><td>₺4.999 (iki ay hediye)</td><td>Dahil</td></tr>
+    <tr><td>Pro+</td><td>₺999</td><td>₺9.999 (iki ay hediye)</td><td>Dahil</td></tr>
+    <tr><td>Kurumsal</td><td>₺5.999+</td><td>Görüşmeyle</td><td>Dahil</td></tr>
+  </table>
+  <p>Tüm fiyatlar Türk Lirası cinsindendir, KDV dahildir.</p>
+
+  <h2>3. Ödeme</h2>
+  <ul>
+    <li>Ödemeler Visa, Mastercard ve Troy kart ile çevrimiçi yapılır.</li>
+    <li>Ödeme işlemi sözleşmeli ödeme sağlayıcısı üzerinden gerçekleştirilir; kart bilgileri Cadastrum sunucularında saklanmaz.</li>
+    <li>Aylık abonelikler her ay otomatik yenilenir; yıllık abonelikler her yıl yenilenir.</li>
+    <li>Ödeme başarısız olursa abonelik 3 deneme sonrasında pasif duruma geçer.</li>
+    <li>e-Arşiv fatura ödeme ardından kayıtlı email adresine gönderilir.</li>
+  </ul>
+
+  <h2>4. İfa Süresi ve Yöntemi</h2>
+  <p>
+    Yeni ücretli planlarda satın alma sonrası <strong>7 günlük ücretsiz deneme süresi</strong>
+    başlar. Bu süre içinde ödeme yöntemi kaydedilir ancak tahsilat yapılmaz. 8. günde aylık
+    veya yıllık ücret otomatik tahsil edilir ve hizmet ifa edilmiş sayılır. Deneme süresi
+    içinde aboneliğin iptali halinde tahsilat yapılmaz.
+  </p>
+  <p>
+    Free plan veya kurumsal sözleşme kapsamındaki müşteriler için deneme süresi uygulanmaz;
+    hizmet sözleşme kapsamında elektronik ortamda anında ifa edilir.
+  </p>
+
+  <h2>5. Cayma Hakkı</h2>
+  <p>
+    6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği
+    kapsamında abonelik hizmeti, <strong>elektronik ortamda anında ifa edilen hizmet</strong>
+    niteliğindedir (Yönetmelik Madde 15/ğ). İfaya başlanmasıyla yasal cayma hakkı sona erer.
+  </p>
+  <p>
+    Bunun yerine Cadastrum, satın alma kararının risk almadan verilebilmesi için
+    <strong>7 günlük ücretsiz deneme</strong> sunar. Deneme süresi içinde iptal serbesttir
+    ve hiçbir ücret tahsil edilmez. Ücretli döneme geçtikten sonra iade yapılmaz; ancak
+    abonelik istenildiği zaman iptal edilebilir. Ayrıntılar için
+    <a href="/iade-iptal">İade ve İptal Politikası</a>'na bakınız.
+  </p>
+
+  <h2>6. Aboneliğin İptali ve Yenilenmesi</h2>
+  <ul>
+    <li>Abonelik hesap panelinizden istediğiniz zaman iptal edilebilir.</li>
+    <li>İptal sonrası mevcut dönem sonuna kadar Pro özellikleri kullanmaya devam edebilirsiniz; sonraki dönem ücretlendirilmez.</li>
+    <li>Aktif aboneliklerde fiyat artışı önceden bildirilir ve mevcut dönem boyunca eski fiyat geçerli kalır.</li>
+  </ul>
+
+  <h2>7. Onay Beyanı</h2>
+  <p>
+    Satın alma işlemi yapan tüketici, ödeme öncesinde aşağıdaki hususları okuduğunu ve
+    onayladığını kabul eder:
+  </p>
+  <ol>
+    <li>Hizmetin niteliği, özellikleri ve fiyatı</li>
+    <li>Ödeme şekli ve fatura bilgisi</li>
+    <li>Hizmetin elektronik ortamda anında ifa edilen bir hizmet olduğu</li>
+    <li>İfaya başlanmasıyla yasal cayma hakkının sona ereceği (Madde 15/ğ)</li>
+    <li>Cadastrum'un gönüllü olarak tanıdığı 7 günlük iade hakkı koşulları</li>
+    <li>Bu Mesafeli Satış Sözleşmesi ve <a href="/kullanim-kosullari">Kullanım Koşulları</a></li>
+  </ol>
+
+  <h2>8. Mücbir Sebep</h2>
+  <p>
+    Doğal afet, salgın, savaş, internet altyapısı kesintisi gibi mücbir sebeplerle
+    hizmetin geçici olarak sunulamamasından Satıcı sorumlu tutulamaz. 24 saati aşan
+    kesintilerde abonelik süresi otomatik olarak uzatılır.
+  </p>
+
+  <h2>9. Uyuşmazlık ve Yetkili Merci</h2>
+  <p>
+    Bu sözleşmeden doğan uyuşmazlıklarda Ticaret Bakanlığınca her yıl ilan edilen
+    parasal sınırlar dahilinde, alıcının veya satıcının yerleşim yerindeki
+    <strong>Tüketici Hakem Heyetleri</strong> ve <strong>Tüketici Mahkemeleri</strong>
+    yetkilidir.
+  </p>
+  <p>
+    2026 yılı için: 30.000 TL altı uyuşmazlıklarda İlçe Tüketici Hakem Heyeti, üzeri
+    için Tüketici Mahkemesi yetkilidir.
+  </p>
+
+  <h2>10. Yürürlük</h2>
+  <p>
+    Bu sözleşme, müşterinin satın alma sırasında onay kutusunu işaretlemesiyle elektronik
+    olarak akdedilir ve yürürlüğe girer. Sözleşmenin bir kopyası kayıtlı email adresine
+    gönderilir; ayrıca hesap panelinden indirilebilir.
+  </p>
+
+  <div class="bilgi">
+    <strong>Sözleşmeyle ilgili sorularınız için:</strong>
+    <a href="mailto:iletisim@cadastrum.com.tr">iletisim@cadastrum.com.tr</a>
+  </div>
+</Yasal>

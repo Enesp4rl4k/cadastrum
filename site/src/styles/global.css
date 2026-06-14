@@ -1,0 +1,104 @@
+@import "./animations.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    /* Soft warm white — krem değil, beyaz değil; kurumsal premium taban */
+    background-color: #FBFAF7;
+    color: #0f172a;
+    font-family: Inter, system-ui, sans-serif;
+  }
+
+  ::selection {
+    background-color: rgb(27 42 74 / 0.15);
+    color: #1B2A4A;
+  }
+
+  /* :where() specificity'yi 0'a düşürür → Tailwind text-white, text-imperial gibi
+     utility class'ları override edebilir. Default rengi imperial, ama dark hero'larda
+     text-white ile geçersiz kılınabilir. */
+  :where(h1, h2, h3, h4) {
+    font-family: "Fraunces", Georgia, serif;
+    letter-spacing: -0.02em;
+    color: #1B2A4A;
+  }
+}
+
+@layer components {
+  .container-prose {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 72rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-prose { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .container-prose { padding-left: 2rem; padding-right: 2rem; }
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    border-radius: 0.375rem;
+    background-color: #1B2A4A;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    transition: background-color 200ms, transform 200ms, box-shadow 200ms;
+  }
+  .btn-primary:hover {
+    background-color: #0F1A33;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -8px rgba(27, 42, 74, 0.5);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    border: 1px solid rgb(27 42 74 / 0.20);
+    background-color: rgb(255 255 255 / 0.70);
+    backdrop-filter: blur(6px);
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1B2A4A;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    transition: background-color 200ms, border-color 200ms;
+  }
+  .btn-secondary:hover {
+    background-color: white;
+    border-color: rgb(27 42 74 / 0.40);
+  }
+
+  .btn-champagne {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    background-color: #C9A86A;
+    color: #1B2A4A;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 4px 6px -1px rgb(201 168 106 / 0.3);
+    transition: background-color 200ms;
+  }
+  .btn-champagne:hover { background-color: #D2B375; }
+}

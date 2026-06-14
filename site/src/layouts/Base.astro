@@ -1,0 +1,283 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import InstallPrompt from "../components/InstallPrompt.astro";
+import KvkkConsent from "../components/KvkkConsent.astro";
+import { ClientRouter } from "astro:transitions";
+
+interface BreadcrumbItem {
+  ad: string;
+  url: string;
+}
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  /** SEO: sayfa için breadcrumb hierarchisi (Anasayfa > Veri > İl > İlçe) */
+  breadcrumb?: BreadcrumbItem[];
+  /** SEO: sayfa tipini belirt (article, place, product) */
+  pageType?: "WebSite" | "Article" | "Place" | "Product";
+  /** SEO: sayfanın ana anahtar kelimeleri */
+  keywords?: string[];
+  /** SEO: robots meta override (örn: "noindex, nofollow" admin sayfaları için) */
+  robots?: string;
+}
+
+const {
+  title = "Cadastrum — TKGM Parsel Sorgu, e-Plan İmar, Arsa Fiyat Tahmini Chrome Eklentisi",
+  description = "Sahibinden ve Hepsiemlak ilanlarını TKGM resmi parsel kaydıyla saniyede doğrulayın. e-Plan imar sorgusu, 65.000 mahalle bazlı arsa/konut/tarla fiyat tahmini, AFAD deprem ve taşkın risk analizi — tek Chrome eklentisinde.",
+  ogImage = "/og.png",
+  breadcrumb,
+  pageType = "WebSite",
+  keywords = [
+    "TKGM parsel sorgu", "arsa fiyat", "tarla fiyat", "konut fiyat",
+    "e-Plan imar", "Sahibinden parsel doğrulama", "Hepsiemlak parsel",
+    "mahalle bazlı emsal fiyat", "ada parsel sorgu", "arsa yatırım",
+    "deprem zonu", "AFAD haritası", "Cadastrum",
+  ],
+  robots = "index, follow, max-image-preview:large",
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
+---
+
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1B2A4A" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- PWA Service Worker registration — Faz 5 Sprint K -->
+    <script is:inline>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch((err) => {
+            console.warn("[pwa] SW registration failed:", err);
+          });
+        });
+      }
+    </script>
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content={keywords.join(", ")} />
+    <meta name="author" content="Cadastrum" />
+    <meta name="robots" content={robots} />
+    <meta name="googlebot" content={robots} />
+    <link rel="canonical" href={canonicalURL} />
+
+    <!-- Türkçe varsayılan + alternatif diller (ileride EN için) -->
+    <link rel="alternate" hreflang="tr" href={canonicalURL} />
+    <link rel="alternate" hreflang="x-default" href={canonicalURL} />
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={new URL(ogImage, Astro.site)} />
+    <meta property="og:locale" content="tr_TR" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap"
+    />
+
+    <!-- Schema.org: SoftwareApplication + WebSite + Organization -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://cadastrum.com.tr/#extension",
+          "name": "Cadastrum",
+          "description": "TKGM resmi parsel verisi, e-Plan imar, 65.000 mahalle bazlı emsal fiyat ve AI fiyat tahmini Chrome eklentisi",
+          "applicationCategory": "BusinessApplication",
+          "applicationSubCategory": "Real Estate",
+          "operatingSystem": "Chrome",
+          "url": "https://cadastrum.com.tr",
+          "downloadUrl": "https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej",
+          "offers": [
+            { "@type": "Offer", "name": "Free Plan", "price": "0", "priceCurrency": "TRY" },
+            { "@type": "Offer", "name": "Pro Plan", "price": "499", "priceCurrency": "TRY", "billingPeriod": "P1M" },
+            { "@type": "Offer", "name": "Pro+ Plan", "price": "999", "priceCurrency": "TRY", "billingPeriod": "P1M" },
+          ],
+          "featureList": [
+            "TKGM resmi parsel sorgu",
+            "e-Plan imar durumu",
+            "Mahalle bazlı emsal fiyat",
+            "AI fiyat tahmini (Gemini 2.5 Flash)",
+            "AFAD deprem zonu",
+            "Çevre Bakanlığı taşkın haritası",
+            "Sahibinden ve Hepsiemlak entegrasyonu",
+            "PDF rapor üretimi",
+          ],
+          "publisher": { "@id": "https://cadastrum.com.tr/#organization" },
+          "inLanguage": "tr-TR",
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://cadastrum.com.tr/#website",
+          "url": "https://cadastrum.com.tr",
+          "name": "Cadastrum",
+          "description": "Türkiye gayrimenkul ve parsel zekâ platformu",
+          "inLanguage": "tr-TR",
+          "publisher": { "@id": "https://cadastrum.com.tr/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://cadastrum.com.tr/veri/{search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://cadastrum.com.tr/#organization",
+          "name": "Cadastrum",
+          "url": "https://cadastrum.com.tr",
+          "logo": "https://cadastrum.com.tr/favicon.svg",
+          "sameAs": ["https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej"],
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "email": "iletisim@cadastrum.com.tr",
+            "availableLanguage": ["Turkish"],
+          },
+        },
+        ...(breadcrumb && breadcrumb.length > 0 ? [{
+          "@type": "BreadcrumbList",
+          "@id": canonicalURL + "#breadcrumb",
+          "itemListElement": breadcrumb.map((b, i) => ({
+            "@type": "ListItem",
+            "position": i + 1,
+            "name": b.ad,
+            "item": b.url.startsWith("http") ? b.url : `https://cadastrum.com.tr${b.url}`,
+          })),
+        }] : []),
+      ],
+    })} />
+
+    <!-- Cloudflare Web Analytics — KVKK uyumlu, çerezsiz -->
+    <!-- Token Cloudflare Dashboard → Analytics → Web Analytics → Add a site sonrası alınır -->
+    <!-- <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "YOUR_TOKEN"}'></script> -->
+
+    <!-- Astro 5 View Transitions: sayfa geçişleri akıcı olsun -->
+    <ClientRouter />
+
+    <!--
+      Path-based router fallback — Cloudflare Pages _redirects çalışmadığında
+      /veri/{il}/{ilce} ve /veri/{il}/{ilce}/{mahalle} path'leri detay sayfasına yönlendirilir.
+      Önce HEAD tag çalışır → location.replace anasayfa render etmeden detay'a gider.
+    -->
+    <script is:inline>
+      (function () {
+        var p = location.pathname.replace(/\/+$/, "");
+        var parts = p.split("/").filter(Boolean);
+        if (parts[0] === "veri" && parts.length >= 3) {
+          var qs = location.search ? location.search + "&" : "?";
+          var detayUrl = "/veri/detay/" + qs + "p=" + parts.slice(1).join("/");
+          location.replace(detayUrl);
+        }
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <Header />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    <InstallPrompt />
+    <KvkkConsent />
+
+    <!-- Reveal-on-scroll + Counter — vanilla JS, dependency yok -->
+    <script>
+      // IntersectionObserver: data-reveal / data-reveal-stagger element'lerini görünüme alınca aktive eder
+      const initReveal = () => {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("is-visible");
+                observer.unobserve(entry.target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.1 },
+        );
+
+        document
+          .querySelectorAll<HTMLElement>("[data-reveal], [data-reveal-stagger]")
+          .forEach((el) => observer.observe(el));
+      };
+
+      // Counter — data-counter="30" gibi target değer
+      const animateCounter = (el: HTMLElement) => {
+        const target = parseInt(el.dataset.counter ?? "0", 10);
+        const suffix = el.dataset.counterSuffix ?? "";
+        const duration = 1400;
+        const startTime = performance.now();
+
+        const tick = (now: number) => {
+          const progress = Math.min((now - startTime) / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+          el.textContent = Math.round(target * eased).toString() + suffix;
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      };
+
+      const initCounters = () => {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                animateCounter(entry.target as HTMLElement);
+                observer.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.5 },
+        );
+
+        document
+          .querySelectorAll<HTMLElement>("[data-counter]")
+          .forEach((el) => observer.observe(el));
+      };
+
+      // Astro View Transitions için her sayfa yüklenmesinde çalıştır
+      const init = () => {
+        initReveal();
+        initCounters();
+      };
+      document.addEventListener("astro:page-load", init);
+      // Fallback: ilk yükleme
+      if (document.readyState !== "loading") init();
+      else document.addEventListener("DOMContentLoaded", init);
+    </script>
+
+    <!-- Extension token senkronizasyonu — oturum açıksa taze tier'ı extension'a push et -->
+    <script>
+      import { extensionSenkronBaslat } from "../lib/auth";
+      extensionSenkronBaslat();
+      document.addEventListener("astro:page-load", () => extensionSenkronBaslat());
+    </script>
+  </body>
+</html>

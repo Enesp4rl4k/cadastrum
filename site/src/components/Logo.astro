@@ -1,0 +1,34 @@
+---
+/**
+ * Cadastrum Logo — V3 Geometric (Compass/fintech)
+ *
+ * Konsept:
+ *   - Imperial Blue daire (yumuşak, kurumsal güven)
+ *   - Beyaz arc "C" (geometric, parsel sınırı sembolü)
+ *   - Champagne nokta (parselin "kilit" / değer biçilmiş noktası)
+ *   - İnce gold iç halka (premium dokunuş)
+ */
+
+interface Props {
+  size?: number | string;
+  className?: string;
+}
+
+const { size = 32, className = "" } = Astro.props;
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 64 64"
+  xmlns="http://www.w3.org/2000/svg"
+  class={className}
+  role="img"
+  aria-label="Cadastrum"
+>
+  <circle cx="32" cy="32" r="30" fill="#1B2A4A"/>
+  <path d="M 32 12 A 20 20 0 1 0 50 38"
+        stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="38" r="3.5" fill="#C9A86A" stroke="#1B2A4A" stroke-width="0.8"/>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#C9A86A" stroke-width="0.5" opacity="0.5"/>
+</svg>

@@ -1,0 +1,160 @@
+---
+export const prerender = true;
+import Yasal from "../layouts/YasalLayout.astro";
+---
+
+<Yasal
+  title="Gizlilik Politikası — Cadastrum"
+  description="Cadastrum kişisel veri işleme ve gizlilik politikası. KVKK uyumlu."
+  baslik="Gizlilik Politikası"
+  altBaslik="Cadastrum'un kişisel verilerinizi nasıl işlediğine, sakladığına ve koruduğuna dair açıklama."
+  guncellendi="9 Mayıs 2026"
+>
+  <p>
+    Bu Gizlilik Politikası, Cadastrum hizmetinin (web sitesi <strong>cadastrum.com.tr</strong>,
+    Chrome eklentisi ve API) kullanımı sırasında elde edilen kişisel verilerin
+    6698 sayılı <strong>Kişisel Verilerin Korunması Kanunu</strong> ("KVKK") kapsamında
+    nasıl işlendiğini açıklar.
+  </p>
+
+  <h2>1. Veri Sorumlusu</h2>
+  <p>
+    Hizmet, <strong>[İşletme Adı]</strong> ("Cadastrum", "biz") tarafından sunulmaktadır.
+    İletişim: <a href="mailto:iletisim@cadastrum.com.tr">iletisim@cadastrum.com.tr</a>
+  </p>
+
+  <h2>2. Toplanan Veriler</h2>
+
+  <h3>2.1. Hesap verileri (siteye kayıtta)</h3>
+  <ul>
+    <li>Email adresi (zorunlu)</li>
+    <li>Ad (opsiyonel)</li>
+    <li>Şifre özeti (PBKDF2-SHA256 ile hashlenmiş, açık metin saklanmaz)</li>
+    <li>Kayıt ve son giriş tarihi</li>
+  </ul>
+
+  <h3>2.2. Abonelik verileri (Pro üyelerde)</h3>
+  <ul>
+    <li>Plan tipi ve geçerlilik tarihi</li>
+    <li>Fatura bilgileri (kart numarası ödeme sağlayıcısında, bizde tutulmaz)</li>
+  </ul>
+
+  <h3>2.3. Eklentiden alınan veriler</h3>
+  <p>
+    Chrome eklentisi varsayılan olarak <strong>tarayıcı dışına hiçbir veri göndermez</strong>.
+    Topluluk verisine katkı sağlamak isteyen kullanıcılar Ayarlar bölümünden açıkça izin
+    verirse aşağıdaki bilgiler anonim olarak iletilir:
+  </p>
+  <ul>
+    <li>İlandaki konum (il/ilçe/mahalle, ada/parsel)</li>
+    <li>İlan fiyatı ve metrekare</li>
+    <li>Kategori (arsa, tarla, konut)</li>
+    <li>İlan kaynağı (Sahibinden veya Hepsiemlak)</li>
+  </ul>
+  <p>Eklenti aşağıdakileri <strong>asla iletmez</strong>:</p>
+  <ul>
+    <li>Kullanıcının kimliği veya hesabı</li>
+    <li>Tarama geçmişi veya kişisel notlar</li>
+    <li>İlandaki telefon, isim, adres bilgileri</li>
+  </ul>
+
+  <h3>2.4. Teknik veriler (web ziyaretinde)</h3>
+  <ul>
+    <li>IP adresi (rate-limit için, en fazla 24 saat saklanır)</li>
+    <li>Tarayıcı tipi ve dil</li>
+    <li>Ziyaret edilen sayfa ve süre (analitik amaçlı, anonim)</li>
+  </ul>
+
+  <h2>3. İşleme Amaçları</h2>
+  <ul>
+    <li>Hesap oluşturma ve kimlik doğrulama</li>
+    <li>Abonelik takibi ve fatura</li>
+    <li>Hizmetin teknik olarak çalıştırılması</li>
+    <li>Kötüye kullanım önleme ve güvenlik</li>
+    <li>Mahalle bazlı emsal fiyat hesabı (anonim havuz)</li>
+    <li>Yasal yükümlülüklerin yerine getirilmesi</li>
+  </ul>
+
+  <h2>4. Hukuki Sebep</h2>
+  <p>
+    KVKK Madde 5 kapsamında: sözleşmenin kurulması ve ifası, kanunlarda öngörülmesi
+    (faturalama, vergi), meşru menfaat (güvenlik, dolandırıcılık önleme), ve Madde 5/2-a
+    açık rıza (eklentinin opt-in topluluk paylaşım özelliği için).
+  </p>
+
+  <h2>5. Veri Saklama Süresi</h2>
+  <table>
+    <tr><th>Veri</th><th>Süre</th></tr>
+    <tr><td>Hesap bilgileri</td><td>Hesap aktif olduğu sürece + iptal sonrası 1 yıl</td></tr>
+    <tr><td>Fatura kayıtları</td><td>Vergi mevzuatı gereği 10 yıl</td></tr>
+    <tr><td>IP rate-limit</td><td>En fazla 24 saat</td></tr>
+    <tr><td>Anonim ilan verisi</td><td>Süresiz (kimlikten arındırılmış)</td></tr>
+    <tr><td>Site analitiği</td><td>13 ay</td></tr>
+  </table>
+
+  <h2>6. Veri Aktarımı</h2>
+  <p>
+    Cadastrum verilerinizi pazarlama amacıyla üçüncü taraflara satmaz veya paylaşmaz.
+    Hizmetin çalışması için aşağıdaki <strong>veri işleyenler</strong> kullanılır:
+  </p>
+  <ul>
+    <li><strong>Cloudflare, Inc.</strong> — site barındırma, API, veritabanı (D1). Sunucular AB ve ABD bölgelerinde.</li>
+    <li>Ödeme sağlayıcısı — Pro abonelik için (entegrasyon sonrası bu bölüm güncellenecek).</li>
+    <li>Email gönderim sağlayıcısı — şifre sıfırlama, doğrulama için (entegrasyon sonrası belirtilecek).</li>
+  </ul>
+  <p>
+    Yurt dışı aktarımlar KVKK Madde 9 kapsamında yeterli koruma sağlayan ülkeler ya da
+    ek güvenceli sözleşmelerle gerçekleştirilir.
+  </p>
+
+  <h2>7. Çerezler</h2>
+  <p>
+    Site sadece <strong>kesinlikle gerekli</strong> çerezleri kullanır: oturum tokenı,
+    tercih kayıtları. Üçüncü taraf izleme veya reklam çerezi yoktur. Kullanıcı tarayıcı
+    ayarlarından çerezleri silebilir.
+  </p>
+
+  <h2>8. Haklarınız (KVKK Madde 11)</h2>
+  <p>Kişisel verisi işlenen herkes Cadastrum'a başvurarak şu haklarını kullanabilir:</p>
+  <ul>
+    <li>Verilerinin işlenip işlenmediğini öğrenme</li>
+    <li>İşlenmişse buna ilişkin bilgi talep etme</li>
+    <li>İşleme amacını ve amaca uygun kullanılıp kullanılmadığını öğrenme</li>
+    <li>Verilerin yurt içi/dışı aktarıldığı üçüncü kişileri bilme</li>
+    <li>Eksik veya yanlış verilerin düzeltilmesini isteme</li>
+    <li>Verilerin silinmesini veya yok edilmesini isteme</li>
+    <li>Düzeltme/silme işleminin aktarılan üçüncü kişilere bildirilmesini isteme</li>
+    <li>Otomatik analiz sonucu aleyhine bir sonuç çıkmasına itiraz etme</li>
+    <li>Hukuka aykırı işlemden zarar görülmüşse tazminat talep etme</li>
+  </ul>
+  <p>
+    Başvurular <a href="mailto:kvkk@cadastrum.com.tr">kvkk@cadastrum.com.tr</a> adresine veya
+    iletişim formu üzerinden yapılır. En geç 30 gün içinde cevaplanır.
+  </p>
+
+  <h2>9. Veri Güvenliği</h2>
+  <ul>
+    <li>Tüm trafik HTTPS (TLS 1.3) ile şifrelenir.</li>
+    <li>Şifreler PBKDF2-SHA256 (100.000 iterasyon) ile hashlenip saklanır.</li>
+    <li>Veritabanı erişimi sadece yetkili API anahtarlarıyla mümkün.</li>
+    <li>Düzenli güvenlik denetimi ve günlük yedekleme uygulanır.</li>
+  </ul>
+
+  <h2>10. Çocukların Verisi</h2>
+  <p>
+    Cadastrum 18 yaş altı kullanıcılara yönelik bir hizmet değildir; bilerek bu yaş altından
+    veri toplamaz.
+  </p>
+
+  <h2>11. Politika Güncellemeleri</h2>
+  <p>
+    Bu politika değişebilir. Önemli değişikliklerde kayıtlı kullanıcılara email ile
+    bildirim yapılır ve değişiklik tarihi bu sayfada güncellenir.
+  </p>
+
+  <div class="bilgi">
+    <strong>Soru ve başvurularınız için:</strong>
+    <a href="mailto:kvkk@cadastrum.com.tr">kvkk@cadastrum.com.tr</a> ·
+    <a href="/iletisim">iletişim formu</a>
+  </div>
+</Yasal>

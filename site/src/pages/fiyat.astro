@@ -1,0 +1,234 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+import PricingCard from "../components/PricingCard.astro";
+import Row from "../components/Row.astro";
+
+import { CHROME_STORE_URL, LAUNCHED } from "../config/launch";
+import { LEMON_PRO_VARIANT, LEMON_PROPLUS_VARIANT } from "../lib/config";
+
+// Free tier CTA — launched ise Chrome Store, değilse kayıt
+const cwsUrl = LAUNCHED ? CHROME_STORE_URL : "/kayit";
+
+// LemonSqueezy checkout URL üret. Variant ID set edilmemişse /kayit'a düşer
+// (kullanıcı önce kayıt olur, sonra /hesap'tan upgrade alır).
+const LEMON_STORE = "cadastrum"; // LemonSqueezy store slug
+function lemonUrl(variant: string): string {
+  if (!variant) return "/kayit?planlama=upgrade";
+  return `https://${LEMON_STORE}.lemonsqueezy.com/buy/${variant}?embed=1`;
+}
+const PRO_URL = lemonUrl(LEMON_PRO_VARIANT);
+const PROPLUS_URL = lemonUrl(LEMON_PROPLUS_VARIANT);
+
+const tiers = [
+  {
+    tier: "Free",
+    fiyat: "₺0",
+    fiyatAlt: "süresiz",
+    hedef: "Yeni başlayan, hobi yatırımcı",
+    ozellikler: [
+      { text: "Günde 5 TKGM sorgusu" },
+      { text: "Sahibinden ilan tanıma" },
+      { text: "e-Plan'ı tek tıkla açma" },
+      { text: "Mahalle baseline fiyatı" },
+      { text: "Deprem ve taşkın uyarıları" },
+    ],
+    cta: "Chrome'a ekle",
+    ctaUrl: cwsUrl,
+  },
+  {
+    tier: "Pro",
+    fiyat: "₺499",
+    fiyatAlt: "/ ay · yıllık ₺4.999 (iki ay hediye)",
+    hedef: "Aktif yatırımcı ve emlakçılar",
+    ozellikler: [
+      { text: "Sınırsız TKGM sorgusu", vurgulu: true },
+      { text: "Çoklu kaynak fiyat tahmini", vurgulu: true },
+      { text: "Hepsiemlak ilan tanıma", vurgulu: true },
+      { text: "e-Plan imar sorgusu otomatik", vurgulu: true },
+      { text: "TKGM yoğunluk haritası" },
+      { text: "Bölge taraması" },
+      { text: "Aylık 10 PDF rapor" },
+      { text: "Favoriler ve sorgu geçmişi" },
+    ],
+    cta: "7 gün ücretsiz dene",
+    ctaUrl: PRO_URL,
+    populer: true,
+    deneme: true,
+  },
+  {
+    tier: "Pro+",
+    fiyat: "₺999",
+    fiyatAlt: "/ ay · yıllık ₺9.999 (iki ay hediye)",
+    hedef: "Danışman ve küçük ofisler",
+    ozellikler: [
+      { text: "Pro'daki her şey" },
+      { text: "Sınırsız markalı PDF rapor", vurgulu: true },
+      { text: "Toplu parsel analizi", vurgulu: true },
+      { text: "Bölge profili ve filtreleme" },
+      { text: "TCMB endeksiyle kalibrasyon" },
+      { text: "Sapma düzeltme (cross-validation)" },
+      { text: "Sınırsız kayıtlı tarama" },
+      { text: "Excel ve CSV dışa aktarım" },
+    ],
+    cta: "7 gün ücretsiz dene",
+    ctaUrl: PROPLUS_URL,
+    deneme: true,
+  },
+  {
+    tier: "Kurumsal",
+    fiyat: "₺5.999+",
+    fiyatAlt: "/ ay · görüşmeyle",
+    hedef: "Ofis ağları ve müteahhitler",
+    ozellikler: [
+      { text: "Pro+'taki her şey" },
+      { text: "5 ve üzeri kullanıcı, ortak veri", vurgulu: true },
+      { text: "REST API erişimi", vurgulu: true },
+      { text: "Beyaz etiket seçeneği" },
+      { text: "4 saat içinde destek" },
+      { text: "CRM/ERP entegrasyonu" },
+      { text: "%99.5 erişim taahhüdü" },
+      { text: "Yıllık portföy raporu" },
+    ],
+    cta: "İletişime geçin",
+    ctaUrl: "mailto:satis@cadastrum.com.tr",
+  },
+];
+
+const sssKisa = [
+  {
+    q: "Aboneliği nasıl iptal ederim?",
+    a: "Hesap panelinden tek tıkla iptal edebilirsiniz. Dönem sonuna kadar Pro özellikleri açık kalır.",
+  },
+  {
+    q: "Yıllık ödemede indirim var mı?",
+    a: "Yıllık ödeyenler iki ay hediye alır. Pro yıllık ₺4.999, Pro+ yıllık ₺9.999. Aylık ödemeye göre yaklaşık %17 daha uygun.",
+  },
+  {
+    q: "Hangi ödeme yöntemleri kabul ediliyor?",
+    a: "Visa, Mastercard ve Troy kartlarıyla TL ödeme. Fiyatlara KDV dahildir.",
+  },
+  {
+    q: "Pro ile Pro+ arasındaki fark nedir?",
+    a: "Pro bireysel kullanım için: sınırsız sorgu, fiyat tahmini ve aylık 10 PDF rapor. Pro+ ofisler için: sınırsız PDF, toplu parsel analizi, TCMB endeksiyle kalibrasyon ve Excel dışa aktarım.",
+  },
+  {
+    q: "Deneme süresi var mı? İade alabilir miyim?",
+    a: "Pro ve Pro+ planlarında ilk 7 gün ücretsiz deneme sunuyoruz. Bu süre içinde iptal edersen kartından ücret çekilmez. Ücretli döneme geçtikten sonra iade yapılmaz; ancak istediğin zaman iptal edebilirsin ve dönem sonuna kadar Pro özellikler aktif kalır.",
+  },
+];
+---
+
+<Base
+  title="Fiyatlandırma — Cadastrum"
+  description="Cadastrum tier'ları: ücretsiz başlangıç, Pro ₺299/ay, Pro+ ₺699/ay ve Kurumsal ₺4.999+. Yıllık 2 ay ücretsiz. 7 gün koşulsuz iade."
+>
+  <!-- Header -->
+  <section class="border-b border-slate-100 bg-slate-50">
+    <div class="container-prose py-16 md:py-20 text-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-champagne-100 text-champagne-700 text-xs font-medium mb-4">
+        <span class="w-1.5 h-1.5 rounded-full bg-champagne-500 animate-pulse"></span>
+        7 gün ücretsiz dene · İlk 100 üyeye 6 ay %40 indirim · kod ERKEN100
+      </div>
+      <h1 class="font-display text-4xl md:text-5xl font-bold text-ink tracking-tight">
+        İhtiyacınız kadar <span class="text-brand">plan</span>.
+      </h1>
+      <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+        Ücretsizden başlayın. İş büyüyünce plan değiştirmek tek tık,
+        sözleşme ya da uzun taahhüt yok.
+      </p>
+    </div>
+  </section>
+
+  <!-- Tier kartları -->
+  <section class="py-16 md:py-24">
+    <div class="container-prose">
+      <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        {tiers.map((t) => <PricingCard {...t} />)}
+      </div>
+
+      <p class="mt-10 text-center text-sm text-slate-500">
+        Tüm fiyatlar TL · KDV dahil · 7 gün ücretsiz deneme · İstediğin zaman iptal
+      </p>
+      <p class="mt-2 text-center text-xs text-slate-400 max-w-2xl mx-auto">
+        Pro ve Pro+ planlarında ilk 7 gün ücret tahsil edilmez; deneme süresi içinde iptal edersen kart kesilmez.
+        Ücretli döneme geçtikten sonra iade yapılmaz, ancak istediğin zaman iptal edebilirsin
+        (<a href="/iade-iptal" class="hover:underline">detaylar</a>).
+      </p>
+    </div>
+  </section>
+
+  <!-- Karşılaştırma tablosu -->
+  <section class="bg-slate-50 border-y border-slate-100 py-16 md:py-24">
+    <div class="container-prose">
+      <h2 class="font-display text-3xl font-bold text-ink text-center mb-12">
+        Detaylı karşılaştırma
+      </h2>
+
+      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="text-left py-3 px-4 font-semibold text-slate-700">Özellik</th>
+              <th class="py-3 px-4 font-semibold text-slate-700">Free</th>
+              <th class="py-3 px-4 font-semibold text-brand bg-brand/5">Pro</th>
+              <th class="py-3 px-4 font-semibold text-slate-700">Pro+</th>
+              <th class="py-3 px-4 font-semibold text-slate-700">Kurumsal</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <Row label="TKGM sorgu / gün" v1="5" v2="∞" v3="∞" v4="∞" />
+            <Row label="Sahibinden ilanı tespit" v1="✓" v2="✓" v3="✓" v4="✓" />
+            <Row label="Hepsiemlak ilanı tespit" v1="—" v2="✓" v3="✓" v4="✓" />
+            <Row label="e-Plan resmi imar" v1="manuel" v2="otomatik" v3="otomatik" v4="otomatik" />
+            <Row label="Mahalle baseline (65k)" v1="✓" v2="✓" v3="✓" v4="✓" />
+            <Row label="Multi-source AI tahmin" v1="—" v2="✓" v3="✓" v4="✓" />
+            <Row label="Deprem + taşkın risk" v1="✓" v2="✓" v3="✓" v4="✓" />
+            <Row label="TCMB KFE bölge endeks" v1="—" v2="—" v3="✓" v4="✓" />
+            <Row label="Cross-validation bias düzeltme" v1="—" v2="—" v3="✓" v4="✓" />
+            <Row label="TKGM heatmap" v1="—" v2="✓" v3="✓" v4="✓" />
+            <Row label="PDF rapor / ay" v1="—" v2="10" v3="∞" v4="∞" />
+            <Row label="Bölge taraması" v1="—" v2="✓" v3="✓" v4="✓" />
+            <Row label="Portföy analizi (toplu parsel)" v1="—" v2="—" v3="✓" v4="✓" />
+            <Row label="Excel/CSV export" v1="—" v2="—" v3="✓" v4="✓" />
+            <Row label="Markalı rapor (white-label)" v1="—" v2="—" v3="—" v4="✓" />
+            <Row label="API erişimi (REST)" v1="—" v2="—" v3="—" v4="✓" />
+            <Row label="Çoklu kullanıcı" v1="—" v2="—" v3="—" v4="5+" />
+            <Row label="SLA garantisi" v1="—" v2="—" v3="—" v4="%99.5" />
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SSS kısa -->
+  <section class="py-16 md:py-24">
+    <div class="container-prose">
+      <div class="max-w-2xl mx-auto">
+        <h2 class="font-display text-3xl font-bold text-ink text-center mb-10">
+          Sıkça sorulanlar
+        </h2>
+
+        <div class="space-y-4">
+          {
+            sssKisa.map((s) => (
+              <details class="rounded-lg border border-slate-200 bg-white px-5 py-4 group">
+                <summary class="cursor-pointer font-semibold text-ink text-base flex justify-between items-center list-none">
+                  {s.q}
+                  <span class="text-slate-400 group-open:rotate-180 transition" aria-hidden="true">▾</span>
+                </summary>
+                <p class="mt-3 text-sm text-slate-600 leading-relaxed">{s.a}</p>
+              </details>
+            ))
+          }
+        </div>
+
+        <div class="mt-8 text-center">
+          <a href="/sss" class="text-sm font-medium text-brand hover:text-brand-700">
+            Tüm soruları gör →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

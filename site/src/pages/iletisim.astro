@@ -1,0 +1,147 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="İletişim — Cadastrum" description="Cadastrum ekibine ulaşın: sorularınız, geri bildirim, kurumsal teklif.">
+  <section class="bg-slate-50 border-b border-slate-200">
+    <div class="container-prose py-12 md:py-16">
+      <nav class="text-xs text-slate-500 mb-4">
+        <a href="/" class="hover:text-imperial">Cadastrum</a>
+        <span class="mx-1.5 text-slate-300">/</span>
+        <span>İletişim</span>
+      </nav>
+      <h1 class="font-display text-3xl md:text-4xl font-bold text-imperial-700 tracking-tight">İletişim</h1>
+      <p class="mt-3 text-slate-600 max-w-2xl">
+        Sorularınız, geri bildirim, beta erişim ya da kurumsal teklif için aşağıdaki adreslerden
+        veya formdan ulaşabilirsiniz.
+      </p>
+    </div>
+  </section>
+
+  <section class="container-prose py-12 md:py-16">
+    <div class="grid md:grid-cols-3 gap-8">
+      <!-- İletişim adresleri -->
+      <div class="md:col-span-1 space-y-6">
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">Genel</div>
+          <a href="mailto:iletisim@cadastrum.com.tr" class="text-imperial-700 font-medium hover:underline">iletisim@cadastrum.com.tr</a>
+          <p class="text-xs text-slate-500 mt-1">Sorular, geri bildirim, beta erişim talebi</p>
+        </div>
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">Satış / Kurumsal</div>
+          <a href="mailto:satis@cadastrum.com.tr" class="text-imperial-700 font-medium hover:underline">satis@cadastrum.com.tr</a>
+          <p class="text-xs text-slate-500 mt-1">Kurumsal lisans, API erişimi, beyaz etiket</p>
+        </div>
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">İade ve İptal</div>
+          <a href="mailto:iade@cadastrum.com.tr" class="text-imperial-700 font-medium hover:underline">iade@cadastrum.com.tr</a>
+          <p class="text-xs text-slate-500 mt-1">Abonelik iadesi, fatura sorunları</p>
+        </div>
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">KVKK / Veri Sorumlusu</div>
+          <a href="mailto:kvkk@cadastrum.com.tr" class="text-imperial-700 font-medium hover:underline">kvkk@cadastrum.com.tr</a>
+          <p class="text-xs text-slate-500 mt-1">Veri silme, erişim, düzeltme talepleri</p>
+        </div>
+        <div class="pt-4 border-t border-slate-200">
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">Yanıt Süresi</div>
+          <p class="text-sm text-slate-600">
+            Genel sorularda ortalama 24 saat içinde, en geç 2 iş günü içinde dönüş yapıyoruz.
+            Aciliyeti yüksek konularda mesaj başlığına "Acil" yazmanız önerilir.
+          </p>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <div class="md:col-span-2">
+        <form id="iletisim-form" class="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 space-y-4">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Adınız</label>
+              <input type="text" name="ad" required
+                class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+              <input type="email" name="email" required
+                class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Konu</label>
+            <select name="konu" required
+              class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition bg-white">
+              <option value="">Seçin...</option>
+              <option value="genel">Genel soru</option>
+              <option value="hata">Hata bildirimi</option>
+              <option value="oneri">Özellik önerisi</option>
+              <option value="beta">Beta erişim</option>
+              <option value="satis">Kurumsal teklif</option>
+              <option value="iade">İade / fatura</option>
+              <option value="kvkk">KVKK başvurusu</option>
+              <option value="diger">Diğer</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mesajınız</label>
+            <textarea name="mesaj" required rows="6" minlength="10"
+              class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition resize-y"></textarea>
+          </div>
+
+          <div class="flex items-start gap-2.5">
+            <input type="checkbox" id="kvkk-onay" required class="mt-0.5 h-4 w-4 rounded border-slate-300 text-imperial focus:ring-imperial" />
+            <label for="kvkk-onay" class="text-xs text-slate-600 leading-relaxed">
+              Mesajımın işlenmesi için <a href="/gizlilik" class="text-imperial hover:underline">Gizlilik Politikası</a>'nı
+              okuduğumu ve email adresimin yanıt amacıyla işlenmesini kabul ediyorum.
+            </label>
+          </div>
+
+          <div id="durum" class="hidden text-sm rounded-lg px-3 py-2"></div>
+
+          <button type="submit" id="submit-btn"
+            class="w-full md:w-auto px-6 py-2.5 rounded-lg bg-imperial text-white font-semibold text-sm hover:bg-imperial-700 transition disabled:opacity-50">
+            Gönder
+          </button>
+        </form>
+
+        <p class="text-xs text-slate-500 mt-3 leading-relaxed">
+          Form henüz arka uca bağlı değil; gönder butonuna bastığınızda mesajınız ön-doldurulmuş
+          email olarak email istemcinizde açılır. Doğrudan
+          <a href="mailto:iletisim@cadastrum.com.tr" class="text-imperial hover:underline">iletisim@cadastrum.com.tr</a>
+          adresine de yazabilirsiniz.
+        </p>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const form = document.getElementById("iletisim-form") as HTMLFormElement;
+  form?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const ad = fd.get("ad") as string;
+    const email = fd.get("email") as string;
+    const konu = fd.get("konu") as string;
+    const mesaj = fd.get("mesaj") as string;
+    const konuMap: Record<string, string> = {
+      genel: "Genel soru",
+      hata: "Hata bildirimi",
+      oneri: "Özellik önerisi",
+      beta: "Beta erişim",
+      satis: "Kurumsal teklif",
+      iade: "İade / fatura",
+      kvkk: "KVKK başvurusu",
+      diger: "Diğer",
+    };
+    const hedef = konu === "satis" ? "satis@cadastrum.com.tr"
+      : konu === "iade" ? "iade@cadastrum.com.tr"
+      : konu === "kvkk" ? "kvkk@cadastrum.com.tr"
+      : "iletisim@cadastrum.com.tr";
+    const subject = `[${konuMap[konu] ?? konu}] ${ad}`;
+    const body = `Merhaba,\n\n${mesaj}\n\n—\n${ad}\n${email}`;
+    window.location.href = `mailto:${hedef}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  });
+</script>

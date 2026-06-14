@@ -1,0 +1,19 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Çıkış — Cadastrum">
+  <div class="max-w-md mx-auto px-4 py-20 text-center">
+    <div class="text-4xl mb-4">👋</div>
+    <h1 class="text-2xl font-bold mb-2">Görüşmek üzere</h1>
+    <p class="text-slate-600 text-sm mb-6">Oturum kapatıldı. Birkaç saniye içinde ana sayfaya yönlendirileceksin.</p>
+    <a href="/" class="text-imperial underline">Hemen git →</a>
+  </div>
+
+  <script>
+    import { cikisYap } from "../lib/auth";
+    cikisYap();
+    setTimeout(() => { location.href = "/"; }, 2000);
+  </script>
+</Base>

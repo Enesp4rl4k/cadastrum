@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cadastrum">
+  <!-- VERSİYON 2: Solid Monogram — JLL/CBRE tarzı, modern kurumsal -->
+  <!-- Imperial blue solid kare, beyaz serif "C", champagne aksent çizgi -->
+
+  <!-- Solid imperial blue background, hafif yuvarlatılmış köşeler -->
+  <rect width="64" height="64" rx="4" fill="#1B2A4A"/>
+
+  <!-- Champagne accent: sol üstten sağ alta giden ince diagonal -->
+  <path d="M 0 4 L 4 0" stroke="#C9A86A" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M 60 64 L 64 60" stroke="#C9A86A" stroke-width="1.5" stroke-linecap="square"/>
+
+  <!-- Beyaz serif "C" — bold, geniş -->
+  <text x="32" y="48" font-family="'Source Serif 4', Georgia, serif"
+        font-size="46" font-weight="600"
+        fill="#FFFFFF" text-anchor="middle"
+        letter-spacing="-1.5">C</text>
+
+  <!-- Altta küçük gold underline (premium hint) -->
+  <rect x="22" y="54" width="20" height="1.5" fill="#C9A86A"/>
+</svg>

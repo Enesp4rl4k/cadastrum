@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cadastrum">
+  <!-- V3: Geometric "C" — Compass/modern fintech tarzı -->
+  <circle cx="32" cy="32" r="30" fill="#1B2A4A"/>
+  <!-- "C" şekli — kalın arc, açık halka -->
+  <path d="M 32 12 A 20 20 0 1 0 50 38"
+        stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <!-- Champagne nokta — C'nin sağ ucunda (parselin kilit noktası) -->
+  <circle cx="50" cy="38" r="3.5" fill="#C9A86A" stroke="#1B2A4A" stroke-width="0.8"/>
+  <!-- İnce iç halka (lüks dokunuş) -->
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#C9A86A" stroke-width="0.5" opacity="0.5"/>
+</svg>

@@ -1,0 +1,588 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Parsel Değer Raporu — Cadastrum" description="Profesyonel parsel değerleme raporu — yatırımcı ve danışmanlar için.">
+  <!-- Toolbar (print'te gizli) -->
+  <div class="bg-slate-50 border-b border-slate-200 print:hidden">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div class="text-sm text-slate-600">
+        <strong class="text-slate-800">Cadastrum Rapor</strong> · yazdırılabilir PDF
+      </div>
+      <div class="flex gap-2">
+        <button id="yazdir-btn" class="px-4 py-2 bg-imperial text-white rounded-lg text-sm font-semibold hover:bg-imperial-700 shadow-sm">
+          📄 PDF / Yazdır
+        </button>
+        <a href="/sorgu" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg text-sm font-medium">
+          ← Yeni Sorgu
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="icerik" class="rapor-container">
+    <div class="text-center text-slate-500 py-20">Rapor yükleniyor…</div>
+  </div>
+
+  <style is:global>
+    /* ── Print stilleri — A4 sayfa yapısı ── */
+    @page {
+      size: A4;
+      margin: 18mm 15mm 20mm 15mm;
+      @bottom-center {
+        content: "Cadastrum · " counter(page) " / " counter(pages);
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 9pt;
+        color: #64748b;
+      }
+    }
+    @media print {
+      body { background: white !important; }
+      header, footer, nav, .print-hide { display: none !important; }
+      .rapor-container { background: white; padding: 0 !important; max-width: 100% !important; }
+      .page-break { page-break-before: always; break-before: page; }
+      .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      .rapor-section { page-break-inside: avoid; }
+    }
+    @media screen {
+      .rapor-container {
+        max-width: 210mm;
+        margin: 24px auto;
+        padding: 18mm 15mm;
+        background: white;
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 0.04), 0 4px 24px rgb(0 0 0 / 0.08);
+        border-radius: 4px;
+        min-height: 297mm;
+      }
+    }
+
+    /* ── Rapor tipografi ── */
+    .rapor-h1 { font-family: "Crimson Pro", "Source Serif Pro", serif; font-size: 28pt; font-weight: 700; color: #1B2A4A; letter-spacing: -0.02em; line-height: 1.1; }
+    .rapor-h2 { font-family: "Crimson Pro", serif; font-size: 16pt; font-weight: 700; color: #1B2A4A; letter-spacing: -0.01em; margin-top: 1.5rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #C9A875; }
+    .rapor-h3 { font-family: "Crimson Pro", serif; font-size: 12pt; font-weight: 600; color: #334155; margin-top: 1rem; margin-bottom: 0.5rem; }
+    .rapor-body { font-size: 10pt; line-height: 1.6; color: #334155; }
+    .rapor-meta { font-size: 9pt; color: #64748b; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+    .rapor-mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+    /* ── Kapak ── */
+    .kapak {
+      min-height: 260mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      background: linear-gradient(135deg, #1B2A4A 0%, #2A3E5A 60%, #1B2A4A 100%);
+      color: white;
+      padding: 30mm 20mm;
+      margin: -18mm -15mm 0 -15mm;
+    }
+    .kapak::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at 30% 20%, rgba(201, 168, 117, 0.15), transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(201, 168, 117, 0.1), transparent 50%);
+      pointer-events: none;
+    }
+    .kapak > * { position: relative; z-index: 1; }
+    .kapak-marka { font-family: "Crimson Pro", serif; font-size: 14pt; letter-spacing: 0.1em; color: #C9A875; font-weight: 600; }
+    .kapak-baslik { font-family: "Crimson Pro", serif; font-size: 36pt; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+    .kapak-alt { font-size: 11pt; color: rgba(255,255,255,0.85); line-height: 1.6; max-width: 80%; }
+
+    /* ── Değer kartı ── */
+    .deger-kart {
+      background: linear-gradient(135deg, #fef9f0 0%, #faf3e3 100%);
+      border: 2px solid #C9A875;
+      border-radius: 16px;
+      padding: 28px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .deger-buyuk { font-family: "Crimson Pro", serif; font-size: 42pt; font-weight: 700; color: #1B2A4A; letter-spacing: -0.03em; line-height: 1; }
+    .deger-aralik { font-size: 11pt; color: #5a4a30; margin-top: 8px; }
+
+    /* ── Tablolar ── */
+    .rapor-tablo { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    .rapor-tablo th { background: #f8fafc; padding: 8px 12px; text-align: left; font-weight: 600; color: #1e293b; border-bottom: 2px solid #cbd5e1; }
+    .rapor-tablo td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; }
+    .rapor-tablo tr:last-child td { border-bottom: none; }
+
+    /* ── Kutu/Card grid ── */
+    .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+    .info-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+    .info-kart { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; }
+    .info-kart-vurgu { background: #fef9f0; border-color: #C9A875; }
+    .info-kart-vurgu .info-deger { color: #1B2A4A; font-size: 16pt; }
+    .info-label { font-size: 9pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .info-deger { font-size: 14pt; font-weight: 700; color: #1e293b; margin-top: 4px; }
+    .info-not { font-size: 8pt; color: #94a3b8; margin-top: 2px; }
+
+    /* ── Güven göstergesi ── */
+    .guven-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #e2e8f0; margin: 8px 0; }
+    .guven-fill { height: 100%; border-radius: 999px; transition: width 0.5s; }
+
+    /* ── Halka diyagramı ── */
+    .halka-svg { display: block; margin: 16px auto; }
+
+    /* ── Yasal kutu ── */
+    .yasal-kutu {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 9pt;
+      color: #78350f;
+      line-height: 1.6;
+    }
+
+    /* ── İmza alanı ── */
+    .imza-alani {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 40px;
+      padding-top: 20px;
+    }
+    .imza-kutu {
+      border-top: 1px solid #334155;
+      padding-top: 6px;
+      font-size: 9pt;
+      color: #64748b;
+    }
+  </style>
+
+  <script>
+    import { PUBLIC_API_BASE, BRAND } from "../lib/config";
+
+    const params = new URLSearchParams(location.search);
+    const lat = parseFloat(params.get("lat") ?? "");
+    const lng = parseFloat(params.get("lng") ?? "");
+    const m2 = parseFloat(params.get("m2") ?? "");
+    const kategori = params.get("kategori") ?? "arsa";
+    const adres = params.get("adres") ?? "";
+
+    const icerik = document.getElementById("icerik") as HTMLDivElement;
+    document.getElementById("yazdir-btn")?.addEventListener("click", () => window.print());
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      icerik.innerHTML = `
+        <div class="text-center py-20">
+          <h2 class="rapor-h1 mb-4">Geçersiz parametreler</h2>
+          <p class="text-slate-500 mb-6">Rapor üretmek için lat, lng ve kategori gerekli.</p>
+          <a href="/sorgu" class="inline-block px-6 py-3 bg-imperial text-white rounded-lg font-semibold">Sorgu Sayfasına Git</a>
+        </div>`;
+    } else {
+      yukleVeRender();
+    }
+
+    function fmt(n: number): string { return n.toLocaleString("tr-TR"); }
+    function fmtTL(n: number): string {
+      if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + " Milyar ₺";
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + " Milyon ₺";
+      if (n >= 1000) return (n / 1000).toFixed(0) + " bin ₺";
+      return fmt(n) + " ₺";
+    }
+    function fmtTarih(d: Date = new Date()): string {
+      return d.toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric" });
+    }
+    function raporNo(): string {
+      // Deterministik kısa rapor no — lat/lng/zaman bazlı
+      const seed = Math.abs((lat * 1e4) | 0) ^ Math.abs((lng * 1e4) | 0) ^ Date.now();
+      return "CDR-" + seed.toString(36).toUpperCase().slice(0, 8);
+    }
+
+    async function reverseGeocode(lat: number, lng: number): Promise<string> {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&accept-language=tr`);
+        const j = await res.json();
+        return j.display_name ?? "";
+      } catch { return ""; }
+    }
+
+    async function yukleVeRender() {
+      icerik.innerHTML = '<div class="text-center py-20 text-slate-500">Rapor verisi toplanıyor...</div>';
+
+      // Paralel sorgular: spatial + reverse geocode
+      const body: Record<string, unknown> = { lat, lng, kategori };
+      if (Number.isFinite(m2) && m2 > 0) body.m2 = m2;
+
+      const [sorguRes, adresMetin] = await Promise.all([
+        fetch(`${PUBLIC_API_BASE}/sorgu`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).then((r) => r.json()).catch(() => null),
+        adres ? Promise.resolve(adres) : reverseGeocode(lat, lng),
+      ]);
+
+      if (!sorguRes || !sorguRes.ok) {
+        icerik.innerHTML = `<div class="text-red-700 p-6">Rapor üretilemedi: ${sorguRes?.error ?? "Bağlantı hatası"}</div>`;
+        return;
+      }
+
+      const data = sorguRes;
+      const tarih = fmtTarih();
+      const noRapor = raporNo();
+      const guven = data.guven_skoru ?? 0;
+      const guvenRenk = guven >= 80 ? "#10b981" : guven >= 60 ? "#3b82f6" : guven >= 40 ? "#f59e0b" : "#ef4444";
+      const guvenAck = guven >= 80 ? "Yüksek güven" : guven >= 60 ? "Orta güven" : guven >= 40 ? "Sınırlı güven" : "Düşük güven";
+
+      const kaynakAck: Record<string, string> = {
+        "spatial-radius": "Yarıçap içi gerçek emsal ilanların distance-decay ağırlıklı medyan analizi",
+        "mahalle-istatistik": "En yakın mahallenin ilan havuzundan hesaplanmış agrega istatistik (Q1/Medyan/Q3)",
+        "il-fallback": "İl bazlı yaklaşık baseline — bölgede yeterli emsal verisi henüz oluşmamış",
+      };
+
+      // Halka dağılımı SVG (donut chart benzeri)
+      const halka = data.halka_dagilimi;
+      const toplamEmsal = halka.r0_1km + halka.r1_3km + halka.r3_5km;
+      const halkaSvg = toplamEmsal > 0 ? halkaDonutSvg(halka, toplamEmsal) : "";
+
+      // Toplam değer kartı
+      const toplamKart = data.toplam_tl ? `
+        <div class="deger-kart avoid-break">
+          <div class="rapor-meta" style="color: #5a4a30;">Tahmini Parsel Değeri</div>
+          <div class="deger-buyuk">${fmtTL(data.toplam_tl.orta)}</div>
+          <div class="deger-aralik">
+            %95 güven aralığı: <strong>${fmtTL(data.toplam_tl.alt)}</strong> — <strong>${fmtTL(data.toplam_tl.ust)}</strong>
+          </div>
+          <div style="margin-top: 10px; font-size: 9pt; color: #5a4a30;">
+            ${fmt(data.m2)} m² × ortalama ${fmt(data.medyan_tlm2 ?? 0)} ₺/m²
+          </div>
+        </div>` : `
+        <div class="deger-kart avoid-break">
+          <div class="rapor-meta" style="color: #5a4a30;">Birim Fiyat Tahmini</div>
+          <div class="deger-buyuk">${fmt(data.medyan_tlm2 ?? 0)} ₺/m²</div>
+          <div class="deger-aralik">
+            %95 güven aralığı: <strong>${fmt(data.alt_tlm2 ?? 0)}</strong> — <strong>${fmt(data.ust_tlm2 ?? 0)} ₺/m²</strong>
+          </div>
+          <div style="margin-top: 10px; font-size: 9pt; color: #5a4a30;">
+            Parsel alanı belirtilmedi · toplam TL için /sorgu'dan m² girin
+          </div>
+        </div>`;
+
+      icerik.innerHTML = `
+        <!-- ═══════════ KAPAK ═══════════ -->
+        <section class="kapak">
+          <div>
+            <div class="kapak-marka">CADASTRUM</div>
+            <div style="font-size: 9pt; color: rgba(255,255,255,0.6); margin-top: 4px; letter-spacing: 0.1em;">PARSEL DEĞERLEME · ${tarih.toUpperCase()}</div>
+          </div>
+
+          <div>
+            <div style="font-size: 10pt; color: rgba(201,168,117,0.9); letter-spacing: 0.15em; margin-bottom: 12px;">RAPOR NO ${noRapor}</div>
+            <div class="kapak-baslik">Parsel Değer<br/>Raporu</div>
+            <div class="kapak-alt" style="margin-top: 20px;">
+              ${kategori === "arsa" ? "Arsa" : kategori === "tarla" ? "Tarla" : "Konut"} kategorisinde
+              ${adresMetin ? adresMetin.split(",").slice(0, 3).join(",") : `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
+              koordinatlarında bulunan parsel için hazırlanmış,
+              spatial emsal modeli ve istatistik analiz tabanlı değer tahmini.
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 16px;">
+            <div>
+              <div style="font-size: 8pt; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em;">Hazırlayan</div>
+              <div style="font-size: 11pt; margin-top: 4px;">cadastrum.com.tr</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 8pt; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em;">Metodoloji</div>
+              <div style="font-size: 11pt; margin-top: 4px;">Spatial Hedonic Model v2</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 1. YÖNETİCİ ÖZETİ ═══════════ -->
+        <section class="page-break rapor-section" style="margin-top: 0;">
+          <div class="rapor-meta">Bölüm 1</div>
+          <h1 class="rapor-h1" style="margin-top: 4px;">Yönetici Özeti</h1>
+
+          ${toplamKart}
+
+          <div class="info-grid avoid-break">
+            <div class="info-kart">
+              <div class="info-label">Birim Medyan</div>
+              <div class="info-deger">${fmt(data.medyan_tlm2 ?? 0)} ₺/m²</div>
+            </div>
+            <div class="info-kart info-kart-vurgu">
+              <div class="info-label" style="color: #5a4a30;">Güven Skoru</div>
+              <div class="info-deger">%${guven}</div>
+              <div class="info-not" style="color: #78350f;">${guvenAck}</div>
+            </div>
+            <div class="info-kart">
+              <div class="info-label">Emsal Sayısı</div>
+              <div class="info-deger">${data.emsal_adet}</div>
+              <div class="info-not">${data.radius_km} km yarıçap</div>
+            </div>
+          </div>
+
+          <div class="rapor-body" style="margin-top: 16px;">
+            <p>
+              Bu rapor, parselin konumuna en yakın <strong>${data.emsal_adet}</strong> emsal ilanın
+              ${data.radius_km} km yarıçaplı analizi sonucunda hazırlanmıştır. Tahmin
+              metodu <strong>${(data.kaynak ?? "").replace(/-/g, " ")}</strong> olup,
+              <strong>${guvenAck.toLowerCase()}</strong> seviyesindedir.
+              ${data.kaynak === "il-fallback" ? "<br/><br/><strong>Önemli:</strong> Bu bölgede henüz yeterli ilan emsali oluşmadığından il-bazlı yaklaşık değerler kullanılmıştır. Doğruluk artırmak için Chrome eklentimizden parsele dair zenginleştirilmiş analiz yapılması önerilir." : ""}
+            </p>
+          </div>
+        </section>
+
+        <!-- ═══════════ 2. PARSEL BİLGİLERİ ═══════════ -->
+        <section class="rapor-section avoid-break">
+          <div class="rapor-meta" style="margin-top: 32px;">Bölüm 2</div>
+          <h2 class="rapor-h2" style="margin-top: 4px;">Parsel ve Konum Bilgileri</h2>
+
+          <table class="rapor-tablo">
+            <tbody>
+              <tr><th style="width: 30%;">Adres</th><td>${adresMetin || "—"}</td></tr>
+              <tr><th>Koordinat</th><td class="rapor-mono">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr>
+              <tr><th>Kategori</th><td style="text-transform: capitalize;">${kategori}</td></tr>
+              <tr><th>Parsel Alanı</th><td>${data.m2 ? fmt(data.m2) + " m²" : "Belirtilmedi"}</td></tr>
+              <tr><th>Rapor No</th><td class="rapor-mono">${noRapor}</td></tr>
+              <tr><th>Hazırlanma Tarihi</th><td>${tarih}</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 20px;">
+            <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=15"
+               target="_blank"
+               style="font-size: 9pt; color: #C9A875; text-decoration: underline;">
+              OpenStreetMap'te göster ↗
+            </a>
+            <span style="font-size: 9pt; color: #94a3b8; margin: 0 6px;">·</span>
+            <a href="https://parselsorgu.tkgm.gov.tr/?lat=${lat}&lng=${lng}"
+               target="_blank"
+               style="font-size: 9pt; color: #C9A875; text-decoration: underline;">
+              TKGM Parsel Sorgu ↗
+            </a>
+          </div>
+        </section>
+
+        <!-- ═══════════ 3. BİRİM FİYAT ANALİZİ ═══════════ -->
+        <section class="rapor-section avoid-break">
+          <div class="rapor-meta" style="margin-top: 32px;">Bölüm 3</div>
+          <h2 class="rapor-h2" style="margin-top: 4px;">Birim Fiyat Analizi (₺/m²)</h2>
+
+          <div class="info-grid">
+            <div class="info-kart">
+              <div class="info-label">Alt Çeyrek (Q1)</div>
+              <div class="info-deger">${fmt(data.alt_tlm2 ?? 0)} ₺</div>
+              <div class="info-not">İlanların %25'i bu fiyatın altında</div>
+            </div>
+            <div class="info-kart info-kart-vurgu">
+              <div class="info-label" style="color: #5a4a30;">Medyan</div>
+              <div class="info-deger">${fmt(data.medyan_tlm2 ?? 0)} ₺</div>
+              <div class="info-not" style="color: #78350f;">Beklenen birim değer</div>
+            </div>
+            <div class="info-kart">
+              <div class="info-label">Üst Çeyrek (Q3)</div>
+              <div class="info-deger">${fmt(data.ust_tlm2 ?? 0)} ₺</div>
+              <div class="info-not">İlanların %25'i bu fiyatın üstünde</div>
+            </div>
+          </div>
+
+          ${data.m2 ? `
+          <h3 class="rapor-h3">Parsel Toplam Değer Hesaplama</h3>
+          <table class="rapor-tablo">
+            <thead><tr><th>Senaryo</th><th>Birim ₺/m²</th><th>Toplam Değer</th></tr></thead>
+            <tbody>
+              <tr><td>Konservatif (Q1)</td><td>${fmt(data.alt_tlm2 ?? 0)}</td><td><strong>${fmtTL(data.toplam_tl.alt)}</strong></td></tr>
+              <tr style="background: #fef9f0;"><td><strong>Beklenen (Medyan)</strong></td><td><strong>${fmt(data.medyan_tlm2 ?? 0)}</strong></td><td><strong>${fmtTL(data.toplam_tl.orta)}</strong></td></tr>
+              <tr><td>İyimser (Q3)</td><td>${fmt(data.ust_tlm2 ?? 0)}</td><td><strong>${fmtTL(data.toplam_tl.ust)}</strong></td></tr>
+            </tbody>
+          </table>` : ""}
+        </section>
+
+        <!-- ═══════════ 4. EMSAL DAĞILIM ═══════════ -->
+        <section class="rapor-section avoid-break">
+          <div class="rapor-meta" style="margin-top: 32px;">Bölüm 4</div>
+          <h2 class="rapor-h2" style="margin-top: 4px;">Emsal Dağılımı ve Yakınlık</h2>
+
+          ${toplamEmsal > 0 ? `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center;">
+            <div>${halkaSvg}</div>
+            <div>
+              <table class="rapor-tablo">
+                <thead><tr><th>Mesafe</th><th>Emsal</th><th>Pay</th></tr></thead>
+                <tbody>
+                  <tr><td><span style="color:#10b981;">●</span> 0 – 1 km</td><td>${halka.r0_1km}</td><td>${Math.round(100*halka.r0_1km/toplamEmsal)}%</td></tr>
+                  <tr><td><span style="color:#3b82f6;">●</span> 1 – 3 km</td><td>${halka.r1_3km}</td><td>${Math.round(100*halka.r1_3km/toplamEmsal)}%</td></tr>
+                  <tr><td><span style="color:#C9A875;">●</span> 3 – 5 km</td><td>${halka.r3_5km}</td><td>${Math.round(100*halka.r3_5km/toplamEmsal)}%</td></tr>
+                  <tr style="background: #f8fafc;"><td><strong>Toplam</strong></td><td><strong>${toplamEmsal}</strong></td><td>100%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p class="rapor-body" style="margin-top: 12px;">
+            Distance-decay (mesafe azalan ağırlık) yaklaşımıyla parsel konumuna yakın
+            emsaller daha yüksek ağırlıkla hesaba katılmıştır. 0-1 km içindeki emsaller
+            tahminin %50'den fazlasını belirlemiştir.
+          </p>` : `
+          <div class="yasal-kutu">
+            Bu bölgede henüz yeterli emsal ilan oluşmamıştır. Tahmin değeri il-bazlı yaklaşık
+            baseline ile hesaplanmıştır. Doğruluk artırmak için Cadastrum Chrome eklentisi
+            ile bölgenin spatial havuzunun zenginleştirilmesi önerilir.
+          </div>`}
+
+          ${(data.emsaller && data.emsaller.length > 0) ? `
+          <h3 class="rapor-h3">Karşılaştırmalı Emsal Tablosu (CMA)</h3>
+          <table class="rapor-tablo">
+            <thead><tr><th>Mahalle</th><th>₺/m²</th><th>Alan</th><th>İmar</th><th>Mesafe</th><th>Yaş</th></tr></thead>
+            <tbody>
+              ${data.emsaller.map((e: any) => `
+                <tr>
+                  <td style="text-transform: capitalize;">${e.mahalle ?? "—"}</td>
+                  <td><strong>${fmt(e.fiyat_per_m2)}</strong></td>
+                  <td>${e.m2 ? fmt(e.m2) + " m²" : "—"}</td>
+                  <td>${e.imar ?? "—"}</td>
+                  <td>${e.mesafe_m >= 1000 ? (e.mesafe_m/1000).toFixed(1)+" km" : e.mesafe_m+" m"}</td>
+                  <td>${e.yas_gun} gün</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>` : ""}
+        </section>
+
+        <!-- Fiyat trendi (varsa) -->
+        <section id="trend-section" class="rapor-section avoid-break"></section>
+
+        <!-- ═══════════ 5. GÜVEN VE METODOLOJİ ═══════════ -->
+        <section class="page-break rapor-section">
+          <div class="rapor-meta">Bölüm 5</div>
+          <h1 class="rapor-h1" style="margin-top: 4px;">Güven Analizi ve Metodoloji</h1>
+
+          <h3 class="rapor-h3">Güven Seviyesi: ${guvenAck} (%${guven})</h3>
+          <div class="guven-bar">
+            <div class="guven-fill" style="width: ${guven}%; background: ${guvenRenk};"></div>
+          </div>
+          <p class="rapor-body" style="margin-bottom: 16px;">${kaynakAck[data.kaynak] ?? data.kaynak}</p>
+
+          <h3 class="rapor-h3">Hesaplama Yöntemi</h3>
+          <table class="rapor-tablo">
+            <tbody>
+              <tr><th style="width: 35%;">Model</th><td>Spatial Hedonic Regression v2</td></tr>
+              <tr><th>Ağırlık Fonksiyonu</th><td class="rapor-mono">w(d) = exp(-d/D), D = ${data.radius_km * 1000} m</td></tr>
+              <tr><th>Merkezi Eğilim</th><td>Weighted Median (mesafe ağırlıklı)</td></tr>
+              <tr><th>Güven Aralığı</th><td>Q1/Q3 ile çeyrekler arası dağılım</td></tr>
+              <tr><th>Outlier Filtresi</th><td>Tukey IQR yöntemi (1.5 × IQR sınırı)</td></tr>
+              <tr><th>Veri Yaşı Limiti</th><td>365 gün (en son 1 yıl içindeki ilanlar)</td></tr>
+              <tr><th>Yarıçap Adaptasyonu</th><td>5 → 10 → 20 km (emsal sayısına göre)</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="rapor-h3">Veri Kaynakları</h3>
+          <table class="rapor-tablo">
+            <thead><tr><th>Kaynak</th><th>Kullanım</th><th>Lisans</th></tr></thead>
+            <tbody>
+              <tr><td>Sahibinden.com</td><td>İlan havuzu</td><td>Kullanım şartlarına uygun</td></tr>
+              <tr><td>Hepsiemlak.com</td><td>İlan havuzu</td><td>Kullanım şartlarına uygun</td></tr>
+              <tr><td>TKGM Parsel Sorgu</td><td>Resmi parsel sınırları</td><td>Açık erişim</td></tr>
+              <tr><td>OpenStreetMap</td><td>Geocoding (Nominatim)</td><td>ODbL</td></tr>
+              <tr><td>e-Plan</td><td>İmar durumu</td><td>Açık erişim</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ═══════════ 6. YASAL UYARI ═══════════ -->
+        <section class="rapor-section avoid-break">
+          <div class="rapor-meta" style="margin-top: 32px;">Bölüm 6</div>
+          <h2 class="rapor-h2" style="margin-top: 4px;">Yasal Uyarı ve Notlar</h2>
+
+          <div class="yasal-kutu">
+            <strong>1. Yatırım tavsiyesi değildir.</strong> Bu rapor, kamuya açık ilan verilerinin
+            istatistik analizinden üretilmiş bir tahmindir. Yatırım kararları için bağımsız
+            uzman görüşü alınmalıdır.<br/><br/>
+
+            <strong>2. Resmi değerleme yerine geçmez.</strong> Türkiye'de gayrimenkul değerleme,
+            Sermaye Piyasası Kurulu (SPK) lisanslı değerleme uzmanları tarafından yapılır.
+            Bu rapor bilgi amaçlıdır ve resmi değerleme raporu yerine geçmez.<br/><br/>
+
+            <strong>3. Veri sınırlamaları.</strong> Tahmin, ilan listeleme fiyatlarına dayanır;
+            gerçek satış fiyatlarından sapabilir. Bölgesel piyasa koşulları, pazarlık marjı,
+            parselin spesifik özellikleri (manzara, eğim, yol cephesi vb.) hesaba katılmamıştır.<br/><br/>
+
+            <strong>4. Güncellik.</strong> Tahmin son ${365} gün içindeki ilan verisine dayanır.
+            Piyasa hızlı değiştiğinde rapor yeniden alınmalıdır.<br/><br/>
+
+            <strong>5. KVKK uyumu.</strong> Bu rapor kişisel veri içermez. İlan no, satıcı bilgisi
+            veya iletişim verisi paylaşılmaz.
+          </div>
+
+          <div class="imza-alani avoid-break">
+            <div class="imza-kutu">
+              <div>Hazırlayan</div>
+              <div style="margin-top: 24px; color: #1e293b; font-weight: 600;">Cadastrum Otomatik Sistem</div>
+              <div style="font-size: 8pt;">cadastrum.com.tr · ${tarih}</div>
+            </div>
+            <div class="imza-kutu">
+              <div>Onaylayan / İnceleyen</div>
+              <div style="margin-top: 24px; color: #94a3b8;">Ad Soyad:</div>
+              <div style="font-size: 8pt;">İmza & Tarih:</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ FOOTER ═══════════ -->
+        <section style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8;">
+          Cadastrum · cadastrum.com.tr · ${noRapor} · ${tarih}<br/>
+          Bu rapor otomatik olarak üretilmiştir, herhangi bir parselin satış, kira veya teminat
+          değeri için resmi ekspertiz raporu yerine geçmez.
+        </section>
+      `;
+
+      // ── Fiyat trendi (paralel, async — varsa render) ──
+      fetch(`${PUBLIC_API_BASE}/sorgu/trend?lat=${lat}&lng=${lng}&kategori=${kategori}&ay=12`)
+        .then((r) => r.json())
+        .then((t) => {
+          const sec = document.getElementById("trend-section");
+          if (!sec || !t.ok || !t.noktalar || t.noktalar.length < 2) return;
+          const noktalar = t.noktalar as Array<{ ay: string; medyan: number }>;
+          const vals = noktalar.map((n) => n.medyan);
+          const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
+          const W = 700, H = 160, pad = 16;
+          const stepX = (W - 2 * pad) / (noktalar.length - 1);
+          const points = noktalar.map((n, i) =>
+            `${(pad + i * stepX).toFixed(1)},${(H - pad - ((n.medyan - min) / range) * (H - 2 * pad)).toFixed(1)}`
+          ).join(" ");
+          const deg = t.degisim_yuzde;
+          const yon = deg == null ? "" : deg > 0 ? `▲ %${deg} artış` : deg < 0 ? `▼ %${Math.abs(deg)} düşüş` : "→ değişim yok";
+          sec.innerHTML = `
+            <div class="rapor-meta" style="margin-top: 32px;">Bölüm 4.1</div>
+            <h2 class="rapor-h2" style="margin-top: 4px;">Fiyat Trendi (Son 12 Ay)</h2>
+            <p class="rapor-body" style="margin-bottom: 8px;">Bölge medyan birim fiyatı: <strong>${yon}</strong></p>
+            <svg viewBox="0 0 ${W} ${H}" style="width: 100%; height: 160px;" preserveAspectRatio="none">
+              <polyline points="${points}" fill="none" stroke="#1B2A4A" stroke-width="2.5" />
+              ${noktalar.map((n, i) => `<circle cx="${(pad + i * stepX).toFixed(1)}" cy="${(H - pad - ((n.medyan - min) / range) * (H - 2 * pad)).toFixed(1)}" r="3.5" fill="#C9A875" />`).join("")}
+            </svg>
+            <div style="display: flex; justify-content: space-between; font-size: 8pt; color: #94a3b8; margin-top: 4px;">
+              <span>${noktalar[0].ay}: ${fmt(noktalar[0].medyan)} ₺/m²</span>
+              <span>${noktalar[noktalar.length-1].ay}: ${fmt(noktalar[noktalar.length-1].medyan)} ₺/m²</span>
+            </div>`;
+        })
+        .catch(() => {});
+    }
+
+    // ── Halka donut SVG (3 segment) ──
+    function halkaDonutSvg(halka: any, toplam: number): string {
+      const r = 80;
+      const cx = 100, cy = 100;
+      const circ = 2 * Math.PI * r;
+      const colors = ["#10b981", "#3b82f6", "#C9A875"];
+      const vals = [halka.r0_1km, halka.r1_3km, halka.r3_5km];
+      let offset = 0;
+      const segments = vals.map((v, i) => {
+        const len = (v / toplam) * circ;
+        const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colors[i]}" stroke-width="22" stroke-dasharray="${len} ${circ - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" />`;
+        offset += len;
+        return seg;
+      }).join("");
+      return `
+        <svg class="halka-svg" width="200" height="200" viewBox="0 0 200 200">
+          ${segments}
+          <text x="100" y="95" text-anchor="middle" font-size="11" fill="#64748b" font-family="ui-sans-serif">Toplam</text>
+          <text x="100" y="115" text-anchor="middle" font-size="22" font-weight="700" fill="#1B2A4A" font-family="ui-serif, serif">${toplam}</text>
+          <text x="100" y="130" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="ui-sans-serif">emsal ilan</text>
+        </svg>`;
+    }
+  </script>
+</Base>

@@ -1,0 +1,278 @@
+{
+  "dosyalar": [
+    {
+      "dosya": "C:\\Users\\parlak\\Downloads\\arsa-tkgm-extension\\scripts\\emlakjet-data-turkiye.sql",
+      "ilanSayisi": 20242,
+      "kategori": {
+        "arsa": 2081,
+        "tarla": 18161
+      },
+      "tlm2": {
+        "min": 1,
+        "p25": 335,
+        "medyan": 870,
+        "p75": 2100,
+        "max": 8219178,
+        "ort": 4945
+      },
+      "sorunlar": {
+        "iqrOutlier": 2315,
+        "tlm2_cok_dusuk": 790,
+        "tlm2_cok_yuksek": 23,
+        "m2_cok_kucuk": 82,
+        "mahalle_norm_bos": 0
+      },
+      "mahalle": {
+        "unique": 8561,
+        "tek_ilan": 4405,
+        "uc_arti_ilan": 2298
+      },
+      "ornekAykiri": [
+        {
+          "il": "adana",
+          "ilce": "seyhan",
+          "mahalle": "yenidam",
+          "tlm2": 9,
+          "m2": 270000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "adana",
+          "ilce": "kozan",
+          "mahalle": "akdam",
+          "tlm2": 78,
+          "m2": 32000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "adana",
+          "ilce": "kozan",
+          "mahalle": "akdam",
+          "tlm2": 79,
+          "m2": 6523,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "adiyaman",
+          "ilce": "merkez",
+          "mahalle": "buyukkavakli",
+          "tlm2": 850000,
+          "m2": 34,
+          "kategori": "arsa",
+          "neden": "tlm2>500k"
+        },
+        {
+          "il": "adiyaman",
+          "ilce": "golbasi",
+          "mahalle": "akcabel",
+          "tlm2": 80,
+          "m2": 43000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "merkez",
+          "mahalle": "zafer sulumenli",
+          "tlm2": 97,
+          "m2": 7000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "merkez",
+          "mahalle": "kocatepe gebeceler",
+          "tlm2": 99,
+          "m2": 17750,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "basmakci",
+          "mahalle": "yeni",
+          "tlm2": 92,
+          "m2": 4072,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "basmakci",
+          "mahalle": "yeni",
+          "tlm2": 76,
+          "m2": 11165,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "ihsaniye",
+          "mahalle": "karacaahmet",
+          "tlm2": 70,
+          "m2": 9980,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        }
+      ]
+    },
+    {
+      "dosya": "C:\\Users\\parlak\\Downloads\\arsa-tkgm-extension\\scripts\\emlakjet-data-full.sql",
+      "ilanSayisi": 8275,
+      "kategori": {
+        "arsa": 933,
+        "tarla": 7342
+      },
+      "tlm2": {
+        "min": 1,
+        "p25": 238,
+        "medyan": 682,
+        "p75": 1699,
+        "max": 8219178,
+        "ort": 5214
+      },
+      "sorunlar": {
+        "iqrOutlier": 893,
+        "tlm2_cok_dusuk": 790,
+        "tlm2_cok_yuksek": 11,
+        "m2_cok_kucuk": 36,
+        "mahalle_norm_bos": 0
+      },
+      "mahalle": {
+        "unique": 4896,
+        "tek_ilan": 3174,
+        "uc_arti_ilan": 711
+      },
+      "ornekAykiri": [
+        {
+          "il": "adana",
+          "ilce": "seyhan",
+          "mahalle": "yenidam",
+          "tlm2": 9,
+          "m2": 270000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "adana",
+          "ilce": "kozan",
+          "mahalle": "akdam",
+          "tlm2": 78,
+          "m2": 32000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "adana",
+          "ilce": "kozan",
+          "mahalle": "akdam",
+          "tlm2": 79,
+          "m2": 6523,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "adiyaman",
+          "ilce": "merkez",
+          "mahalle": "buyukkavakli",
+          "tlm2": 850000,
+          "m2": 34,
+          "kategori": "arsa",
+          "neden": "tlm2>500k"
+        },
+        {
+          "il": "adiyaman",
+          "ilce": "golbasi",
+          "mahalle": "akcabel",
+          "tlm2": 80,
+          "m2": 43000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "merkez",
+          "mahalle": "zafer sulumenli",
+          "tlm2": 97,
+          "m2": 7000,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "merkez",
+          "mahalle": "kocatepe gebeceler",
+          "tlm2": 99,
+          "m2": 17750,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "basmakci",
+          "mahalle": "yeni",
+          "tlm2": 92,
+          "m2": 4072,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "basmakci",
+          "mahalle": "yeni",
+          "tlm2": 76,
+          "m2": 11165,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        },
+        {
+          "il": "afyonkarahisar",
+          "ilce": "ihsaniye",
+          "mahalle": "karacaahmet",
+          "tlm2": 70,
+          "m2": 9980,
+          "kategori": "tarla",
+          "neden": "tlm2<100"
+        }
+      ]
+    },
+    {
+      "dosya": "C:\\Users\\parlak\\Downloads\\arsa-tkgm-extension\\scripts\\emlakjet-data.sql",
+      "ilanSayisi": 0,
+      "kategori": {},
+      "tlm2": {
+        "min": null,
+        "p25": 0,
+        "medyan": 0,
+        "p75": 0,
+        "max": null,
+        "ort": null
+      },
+      "sorunlar": {
+        "iqrOutlier": 0,
+        "tlm2_cok_dusuk": 0,
+        "tlm2_cok_yuksek": 0,
+        "m2_cok_kucuk": 0,
+        "mahalle_norm_bos": 0
+      },
+      "mahalle": {
+        "unique": 0,
+        "tek_ilan": 0,
+        "uc_arti_ilan": 0
+      },
+      "ornekAykiri": []
+    }
+  ],
+  "toplam": 28517,
+  "oneriler": [
+    "C:\\Users\\parlak\\Downloads\\arsa-tkgm-extension\\scripts\\emlakjet-data-turkiye.sql: outlier oranı yüksek — QC sonrası IQR filtre uygula",
+    "C:\\Users\\parlak\\Downloads\\arsa-tkgm-extension\\scripts\\emlakjet-data-full.sql: outlier oranı yüksek — QC sonrası IQR filtre uygula",
+    "C:\\Users\\parlak\\Downloads\\arsa-tkgm-extension\\scripts\\emlakjet-data.sql: az kayıt — scrape devam et veya MAX_SAYFA artır",
+    "AI baseline kullanma — node scripts/baseline-ts-uret.mjs sonra build",
+    "D1 yükle: SEED-EMLAKJET-FULL.bat → wrangler istatistik refresh"
+  ]
+}

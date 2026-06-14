@@ -1,0 +1,179 @@
+---
+// Paywall overlay component
+// Free kullanıcı görürse içeriğin üzerine blur + CTA bindirir.
+// Pro/Pro+/Kurumsal kullanıcı veya featured il için JS çalıştığında DOM'dan kaldırılır.
+//
+// Kullanım:
+//   <PaywallOverlay ilNorm="zonguldak" />
+//
+// Ayrıca: SEO için içerik HTML olarak render edilir (Google görür).
+// Sadece görsel olarak overlay basılır + content blur'lanır.
+
+interface Props {
+  /** Free için açık olan iller (lowercase tr-norm). Bu listede ise overlay render edilmez. */
+  ilNorm?: string;
+  /** Detay sayfaları için her zaman paywall (il check'i atla) */
+  her: boolean;
+  /** Overlay başlığı */
+  baslik?: string;
+}
+
+const { ilNorm, her = false, baslik = "Pro üyeliğe geçin" } = Astro.props;
+
+// Free iller — top 5 büyük şehir ücretsiz görünür (SEO + acquisition için)
+const FREE_ILLER = ["istanbul", "ankara", "izmir", "antalya", "mugla"];
+const ucretsizMi = !her && ilNorm && FREE_ILLER.includes(ilNorm);
+---
+
+{!ucretsizMi && (
+  <div id="paywall-overlay" class="paywall-overlay-tag" data-il={ilNorm ?? ""} data-her={her ? "1" : "0"}>
+    <div class="paywall-card">
+      <div class="paywall-icon">🔒</div>
+      <h3 class="paywall-title">{baslik}</h3>
+      <p class="paywall-desc">
+        Tüm 81 il, 957 ilçe ve 65.000 mahalle için tam erişim — TKGM parsel doğrulama,
+        AI fiyat tahmini ve Sahibinden + Hepsiemlak emsal verisi.
+      </p>
+      <div class="paywall-features">
+        <div class="paywall-feat">✓ Sınırsız mahalle sorgusu</div>
+        <div class="paywall-feat">✓ AI fiyat tahmini (Gemini 2.5 Flash)</div>
+        <div class="paywall-feat">✓ Cross-validation doğruluk metriği</div>
+        <div class="paywall-feat">✓ TCMB Konut Endeksi düzeltmesi</div>
+      </div>
+      <div class="paywall-cta">
+        <a href="/fiyat" class="paywall-btn-primary">Pro'ya geç →</a>
+        <a href="/giris" class="paywall-btn-secondary">Zaten üyeyim</a>
+      </div>
+      <div class="paywall-promo">
+        İlk 100 üye için <code>ERKEN100</code> ile 6 ay <strong>%40 indirim</strong>
+      </div>
+    </div>
+  </div>
+)}
+
+<style is:global>
+  .paywall-overlay-tag {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, rgba(15, 26, 51, 0.7), rgba(15, 26, 51, 0.85));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 1rem;
+    overflow-y: auto;
+  }
+  .paywall-card {
+    max-width: 480px;
+    width: 100%;
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    margin: auto;
+  }
+  .paywall-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+  .paywall-title {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 1.5rem; font-weight: 700;
+    color: #1B2A4A; margin-bottom: 0.75rem;
+  }
+  .paywall-desc {
+    color: #475569;
+    font-size: 0.95rem; line-height: 1.5;
+    margin-bottom: 1.25rem;
+  }
+  .paywall-features {
+    background: #F8FAFC;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+  }
+  .paywall-feat {
+    font-size: 0.875rem;
+    color: #1E293B;
+    padding: 0.25rem 0;
+  }
+  .paywall-cta {
+    display: flex; gap: 0.5rem; justify-content: center;
+    margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .paywall-btn-primary {
+    background: #1B2A4A;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .paywall-btn-primary:hover { background: #0F1A33; }
+  .paywall-btn-secondary {
+    background: #F1F5F9;
+    color: #1B2A4A;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .paywall-btn-secondary:hover { background: #E2E8F0; }
+  .paywall-promo {
+    font-size: 0.75rem;
+    color: #64748B;
+  }
+  .paywall-promo code {
+    background: #FEF3C7;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    color: #92400E;
+  }
+  /* Body content blur — overlay aktifken */
+  body.paywall-active main,
+  body.paywall-active section:not(.paywall-overlay-tag *) {
+    filter: blur(4px);
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+
+<script>
+  // Pro kullanıcıysa overlay'i kaldır
+  function tierAl(): string {
+    try {
+      const raw = localStorage.getItem("cadastrum_user");
+      if (!raw) return "free";
+      const u = JSON.parse(raw);
+      if (u.tierBitis && u.tierBitis < Date.now()) return "free";
+      return u.tier || "free";
+    } catch { return "free"; }
+  }
+
+  function paywallKontrol() {
+    const overlay = document.getElementById("paywall-overlay");
+    if (!overlay) return; // Free il, paywall hiç render edilmedi
+    const tier = tierAl();
+    if (tier === "pro" || tier === "pro_plus" || tier === "kurumsal") {
+      overlay.remove();
+      document.body.classList.remove("paywall-active");
+    } else {
+      document.body.classList.add("paywall-active");
+    }
+  }
+
+  // İlk yüklemede çalıştır
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", paywallKontrol);
+  } else {
+    paywallKontrol();
+  }
+  // localStorage değişince (başka tab'da giriş yapıldı vs.) yeniden kontrol
+  window.addEventListener("storage", (e) => {
+    if (e.key === "cadastrum_user") paywallKontrol();
+  });
+</script>

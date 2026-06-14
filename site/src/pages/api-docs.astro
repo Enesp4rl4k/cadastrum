@@ -1,0 +1,72 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+
+const emsalCurl = `curl -H "X-API-Key: cdrm_..." \\
+  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/emsal/spatial?lat=41.08&lng=29.05&radius_km=3&kategori=arsa"`;
+
+const ornekCurl = `# İstanbul Beykoz Akbaba arsa medyan fiyatı
+curl -H "X-API-Key: $TOKEN" \\
+  https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/beykoz/akbaba
+
+# Bodrum çevresinde 10 km içinde arsa emsalleri
+curl -H "X-API-Key: $TOKEN" \\
+  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/emsal/spatial?lat=37.04&lng=27.43&radius_km=10&kategori=arsa"`;
+---
+
+<Base title="API Dokümantasyon — Cadastrum">
+  <div class="max-w-4xl mx-auto px-4 py-8 prose prose-slate">
+    <h1>Cadastrum Public API</h1>
+    <p class="text-slate-600">
+      Programmatic erişim — Kurumsal Pro tier'ı için. <a href="/hesap/api-tokens">Token oluştur →</a>
+    </p>
+
+    <h2>Kimlik doğrulama</h2>
+    <pre><code>{`GET /v1/api/health HTTP/1.1
+Host: api.cadastrum.com.tr
+X-API-Key: cdrm_a1b2c3d4e5f6...`}</code></pre>
+    <p>
+      Token formatı: <code>cdrm_</code> prefix + 32 hex karakter. Token sadece
+      oluşturulurken bir kez gösterilir; tekrar görmek mümkün değil — kaybedersen
+      yeni token üret. Rate limit: 60 req/dakika (varsayılan).
+    </p>
+
+    <h2>Endpoint'ler</h2>
+
+    <h3><code>GET /v1/api/health</code></h3>
+    <p>Sağlık kontrolü.</p>
+    <pre><code>{`{"ok": true, "ts": 1736089200000}`}</code></pre>
+
+    <h3><code>GET /v1/api/fiyat/mahalle/:il/:ilce/:mahalle</code></h3>
+    <p>Mahalle bazlı fiyat istatistiği (TL/m² medyan, q1, q3, ortalama, ilan adedi).</p>
+    <pre><code>{`curl -H "X-API-Key: cdrm_..." \\
+  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/beykoz/akbaba?kategori=arsa"`}</code></pre>
+
+    <h3><code>GET /v1/api/emsal/spatial</code></h3>
+    <p>Koord bazlı spatial emsal sorgu — 5 km yarıçap içindeki ilanlar.</p>
+    <pre><code>{emsalCurl}</code></pre>
+
+    <h3><code>GET /v1/api/risk/deprem?il=istanbul</code></h3>
+    <p>İl bazlı deprem risk metadata.</p>
+
+    <h2>Hata kodları</h2>
+    <table>
+      <thead><tr><th>HTTP</th><th>Anlam</th></tr></thead>
+      <tbody>
+        <tr><td>401</td><td>Token yok veya geçersiz</td></tr>
+        <tr><td>404</td><td>Veri bulunamadı</td></tr>
+        <tr><td>429</td><td>Rate limit aşıldı</td></tr>
+        <tr><td>500</td><td>Sunucu hatası</td></tr>
+      </tbody>
+    </table>
+
+    <h2>OpenAPI Spec</h2>
+    <p>
+      Tam spec: <a href="/openapi.yaml" download>openapi.yaml</a>. Swagger UI,
+      Postman, Scalar gibi araçlarla doğrudan import edebilirsin.
+    </p>
+
+    <h2>Örnekler (curl)</h2>
+    <pre><code>{ornekCurl}</code></pre>
+  </div>
+</Base>

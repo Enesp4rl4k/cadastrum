@@ -1,0 +1,733 @@
+/* Cadastrum PDF Rapor — A4 print + ekran preview */
+
+:root {
+  --imperial: #1B2A4A;
+  --imperial-50: #EEF1F8;
+  --imperial-100: #D5DCEC;
+  --imperial-600: #1B2A4A;
+  --champagne: #C9A86A;
+  --champagne-700: #7E662F;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --bg: #FBFAF7;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Fraunces", Georgia, serif;
+  letter-spacing: -0.01em;
+  color: var(--imperial);
+}
+
+/* === Layout === */
+
+.rapor-page {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 24mm 18mm;
+  background: white;
+  min-height: 297mm;
+  box-shadow: 0 0 0 1px var(--border), 0 8px 30px rgba(15, 23, 42, 0.08);
+}
+
+@media screen {
+  body {
+    padding: 24px 16px;
+  }
+  .rapor-page + .rapor-page {
+    margin-top: 24px;
+  }
+  .toolbar {
+    position: sticky;
+    top: 16px;
+    z-index: 50;
+    max-width: 210mm;
+    margin: 0 auto 16px;
+    padding: 12px 16px;
+    background: var(--imperial);
+    color: white;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 14px rgba(27, 42, 74, 0.25);
+  }
+  .toolbar h1 {
+    font-size: 14pt;
+    color: white;
+    font-weight: 600;
+  }
+  .toolbar .actions {
+    display: flex;
+    gap: 8px;
+  }
+  .toolbar button {
+    padding: 6px 14px;
+    background: var(--champagne);
+    color: var(--imperial);
+    border: 0;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 10pt;
+    cursor: pointer;
+    transition: background 150ms;
+  }
+  .toolbar button:hover {
+    background: #D2B375;
+  }
+  .toolbar button.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+}
+
+@media print {
+  body {
+    background: white;
+    padding: 0;
+  }
+  .rapor-page {
+    box-shadow: none;
+    margin: 0;
+    padding: 18mm 14mm;
+    page-break-after: always;
+  }
+  .rapor-page:last-child {
+    page-break-after: auto;
+  }
+  .toolbar {
+    display: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}
+
+/* === Header === */
+
+.rapor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--imperial);
+  margin-bottom: 20px;
+}
+
+.rapor-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rapor-header .brand-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--imperial);
+  color: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Fraunces", serif;
+  font-weight: 700;
+  font-size: 18pt;
+}
+
+.rapor-header .brand-text {
+  font-family: "Fraunces", serif;
+  font-size: 16pt;
+  font-weight: 600;
+  color: var(--imperial);
+}
+
+.rapor-header .meta {
+  text-align: right;
+  font-size: 9pt;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.rapor-header .meta strong {
+  color: var(--ink);
+  font-size: 10pt;
+}
+
+/* === Title block === */
+
+.rapor-title {
+  margin-bottom: 24px;
+}
+.rapor-title h1 {
+  font-size: 22pt;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.rapor-title .subtitle {
+  font-size: 11pt;
+  color: var(--muted);
+  font-style: italic;
+}
+.rapor-title .parsel-id {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: var(--imperial-50);
+  color: var(--imperial);
+  border-radius: 4px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 9pt;
+  font-weight: 600;
+}
+
+/* === Sections === */
+
+.section {
+  margin-bottom: 20px;
+}
+
+.section h2 {
+  font-size: 14pt;
+  font-weight: 600;
+  color: var(--imperial);
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.section h2 .section-no {
+  color: var(--champagne-700);
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* === Data grid (key-value rows) === */
+
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 24px;
+  font-size: 10pt;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px dashed var(--border);
+  padding: 4px 0;
+}
+
+.data-row .label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.data-row .value {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === KPI box === */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.kpi-box {
+  background: var(--imperial-50);
+  border: 1px solid var(--imperial-100);
+  border-radius: 6px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.kpi-box .kpi-label {
+  font-size: 8pt;
+  color: var(--imperial);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.kpi-box .kpi-value {
+  font-family: "Fraunces", serif;
+  font-size: 16pt;
+  font-weight: 700;
+  color: var(--imperial);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.kpi-box .kpi-hint {
+  font-size: 7pt;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* === Price range box === */
+
+.fiyat-box {
+  background: linear-gradient(135deg, var(--imperial-50), white);
+  border: 1px solid var(--champagne);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.fiyat-box .fiyat-label {
+  font-size: 9pt;
+  color: var(--imperial);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.fiyat-box .fiyat-beklenen {
+  font-family: "Fraunces", serif;
+  font-size: 24pt;
+  font-weight: 700;
+  color: var(--imperial);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+
+.fiyat-box .fiyat-aralik {
+  display: flex;
+  gap: 24px;
+  font-size: 10pt;
+  color: var(--muted);
+  border-top: 1px solid var(--imperial-100);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.fiyat-box .fiyat-aralik strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Risk listesi === */
+
+.risk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.risk-item {
+  border-left: 3px solid var(--border);
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 0 6px 6px 0;
+}
+
+.risk-item.kritik { border-color: #dc2626; background: #fef2f2; }
+.risk-item.yuksek { border-color: #d97706; background: #fffbeb; }
+.risk-item.orta { border-color: #0284c7; background: #f0f9ff; }
+.risk-item.bilgi { border-color: #64748b; background: #f8fafc; }
+
+.risk-item .risk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.risk-item .risk-title {
+  font-weight: 600;
+  font-size: 10pt;
+}
+
+.risk-item .risk-level {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.risk-item.kritik .risk-level { color: #dc2626; }
+.risk-item.yuksek .risk-level { color: #d97706; }
+.risk-item.orta .risk-level { color: #0284c7; }
+.risk-item.bilgi .risk-level { color: #64748b; }
+
+.risk-item .risk-desc {
+  font-size: 9pt;
+  line-height: 1.4;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.risk-item .risk-oneri {
+  font-size: 9pt;
+  font-style: italic;
+  color: var(--imperial);
+}
+
+.risk-item .risk-yasaref {
+  margin-top: 4px;
+  font-size: 7pt;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--muted);
+}
+
+/* === Footer / disclaimer === */
+
+.disclaimer {
+  margin-top: 24px;
+  padding: 12px;
+  background: #fffbeb;
+  border-left: 3px solid var(--champagne);
+  border-radius: 0 4px 4px 0;
+  font-size: 8.5pt;
+  line-height: 1.5;
+  color: #78350f;
+}
+
+.disclaimer strong {
+  color: var(--imperial);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.rapor-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 8pt;
+  color: var(--muted);
+}
+
+/* === Empty state === */
+
+.bos-veri {
+  padding: 12px;
+  text-align: center;
+  font-size: 10pt;
+  color: var(--muted);
+  font-style: italic;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+/* === Loading === */
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.loading-state .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--imperial-100);
+  border-top-color: var(--imperial);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════ KAPAK SAYFASI ═══════════════ */
+.kapak-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #FBFAF7 0%, #fff 30%, #fff 70%, #F5F1E8 100%);
+  padding: 0 !important;
+}
+.kapak-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.kapak-content {
+  position: relative;
+  z-index: 1;
+  padding: 32px 40px 28px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100%;
+}
+.kapak-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 60px;
+}
+.kapak-meta {
+  text-align: right;
+}
+.kapak-titulo {
+  margin-bottom: 32px;
+}
+.kapak-eyebrow {
+  font-size: 9pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--champagne-700);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.kapak-h1 {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 38pt;
+  line-height: 1.05;
+  font-weight: 700;
+  color: var(--imperial);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.kapak-sep {
+  color: var(--champagne);
+  font-weight: 400;
+}
+.kapak-mahalle {
+  font-size: 18pt;
+  color: var(--imperial);
+  font-weight: 500;
+  margin-top: 8px;
+  letter-spacing: -0.01em;
+}
+.kapak-parsel-id {
+  font-size: 11pt;
+  color: var(--muted);
+  margin-top: 6px;
+  font-family: "Inter", sans-serif;
+  letter-spacing: 0.02em;
+}
+.kapak-fiyat {
+  background: linear-gradient(135deg, var(--imperial) 0%, #2C4275 100%);
+  color: #fff;
+  border-radius: 8px;
+  padding: 22px 26px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.kapak-fiyat::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, var(--champagne) 0%, transparent 70%);
+  opacity: 0.15;
+}
+.kapak-fiyat-label {
+  font-size: 9pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+.kapak-fiyat-buyuk {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 32pt;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.kapak-fiyat-aralik {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10pt;
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+.kapak-fiyat-cizgi {
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.3);
+}
+.kapak-fiyat-perm2 {
+  font-size: 9pt;
+  opacity: 0.65;
+  font-style: italic;
+}
+.kapak-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.kapak-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 4px;
+}
+.kapak-stat-deger {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 22pt;
+  font-weight: 700;
+  color: var(--imperial);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.kapak-stat-etiket {
+  font-size: 8pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.kapak-stat-alt {
+  font-size: 8pt;
+  color: var(--muted);
+  margin-top: 2px;
+  font-style: italic;
+}
+.kapak-ozet {
+  background: #fff;
+  border-left: 3px solid var(--champagne);
+  padding: 14px 18px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 24px;
+  flex: 1;
+}
+.kapak-ozet-title {
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--imperial);
+  margin-bottom: 8px;
+}
+.kapak-ozet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 10pt;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.kapak-ozet-list li {
+  padding-left: 18px;
+  position: relative;
+}
+.kapak-ozet-list li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: var(--champagne);
+  font-weight: 700;
+}
+.kapak-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+/* ═══════════════ HESAP KUTUSU (yapı hakları) ═══════════════ */
+.hesap-kutusu {
+  background: linear-gradient(180deg, #FAF5E8 0%, #FBFAF7 100%);
+  border: 1px solid var(--champagne);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+.hesap-baslik {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--imperial);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.hesap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.hesap-etiket {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.hesap-deger {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 16pt;
+  font-weight: 700;
+  color: var(--imperial);
+  line-height: 1;
+}
+.hesap-formul {
+  font-size: 8pt;
+  color: var(--muted);
+  font-family: monospace;
+  margin-top: 4px;
+}
+.hesap-not {
+  font-size: 8pt;
+  color: var(--muted);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* Print için kapak özel ayar */
+@media print {
+  .kapak-page {
+    background: #fff !important;
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@cadastrum/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:create": "wrangler d1 create cadastrum-db",
+    "db:migrate": "wrangler d1 execute cadastrum-db --file=src/db/schema.sql",
+    "db:migrate-local": "wrangler d1 execute cadastrum-db --local --file=src/db/schema.sql"
+  },
+  "dependencies": {
+    "hono": "^4.12.18"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260509.1",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.92.0"
+  }
+}

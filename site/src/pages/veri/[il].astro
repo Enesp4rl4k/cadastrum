@@ -1,0 +1,405 @@
+---
+import Base from "../../layouts/Base.astro";
+import PaywallOverlay from "../../components/PaywallOverlay.astro";
+
+export function getStaticPaths() {
+  const ILLER_NORM = [
+    "istanbul","ankara","izmir","bursa","antalya","adana","konya","gaziantep",
+    "mersin","diyarbakir","kayseri","samsun","eskisehir","denizli","sanliurfa",
+    "trabzon","hatay","manisa","kahramanmaras","balikesir","aydin","tekirdag",
+    "sakarya","mugla","kocaeli","malatya","erzurum","van","ordu","yalova",
+    "canakkale","edirne","adiyaman","afyonkarahisar","agri","aksaray","amasya",
+    "ardahan","artvin","bartin","batman","bayburt","bilecik","bingol","bitlis",
+    "bolu","burdur","cankiri","corum","duzce","elazig","erzincan","giresun",
+    "gumushane","hakkari","igdir","isparta","karabuk","karaman","kars","kastamonu",
+    "kirikkale","kirklareli","kirsehir","kilis","kutahya","mardin","mus","nevsehir",
+    "nigde","osmaniye","rize","siirt","sinop","sivas","sirnak","tokat","tunceli",
+    "usak","zonguldak"
+  ];
+  return ILLER_NORM.map(il => ({ params: { il } }));
+}
+
+const { il } = Astro.params;
+const ilDisplay = il!.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+// SEO için zengin içerik (top 5 il)
+import { IL_ICERIK } from "../../data/il-icerik.ts";
+const icerik = IL_ICERIK[il!] ?? null;
+---
+
+<Base title={`${ilDisplay} Arsa Fiyatları m² 2026 — TKGM Parsel Sorgu | Cadastrum`}
+      description={icerik?.seoAciklama ?? `${ilDisplay} ilinin 2026 güncel arsa, konut ve tarla TL/m² fiyatları. Tüm ilçeler ve mahalleler için Sahibinden + Hepsiemlak ilan medyanı, TKGM parsel sorgu ve AI fiyat tahmini.`}
+      breadcrumb={[
+        { ad: "Anasayfa", url: "/" },
+        { ad: "Veri", url: "/veri" },
+        { ad: ilDisplay, url: `/veri/${il}` },
+      ]}
+      keywords={[
+        `${ilDisplay} arsa fiyatları`,
+        `${ilDisplay} m² fiyatı`,
+        `${ilDisplay} TKGM parsel`,
+        `${ilDisplay} mahalle fiyat`,
+        `${ilDisplay} konut fiyat`,
+        `${ilDisplay} tarla fiyat`,
+        "arsa yatırımı",
+      ]}>
+
+  <PaywallOverlay ilNorm={il!} her={false} baslik={`${ilDisplay} verisi için Pro üyelik`} />
+
+  <!-- FAQ Schema (Google rich snippet) -->
+  {icerik && (
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": icerik.sss.map((s: any) => ({
+        "@type": "Question",
+        "name": s.soru,
+        "acceptedAnswer": { "@type": "Answer", "text": s.cevap },
+      })),
+    })} />
+  )}
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white">
+    <div class="absolute inset-0 opacity-10">
+      <div class="absolute top-0 right-0 w-96 h-96 rounded-full bg-champagne-400 blur-3xl"></div>
+    </div>
+    <div class="relative max-w-5xl mx-auto px-4 py-12 md:py-16">
+      <nav class="text-sm text-imperial-100 mb-4">
+        <a href="/" class="hover:text-white transition">Cadastrum</a>
+        <span class="mx-2 opacity-50">›</span>
+        <a href="/veri" class="hover:text-white transition">Veri</a>
+        <span class="mx-2 opacity-50">›</span>
+        <span class="text-white font-medium">{ilDisplay}</span>
+      </nav>
+
+      <h1 class="font-display text-4xl md:text-6xl font-bold mb-3">{ilDisplay}</h1>
+      <p class="text-imperial-50 text-lg mb-6">İlçe bazlı arsa, konut ve tarla m² fiyatları</p>
+
+      <!-- Kategori tabs -->
+      <div class="flex gap-2" id="kategori-tabs">
+        <button data-kategori="arsa" class="kat-btn px-5 py-2 rounded-full text-sm font-medium bg-champagne-500 text-imperial-700 transition">
+          Arsa
+        </button>
+        <button data-kategori="konut" class="kat-btn px-5 py-2 rounded-full text-sm font-medium bg-white/10 backdrop-blur text-white border border-white/20 hover:bg-white/20 transition">
+          Konut
+        </button>
+        <button data-kategori="tarla" class="kat-btn px-5 py-2 rounded-full text-sm font-medium bg-white/10 backdrop-blur text-white border border-white/20 hover:bg-white/20 transition">
+          Tarla
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ÖZET STAT -->
+  <section class="bg-slate-50 py-8">
+    <div class="max-w-5xl mx-auto px-4">
+      <div id="ozet" class="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
+        <div class="animate-pulse">
+          <div class="h-3 bg-slate-200 rounded w-32 mb-3"></div>
+          <div class="h-12 bg-slate-200 rounded w-64"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- İLÇELER -->
+  <section class="py-8 bg-slate-50">
+    <div class="max-w-5xl mx-auto px-4">
+      <div class="flex items-end justify-between mb-6">
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-1">İlçeler</div>
+          <h2 class="font-display text-2xl md:text-3xl font-bold text-imperial-700">{ilDisplay} İlçe Fiyatları</h2>
+        </div>
+        <span id="ilce-count" class="text-sm text-slate-500"></span>
+      </div>
+      <div id="ilce-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="animate-pulse h-24 bg-slate-100 rounded-xl"></div>
+        <div class="animate-pulse h-24 bg-slate-100 rounded-xl"></div>
+        <div class="animate-pulse h-24 bg-slate-100 rounded-xl"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ANALİZ (Public özet + Pro kilit) -->
+  <section class="py-12 bg-white border-t border-slate-100">
+    <div class="max-w-5xl mx-auto px-4">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-1">İl Analizi</div>
+          <h2 class="font-display text-2xl md:text-3xl font-bold text-imperial-700">{ilDisplay} dağılımı</h2>
+        </div>
+        <span id="analiz-pro-badge" class="hidden text-[11px] px-2 py-0.5 rounded-full bg-champagne-500 text-imperial-700 font-semibold">Pro aktif</span>
+      </div>
+
+      <!-- Public: top/bot ilçe -->
+      <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <div class="p-5 bg-imperial-50 border border-imperial-100 rounded-xl">
+          <div class="text-xs uppercase tracking-wide text-imperial-500 font-semibold mb-2">En yüksek 5 ilçe</div>
+          <div id="top5" class="space-y-1.5 text-sm"></div>
+        </div>
+        <div class="p-5 bg-slate-50 border border-slate-200 rounded-xl">
+          <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">En düşük 5 ilçe</div>
+          <div id="bot5" class="space-y-1.5 text-sm"></div>
+        </div>
+      </div>
+
+      <!-- Pro: derin analiz -->
+      <div class="relative">
+        <div id="pro-analiz" class="grid md:grid-cols-3 gap-4">
+          <div class="p-5 bg-white border border-slate-200 rounded-xl">
+            <div class="text-xs text-slate-500 mb-1">Dağılım genişliği</div>
+            <div id="spread" class="font-display text-2xl font-bold text-imperial-700">—</div>
+            <div class="text-[11px] text-slate-400 mt-1">en yüksek / en düşük</div>
+          </div>
+          <div class="p-5 bg-white border border-slate-200 rounded-xl">
+            <div class="text-xs text-slate-500 mb-1">Çeyrekler arası (IQR)</div>
+            <div id="iqr" class="font-display text-2xl font-bold text-imperial-700">—</div>
+            <div class="text-[11px] text-slate-400 mt-1">Q3 − Q1 TL/m²</div>
+          </div>
+          <div class="p-5 bg-white border border-slate-200 rounded-xl">
+            <div class="text-xs text-slate-500 mb-1">Veri yoğunluğu</div>
+            <div id="yogunluk" class="font-display text-2xl font-bold text-imperial-700">—</div>
+            <div class="text-[11px] text-slate-400 mt-1">canlı / AI baseline</div>
+          </div>
+          <div class="md:col-span-3 p-5 bg-white border border-slate-200 rounded-xl">
+            <div class="text-xs text-slate-500 mb-3">İlçe medyan dağılımı</div>
+            <div id="bar-chart" class="space-y-1.5"></div>
+          </div>
+        </div>
+
+        <!-- CTA overlay (free user) -->
+        <div id="pro-cta" class="hidden absolute inset-0 items-center justify-center bg-white/60 backdrop-blur-sm rounded-xl">
+          <div class="text-center max-w-sm mx-auto p-6 bg-white border-2 border-champagne-400 rounded-2xl shadow-xl">
+            <div class="text-4xl mb-2">🔒</div>
+            <div class="font-display text-xl font-bold text-imperial-700 mb-2">Tam analize Pro'da erişin</div>
+            <p class="text-sm text-slate-600 mb-4">İlçe dağılımı, IQR, çeyrek analizleri ve detaylı bar chart Pro üyelere açıktır.</p>
+            <a href="/fiyat" class="inline-block px-5 py-2.5 rounded-lg bg-champagne-500 text-imperial-700 font-semibold hover:bg-champagne-400 transition">
+              Pro'ya Geç (₺499/ay)
+            </a>
+            <div class="text-[11px] text-slate-500 mt-3">İlk 100 üye: ERKEN100 kodu ile 6 ay %40 indirim</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ZENGİN SEO İÇERİĞİ (top 5 il için) -->
+  {icerik && (
+    <section class="py-12 md:py-16 bg-white border-t border-slate-100">
+      <div class="max-w-4xl mx-auto px-4 prose-content">
+        <!-- Giriş -->
+        <div class="mb-10">
+          <h2 class="font-display text-2xl md:text-3xl font-bold text-imperial-700 mb-4">
+            {ilDisplay} arsa ve konut piyasası
+          </h2>
+          <p class="text-base md:text-lg text-slate-700 leading-relaxed">{icerik.giris}</p>
+        </div>
+
+        <!-- Önemli bölgeler -->
+        <div class="mb-10">
+          <h3 class="font-display text-xl md:text-2xl font-bold text-imperial-700 mb-4">
+            {ilDisplay} öne çıkan bölgeler
+          </h3>
+          <div class="grid md:grid-cols-2 gap-3">
+            {icerik.onemliBolgeler.map((b: any) => (
+              <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                <div class="font-semibold text-imperial-700 mb-1">{b.ad}</div>
+                <p class="text-sm text-slate-600 leading-relaxed">{b.aciklama}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Yatırım yorumu -->
+        <div class="mb-10">
+          <h3 class="font-display text-xl md:text-2xl font-bold text-imperial-700 mb-4">
+            {ilDisplay}'da yatırım dikkat noktaları
+          </h3>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-5">
+            <p class="text-base text-amber-900 leading-relaxed">{icerik.yatirimYorumu}</p>
+          </div>
+        </div>
+
+        <!-- SSS -->
+        <div class="mb-6">
+          <h3 class="font-display text-xl md:text-2xl font-bold text-imperial-700 mb-4">
+            {ilDisplay} arsa fiyatları SSS
+          </h3>
+          <div class="space-y-3">
+            {icerik.sss.map((s: any) => (
+              <details class="group bg-white border border-slate-200 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer p-4 font-semibold text-imperial-700 hover:bg-slate-50 transition list-none flex items-center justify-between">
+                  <span>{s.soru}</span>
+                  <span class="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="p-4 pt-0 text-slate-700 leading-relaxed border-t border-slate-100">
+                  {s.cevap}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- CTA -->
+  <section class="bg-gradient-to-br from-imperial-700 to-imperial-500 text-white py-12">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+      <h2 class="font-display text-2xl md:text-3xl font-bold mb-3">{ilDisplay}'da bir parsel mi inceliyorsun?</h2>
+      <p class="text-imperial-100 mb-6 max-w-2xl mx-auto">
+        Cadastrum eklentisi TKGM resmi parsel + e-Plan imar + AI fiyat tahmini tek arayüzde.
+        Sahibinden ilanı açar açmaz analiz başlar.
+      </p>
+      <a href="/" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-champagne-500 text-imperial-700 font-semibold hover:bg-champagne-400 transition">
+        Eklentiyi yükle →
+      </a>
+    </div>
+  </section>
+</Base>
+
+<script define:vars={{ il, ilDisplay }}>
+  // @ts-nocheck
+  const API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+  let kategori = new URLSearchParams(location.search).get("kategori") || "arsa";
+
+  function fmtTLM2(n) {
+    if (!n || n <= 0) return "—";
+    return Math.round(n).toLocaleString("tr-TR") + " TL/m²";
+  }
+  function gunGecen(ts) {
+    if (!ts) return "—";
+    const g = Math.floor((Date.now() - ts) / 86400000);
+    if (g < 1) return "bugün";
+    if (g === 1) return "1 gün önce";
+    if (g < 30) return g + " gün önce";
+    return Math.floor(g/30) + " ay önce";
+  }
+  function slug(s) {
+    return s.split(/[-\s]/).filter(Boolean).map(w => w.charAt(0).toLocaleUpperCase("tr") + w.slice(1)).join(" ");
+  }
+
+  async function load() {
+    const ozetEl = document.getElementById("ozet");
+    const gridEl = document.getElementById("ilce-grid");
+    const countEl = document.getElementById("ilce-count");
+
+    try {
+      const res = await fetch(`${API}/fiyat/il/${il}?kategori=${kategori}`);
+      if (!res.ok) {
+        ozetEl.innerHTML = `<div class="text-amber-800">Bu il için henüz yeterli veri toplanmadı.</div>`;
+        gridEl.innerHTML = "";
+        return;
+      }
+      const v = await res.json();
+      const kategoriEt = kategori === "arsa" ? "Arsa" : kategori === "konut" ? "Konut" : "Tarla";
+
+      ozetEl.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div class="md:col-span-2">
+            <div class="text-xs uppercase tracking-wide text-slate-500 font-medium mb-1">${ilDisplay} ${kategoriEt} Medyanı</div>
+            <div class="font-display text-4xl md:text-5xl font-bold text-imperial-700 tracking-tight">
+              ${v.medyan ? fmtTLM2(v.medyan).replace(' TL/m²', '') : '—'}
+              <span class="text-xl text-slate-400 font-normal ml-1">TL/m²</span>
+            </div>
+            <div class="text-xs text-slate-500 mt-1">${gunGecen(v.son_guncelleme)} güncellendi</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 mb-1">İlçe sayısı</div>
+            <div class="font-display text-2xl font-bold text-slate-700">${v.ilceler?.length ?? 0}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 mb-1">Toplam veri</div>
+            <div class="font-display text-2xl font-bold text-slate-700">${(v.ilan_adet ?? 0).toLocaleString("tr-TR")}</div>
+          </div>
+        </div>
+      `;
+
+      countEl.textContent = `${v.ilceler?.length ?? 0} ilçe`;
+
+      const ilceler = v.ilceler ?? [];
+      if (ilceler.length === 0) {
+        gridEl.innerHTML = `<div class="col-span-full text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-4">İlçe bazlı veri yok.</div>`;
+        return;
+      }
+
+      // En yüksek/düşük fiyatları belirle (görsel highlight için)
+      const fiyatlar = ilceler.map(x => x.medyan).filter(x => x > 0);
+      const max = Math.max(...fiyatlar);
+      const min = Math.min(...fiyatlar);
+
+      // ANALİZ blokları
+      const sortedFiyat = [...fiyatlar].sort((a,b)=>a-b);
+      const sortedIlce = [...ilceler].filter(x=>x.medyan>0).sort((a,b)=>b.medyan-a.medyan);
+      const top5 = sortedIlce.slice(0,5);
+      const bot5 = sortedIlce.slice(-5).reverse();
+      const renderRow = (ic, color) => `<div class="flex justify-between items-center"><span class="text-slate-700">${slug(ic.ilce_norm)}</span><span class="font-semibold ${color}">${fmtTLM2(ic.medyan).replace(' TL/m²','')} <span class="text-[10px] text-slate-400">TL/m²</span></span></div>`;
+      document.getElementById("top5").innerHTML = top5.map(ic=>renderRow(ic,"text-imperial-700")).join("");
+      document.getElementById("bot5").innerHTML = bot5.map(ic=>renderRow(ic,"text-slate-600")).join("");
+
+      // Pro analiz
+      if (sortedFiyat.length > 0) {
+        const spreadOran = (max/min).toFixed(1);
+        document.getElementById("spread").textContent = spreadOran + "×";
+        const q1 = sortedFiyat[Math.floor(sortedFiyat.length*0.25)];
+        const q3 = sortedFiyat[Math.floor(sortedFiyat.length*0.75)];
+        document.getElementById("iqr").textContent = (q3-q1).toLocaleString("tr-TR");
+        const canli = ilceler.filter(x=>(x.ilan_adet??0)>0).length;
+        document.getElementById("yogunluk").textContent = `${canli}/${ilceler.length}`;
+        const barChart = document.getElementById("bar-chart");
+        barChart.innerHTML = sortedIlce.slice(0,15).map(ic=>{
+          const pct = (ic.medyan/max)*100;
+          return `<div class="flex items-center gap-2 text-xs"><div class="w-24 truncate text-slate-700">${slug(ic.ilce_norm)}</div><div class="flex-1 bg-slate-100 rounded-full h-5 relative overflow-hidden"><div class="absolute inset-y-0 left-0 bg-gradient-to-r from-imperial-500 to-imperial rounded-full" style="width:${pct}%"></div></div><div class="w-20 text-right font-semibold text-imperial-700">${fmtTLM2(ic.medyan).replace(' TL/m²','')}</div></div>`;
+        }).join("");
+      }
+
+      // Free user için Pro analizi blur
+      const _u = (() => { try { return JSON.parse(localStorage.getItem("cadastrum_user") || "null"); } catch { return null; } })();
+      const isPro = !!(_u && _u.tier !== "free" && (!_u.tierBitis || _u.tierBitis > Date.now()));
+      const proAnaliz = document.getElementById("pro-analiz");
+      const proCta = document.getElementById("pro-cta");
+      const proBadge = document.getElementById("analiz-pro-badge");
+      if (!isPro) {
+        proAnaliz.style.filter = "blur(6px)";
+        proAnaliz.style.userSelect = "none";
+        proAnaliz.style.pointerEvents = "none";
+        proCta.classList.remove("hidden");
+        proCta.classList.add("flex");
+      } else {
+        proBadge.classList.remove("hidden");
+      }
+
+      gridEl.innerHTML = ilceler.map(ic => {
+        const oran = max > min ? (ic.medyan - min) / (max - min) : 0.5;
+        const yogunluk = oran > 0.7 ? "yuksek" : oran > 0.3 ? "orta" : "dusuk";
+        return `
+          <a href="/veri/${il}/${ic.ilce_norm.replace(/\\s+/g,'-')}?kategori=${kategori}"
+             class="group block p-4 bg-white border border-slate-200 rounded-xl hover:border-imperial hover:shadow-md transition relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1 ${yogunluk === 'yuksek' ? 'bg-imperial-500' : yogunluk === 'orta' ? 'bg-imperial-200' : 'bg-slate-200'}"></div>
+            <div class="font-medium text-slate-800 group-hover:text-imperial-700 transition mb-2">${slug(ic.ilce_norm)}</div>
+            <div class="font-display text-2xl font-bold text-imperial-700 mb-1">${fmtTLM2(ic.medyan)}</div>
+            <div class="text-[11px] text-slate-500">${ic.ilan_adet ? ic.ilan_adet + ' veri' : 'AI baseline'}</div>
+          </a>
+        `;
+      }).join("");
+    } catch (e) {
+      ozetEl.innerHTML = `<div class="text-red-700">Yükleme hatası: ${e.message}</div>`;
+    }
+  }
+
+  document.querySelectorAll(".kat-btn").forEach(b => b.addEventListener("click", () => {
+    kategori = b.dataset.kategori;
+    document.querySelectorAll(".kat-btn").forEach(x => {
+      if (x.dataset.kategori === kategori) {
+        x.className = "kat-btn px-5 py-2 rounded-full text-sm font-medium bg-champagne-500 text-imperial-700 transition";
+      } else {
+        x.className = "kat-btn px-5 py-2 rounded-full text-sm font-medium bg-white/10 backdrop-blur text-white border border-white/20 hover:bg-white/20 transition";
+      }
+    });
+    history.replaceState(null, "", `?kategori=${kategori}`);
+    load();
+  }));
+
+  load();
+</script>

@@ -1,0 +1,46 @@
+{
+  "name": "arsa-tkgm-extension",
+  "version": "0.3.2",
+  "description": "TKGM parsel + e-Plan imar + 65k mahalle bazlı fiyat tahmini + multi-source triangulation + deprem/taşkın risk + TCMB KFE + cross-validation (Cadastrum).",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "build:mahalle-merkez": "node scripts/build-mahalle-merkez.mjs",
+    "d1-backup": "node scripts/d1-backup.mjs"
+  },
+  "dependencies": {
+    "dexie": "^4.0.10",
+    "dexie-react-hooks": "^4.4.0",
+    "lucide-react": "^1.14.0",
+    "maplibre-gl": "^4.7.1",
+    "puppeteer": "^25.0.4",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.32",
+    "@types/chrome": "^0.0.287",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/ui": "^4.1.5",
+    "autoprefixer": "^10.4.20",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.4.49",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vitest": "^4.1.5"
+  }
+}

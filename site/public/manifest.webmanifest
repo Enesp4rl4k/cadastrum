@@ -1,0 +1,45 @@
+{
+  "name": "Cadastrum — Parsel Sorgu",
+  "short_name": "Cadastrum",
+  "description": "TKGM parsel, e-Plan imar, spatial emsal fiyat tahmini, deprem/taşkın risk skoru — tek tıkla.",
+  "start_url": "/sorgu",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1B2A4A",
+  "lang": "tr",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Yeni Sorgu",
+      "short_name": "Sorgu",
+      "url": "/sorgu",
+      "icons": [{ "src": "/favicon-32.png", "sizes": "32x32" }]
+    },
+    {
+      "name": "Bildirimlerim",
+      "url": "/hesap/bildirimler",
+      "icons": [{ "src": "/favicon-32.png", "sizes": "32x32" }]
+    }
+  ]
+}

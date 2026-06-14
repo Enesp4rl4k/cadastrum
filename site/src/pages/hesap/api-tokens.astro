@@ -1,0 +1,176 @@
+---
+export const prerender = true;
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="API Tokenları — Cadastrum">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">API Tokenları</h1>
+        <p class="text-slate-600 text-sm">Kurumsal Pro tier — programmatic erişim için.</p>
+      </div>
+      <button id="yeni-btn" class="px-4 py-2 bg-imperial hover:bg-imperial-700 text-white rounded font-medium">
+        + Yeni Token
+      </button>
+    </div>
+
+    <div id="liste" class="space-y-2"></div>
+    <div id="bos" class="hidden text-center py-12 text-slate-500">
+      Henüz API token oluşturmadın.
+    </div>
+    <div id="auth-uyari" class="hidden text-center py-12 text-amber-700">
+      Bu sayfa Kurumsal Pro tier'ı gerektirir. <a href="/giris" class="underline">Giriş yapın</a>
+      veya <a href="/fiyat" class="underline">tier yükseltin</a>.
+    </div>
+
+    <!-- Yeni token modal -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h2 class="text-lg font-bold mb-3">Yeni API Token</h2>
+        <form id="form" class="space-y-3">
+          <input type="text" id="ad" placeholder="Token adı (örn 'production-backend')" required class="w-full px-3 py-2 border rounded" />
+          <input type="number" id="rate" placeholder="Rate limit (req/dakika, varsayılan 60)" min="1" max="600" class="w-full px-3 py-2 border rounded" />
+          <div class="flex gap-2 justify-end">
+            <button type="button" id="iptal" class="px-3 py-1.5 text-slate-700 hover:bg-slate-100 rounded">
+              İptal
+            </button>
+            <button type="submit" class="px-4 py-1.5 bg-imperial text-white rounded font-medium">
+              Oluştur
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Token gösterme modal (sadece bir kez) -->
+    <div id="show-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h2 class="text-lg font-bold mb-2">✓ Token Oluşturuldu</h2>
+        <p class="text-xs text-slate-600 mb-3">
+          <strong>Bu token sadece şimdi görünecek</strong> — kopyala ve güvenli yerde sakla.
+          Kaybedersen yenisini üretmen gerekir.
+        </p>
+        <div class="bg-slate-50 border border-slate-200 rounded p-3 mb-3 font-mono text-xs break-all" id="token-deger"></div>
+        <button id="kopyala" class="w-full px-4 py-2 bg-imperial text-white rounded font-medium">
+          📋 Kopyala
+        </button>
+        <button id="show-kapat" class="w-full mt-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded">
+          Kaydettim, kapat
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { PUBLIC_API_BASE } from "../../lib/config";
+
+    const liste = document.getElementById("liste") as HTMLDivElement;
+    const bos = document.getElementById("bos") as HTMLDivElement;
+    const authUyari = document.getElementById("auth-uyari") as HTMLDivElement;
+    const modal = document.getElementById("modal") as HTMLDivElement;
+    const showModal = document.getElementById("show-modal") as HTMLDivElement;
+    const tokenDeger = document.getElementById("token-deger") as HTMLDivElement;
+
+    function token(): string | null {
+      return localStorage.getItem("cadastrum_token");
+    }
+
+    interface Token {
+      id: number;
+      ad: string;
+      token_prefix: string;
+      rate_limit_per_min: number;
+      olusturuldu: number;
+      son_kullanim: number | null;
+      iptal_edildi: number;
+    }
+
+    function render(tokens: Token[]) {
+      if (tokens.length === 0) {
+        bos.classList.remove("hidden");
+        liste.innerHTML = "";
+        return;
+      }
+      bos.classList.add("hidden");
+      liste.innerHTML = tokens.map((t) => {
+        const iptal = t.iptal_edildi === 1;
+        const sonKul = t.son_kullanim ? new Date(t.son_kullanim).toLocaleString("tr-TR") : "Hiç";
+        return `
+          <div class="bg-white rounded shadow p-4 border ${iptal ? "border-slate-200 opacity-60" : "border-slate-300"}">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold">${t.ad} ${iptal ? '<span class="text-xs text-red-600 ml-2">İPTAL</span>' : ""}</div>
+                <div class="text-xs text-slate-500 mt-1 font-mono">${t.token_prefix}</div>
+                <div class="text-xs text-slate-500 mt-1">
+                  Rate: ${t.rate_limit_per_min}/dk · Son kullanım: ${sonKul}
+                </div>
+              </div>
+              ${!iptal ? `<button data-id="${t.id}" class="del-btn text-xs px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded">İptal et</button>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      liste.querySelectorAll<HTMLButtonElement>(".del-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Token iptal edilecek. Devam?")) return;
+          const res = await fetch(`${PUBLIC_API_BASE}/api/tokens/${btn.dataset.id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token()}` },
+          });
+          if (res.ok) yukle();
+        });
+      });
+    }
+
+    async function yukle() {
+      const t = token();
+      if (!t) { authUyari.classList.remove("hidden"); return; }
+      const res = await fetch(`${PUBLIC_API_BASE}/api/tokens`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        authUyari.classList.remove("hidden");
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json() as { tokens: Token[] };
+      render(data.tokens);
+    }
+
+    document.getElementById("yeni-btn")?.addEventListener("click", () => modal.classList.remove("hidden"));
+    document.getElementById("iptal")?.addEventListener("click", () => modal.classList.add("hidden"));
+    document.getElementById("show-kapat")?.addEventListener("click", () => {
+      showModal.classList.add("hidden");
+      yukle();
+    });
+    document.getElementById("kopyala")?.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(tokenDeger.textContent ?? "");
+      alert("Kopyalandı");
+    });
+    document.getElementById("form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const ad = (document.getElementById("ad") as HTMLInputElement).value.trim();
+      const rate = parseInt((document.getElementById("rate") as HTMLInputElement).value || "60", 10);
+      if (!ad) return;
+      const res = await fetch(`${PUBLIC_API_BASE}/api/tokens`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ad, rate_limit_per_min: rate }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { token: string };
+        modal.classList.add("hidden");
+        (document.getElementById("form") as HTMLFormElement).reset();
+        tokenDeger.textContent = data.token;
+        showModal.classList.remove("hidden");
+      } else {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        alert("Hata: " + (err.error ?? res.status));
+      }
+    });
+
+    yukle();
+  </script>
+</Base>

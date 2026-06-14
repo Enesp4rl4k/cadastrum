@@ -1,0 +1,18 @@
+-- Admin user setup — Bootstrap erişimi için kullanıcı admin=1 yap.
+--
+-- Kullanım:
+--   1. Site'tan kaydol/giriş yap (cadastrum.com.tr/kayit)
+--   2. Aşağıdaki email'i kendi email'inle değiştir
+--   3. Çalıştır:
+--      cd backend/api
+--      wrangler d1 execute cadastrum-db --remote \
+--        --command="UPDATE kullanicilar SET admin=1 WHERE email='SENIN_EMAIL@example.com'"
+--   4. Site'tan çıkış-giriş yap (yeni JWT'de admin=1 claim olsun)
+--   5. Extension'da side panel'i kapat-aç (token storage refresh)
+--
+-- Doğrulama:
+--   wrangler d1 execute cadastrum-db --remote \
+--     --command="SELECT id, email, admin, tier FROM kullanicilar WHERE admin=1"
+
+-- TEMPLATE — bunu doğrudan çalıştırma, komut satırında --command ile yap
+UPDATE kullanicilar SET admin = 1 WHERE email = 'SENIN_EMAIL_BURAYA';

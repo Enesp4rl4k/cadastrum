@@ -1,0 +1,70 @@
+---
+// KVKK Consent Banner — ilk ziyarette sticky bottom bar.
+// Kullanıcı kabul edene kadar görünür kalır. localStorage `cadastrum_kvkk_v1`.
+//
+// Bu banner sadece anonim kullanım istatistikleri (sayfa görüntüleme, hata,
+// performans) için bilgilendirme yapar. Kişisel veri toplanmaz.
+---
+
+<div
+  id="kvkk-consent"
+  class="hidden fixed inset-x-0 bottom-0 z-50 bg-white border-t border-slate-200 shadow-2xl"
+  role="dialog"
+  aria-labelledby="kvkk-title"
+>
+  <div class="container-prose py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+    <div class="flex-1 min-w-0">
+      <div id="kvkk-title" class="font-semibold text-sm text-ink mb-1">
+        🔒 Gizlilik ve KVKK
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        Cadastrum hizmet kalitesini iyileştirmek için <strong>anonim</strong> kullanım
+        istatistikleri toplar (sayfa görüntüleme, hata raporu). Kişisel veriniz
+        paylaşılmaz. Detay için
+        <a href="/gizlilik" class="underline hover:text-imperial">Gizlilik Politikası</a>.
+      </p>
+    </div>
+    <div class="flex gap-2 shrink-0">
+      <button
+        id="kvkk-decline"
+        class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded"
+      >
+        Reddet
+      </button>
+      <button
+        id="kvkk-accept"
+        class="px-4 py-1.5 text-xs font-semibold bg-imperial text-white hover:bg-imperial-700 rounded"
+      >
+        Kabul ediyorum
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const KEY = "cadastrum_kvkk_v1";
+
+  function init() {
+    const banner = document.getElementById("kvkk-consent");
+    if (!banner) return;
+    const mevcut = localStorage.getItem(KEY);
+    if (mevcut === "accept" || mevcut === "decline") {
+      banner.classList.add("hidden");
+      return;
+    }
+    banner.classList.remove("hidden");
+
+    document.getElementById("kvkk-accept")?.addEventListener("click", () => {
+      localStorage.setItem(KEY, "accept");
+      banner.classList.add("hidden");
+    });
+    document.getElementById("kvkk-decline")?.addEventListener("click", () => {
+      localStorage.setItem(KEY, "decline");
+      banner.classList.add("hidden");
+    });
+  }
+
+  document.addEventListener("astro:page-load", init);
+  if (document.readyState !== "loading") init();
+  else document.addEventListener("DOMContentLoaded", init);
+</script>

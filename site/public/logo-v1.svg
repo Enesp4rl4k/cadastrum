@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cadastrum">
+  <!-- VERSİYON 1: Klasik Monogram — Sotheby's tarzı -->
+  <!-- Beyaz arka plan, imperial blue ince border, serif "C", champagne nokta -->
+
+  <defs>
+    <linearGradient id="bgV1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FBFAF7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer frame -->
+  <rect x="2" y="2" width="60" height="60" rx="3"
+        fill="url(#bgV1)" stroke="#1B2A4A" stroke-width="1.5"/>
+
+  <!-- İnce iç çerçeve (Sotheby's elegance) -->
+  <rect x="6" y="6" width="52" height="52" rx="1"
+        fill="none" stroke="#C9A86A" stroke-width="0.6"/>
+
+  <!-- Serif "C" — wide weight, classic -->
+  <text x="32" y="46" font-family="Georgia, 'Source Serif 4', serif"
+        font-size="44" font-weight="700"
+        fill="#1B2A4A" text-anchor="middle"
+        letter-spacing="-1">C</text>
+
+  <!-- Champagne dot — sağ üst (mühür referansı) -->
+  <circle cx="50" cy="14" r="2" fill="#C9A86A"/>
+</svg>

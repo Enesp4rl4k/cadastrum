@@ -1,0 +1,158 @@
+---
+export const prerender = true;
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Bildirimlerim — Cadastrum">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-2">Bildirim Aboneliklerim</h1>
+    <p class="text-slate-600 mb-6 text-sm">
+      Takip ettiğiniz bölgelerde fiyat değişimi, yeni emsal veya hedef eşik
+      olduğunda mail gönderilir. Saatlik kontrol; günde max 1 mail/abonelik.
+    </p>
+
+    <div id="liste" class="space-y-3"></div>
+    <div id="bos" class="hidden text-center py-12 text-slate-500">
+      Henüz bildirim aboneliğiniz yok. Cadastrum extension'da bir parsel
+      açıp "Bu bölgede fiyat değişirse mail at" butonuna tıklayın.
+    </div>
+    <div id="auth-uyari" class="hidden text-center py-12 text-amber-700">
+      Bu sayfayı görmek için <a href="/giris" class="underline">giriş yapın</a>.
+    </div>
+    <div id="hata" class="hidden text-center py-4 text-red-700"></div>
+  </div>
+
+  <script>
+    const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+    const liste = document.getElementById("liste") as HTMLDivElement;
+    const bos = document.getElementById("bos") as HTMLDivElement;
+    const authUyari = document.getElementById("auth-uyari") as HTMLDivElement;
+    const hataEl = document.getElementById("hata") as HTMLDivElement;
+
+    function token(): string | null {
+      return localStorage.getItem("cadastrum_token");
+    }
+
+    interface Abonelik {
+      id: number;
+      tip: "fiyat-degisimi" | "yeni-emsal" | "esik-asildi";
+      parametre_json: string;
+      parametre?: {
+        lat: number; lng: number; radius_km: number;
+        kategori?: string; esik_yuzde?: number; esik_tlm2?: number;
+      };
+      son_tetik: number | null;
+      durum: "aktif" | "pasif";
+      olusturuldu: number;
+    }
+
+    function tipEtiket(tip: string): string {
+      return tip === "fiyat-degisimi" ? "📊 Fiyat değişimi" :
+        tip === "yeni-emsal" ? "🆕 Yeni emsal" :
+        "🎯 Eşik aşımı";
+    }
+
+    function render(abonelikler: Abonelik[]) {
+      if (abonelikler.length === 0) {
+        bos.classList.remove("hidden");
+        return;
+      }
+      liste.innerHTML = abonelikler.map((a) => {
+        const p: Abonelik["parametre"] = a.parametre ?? { lat: 0, lng: 0, radius_km: 0 };
+        const koord = `${p.lat?.toFixed(4)}, ${p.lng?.toFixed(4)}`;
+        const detay = a.tip === "fiyat-degisimi"
+          ? `±%${p.esik_yuzde ?? 5} hareket`
+          : a.tip === "esik-asildi"
+            ? `≤ ₺${(p.esik_tlm2 ?? 0).toLocaleString("tr-TR")}/m²`
+            : "Yeni emsal birikimi";
+        const sonTetikStr = a.son_tetik
+          ? new Date(a.son_tetik).toLocaleString("tr-TR")
+          : "Henüz tetiklenmedi";
+        const aktifBadge = a.durum === "aktif"
+          ? '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-xs">Aktif</span>'
+          : '<span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-xs">Pasif</span>';
+        return `
+          <div class="bg-white rounded shadow p-4 border border-slate-200">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold">${tipEtiket(a.tip)}</span>
+                  ${aktifBadge}
+                </div>
+                <div class="text-sm text-slate-600">
+                  📍 ${koord} · ${p.radius_km}km ${p.kategori ?? "arsa"} · ${detay}
+                </div>
+                <div class="text-xs text-slate-400 mt-1">Son tetik: ${sonTetikStr}</div>
+              </div>
+              <div class="flex flex-col gap-1">
+                <button data-id="${a.id}" data-action="${a.durum === "aktif" ? "pasif" : "aktif"}"
+                  class="toggle-btn text-xs px-2 py-1 rounded ${a.durum === "aktif" ? "bg-slate-100" : "bg-emerald-100"}">
+                  ${a.durum === "aktif" ? "Duraklat" : "Aktif et"}
+                </button>
+                <button data-id="${a.id}" data-action="sil"
+                  class="del-btn text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100">
+                  Sil
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      liste.querySelectorAll<HTMLButtonElement>(".toggle-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.id!;
+          const yeniDurum = btn.dataset.action as "aktif" | "pasif";
+          const res = await fetch(`${API_BASE}/bildirim/${id}/durum`, {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ durum: yeniDurum }),
+          });
+          if (res.ok) yukle();
+        });
+      });
+      liste.querySelectorAll<HTMLButtonElement>(".del-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Aboneliği silmek istediğinizden emin misiniz?")) return;
+          const id = btn.dataset.id!;
+          const res = await fetch(`${API_BASE}/bildirim/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token()}` },
+          });
+          if (res.ok) yukle();
+        });
+      });
+    }
+
+    async function yukle() {
+      const t = token();
+      if (!t) {
+        authUyari.classList.remove("hidden");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/bildirim/list`, {
+          headers: { Authorization: `Bearer ${t}` },
+        });
+        if (res.status === 401) {
+          authUyari.classList.remove("hidden");
+          return;
+        }
+        if (!res.ok) {
+          hataEl.textContent = `Hata: ${res.status}`;
+          hataEl.classList.remove("hidden");
+          return;
+        }
+        const data = await res.json() as { abonelikler: Abonelik[] };
+        bos.classList.add("hidden");
+        liste.innerHTML = "";
+        render(data.abonelikler);
+      } catch (e) {
+        hataEl.textContent = `Network hatası: ${e}`;
+        hataEl.classList.remove("hidden");
+      }
+    }
+
+    yukle();
+  </script>
+</Base>

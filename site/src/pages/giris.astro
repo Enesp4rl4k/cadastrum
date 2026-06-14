@@ -1,0 +1,100 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Giriş Yap — Cadastrum" description="Cadastrum hesabınızla giriş yapın.">
+  <section class="min-h-[80vh] flex items-center justify-center py-16 bg-slate-50">
+    <div class="w-full max-w-md mx-auto px-4">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div class="text-center mb-6">
+          <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-imperial-50 text-imperial-700 mb-3">
+            <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 4l8-2 8 2v12l-8 2-8-2V4zm9 1.5L4 7v8.5L11 17V5.5z"/></svg>
+          </div>
+          <h1 class="font-display text-2xl font-bold text-imperial-700">Hesabınıza girin</h1>
+          <p class="text-sm text-slate-500 mt-1">Cadastrum aboneliğine bağlı analizler için.</p>
+        </div>
+
+        <form id="giris-form" method="post" action="javascript:void(0)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+            <input type="email" name="email" required autocomplete="email"
+              class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-sm font-medium text-slate-700">Şifre</label>
+              <a href="/sifre-sifirla" class="text-xs text-imperial hover:underline">Şifremi unuttum</a>
+            </div>
+            <input type="password" name="sifre" required minlength="8" autocomplete="current-password"
+              class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition" />
+          </div>
+          <div id="hata" class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+          <button type="submit" id="submit-btn"
+            class="w-full py-2.5 rounded-lg bg-imperial text-white font-semibold text-sm hover:bg-imperial-700 transition disabled:opacity-50">
+            Giriş yap
+          </button>
+        </form>
+
+        <div class="text-center mt-6 text-sm text-slate-500">
+          Hesabınız yok mu?
+          <a href="/kayit" class="text-imperial font-medium hover:underline">Kayıt olun</a>
+        </div>
+
+        <!-- Extension durumu sinyali -->
+        <div id="ext-bilgi" class="hidden mt-4 px-3 py-2 rounded-lg text-xs text-center"></div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { giris, tazele, eklentiKontrolu } from "../lib/auth";
+
+  // GÜVENLİK: Form submit handler bağlanmadan ÖNCE bile native GET'i engelle.
+  // JS yüklenirken klavyeden Enter'a basılırsa credentials URL'ye düşmesin.
+  const formErken = document.getElementById("giris-form") as HTMLFormElement | null;
+  formErken?.addEventListener("submit", (e) => e.preventDefault(), { capture: true });
+
+  // Zaten girişliyse profile yönlendir
+  tazele().then(u => { if (u) location.href = "/"; }).catch(() => {});
+
+  // Eklenti yüklü mü kontrol et
+  const fromExtension = new URLSearchParams(location.search).get("source") === "extension";
+  const extBilgi = document.getElementById("ext-bilgi") as HTMLDivElement;
+  eklentiKontrolu().then(({ yuklu }) => {
+    if (yuklu) {
+      extBilgi.textContent = fromExtension
+        ? "✓ Eklentiden geldiniz. Giriş yaptıktan sonra otomatik olarak hesabınız eklentiye senkronize edilecek."
+        : "✓ Cadastrum eklentisi yüklü — giriş yapınca otomatik bağlanır.";
+      extBilgi.className = "mt-4 px-3 py-2 rounded-lg text-xs text-center bg-emerald-50 text-emerald-800 border border-emerald-200";
+    } else {
+      extBilgi.textContent = "💡 Cadastrum Chrome eklentisi yükleyin — analizler doğrudan Sahibinden ilanlarına gelsin.";
+      extBilgi.className = "mt-4 px-3 py-2 rounded-lg text-xs text-center bg-amber-50 text-amber-800 border border-amber-200";
+    }
+    extBilgi.classList.remove("hidden");
+  });
+
+  const form = document.getElementById("giris-form") as HTMLFormElement;
+  const btn = document.getElementById("submit-btn") as HTMLButtonElement;
+  const hataEl = document.getElementById("hata") as HTMLDivElement;
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hataEl.classList.add("hidden");
+    btn.disabled = true;
+    btn.textContent = "Giriş yapılıyor...";
+
+    const fd = new FormData(form);
+    try {
+      await giris(fd.get("email") as string, fd.get("sifre") as string);
+      const param = new URLSearchParams(location.search).get("dön") ?? "/";
+      location.href = param;
+    } catch (err: any) {
+      hataEl.textContent = err.message ?? "Bir hata oluştu";
+      hataEl.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Giriş yap";
+    }
+  });
+</script>

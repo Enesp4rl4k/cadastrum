@@ -1,0 +1,3482 @@
+{
+  "istanbul__basaksehir__bogazkoy": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "İlçe ortalamasına göre",
+    "il": "İstanbul",
+    "ilce": "Başakşehir",
+    "mahalle": "Boğazköy",
+    "tip": "quarter",
+    "zaman": 1778160769976
+  },
+  "istanbul__buyukcekmece__celaliye": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "İstanbul Büyükçekmece suburb",
+    "il": "İstanbul",
+    "ilce": "Büyükçekmece",
+    "mahalle": "Celaliye",
+    "tip": "suburb",
+    "zaman": 1778160772352
+  },
+  "ankara__mamak__lalahan": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Mamak ilçesi ortalama",
+    "il": "Ankara",
+    "ilce": "Mamak",
+    "mahalle": "Lalahan",
+    "tip": "quarter",
+    "zaman": 1778160774762
+  },
+  "antalya__demre__kale": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Demre ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Demre",
+    "mahalle": "Kale",
+    "tip": "neighbourhood",
+    "zaman": 1778160777311
+  },
+  "antalya__kemer__cirali": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Kemer ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kemer",
+    "mahalle": "Çıralı",
+    "tip": "neighbourhood",
+    "zaman": 1778160779713
+  },
+  "istanbul__esenyurt__esenkent": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Esenyurt suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Esenyurt",
+    "mahalle": "Esenkent",
+    "tip": "suburb",
+    "zaman": 1778160782216
+  },
+  "ankara__yenimahalle__batikent": {
+    "arsa": {
+      "tlm2": 9500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Yenimahalle ilçe ortalaması",
+    "il": "Ankara",
+    "ilce": "Yenimahalle",
+    "mahalle": "Batıkent",
+    "tip": "quarter",
+    "zaman": 1778160784779
+  },
+  "ankara__polatli__basri": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Polatlı suburb ortalaması",
+    "il": "Ankara",
+    "ilce": "Polatlı",
+    "mahalle": "Basrı",
+    "tip": "suburb",
+    "zaman": 1778160787302
+  },
+  "eskisehir__odunpazari__derbent": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Odunpazarı ilçe ortalaması",
+    "il": "Eskişehir",
+    "ilce": "Odunpazarı",
+    "mahalle": "Derbent",
+    "tip": "neighbourhood",
+    "zaman": 1778160789646
+  },
+  "mugla__bodrum__akyarlar": {
+    "arsa": {
+      "tlm2": 38000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 57000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "not": "Bodrum suburb ortalaması",
+    "il": "Muğla",
+    "ilce": "Bodrum",
+    "mahalle": "Akyarlar",
+    "tip": "suburb",
+    "zaman": 1778160792039
+  },
+  "mugla__bodrum__yahsi": {
+    "arsa": {
+      "tlm2": 38000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 57000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "not": "Bodrum suburb ortalaması",
+    "il": "Muğla",
+    "ilce": "Bodrum",
+    "mahalle": "Yahşi",
+    "tip": "suburb",
+    "zaman": 1778160794404
+  },
+  "mugla__bodrum__turkbuku": {
+    "arsa": {
+      "tlm2": 38000,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 57000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 2500,
+      "guven": 20
+    },
+    "not": "Bodrum suburb",
+    "il": "Muğla",
+    "ilce": "Bodrum",
+    "mahalle": "Türkbükü",
+    "tip": "suburb",
+    "zaman": 1778160796824
+  },
+  "ankara__pursaklar__fatih": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 20
+    },
+    "not": "Pursaklar suburb",
+    "il": "Ankara",
+    "ilce": "Pursaklar",
+    "mahalle": "Fatih",
+    "tip": "suburb",
+    "zaman": 1778160799198
+  },
+  "ankara__golbasi__kizilcasar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Gölbaşı suburb",
+    "il": "Ankara",
+    "ilce": "Gölbaşı",
+    "mahalle": "Kızılcaşar",
+    "tip": "suburb",
+    "zaman": 1778160801566
+  },
+  "ankara__golbasi__taspinar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 20
+    },
+    "not": "Gölbaşı suburb ortalaması",
+    "il": "Ankara",
+    "ilce": "Gölbaşı",
+    "mahalle": "Taşpınar",
+    "tip": "suburb",
+    "zaman": 1778160804013
+  },
+  "kayseri__pinarbasi__yeniyassipinar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Pınarbaşı suburb ortalaması",
+    "il": "Kayseri",
+    "ilce": "Pınarbaşı",
+    "mahalle": "Yeniyassıpınar",
+    "tip": "suburb",
+    "zaman": 1778160806379
+  },
+  "kayseri__talas__endurluk": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Talas ilçesi suburb",
+    "il": "Kayseri",
+    "ilce": "Talas",
+    "mahalle": "Endürlük",
+    "tip": "suburb",
+    "zaman": 1778160808878
+  },
+  "istanbul__bahcelievler__kocasinan merkez": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Bahçelievler",
+    "mahalle": "Kocasinan Merkez",
+    "tip": "suburb",
+    "zaman": 1778160811201
+  },
+  "istanbul__kadikoy__moda": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 20
+    },
+    "not": "Kadıköy ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Kadıköy",
+    "mahalle": "Moda",
+    "tip": "quarter",
+    "zaman": 1778160813569
+  },
+  "istanbul__maltepe__kucukyali merkez": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması temelinde",
+    "il": "İstanbul",
+    "ilce": "Maltepe",
+    "mahalle": "Küçükyalı Merkez",
+    "tip": "suburb",
+    "zaman": 1778160815979
+  },
+  "istanbul__atasehir__kucukbakkalkoy": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 20
+    },
+    "not": "Ataşehir suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Ataşehir",
+    "mahalle": "Küçükbakkalköy",
+    "tip": "suburb",
+    "zaman": 1778160818379
+  },
+  "istanbul__kadikoy__kiziltoprak": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 20
+    },
+    "not": "Kadıköy ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Kadıköy",
+    "mahalle": "Kızıltoprak",
+    "tip": "quarter",
+    "zaman": 1778160820816
+  },
+  "istanbul__kadikoy__kalamis": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 20
+    },
+    "not": "Kadıköy ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Kadıköy",
+    "mahalle": "Kalamış",
+    "tip": "quarter",
+    "zaman": 1778160823158
+  },
+  "istanbul__kadikoy__goztepe": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 20
+    },
+    "not": "Kadıköy suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Kadıköy",
+    "mahalle": "Göztepe",
+    "tip": "suburb",
+    "zaman": 1778160825550
+  },
+  "istanbul__besiktas__yildiz": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Yıldız",
+    "tip": "suburb",
+    "zaman": 1778160828018
+  },
+  "istanbul__sariyer__buyukdere": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Sarıyer suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Sarıyer",
+    "mahalle": "Büyükdere",
+    "tip": "suburb",
+    "zaman": 1778160830392
+  },
+  "istanbul__uskudar__vanikoy": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Üsküdar ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Üsküdar",
+    "mahalle": "Vaniköy",
+    "tip": "quarter",
+    "zaman": 1778160833568
+  },
+  "istanbul__uskudar__salacak": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Üsküdar suburb",
+    "il": "İstanbul",
+    "ilce": "Üsküdar",
+    "mahalle": "Salacak",
+    "tip": "suburb",
+    "zaman": 1778160836147
+  },
+  "istanbul__uskudar__kuzguncuk": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Üsküdar suburb",
+    "il": "İstanbul",
+    "ilce": "Üsküdar",
+    "mahalle": "Kuzguncuk",
+    "tip": "suburb",
+    "zaman": 1778160838608
+  },
+  "istanbul__besiktas__kurucesme": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112500,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 3500,
+      "guven": 20
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Kuruçeşme",
+    "tip": "suburb",
+    "zaman": 1778160840964
+  },
+  "istanbul__beykoz__kanlica": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Beykoz suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beykoz",
+    "mahalle": "Kanlıca",
+    "tip": "suburb",
+    "zaman": 1778160843665
+  },
+  "istanbul__uskudar__kandilli": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Üsküdar suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Üsküdar",
+    "mahalle": "Kandilli",
+    "tip": "suburb",
+    "zaman": 1778160846111
+  },
+  "istanbul__sariyer__istinye": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Sarıyer suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Sarıyer",
+    "mahalle": "İstinye",
+    "tip": "suburb",
+    "zaman": 1778160848472
+  },
+  "istanbul__uskudar__cengelkoy": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 20
+    },
+    "not": "Üsküdar suburb",
+    "il": "İstanbul",
+    "ilce": "Üsküdar",
+    "mahalle": "Çengelköy",
+    "tip": "suburb",
+    "zaman": 1778160850791
+  },
+  "istanbul__besiktas__bebek": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Bebek",
+    "tip": "suburb",
+    "zaman": 1778160853188
+  },
+  "istanbul__besiktas__sinanpasa": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 130000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş'ta arsa fiyatı yüksek",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Sinanpaşa",
+    "tip": "neighbourhood",
+    "zaman": 1778160855597
+  },
+  "istanbul__besiktas__arnavutkoy": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Arnavutköy",
+    "tip": "suburb",
+    "zaman": 1778160857956
+  },
+  "istanbul__sariyer__tarabya": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Sarıyer suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Sarıyer",
+    "mahalle": "Tarabya",
+    "tip": "suburb",
+    "zaman": 1778160860336
+  },
+  "istanbul__sariyer__sariyer merkez": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Sarıyer suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Sarıyer",
+    "mahalle": "Sarıyer Merkez",
+    "tip": "suburb",
+    "zaman": 1778160862677
+  },
+  "istanbul__beykoz__ortacesme": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Beykoz suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beykoz",
+    "mahalle": "Ortaçeşme",
+    "tip": "suburb",
+    "zaman": 1778160927387
+  },
+  "istanbul__beykoz__akbaba": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Beykoz suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beykoz",
+    "mahalle": "Akbaba",
+    "tip": "suburb",
+    "zaman": 1778160929802
+  },
+  "istanbul__kartal__yakacik": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kartal ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Kartal",
+    "mahalle": "Yakacık",
+    "tip": "quarter",
+    "zaman": 1778160932226
+  },
+  "istanbul__kartal__soganlik": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kartal ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Kartal",
+    "mahalle": "Soğanlık",
+    "tip": "quarter",
+    "zaman": 1778160934685
+  },
+  "istanbul__sancaktepe__samandira": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 20
+    },
+    "not": "Sancaktepe ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Sancaktepe",
+    "mahalle": "Samandıra",
+    "tip": "quarter",
+    "zaman": 1778160937051
+  },
+  "istanbul__maltepe__basibuyuk": {
+    "arsa": {
+      "tlm2": 22000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Maltepe",
+    "mahalle": "Başıbüyük",
+    "tip": "suburb",
+    "zaman": 1778160939546
+  },
+  "istanbul__sancaktepe__sarigazi": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sancaktepe ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Sancaktepe",
+    "mahalle": "Sarıgazi",
+    "tip": "quarter",
+    "zaman": 1778160941897
+  },
+  "istanbul__beykoz__gorele": {
+    "arsa": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Beykoz suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beykoz",
+    "mahalle": "Görele",
+    "tip": "suburb",
+    "zaman": 1778160944277
+  },
+  "istanbul__beykoz__dereseki": {
+    "arsa": {
+      "tlm2": 22000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 35000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Beykoz suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beykoz",
+    "mahalle": "Dereseki",
+    "tip": "suburb",
+    "zaman": 1778160946719
+  },
+  "istanbul__beykoz__riva": {
+    "arsa": {
+      "tlm2": 18500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Beykoz suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beykoz",
+    "mahalle": "Riva",
+    "tip": "suburb",
+    "zaman": 1778160949110
+  },
+  "istanbul__cekmekoy__resadiye": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Çekmeköy suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Çekmeköy",
+    "mahalle": "Reşadiye",
+    "tip": "suburb",
+    "zaman": 1778160951494
+  },
+  "istanbul__cekmekoy__omerli": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Çekmeköy suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Çekmeköy",
+    "mahalle": "Ömerli",
+    "tip": "suburb",
+    "zaman": 1778160954204
+  },
+  "istanbul__pendik__yayalar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Pendik suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Pendik",
+    "mahalle": "Yayalar",
+    "tip": "suburb",
+    "zaman": 1778160956541
+  },
+  "istanbul__tuzla__orhanli": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Tuzla suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Tuzla",
+    "mahalle": "Orhanlı",
+    "tip": "suburb",
+    "zaman": 1778160958912
+  },
+  "istanbul__pendik__kurtkoy": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Pendik suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Pendik",
+    "mahalle": "Kurtköy",
+    "tip": "suburb",
+    "zaman": 1778160961246
+  },
+  "istanbul__tuzla__aydinli": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Tuzla suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Tuzla",
+    "mahalle": "Aydınlı",
+    "tip": "suburb",
+    "zaman": 1778160963703
+  },
+  "istanbul__pendik__atabey": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Pendik ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Pendik",
+    "mahalle": "Atabey",
+    "tip": "quarter",
+    "zaman": 1778160966082
+  },
+  "istanbul__pendik__guzelyali": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 20
+    },
+    "not": "Pendik suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Pendik",
+    "mahalle": "Güzelyalı",
+    "tip": "suburb",
+    "zaman": 1778160968454
+  },
+  "istanbul__tuzla__icmeler": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Tuzla suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Tuzla",
+    "mahalle": "İçmeler",
+    "tip": "suburb",
+    "zaman": 1778160970819
+  },
+  "istanbul__tuzla__tepeoren": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Tuzla suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Tuzla",
+    "mahalle": "Tepeören",
+    "tip": "suburb",
+    "zaman": 1778160973446
+  },
+  "kocaeli__basiskele__yenikoy merkez": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kocaeli Başiskele suburb",
+    "il": "Kocaeli",
+    "ilce": "Başiskele",
+    "mahalle": "Yeniköy Merkez",
+    "tip": "suburb",
+    "zaman": 1778160975808
+  },
+  "kocaeli__basiskele__cataldere": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İlçe ortalamasına göre",
+    "il": "Kocaeli",
+    "ilce": "Başiskele",
+    "mahalle": "Çataldere",
+    "tip": "neighbourhood",
+    "zaman": 1778160978179
+  },
+  "kocaeli__basiskele__aytepekoy": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kocaeli Başiskele mahalle bilinmiyor",
+    "il": "Kocaeli",
+    "ilce": "Başiskele",
+    "mahalle": "Aytepeköy",
+    "tip": "neighbourhood",
+    "zaman": 1778160980664
+  },
+  "istanbul__sile__sungurlu": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Şile ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Şile",
+    "mahalle": "Sungurlu",
+    "tip": "neighbourhood",
+    "zaman": 1778160983035
+  },
+  "istanbul__sile__kemalli": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 7500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Şile ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Şile",
+    "mahalle": "Kemalli",
+    "tip": "neighbourhood",
+    "zaman": 1778160985374
+  },
+  "istanbul__sile__evrenli": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 7500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Şile ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Şile",
+    "mahalle": "Evrenli",
+    "tip": "neighbourhood",
+    "zaman": 1778160987778
+  },
+  "kocaeli__derince__kayalar": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 7000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Derince ilçe ortalaması",
+    "il": "Kocaeli",
+    "ilce": "Derince",
+    "mahalle": "Kayalar",
+    "tip": "neighbourhood",
+    "zaman": 1778160990101
+  },
+  "kocaeli__korfez__erikli": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Körfez ilçe ortalaması",
+    "il": "Kocaeli",
+    "ilce": "Körfez",
+    "mahalle": "Erikli",
+    "tip": "neighbourhood",
+    "zaman": 1778160992498
+  },
+  "kocaeli__golcuk__ihsaniye merkez": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Gölcük suburb ortalaması",
+    "il": "Kocaeli",
+    "ilce": "Gölcük",
+    "mahalle": "İhsaniye Merkez",
+    "tip": "suburb",
+    "zaman": 1778160994831
+  },
+  "bursa__iznik__sultaniye": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İznik ilçe ortalaması",
+    "il": "Bursa",
+    "ilce": "İznik",
+    "mahalle": "Sultaniye",
+    "tip": "neighbourhood",
+    "zaman": 1778160997192
+  },
+  "bursa__iznik__kirkhamam": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İznik ilçe ortalaması",
+    "il": "Bursa",
+    "ilce": "İznik",
+    "mahalle": "Kırkhamam",
+    "tip": "neighbourhood",
+    "zaman": 1778160999688
+  },
+  "istanbul__sile__mansar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Şile",
+    "mahalle": "Manşar",
+    "tip": "neighbourhood",
+    "zaman": 1778161002150
+  },
+  "kocaeli__korfez__hereke": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 7000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Körfez ilçe ortalaması",
+    "il": "Kocaeli",
+    "ilce": "Körfez",
+    "mahalle": "Hereke",
+    "tip": "quarter",
+    "zaman": 1778161004521
+  },
+  "yalova__altinova__hersek": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 7000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Yalova Altınova ortalama",
+    "il": "Yalova",
+    "ilce": "Altınova",
+    "mahalle": "Hersek",
+    "tip": "neighbourhood",
+    "zaman": 1778161006896
+  },
+  "kocaeli__karamursel__fevzi cakmak": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Karamürsel ilçe ortalaması",
+    "il": "Kocaeli",
+    "ilce": "Karamürsel",
+    "mahalle": "Fevzi Çakmak",
+    "tip": "neighbourhood",
+    "zaman": 1778161009347
+  },
+  "antalya__gazipasa__adanda": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Gazipaşa ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Gazipaşa",
+    "mahalle": "Adanda",
+    "tip": "neighbourhood",
+    "zaman": 1778161011686
+  },
+  "antalya__konyaalti__gedeller": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Konyaaltı ortalama fiyatları",
+    "il": "Antalya",
+    "ilce": "Konyaaltı",
+    "mahalle": "Gedeller",
+    "tip": "neighbourhood",
+    "zaman": 1778161014071
+  },
+  "antalya__konyaalti__doyran": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Konyaaltı ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Konyaaltı",
+    "mahalle": "Doyran",
+    "tip": "quarter",
+    "zaman": 1778161016386
+  },
+  "antalya__kepez__duaci": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Kepez suburb ortalaması",
+    "il": "Antalya",
+    "ilce": "Kepez",
+    "mahalle": "Duacı",
+    "tip": "suburb",
+    "zaman": 1778161080985
+  },
+  "antalya__serik__gokcay": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Serik ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Serik",
+    "mahalle": "Gökçay",
+    "tip": "neighbourhood",
+    "zaman": 1778161083330
+  },
+  "antalya__serik__kocamehmetler": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Serik ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Serik",
+    "mahalle": "Kocamehmetler",
+    "tip": "neighbourhood",
+    "zaman": 1778161085792
+  },
+  "antalya__manavgat__seki": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Manavgat ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Manavgat",
+    "mahalle": "Seki",
+    "tip": "neighbourhood",
+    "zaman": 1778161088168
+  },
+  "antalya__alanya__avsallar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Alanya suburb ortalaması",
+    "il": "Antalya",
+    "ilce": "Alanya",
+    "mahalle": "Avsallar",
+    "tip": "suburb",
+    "zaman": 1778161090546
+  },
+  "antalya__alanya__konakli": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Alanya suburb ortalaması",
+    "il": "Antalya",
+    "ilce": "Alanya",
+    "mahalle": "Konaklı",
+    "tip": "suburb",
+    "zaman": 1778161092905
+  },
+  "antalya__alanya__turkler": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Alanya suburb ortalaması",
+    "il": "Antalya",
+    "ilce": "Alanya",
+    "mahalle": "Türkler",
+    "tip": "suburb",
+    "zaman": 1778161095612
+  },
+  "antalya__alanya__payallar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Alanya suburb ortalaması",
+    "il": "Antalya",
+    "ilce": "Alanya",
+    "mahalle": "Payallar",
+    "tip": "suburb",
+    "zaman": 1778161097949
+  },
+  "antalya__gundogmus__korucak yaylasi": {
+    "arsa": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 20
+    },
+    "not": "Gündoğmuş ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Gündoğmuş",
+    "mahalle": "Korucak Yaylası",
+    "tip": "neighbourhood",
+    "zaman": 1778161100303
+  },
+  "konya__hadim__camici": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Konya Hadim ilçesi",
+    "il": "Konya",
+    "ilce": "Hadim",
+    "mahalle": "Çamiçi",
+    "tip": "neighbourhood",
+    "zaman": 1778161102673
+  },
+  "antalya__demre__yukari beymelek": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Demre ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Demre",
+    "mahalle": "Yukarı Beymelek",
+    "tip": "neighbourhood",
+    "zaman": 1778161105032
+  },
+  "antalya__finike__catallar": {
+    "arsa": {
+      "tlm2": 4500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 6500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Finike ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Finike",
+    "mahalle": "Çatallar",
+    "tip": "neighbourhood",
+    "zaman": 1778161107519
+  },
+  "antalya__korkuteli__begis susuzu": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Korkuteli ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Korkuteli",
+    "mahalle": "Beğiş Susuzu",
+    "tip": "neighbourhood",
+    "zaman": 1778161109885
+  },
+  "antalya__kumluca__haciveliler": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kumluca ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kumluca",
+    "mahalle": "Hacıveliler",
+    "tip": "neighbourhood",
+    "zaman": 1778161112351
+  },
+  "antalya__kumluca__karasar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kumluca ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kumluca",
+    "mahalle": "Karaşar",
+    "tip": "neighbourhood",
+    "zaman": 1778161114770
+  },
+  "antalya__kumluca__karabuk": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kumluca ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kumluca",
+    "mahalle": "Karabük",
+    "tip": "neighbourhood",
+    "zaman": 1778161117160
+  },
+  "antalya__korkuteli__imecik susuzu": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Korkuteli ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Korkuteli",
+    "mahalle": "İmecik Susuzu",
+    "tip": "neighbourhood",
+    "zaman": 1778161119522
+  },
+  "antalya__kumluca__cerdin": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kumluca ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kumluca",
+    "mahalle": "Çerdin",
+    "tip": "neighbourhood",
+    "zaman": 1778161121876
+  },
+  "antalya__kumluca__yenbey": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kumluca ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kumluca",
+    "mahalle": "Yenbey",
+    "tip": "neighbourhood",
+    "zaman": 1778161124254
+  },
+  "antalya__kemer__yaylakuzdere": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Kemer ilçe ortalaması",
+    "il": "Antalya",
+    "ilce": "Kemer",
+    "mahalle": "Yaylakuzdere",
+    "tip": "neighbourhood",
+    "zaman": 1778161126632
+  },
+  "konya__bozkir__sorkun": {
+    "arsa": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 1800,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 20
+    },
+    "not": "Köy yerleşimine göre tahmin",
+    "il": "Konya",
+    "ilce": "Bozkır",
+    "mahalle": "Sorkun",
+    "tip": "neighbourhood",
+    "zaman": 1778161128966
+  },
+  "antalya__kas__akbel": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kaş ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Kaş",
+    "mahalle": "Akbel",
+    "tip": "neighbourhood",
+    "zaman": 1778161131310
+  },
+  "istanbul__kartal__hurriyet": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Kartal ilçesi suburb",
+    "il": "İstanbul",
+    "ilce": "Kartal",
+    "mahalle": "Hürriyet",
+    "tip": "suburb",
+    "zaman": 1778161133744
+  },
+  "balikesir__ayvalik__altinova": {
+    "arsa": {
+      "tlm2": 5500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 7000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Ayvalık ilçe ortalaması",
+    "il": "Balıkesir",
+    "ilce": "Ayvalık",
+    "mahalle": "Altınova",
+    "tip": "neighbourhood",
+    "zaman": 1778161136081
+  },
+  "istanbul__besiktas__etiler": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Etiler",
+    "tip": "suburb",
+    "zaman": 1778161138575
+  },
+  "istanbul__besiktas__levent": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 3500,
+      "guven": 20
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Levent",
+    "tip": "suburb",
+    "zaman": 1778161140918
+  },
+  "bursa__inegol__saray": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması temelinde",
+    "il": "Bursa",
+    "ilce": "İnegöl",
+    "mahalle": "Saray",
+    "tip": "neighbourhood",
+    "zaman": 1778161143327
+  },
+  "bursa__inegol__pabuclucayir": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması temelinde",
+    "il": "Bursa",
+    "ilce": "İnegöl",
+    "mahalle": "Pabuçluçayır",
+    "tip": "neighbourhood",
+    "zaman": 1778161145876
+  },
+  "istanbul__sisli__nisantasi": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 20
+    },
+    "not": "İstanbul Şişli",
+    "il": "İstanbul",
+    "ilce": "Şişli",
+    "mahalle": "Nişantaşı",
+    "tip": "quarter",
+    "zaman": 1778161148233
+  },
+  "istanbul__sisli__tesvikiye": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1000,
+      "guven": 20
+    },
+    "not": "İstanbul Şişli",
+    "il": "İstanbul",
+    "ilce": "Şişli",
+    "mahalle": "Teşvikiye",
+    "tip": "neighbourhood",
+    "zaman": 1778161150584
+  },
+  "istanbul__beyoglu__tepebasi": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Beyoğlu ilçesi ortalama",
+    "il": "İstanbul",
+    "ilce": "Beyoğlu",
+    "mahalle": "Tepebaşı",
+    "tip": "quarter",
+    "zaman": 1778161152925
+  },
+  "istanbul__fatih__unkapani": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Fatih ilçesi ortalama",
+    "il": "İstanbul",
+    "ilce": "Fatih",
+    "mahalle": "Unkapanı",
+    "tip": "quarter",
+    "zaman": 1778161155266
+  },
+  "izmir__karaburun__ardic": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması ve köy yerleşimi",
+    "il": "İzmir",
+    "ilce": "Karaburun",
+    "mahalle": "Ardıç",
+    "tip": "neighbourhood",
+    "zaman": 1778161157633
+  },
+  "adana__saricam__buruk": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Sarıçam ilçesi ortalama",
+    "il": "Adana",
+    "ilce": "Sarıçam",
+    "mahalle": "Buruk",
+    "tip": "quarter",
+    "zaman": 1778161160012
+  },
+  "adana__saricam__boynuyogun": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Sarıçam suburb",
+    "il": "Adana",
+    "ilce": "Sarıçam",
+    "mahalle": "Boynuyoğun",
+    "tip": "suburb",
+    "zaman": 1778161162370
+  },
+  "ankara__golbasi__orencik": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Gölbaşı suburb ortalaması",
+    "il": "Ankara",
+    "ilce": "Gölbaşı",
+    "mahalle": "Örencik",
+    "tip": "suburb",
+    "zaman": 1778161164732
+  },
+  "ankara__golbasi__hacilar": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Gölbaşı suburb ortalaması",
+    "il": "Ankara",
+    "ilce": "Gölbaşı",
+    "mahalle": "Hacılar",
+    "tip": "suburb",
+    "zaman": 1778161167100
+  },
+  "mugla__bodrum__golkoy": {
+    "arsa": {
+      "tlm2": 38000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 57000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "not": "Bodrum suburb",
+    "il": "Muğla",
+    "ilce": "Bodrum",
+    "mahalle": "Gölköy",
+    "tip": "suburb",
+    "zaman": 1778161169728
+  },
+  "antalya__korkuteli__kargalik": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Korkuteli suburb",
+    "il": "Antalya",
+    "ilce": "Korkuteli",
+    "mahalle": "Kargalık",
+    "tip": "suburb",
+    "zaman": 1778161234285
+  },
+  "kayseri__yahyali__yulari": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kayseri Yahyalı suburb",
+    "il": "Kayseri",
+    "ilce": "Yahyalı",
+    "mahalle": "Yuları",
+    "tip": "suburb",
+    "zaman": 1778161236610
+  },
+  "kayseri__yahyali__mustafabeyli": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Yahyalı suburb ortalaması",
+    "il": "Kayseri",
+    "ilce": "Yahyalı",
+    "mahalle": "Mustafabeyli",
+    "tip": "suburb",
+    "zaman": 1778161238943
+  },
+  "kayseri__yahyali__ilyasli": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Yahyalı suburb ortalaması",
+    "il": "Kayseri",
+    "ilce": "Yahyalı",
+    "mahalle": "İlyaslı",
+    "tip": "suburb",
+    "zaman": 1778161241278
+  },
+  "kayseri__yahyali__cubuklu": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Yahyalı suburb ortalaması",
+    "il": "Kayseri",
+    "ilce": "Yahyalı",
+    "mahalle": "Çubuklu",
+    "tip": "suburb",
+    "zaman": 1778161244005
+  },
+  "kayseri__yahyali__senirkoy": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Yahyalı suburb ortalaması",
+    "il": "Kayseri",
+    "ilce": "Yahyalı",
+    "mahalle": "Senirköy",
+    "tip": "suburb",
+    "zaman": 1778161246535
+  },
+  "balikesir__burhaniye__oren": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Balıkesir Burhaniye suburb",
+    "il": "Balıkesir",
+    "ilce": "Burhaniye",
+    "mahalle": "Ören",
+    "tip": "suburb",
+    "zaman": 1778162057354
+  },
+  "istanbul__beyoglu__arap cami": {
+    "arsa": {
+      "tlm2": 55000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 70000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Beyoğlu suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beyoğlu",
+    "mahalle": "Arap Cami",
+    "tip": "suburb",
+    "zaman": 1778163115170
+  },
+  "antalya__konyaalti__saklikent": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Konyaaltı ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Konyaaltı",
+    "mahalle": "Saklıkent",
+    "tip": "neighbourhood",
+    "zaman": 1778164174452
+  },
+  "istanbul__sariyer__rumelikavagi": {
+    "arsa": {
+      "tlm2": 45000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 60000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Sarıyer suburb",
+    "il": "İstanbul",
+    "ilce": "Sarıyer",
+    "mahalle": "Rumelikavağı",
+    "tip": "suburb",
+    "zaman": 1778253343342
+  },
+  "antalya__konyaalti__arapsuyu": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 20
+    },
+    "not": "Konyaaltı suburb ortalaması",
+    "il": "Antalya",
+    "ilce": "Konyaaltı",
+    "mahalle": "Arapsuyu",
+    "tip": "suburb",
+    "zaman": 1778253348816
+  },
+  "balikesir__erdek__ocaklar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Erdek suburb ortalaması",
+    "il": "Balıkesir",
+    "ilce": "Erdek",
+    "mahalle": "Ocaklar",
+    "tip": "suburb",
+    "zaman": 1778253354334
+  },
+  "gaziantep__sahinbey__kucukkizilhisar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Şahinbey suburb ortalaması",
+    "il": "Gaziantep",
+    "ilce": "Şahinbey",
+    "mahalle": "Küçükkızılhisar",
+    "tip": "suburb",
+    "zaman": 1778253359737
+  },
+  "antalya__kas__izne": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kaş ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Kaş",
+    "mahalle": "Izne",
+    "tip": "neighbourhood",
+    "zaman": 1778253365148
+  },
+  "ankara__sincan__temelli": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Sincan ilçe ortalaması",
+    "il": "Ankara",
+    "ilce": "Sincan",
+    "mahalle": "Temelli",
+    "tip": "quarter",
+    "zaman": 1778253370798
+  },
+  "ankara__cankaya__gaziosmanpasa": {
+    "arsa": {
+      "tlm2": 16120,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 20150,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1072,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması tahmin",
+    "il": "Ankara",
+    "ilce": "Çankaya",
+    "mahalle": "Gaziosmanpaşa",
+    "tip": "suburb",
+    "zaman": 1778253376228
+  },
+  "antalya__kas__kozagac": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kaş ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Kaş",
+    "mahalle": "Kozagaç",
+    "tip": "neighbourhood",
+    "zaman": 1778253381735
+  },
+  "antalya__kas__cavdir": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kaş ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Kaş",
+    "mahalle": "Çavdır",
+    "tip": "neighbourhood",
+    "zaman": 1778253387145
+  },
+  "mugla__seydikemer__eskikoy": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Seydikemer ilçe ortalaması",
+    "il": "Muğla",
+    "ilce": "Seydikemer",
+    "mahalle": "Eskiköy",
+    "tip": "neighbourhood",
+    "zaman": 1778253392698
+  },
+  "mugla__seydikemer__cataltepe": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Seydikemer ilçe ortalaması",
+    "il": "Muğla",
+    "ilce": "Seydikemer",
+    "mahalle": "Çataltepe",
+    "tip": "neighbourhood",
+    "zaman": 1778253398090
+  },
+  "antalya__kas__kartin": {
+    "arsa": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Kaş ilçesi ortalama",
+    "il": "Antalya",
+    "ilce": "Kaş",
+    "mahalle": "Kartın",
+    "tip": "neighbourhood",
+    "zaman": 1778253403581
+  },
+  "mugla__marmaris__karacasogut": {
+    "arsa": {
+      "tlm2": 18000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 25000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Marmaris ilçe ortalaması",
+    "il": "Muğla",
+    "ilce": "Marmaris",
+    "mahalle": "Karacasögüt",
+    "tip": "neighbourhood",
+    "zaman": 1778253409018
+  },
+  "balikesir__burhaniye__iskele": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Balıkesir Burhaniye suburb",
+    "il": "Balıkesir",
+    "ilce": "Burhaniye",
+    "mahalle": "İskele",
+    "tip": "suburb",
+    "zaman": 1778253414488
+  },
+  "kayseri__kocasinan__general emir": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Kocasinan suburb ortalaması",
+    "il": "Kayseri",
+    "ilce": "Kocasinan",
+    "mahalle": "General Emir",
+    "tip": "suburb",
+    "zaman": 1778253419933
+  },
+  "ankara__yenimahalle__demetevler": {
+    "arsa": {
+      "tlm2": 9500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 2000,
+      "guven": 30
+    },
+    "not": "Yenimahalle ilçe ortalaması",
+    "il": "Ankara",
+    "ilce": "Yenimahalle",
+    "mahalle": "Demetevler",
+    "tip": "quarter",
+    "zaman": 1778253425416
+  },
+  "konya__taskent__balcilar": {
+    "arsa": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 1800,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 20
+    },
+    "not": "Konya Taşkent ilçe ortalaması",
+    "il": "Konya",
+    "ilce": "Taşkent",
+    "mahalle": "Balcılar",
+    "tip": "quarter",
+    "zaman": 1778253430869
+  },
+  "konya__taskent__afsar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 20
+    },
+    "not": "Konya Taşkent",
+    "il": "Konya",
+    "ilce": "Taşkent",
+    "mahalle": "Afşar",
+    "tip": "quarter",
+    "zaman": 1778253436267
+  },
+  "konya__bozkir__boyali": {
+    "arsa": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 20
+    },
+    "not": "Konya Bozkır ilçesi",
+    "il": "Konya",
+    "ilce": "Bozkır",
+    "mahalle": "Boyalı",
+    "tip": "neighbourhood",
+    "zaman": 1778253441664
+  },
+  "konya__bozkir__kocas": {
+    "arsa": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 1800,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 20
+    },
+    "not": "Köy yerleşimine göre tahmin",
+    "il": "Konya",
+    "ilce": "Bozkır",
+    "mahalle": "Koçaş",
+    "tip": "neighbourhood",
+    "zaman": 1778253447095
+  },
+  "adana__yuregir__misis": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Yüreğir ilçesi ortalama",
+    "il": "Adana",
+    "ilce": "Yüreğir",
+    "mahalle": "Misis",
+    "tip": "quarter",
+    "zaman": 1778253452494
+  },
+  "izmir__foca__bagarasi": {
+    "arsa": {
+      "tlm2": 8000,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Foça ilçe ortalaması",
+    "il": "İzmir",
+    "ilce": "Foça",
+    "mahalle": "Bağarası",
+    "tip": "quarter",
+    "zaman": 1778253457955
+  },
+  "izmir__dikili__salihleralti": {
+    "arsa": {
+      "tlm2": 4500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 6000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Dikili ilçe ortalaması",
+    "il": "İzmir",
+    "ilce": "Dikili",
+    "mahalle": "Salihleraltı",
+    "tip": "neighbourhood",
+    "zaman": 1778253463562
+  },
+  "kayseri__incesu__saraycik": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması ve suburb yerleşim tipi",
+    "il": "Kayseri",
+    "ilce": "İncesu",
+    "mahalle": "Saraycık",
+    "tip": "suburb",
+    "zaman": 1778253469133
+  },
+  "mugla__ortaca__ovacik": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Ortaca ilçe ortalaması",
+    "il": "Muğla",
+    "ilce": "Ortaca",
+    "mahalle": "Ovacık",
+    "tip": "neighbourhood",
+    "zaman": 1778253474778
+  },
+  "konya__cumra__menzil": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 20
+    },
+    "not": "Konya Çumra ortalama",
+    "il": "Konya",
+    "ilce": "Çumra",
+    "mahalle": "Menzil",
+    "tip": "neighbourhood",
+    "zaman": 1778253480220
+  },
+  "konya__cumra__yayla": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 20
+    },
+    "not": "Konya Çumra ortalama",
+    "il": "Konya",
+    "ilce": "Çumra",
+    "mahalle": "Yayla",
+    "tip": "neighbourhood",
+    "zaman": 1778253485613
+  },
+  "konya__cumra__otluca": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Konya Çumra ilçesi",
+    "il": "Konya",
+    "ilce": "Çumra",
+    "mahalle": "Otluca",
+    "tip": "neighbourhood",
+    "zaman": 1778253491044
+  },
+  "istanbul__besiktas__kultur": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Kültür",
+    "tip": "suburb",
+    "zaman": 1778253497422
+  },
+  "istanbul__besiktas__levazim": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112500,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1750,
+      "guven": 20
+    },
+    "not": "Beşiktaş suburb",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Levazım",
+    "tip": "suburb",
+    "zaman": 1778253503041
+  },
+  "istanbul__besiktas__balmumcu": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 130000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Balmumcu",
+    "tip": "suburb",
+    "zaman": 1778253509385
+  },
+  "istanbul__besiktas__nisbetiye": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112500,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1750,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Nisbetiye",
+    "tip": "suburb",
+    "zaman": 1778253514799
+  },
+  "istanbul__besiktas__konaklar": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112500,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 4375,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Konaklar",
+    "tip": "suburb",
+    "zaman": 1778253520275
+  },
+  "mugla__fethiye__ovacik": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "not": "Fethiye ilçe ortalaması",
+    "il": "Muğla",
+    "ilce": "Fethiye",
+    "mahalle": "Ovacık",
+    "tip": "neighbourhood",
+    "zaman": 1778253525670
+  },
+  "istanbul__umraniye__tatlisu": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1200,
+      "guven": 20
+    },
+    "not": "Ümraniye suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Ümraniye",
+    "mahalle": "Tatlısu",
+    "tip": "suburb",
+    "zaman": 1778253531050
+  },
+  "istanbul__umraniye__mehmet akif": {
+    "arsa": {
+      "tlm2": 8500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 12000,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 1500,
+      "guven": 30
+    },
+    "not": "Ümraniye suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Ümraniye",
+    "mahalle": "Mehmet Akif",
+    "tip": "suburb",
+    "zaman": 1778253536446
+  },
+  "adana__karaisali__karalar": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "İlçe ortalaması ve yerleşim tipine göre",
+    "il": "Adana",
+    "ilce": "Karaisalı",
+    "mahalle": "Karalar",
+    "tip": "neighbourhood",
+    "zaman": 1778253541921
+  },
+  "istanbul__besiktas__turkali": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 130000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Türkali",
+    "tip": "suburb",
+    "zaman": 1778253547326
+  },
+  "istanbul__besiktas__muradiye": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş genel ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Muradiye",
+    "tip": "neighbourhood",
+    "zaman": 1778253552744
+  },
+  "istanbul__besiktas__dikilitas": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Dikilitaş",
+    "tip": "neighbourhood",
+    "zaman": 1778253558316
+  },
+  "istanbul__besiktas__visnezade": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 120000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Vişnezade",
+    "tip": "suburb",
+    "zaman": 1778253563953
+  },
+  "istanbul__besiktas__abbasaga": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 3500,
+      "guven": 20
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Abbasağa",
+    "tip": "suburb",
+    "zaman": 1778253569516
+  },
+  "istanbul__besiktas__cihannuma": {
+    "arsa": {
+      "tlm2": 87500,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 112500,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 1750,
+      "guven": 20
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Cihannüma",
+    "tip": "suburb",
+    "zaman": 1778253574925
+  },
+  "istanbul__besiktas__gayrettepe": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 130000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş suburb ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Gayrettepe",
+    "tip": "suburb",
+    "zaman": 1778253580324
+  },
+  "istanbul__besiktas__ulus": {
+    "arsa": {
+      "tlm2": 87000,
+      "guven": 50
+    },
+    "konut": {
+      "tlm2": 130000,
+      "guven": 50
+    },
+    "tarla": {
+      "tlm2": 5800,
+      "guven": 30
+    },
+    "not": "Beşiktaş ilçe ortalaması",
+    "il": "İstanbul",
+    "ilce": "Beşiktaş",
+    "mahalle": "Ulus",
+    "tip": "neighbourhood",
+    "zaman": 1778253585743
+  },
+  "eskisehir__seyitgazi__ucbas": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Seyitgazi ilçe ortalaması",
+    "il": "Eskişehir",
+    "ilce": "Seyitgazi",
+    "mahalle": "Üçbaş",
+    "tip": "neighbourhood",
+    "zaman": 1778253591279
+  },
+  "sakarya__geyve__seferler": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 20
+    },
+    "not": "Geyve ilçe ortalaması",
+    "il": "Sakarya",
+    "ilce": "Geyve",
+    "mahalle": "Seferler",
+    "tip": "neighbourhood",
+    "zaman": 1778253596750
+  },
+  "kahramanmaras__pazarcik__narli": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Pazarcık ilçe ortalaması",
+    "il": "Kahramanmaraş",
+    "ilce": "Pazarcık",
+    "mahalle": "Narlı",
+    "tip": "quarter",
+    "zaman": 1778253603427
+  },
+  "mugla__yatagan__karalti": {
+    "arsa": {
+      "tlm2": 2500,
+      "guven": 40
+    },
+    "konut": {
+      "tlm2": 3500,
+      "guven": 40
+    },
+    "tarla": {
+      "tlm2": 500,
+      "guven": 30
+    },
+    "not": "Yatağan ilçe ortalaması",
+    "il": "Muğla",
+    "ilce": "Yatağan",
+    "mahalle": "Karalti",
+    "tip": "neighbourhood",
+    "zaman": 1778253608840
+  },
+  "ordu__kabaduz__cambasi": {
+    "arsa": {
+      "tlm2": 1200,
+      "guven": 30
+    },
+    "konut": {
+      "tlm2": 1800,
+      "guven": 30
+    },
+    "tarla": {
+      "tlm2": 200,
+      "guven": 20
+    },
+    "not": "Köy yerleşimine göre tahmin",
+    "il": "Ordu",
+    "ilce": "Kabadüz",
+    "mahalle": "Cambaşı",
+    "tip": "neighbourhood",
+    "zaman": 1778253614396
+  }
+}

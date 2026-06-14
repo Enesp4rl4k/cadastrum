@@ -1,0 +1,82 @@
+---
+export const prerender = true;
+import Base from "../../layouts/Base.astro";
+import { BLOG_YAZILAR } from "../../data/blog-yazilar.ts";
+
+const yazilar = [...BLOG_YAZILAR].sort((a, b) =>
+  new Date(b.yayinTarihi).getTime() - new Date(a.yayinTarihi).getTime()
+);
+
+const KATEGORI_ETIKET: Record<string, { ad: string; renk: string }> = {
+  rehber: { ad: "Rehber", renk: "bg-imperial-50 text-imperial-700" },
+  analiz: { ad: "Analiz", renk: "bg-amber-50 text-amber-700" },
+  tutorial: { ad: "Tutorial", renk: "bg-emerald-50 text-emerald-700" },
+  duyuru: { ad: "Duyuru", renk: "bg-rose-50 text-rose-700" },
+};
+---
+
+<Base title="Cadastrum Blog — Türkiye Gayrimenkul Rehberleri ve Analizleri"
+      description="TKGM parsel sorgu, e-Plan imar, AI fiyat tahmini ve Türkiye gayrimenkul piyasası rehberleri. Cadastrum ekibinden uzman içerikler."
+      breadcrumb={[
+        { ad: "Anasayfa", url: "/" },
+        { ad: "Blog", url: "/blog" },
+      ]}
+      keywords={[
+        "Türkiye gayrimenkul blog",
+        "TKGM rehber",
+        "e-Plan rehber",
+        "arsa fiyat analizi",
+        "gayrimenkul yatırım",
+      ]}>
+
+  <section class="bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white py-16">
+    <div class="max-w-5xl mx-auto px-4">
+      <nav class="text-sm text-imperial-100 mb-4">
+        <a href="/" class="hover:text-white transition">Cadastrum</a>
+        <span class="mx-2 opacity-50">›</span>
+        <span class="text-white font-medium">Blog</span>
+      </nav>
+      <h1 class="font-display text-4xl md:text-5xl font-bold mb-3 text-white">Cadastrum Blog</h1>
+      <p class="text-imperial-50 text-lg max-w-2xl">
+        Türkiye gayrimenkul piyasası, TKGM parsel sorgu, e-Plan imar ve AI fiyat tahmini üzerine rehber + analiz yazılarımız.
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12 md:py-16 bg-slate-50">
+    <div class="max-w-5xl mx-auto px-4">
+      <div class="grid md:grid-cols-2 gap-6">
+        {yazilar.map(y => {
+          const k = KATEGORI_ETIKET[y.kategori];
+          return (
+            <a href={`/blog/${y.slug}`}
+               class="group block bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-imperial hover:shadow-lg transition">
+              <div class="p-6">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.renk}`}>
+                    {k.ad}
+                  </span>
+                  <span class="text-xs text-slate-500">·</span>
+                  <span class="text-xs text-slate-500">{y.okumaSuresi} dk okuma</span>
+                  <span class="text-xs text-slate-500">·</span>
+                  <span class="text-xs text-slate-500">
+                    {new Date(y.yayinTarihi).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
+                  </span>
+                </div>
+                <h2 class="font-display text-xl md:text-2xl font-bold text-imperial-700 mb-2 group-hover:text-imperial transition">
+                  {y.baslik}
+                </h2>
+                <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                  {y.aciklama}
+                </p>
+                <span class="text-sm font-semibold text-imperial-700 group-hover:underline">
+                  Devamını oku →
+                </span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+</Base>

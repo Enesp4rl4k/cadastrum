@@ -1,0 +1,814 @@
+---
+export const prerender = true;
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Admin Dashboard — Cadastrum" description="Cadastrum yönetim paneli" robots="noindex, nofollow">
+  <section class="min-h-[80vh] py-12 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4">
+      <header class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="font-display text-3xl font-bold text-imperial-700">Admin Dashboard</h1>
+          <p class="text-sm text-slate-500 mt-1">Sistem sağlığı, kullanıcı yönetimi ve güvenlik izleme.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="admin-email" class="text-xs text-slate-500"></span>
+          <button id="cikis-btn" class="text-xs text-rose-600 hover:underline">Çıkış</button>
+        </div>
+      </header>
+
+      <!-- Login overlay -->
+      <div id="login-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+          <h2 class="font-display text-xl font-bold text-imperial-700 mb-4">Admin Girişi</h2>
+          <p class="text-xs text-slate-500 mb-4">Bu panel sadece admin yetkili kullanıcılar içindir.</p>
+          <form id="admin-login-form" method="post" action="javascript:void(0)" class="space-y-3">
+            <input type="email" id="email-input" required placeholder="email"
+                   class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <input type="password" id="sifre-input" required placeholder="şifre"
+                   class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <button type="submit" class="w-full bg-imperial text-white rounded-md py-2 text-sm font-semibold hover:bg-imperial-700">
+              Giriş Yap
+            </button>
+            <p id="login-msg" class="text-xs text-rose-600 hidden"></p>
+          </form>
+        </div>
+      </div>
+
+      <div id="dashboard" class="hidden space-y-6">
+        <!-- Özet kartları -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Toplam Kullanıcı</div>
+            <div id="m-kullanici" class="text-2xl font-bold text-ink mt-1">—</div>
+            <div id="m-kullanici-yeni" class="text-xs text-emerald-600 mt-1"></div>
+          </div>
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Toplam İlan</div>
+            <div id="m-ilan" class="text-2xl font-bold text-ink mt-1">—</div>
+            <div id="m-ilan-24" class="text-xs text-emerald-600 mt-1"></div>
+          </div>
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="text-xs uppercase tracking-wide text-slate-500">AI Sorgu (7g)</div>
+            <div id="m-ai" class="text-2xl font-bold text-ink mt-1">—</div>
+            <div id="m-ai-cost" class="text-xs text-amber-600 mt-1"></div>
+          </div>
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Başarısız Giriş (24s)</div>
+            <div id="m-guvenlik" class="text-2xl font-bold text-ink mt-1">—</div>
+            <div id="m-guvenlik-ip" class="text-xs text-rose-600 mt-1"></div>
+          </div>
+        </div>
+
+        <!-- Tab nav -->
+        <div class="border-b border-slate-200">
+          <nav class="flex gap-1 -mb-px">
+            <button data-tab="trend" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-imperial text-imperial">Trend</button>
+            <button data-tab="kullanicilar" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Kullanıcılar</button>
+            <button data-tab="ai" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">AI Kullanım</button>
+            <button data-tab="ilan" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">İlan Telemetri</button>
+            <button data-tab="kpi" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Operasyon KPI</button>
+            <button data-tab="outlier" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Veri Kalitesi</button>
+            <button data-tab="abonelik" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Abonelik</button>
+            <button data-tab="blast" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">📧 Blast</button>
+            <button data-tab="guvenlik" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Güvenlik</button>
+            <button data-tab="log" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Denetim Logu</button>
+            <button data-tab="saglik" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-ink">Sistem</button>
+          </nav>
+        </div>
+
+        <!-- Tab panels -->
+        <div id="tab-trend" class="tab-panel">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-semibold text-sm">Son 30 Gün</h3>
+              <button id="cron-tetikle-btn" class="text-xs bg-imperial text-white px-3 py-1.5 rounded hover:bg-imperial-700">⟳ İstatistik Yenile</button>
+            </div>
+            <div id="trend-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-outlier" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <h3 class="font-semibold text-sm mb-3">Şüpheli İlanlar (Son 30 Gün)</h3>
+            <div id="outlier-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-abonelik" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <h3 class="font-semibold text-sm mb-3">Abonelik Yönetimi</h3>
+            <div id="abonelik-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-blast" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <h3 class="font-semibold text-sm mb-3">📧 Newsletter Blast — Waitlist'e duyuru gönder</h3>
+            <div class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
+              ⚠️ Önce <strong>"Test (sadece bana)"</strong> ile dene. Mail geldi mi doğrula. Sonra <strong>"Hepsine Gönder"</strong> aktifleşir.
+            </div>
+            <form id="blast-form" class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Konu</label>
+                <input id="blast-konu" type="text" required class="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                  value="🚀 Cadastrum Chrome Web Store'da — ERKEN100 ile %40 indirim" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Düz metin (text fallback)</label>
+                <textarea id="blast-metin" rows="3" required class="w-full rounded border border-slate-300 px-3 py-2 text-xs font-mono">Cadastrum bugün Chrome Web Store'da canlıya çıktı. İlk 100 üyeye 6 ay %40 indirim. Kod: ERKEN100. Yükle: https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej</textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">HTML (Lansman template önyüklenmiş)</label>
+                <textarea id="blast-html" rows="10" required class="w-full rounded border border-slate-300 px-3 py-2 text-[10px] font-mono"></textarea>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" id="blast-test-btn" class="flex-1 bg-amber-500 text-white rounded px-3 py-2 text-sm font-medium hover:bg-amber-600">
+                  Test (sadece bana)
+                </button>
+                <button type="button" id="blast-send-btn" disabled class="flex-1 bg-imperial text-white rounded px-3 py-2 text-sm font-medium hover:bg-imperial-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                  Hepsine Gönder (kilitli)
+                </button>
+              </div>
+              <p id="blast-msg" class="hidden text-xs"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Kullanıcı detay drawer -->
+        <div id="user-drawer" class="hidden fixed inset-0 bg-slate-900/40 z-40" onclick="if(event.target===this){this.classList.add('hidden')}">
+          <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl overflow-y-auto p-6">
+            <button id="drawer-close" class="text-slate-400 hover:text-rose-600 text-2xl float-right leading-none">×</button>
+            <div id="drawer-content" class="text-sm">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-kullanicilar" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200">
+            <div class="p-4 border-b border-slate-200 flex gap-2">
+              <input id="user-search" type="search" placeholder="Email veya isim ara…"
+                     class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <button id="user-search-btn" class="bg-imperial text-white rounded-md px-4 py-2 text-sm font-medium">Ara</button>
+              <button id="user-csv-btn" class="bg-emerald-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-emerald-700">↓ CSV</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th class="text-left p-3">ID</th>
+                    <th class="text-left p-3">Email</th>
+                    <th class="text-left p-3">İsim</th>
+                    <th class="text-left p-3">Tier</th>
+                    <th class="text-left p-3">Durum</th>
+                    <th class="text-left p-3">Doğrulama</th>
+                    <th class="text-left p-3">Kayıt</th>
+                    <th class="text-left p-3">Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody id="user-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-ai" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <h3 class="font-semibold text-sm mb-3">Top AI Tüketicileri (Son 7 gün)</h3>
+            <div id="ai-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-ilan" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div id="ilan-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-kpi" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div id="kpi-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-guvenlik" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div id="guvenlik-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-log" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div id="log-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+
+        <div id="tab-saglik" class="tab-panel hidden">
+          <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div id="saglik-content" class="text-sm text-slate-600">Yükleniyor…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+  const TOKEN_KEY = "cadastrum_token";
+
+  function token(): string | null { return localStorage.getItem(TOKEN_KEY); }
+
+  async function fetchJSON(path: string, init: RequestInit = {}) {
+    const t = token();
+    const res = await fetch(`${API}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        Authorization: t ? `Bearer ${t}` : "",
+        "Content-Type": "application/json",
+      },
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.hata ?? `HTTP ${res.status}`);
+    return j;
+  }
+
+  function tarih(ts: number | null | undefined): string {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleDateString("tr-TR");
+  }
+  function tarihSaat(ts: number | null | undefined): string {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleString("tr-TR");
+  }
+  function escape(s: string | null | undefined): string {
+    if (s == null) return "";
+    // Tüm tehlikeli karakterleri ve backtick'i (template injection) escape et
+    return String(s).replace(/[&<>"'`/]/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;",
+      '"': "&quot;", "'": "&#39;", "`": "&#96;", "/": "&#47;",
+    }[c]!));
+  }
+  // Sayısal alanlar için katı validasyon — innerHTML attribute'larında kullanılan değerler
+  function intOnly(v: any): number {
+    const n = parseInt(String(v), 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // ── Login flow ──
+  async function girisDogrula(): Promise<boolean> {
+    if (!token()) return false;
+    try {
+      await fetchJSON("/admin/ozet");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function loginGoster() {
+    document.getElementById("login-overlay")!.classList.remove("hidden");
+    document.getElementById("dashboard")!.classList.add("hidden");
+  }
+  function dashGoster() {
+    document.getElementById("login-overlay")!.classList.add("hidden");
+    document.getElementById("dashboard")!.classList.remove("hidden");
+    yukle();
+  }
+
+  document.getElementById("admin-login-form")!.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = (document.getElementById("email-input") as HTMLInputElement).value.trim();
+    const sifre = (document.getElementById("sifre-input") as HTMLInputElement).value;
+    const msg = document.getElementById("login-msg")!;
+    msg.classList.add("hidden");
+    try {
+      const res = await fetch(`${API}/auth/giris`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, sifre }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.hata ?? "Giriş hatası");
+      localStorage.setItem(TOKEN_KEY, j.token);
+      // Admin doğrulamasını yap
+      const ok = await girisDogrula();
+      if (!ok) {
+        localStorage.removeItem(TOKEN_KEY);
+        throw new Error("Bu hesap admin yetkisine sahip değil.");
+      }
+      document.getElementById("admin-email")!.textContent = j.kullanici.email;
+      dashGoster();
+    } catch (err: any) {
+      msg.textContent = err.message;
+      msg.classList.remove("hidden");
+    }
+  });
+
+  document.getElementById("cikis-btn")!.addEventListener("click", () => {
+    localStorage.removeItem(TOKEN_KEY);
+    location.reload();
+  });
+
+  // ── Tab nav ──
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tab = (btn as HTMLElement).dataset.tab!;
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.remove("border-imperial", "text-imperial");
+        b.classList.add("border-transparent", "text-slate-500");
+      });
+      btn.classList.remove("border-transparent", "text-slate-500");
+      btn.classList.add("border-imperial", "text-imperial");
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+      document.getElementById(`tab-${tab}`)!.classList.remove("hidden");
+      tabYukle(tab);
+    });
+  });
+
+  // ── Yükleyiciler ──
+  async function yukleOzet() {
+    try {
+      const o = await fetchJSON("/admin/ozet");
+      document.getElementById("m-kullanici")!.textContent = o.kullanici.toplam.toLocaleString("tr-TR");
+      document.getElementById("m-kullanici-yeni")!.textContent = `+${o.kullanici.yeni24s} son 24s`;
+      document.getElementById("m-ilan")!.textContent = o.ilan.toplam.toLocaleString("tr-TR");
+      document.getElementById("m-ilan-24")!.textContent = `+${o.ilan.son24s} son 24s`;
+      document.getElementById("m-ai")!.textContent = (o.ai.son7gun ?? 0).toLocaleString("tr-TR");
+    } catch (e: any) {
+      console.error(e);
+    }
+  }
+
+  async function yukleKullanicilar(q = "") {
+    const o = await fetchJSON(`/admin/kullanicilar?limit=100${q ? `&q=${encodeURIComponent(q)}` : ""}`);
+    const tbody = document.getElementById("user-tbody")!;
+    tbody.innerHTML = o.kullanicilar.map((u: any) => {
+      const rozetTier = u.tier === "free" ? "bg-slate-100 text-slate-700" :
+                        u.tier === "pro" ? "bg-imperial-50 text-imperial-700" :
+                        u.tier === "pro_plus" ? "bg-amber-50 text-amber-700" :
+                        "bg-emerald-50 text-emerald-700";
+      const rozetDurum = u.durum === "aktif" ? "bg-emerald-50 text-emerald-700" :
+                         u.durum === "banli" ? "bg-rose-50 text-rose-700" :
+                         "bg-slate-100 text-slate-600";
+      return `
+        <tr class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="p-3 text-xs text-slate-500"><button class="hover:underline text-imperial" onclick="userDetayAc(${intOnly(u.id)})">${intOnly(u.id)}</button></td>
+          <td class="p-3"><button class="hover:underline text-left" onclick="userDetayAc(${intOnly(u.id)})">${escape(u.email)}</button>${u.admin ? ' <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-rose-100 text-rose-700">ADMIN</span>' : ""}</td>
+          <td class="p-3 text-slate-600">${escape(u.ad) || "—"}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-xs ${rozetTier}">${u.tier}</span></td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-xs ${rozetDurum}">${u.durum ?? "aktif"}</span></td>
+          <td class="p-3 text-xs">${u.email_dogrulandi ? '✓' : '✗'}</td>
+          <td class="p-3 text-xs text-slate-500">${tarih(u.olusturuldu)}</td>
+          <td class="p-3 text-xs">
+            <button class="text-imperial hover:underline mr-2" data-action="tier" data-id="${intOnly(u.id)}">Tier</button>
+            <button class="text-rose-600 hover:underline" data-action="durum" data-id="${intOnly(u.id)}">Durum</button>
+          </td>
+        </tr>`;
+    }).join("");
+
+    tbody.querySelectorAll("[data-action='tier']").forEach(b => {
+      b.addEventListener("click", async () => {
+        const id = (b as HTMLElement).dataset.id;
+        const tier = prompt("Yeni tier (free/pro/pro_plus/kurumsal):");
+        if (!tier) return;
+        const gun = prompt("Süre (gün, boş=süresiz):");
+        try {
+          await fetchJSON(`/admin/kullanici/${id}/tier`, {
+            method: "POST",
+            body: JSON.stringify({ tier, gun: gun ? parseInt(gun) : undefined }),
+          });
+          yukleKullanicilar(q);
+        } catch (e: any) { alert(e.message); }
+      });
+    });
+    tbody.querySelectorAll("[data-action='durum']").forEach(b => {
+      b.addEventListener("click", async () => {
+        const id = (b as HTMLElement).dataset.id;
+        const durum = prompt("Yeni durum (aktif/banli/dondurulmus):");
+        if (!durum) return;
+        try {
+          await fetchJSON(`/admin/kullanici/${id}/durum`, {
+            method: "POST",
+            body: JSON.stringify({ durum }),
+          });
+          yukleKullanicilar(q);
+        } catch (e: any) { alert(e.message); }
+      });
+    });
+  }
+
+  document.getElementById("user-search-btn")!.addEventListener("click", () => {
+    const q = (document.getElementById("user-search") as HTMLInputElement).value.trim();
+    yukleKullanicilar(q);
+  });
+
+  // CSV indir
+  document.getElementById("user-csv-btn")!.addEventListener("click", async () => {
+    const res = await fetch(`${API}/admin/export/kullanicilar`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    if (!res.ok) { alert("CSV indirilemedi"); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `kullanicilar-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Drawer kapat
+  document.getElementById("drawer-close")!.addEventListener("click", () => {
+    document.getElementById("user-drawer")!.classList.add("hidden");
+  });
+
+  // Cron tetikle
+  document.getElementById("cron-tetikle-btn")!.addEventListener("click", async () => {
+    const btn = document.getElementById("cron-tetikle-btn") as HTMLButtonElement;
+    btn.disabled = true; btn.textContent = "Çalışıyor…";
+    try {
+      const o = await fetchJSON("/admin/cron-tetikle", { method: "POST" });
+      btn.textContent = `✓ Yenilendi (${JSON.stringify(o.sonuc).slice(0, 40)})`;
+      setTimeout(() => { btn.textContent = "⟳ İstatistik Yenile"; btn.disabled = false; }, 3000);
+    } catch (e: any) {
+      alert(e.message); btn.disabled = false; btn.textContent = "⟳ İstatistik Yenile";
+    }
+  });
+
+  // Kullanıcı detay drawer aç
+  async function userDetayAc(id: number) {
+    document.getElementById("user-drawer")!.classList.remove("hidden");
+    const el = document.getElementById("drawer-content")!;
+    el.innerHTML = "Yükleniyor…";
+    try {
+      const o = await fetchJSON(`/admin/kullanici/${id}/detay`);
+      const u = o.kullanici;
+      el.innerHTML = `
+        <h3 class="font-display text-xl font-bold text-imperial-700 mb-1">${escape(u.email)}</h3>
+        <p class="text-xs text-slate-500 mb-4">ID: ${u.id} · ${escape(u.ad) || "(isim yok)"} · ${u.admin ? '<span class="text-rose-600 font-bold">ADMIN</span>' : ''}</p>
+
+        <div class="grid grid-cols-2 gap-3 mb-5">
+          <div class="bg-slate-50 rounded p-3"><div class="text-xs text-slate-500">Tier</div><div class="font-bold">${u.tier}${u.tier_bitis ? ` <span class="text-xs text-slate-400">(${tarih(u.tier_bitis)})</span>` : ""}</div></div>
+          <div class="bg-slate-50 rounded p-3"><div class="text-xs text-slate-500">Durum</div><div class="font-bold">${u.durum ?? "aktif"}</div></div>
+          <div class="bg-slate-50 rounded p-3"><div class="text-xs text-slate-500">Kayıt</div><div>${tarih(u.olusturuldu)}</div></div>
+          <div class="bg-slate-50 rounded p-3"><div class="text-xs text-slate-500">Son Giriş</div><div>${tarih(u.son_giris)}</div></div>
+        </div>
+
+        <h4 class="text-xs uppercase text-slate-500 mb-2">AI Kullanım</h4>
+        <div class="bg-amber-50 rounded p-3 mb-4">
+          <div class="flex justify-between"><span>Toplam:</span><b>${o.ai.toplam}</b></div>
+          <div class="flex justify-between"><span>Son 30 gün:</span><b>${o.ai.son30gun}</b></div>
+        </div>
+
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Son AI Sorguları</h4>
+        <ul class="text-xs space-y-1 mb-4">
+          ${(o.ai.son_sorgular ?? []).map((s: any) => `<li class="flex justify-between border-b border-slate-100 py-1"><code class="bg-slate-100 px-1 rounded">${escape(s.model)}</code><span class="text-slate-500">${tarihSaat(s.ts)}</span></li>`).join("") || '<li class="text-slate-400">Sorgu yok</li>'}
+        </ul>
+
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Admin Aksiyonları</h4>
+        <ul class="text-xs space-y-1">
+          ${(o.admin_aksiyon ?? []).map((a: any) => `<li class="border-b border-slate-100 py-1"><b>${a.olay}</b> · ${tarihSaat(a.ts)}<br><code class="text-slate-500">${escape(a.payload)}</code></li>`).join("") || '<li class="text-slate-400">Henüz yok</li>'}
+        </ul>
+      `;
+    } catch (e: any) {
+      el.textContent = `Hata: ${e.message}`;
+    }
+  }
+  (window as any).userDetayAc = userDetayAc;
+
+  // ── Trend ──
+  function sparkSVG(data: number[], renk = "#1B2A4A", h = 60): string {
+    if (!data.length) return "";
+    const max = Math.max(...data, 1);
+    const w = Math.max(data.length * 8, 200);
+    const points = data.map((v, i) => `${(i / (data.length - 1 || 1)) * w},${h - (v / max) * h}`).join(" ");
+    return `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="block">
+      <polyline fill="none" stroke="${renk}" stroke-width="2" points="${points}"/>
+    </svg>`;
+  }
+
+  async function yukleTrend() {
+    try {
+      const o = await fetchJSON("/admin/trend?gun=30");
+      const seri = o.seri as { tarih: string; kullanici: number; ilan: number; ai: number }[];
+      const k = seri.map(s => s.kullanici);
+      const i = seri.map(s => s.ilan);
+      const ai = seri.map(s => s.ai);
+      const toplamK = k.reduce((a, b) => a + b, 0);
+      const toplamI = i.reduce((a, b) => a + b, 0);
+      const toplamAi = ai.reduce((a, b) => a + b, 0);
+      document.getElementById("trend-content")!.innerHTML = `
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="bg-imperial-50 rounded p-4">
+            <div class="text-xs uppercase text-slate-500 mb-1">Yeni Kullanıcı (30g)</div>
+            <div class="text-2xl font-bold text-imperial-700 mb-2">${toplamK}</div>
+            ${sparkSVG(k, "#1B2A4A", 50)}
+          </div>
+          <div class="bg-emerald-50 rounded p-4">
+            <div class="text-xs uppercase text-slate-500 mb-1">Yeni İlan (30g)</div>
+            <div class="text-2xl font-bold text-emerald-700 mb-2">${toplamI.toLocaleString("tr-TR")}</div>
+            ${sparkSVG(i, "#059669", 50)}
+          </div>
+          <div class="bg-amber-50 rounded p-4">
+            <div class="text-xs uppercase text-slate-500 mb-1">AI Sorgu (30g)</div>
+            <div class="text-2xl font-bold text-amber-700 mb-2">${toplamAi}</div>
+            ${sparkSVG(ai, "#D97706", 50)}
+          </div>
+        </div>
+        <div class="mt-6 text-xs text-slate-500">İlk gün: ${seri[0]?.tarih} · Son gün: ${seri[seri.length - 1]?.tarih}</div>
+      `;
+    } catch (e: any) {
+      document.getElementById("trend-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleOutlier() {
+    try {
+      const o = await fetchJSON("/admin/outlier");
+      const tbl = (rows: any[]) => `
+        <table class="w-full text-xs">
+          <thead class="text-slate-500"><tr><th class="text-left p-2">İlan</th><th class="text-left p-2">Yer</th><th class="text-left p-2">Kategori</th><th class="text-right p-2">TL/m²</th><th class="p-2">Aksiyon</th></tr></thead>
+          <tbody>${(rows ?? []).map(r => `<tr class="border-t border-slate-100"><td class="p-2"><a href="https://www.${r.kaynak}.com" target="_blank" class="text-imperial hover:underline">${escape(r.kaynak)}/${escape(r.ilan_no)}</a></td><td class="p-2">${escape(r.il_norm)}/${escape(r.ilce_norm)}/${escape(r.mahalle_norm) || '?'}</td><td class="p-2">${r.kategori}</td><td class="p-2 text-right font-mono">${r.fiyat_per_m2.toLocaleString("tr-TR")}</td><td class="p-2"><button data-pasif="${r.id}" class="text-rose-600 hover:underline">Pasif</button></td></tr>`).join("") || '<tr><td colspan="5" class="p-4 text-center text-slate-400">Yok</td></tr>'}</tbody>
+        </table>`;
+      document.getElementById("outlier-content")!.innerHTML = `
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="bg-rose-50 rounded p-3"><div class="text-xs text-slate-500">Eksik Mahalle</div><div class="text-xl font-bold text-rose-700">${o.eksik_mahalle}</div></div>
+          <div class="bg-amber-50 rounded p-3"><div class="text-xs text-slate-500">Eksik m²</div><div class="text-xl font-bold text-amber-700">${o.eksik_m2}</div></div>
+        </div>
+        <h4 class="text-xs uppercase text-slate-500 mb-2 mt-4">Çok Yüksek (>500K TL/m²)</h4>
+        ${tbl(o.cok_yuksek)}
+        <h4 class="text-xs uppercase text-slate-500 mb-2 mt-6">Çok Düşük (<50 TL/m²)</h4>
+        ${tbl(o.cok_dusuk)}
+      `;
+      document.querySelectorAll("[data-pasif]").forEach(b => {
+        b.addEventListener("click", async () => {
+          const id = (b as HTMLElement).dataset.pasif;
+          if (!confirm(`İlan #${id} pasifleştirilsin mi?`)) return;
+          try { await fetchJSON(`/admin/ilan/${id}/pasif`, { method: "POST" }); yukleOutlier(); }
+          catch (e: any) { alert(e.message); }
+        });
+      });
+    } catch (e: any) {
+      document.getElementById("outlier-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleAbonelik() {
+    try {
+      const o = await fetchJSON("/admin/yaklasan-bitis?gun=14");
+      document.getElementById("abonelik-content")!.innerHTML = `
+        <h4 class="text-xs uppercase text-slate-500 mb-2">14 gün içinde dolacaklar (${(o.yaklasan ?? []).length})</h4>
+        <table class="w-full text-sm mb-6">
+          <thead class="text-xs uppercase text-slate-500"><tr><th class="text-left p-2">Email</th><th class="text-left p-2">Tier</th><th class="text-left p-2">Bitiş</th></tr></thead>
+          <tbody>${(o.yaklasan ?? []).map((u: any) => `<tr class="border-t border-slate-100"><td class="p-2">${escape(u.email)}</td><td class="p-2">${u.tier}</td><td class="p-2 text-amber-600">${tarih(u.tier_bitis)}</td></tr>`).join("") || '<tr><td colspan="3" class="p-4 text-center text-slate-400">Yok</td></tr>'}</tbody>
+        </table>
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Süresi dolmuş (${(o.suresi_dolmus ?? []).length})</h4>
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase text-slate-500"><tr><th class="text-left p-2">Email</th><th class="text-left p-2">Eski Tier</th><th class="text-left p-2">Bitiş</th></tr></thead>
+          <tbody>${(o.suresi_dolmus ?? []).map((u: any) => `<tr class="border-t border-slate-100"><td class="p-2">${escape(u.email)}</td><td class="p-2">${u.tier}</td><td class="p-2 text-rose-600">${tarih(u.tier_bitis)}</td></tr>`).join("") || '<tr><td colspan="3" class="p-4 text-center text-slate-400">Yok</td></tr>'}</tbody>
+        </table>
+      `;
+    } catch (e: any) {
+      document.getElementById("abonelik-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleAi() {
+    try {
+      const o = await fetchJSON("/admin/ai-kullanim?gun=7");
+      const el = document.getElementById("ai-content")!;
+      el.innerHTML = `
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div><div class="text-xs text-slate-500">Toplam Sorgu</div><div class="text-xl font-bold">${(o.toplam_sorgu ?? 0).toLocaleString("tr-TR")}</div></div>
+          <div><div class="text-xs text-slate-500">Tahmini Maliyet</div><div class="text-xl font-bold text-amber-600">$${o.tahmini_maliyet_usd}</div></div>
+          <div><div class="text-xs text-slate-500">Modeller</div><div class="text-sm">${(o.model_bazli ?? []).map((m: any) => `${m.model}: ${m.n}`).join(", ") || "—"}</div></div>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase text-slate-500"><tr><th class="text-left p-2">Email</th><th class="text-left p-2">Tier</th><th class="text-right p-2">Sorgu</th></tr></thead>
+          <tbody>${(o.top_kullanici ?? []).map((u: any) => `<tr class="border-t border-slate-100"><td class="p-2">${escape(u.email)}</td><td class="p-2">${u.tier}</td><td class="p-2 text-right font-mono">${u.sorgu}</td></tr>`).join("") || '<tr><td colspan="3" class="p-4 text-center text-slate-400">Veri yok</td></tr>'}</tbody>
+        </table>
+      `;
+      document.getElementById("m-ai-cost")!.textContent = `~$${o.tahmini_maliyet_usd}`;
+    } catch (e: any) {
+      document.getElementById("ai-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleIlan() {
+    try {
+      const o = await fetchJSON("/admin/ilan-stats");
+      document.getElementById("ilan-content")!.innerHTML = `
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div><div class="text-xs text-slate-500">Son 24 saat</div><div class="text-xl font-bold">${(o.son24s ?? 0).toLocaleString("tr-TR")}</div></div>
+          <div><div class="text-xs text-slate-500">Son 7 gün</div><div class="text-xl font-bold">${(o.son7gun ?? 0).toLocaleString("tr-TR")}</div></div>
+        </div>
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Kaynak (7g)</h4>
+        <div class="text-sm mb-4">${(o.kaynak_bazli ?? []).map((k: any) => `<span class="inline-block mr-3"><b>${k.kaynak}:</b> ${k.n}</span>`).join("") || "—"}</div>
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Top İl (7g)</h4>
+        <div class="text-sm mb-4 grid grid-cols-3 gap-2">${(o.top_il ?? []).map((i: any) => `<div class="bg-slate-50 rounded px-2 py-1"><b>${escape(i.il_norm)}:</b> ${i.n}</div>`).join("")}</div>
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Kategori Dağılımı</h4>
+        <div class="text-sm">${(o.kategori ?? []).map((k: any) => `<span class="inline-block mr-3"><b>${k.kategori}:</b> ${k.n}</span>`).join("")}</div>
+      `;
+    } catch (e: any) {
+      document.getElementById("ilan-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleKpi() {
+    try {
+      const o = await fetchJSON("/admin/operasyon-kpi?gun=7");
+      const badge =
+        o.durum === "iyi"
+          ? "bg-emerald-100 text-emerald-700"
+          : o.durum === "izle"
+            ? "bg-amber-100 text-amber-700"
+            : "bg-rose-100 text-rose-700";
+      document.getElementById("kpi-content")!.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-xs text-slate-500">Son ${o.gun} gün · Hacim: ${(o.hacim ?? 0).toLocaleString("tr-TR")} ilan</div>
+          <span class="px-2 py-1 rounded text-xs font-semibold ${badge}">${o.durum.toUpperCase()}</span>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="rounded border border-slate-200 p-3">
+            <div class="text-xs text-slate-500">Mahalle eşleşme oranı</div>
+            <div class="text-2xl font-bold text-ink">${o.kpi.mahalle_eslesme_orani}%</div>
+            <div class="text-xs text-slate-500 mt-1">Hedef ≥ ${o.esikler.mahalle_eslesme_orani_min}%</div>
+          </div>
+          <div class="rounded border border-slate-200 p-3">
+            <div class="text-xs text-slate-500">Fiyat medyan sapma oranı</div>
+            <div class="text-2xl font-bold text-ink">${o.kpi.fiyat_medyan_sapma_orani ?? "—"}%</div>
+            <div class="text-xs text-slate-500 mt-1">Hedef ≤ ${o.esikler.fiyat_medyan_sapma_orani_max}%</div>
+          </div>
+          <div class="rounded border border-slate-200 p-3">
+            <div class="text-xs text-slate-500">Veri eksik oranı</div>
+            <div class="text-2xl font-bold text-ink">${o.kpi.veri_eksik_orani}%</div>
+            <div class="text-xs text-slate-500 mt-1">Hedef ≤ ${o.esikler.veri_eksik_orani_max}%</div>
+          </div>
+        </div>
+        <div class="mt-4 text-xs text-slate-500">
+          Referans satır: ${(o.kpi.referans_satir ?? 0).toLocaleString("tr-TR")} ·
+          Eksik mahalle: ${(o.ham.eksik_mahalle ?? 0).toLocaleString("tr-TR")} ·
+          Eksik m²: ${(o.ham.eksik_m2 ?? 0).toLocaleString("tr-TR")}
+        </div>
+      `;
+    } catch (e: any) {
+      document.getElementById("kpi-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleGuvenlik() {
+    try {
+      const o = await fetchJSON("/admin/guvenlik?saat=24");
+      document.getElementById("guvenlik-content")!.innerHTML = `
+        <div class="mb-4 text-sm">
+          <b>Toplam başarısız giriş (24s):</b> ${(o.basarisiz_giris_toplam ?? 0).toLocaleString("tr-TR")}
+        </div>
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Şüpheli IP'ler</h4>
+        <table class="w-full text-sm mb-4">
+          <thead class="text-xs uppercase text-slate-500"><tr><th class="text-left p-2">IP</th><th class="text-right p-2">Deneme</th></tr></thead>
+          <tbody>${(o.suspect_ip ?? []).map((i: any) => `<tr class="border-t border-slate-100"><td class="p-2 font-mono">${escape(i.ip)}</td><td class="p-2 text-right font-mono ${i.toplam > 50 ? 'text-rose-600 font-bold' : ''}">${i.toplam}</td></tr>`).join("") || '<tr><td colspan="2" class="p-4 text-center text-slate-400">Şüpheli aktivite yok</td></tr>'}</tbody>
+        </table>
+        <h4 class="text-xs uppercase text-slate-500 mb-2">Rate Limit Aşımı</h4>
+        <div class="text-sm">${(o.rate_limit_asim ?? []).map((r: any) => `<div class="font-mono text-xs">${escape(r.ip)} — ${r.istek_sayisi} req/saat</div>`).join("") || '<div class="text-slate-400">Yok</div>'}</div>
+      `;
+      document.getElementById("m-guvenlik")!.textContent = (o.basarisiz_giris_toplam ?? 0).toString();
+      document.getElementById("m-guvenlik-ip")!.textContent = `${(o.suspect_ip ?? []).length} şüpheli IP`;
+    } catch (e: any) {
+      document.getElementById("guvenlik-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleLog() {
+    try {
+      const o = await fetchJSON("/admin/log?limit=100");
+      document.getElementById("log-content")!.innerHTML = `
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase text-slate-500"><tr><th class="text-left p-2">Zaman</th><th class="text-left p-2">Admin</th><th class="text-left p-2">Olay</th><th class="text-left p-2">Hedef</th><th class="text-left p-2">Detay</th></tr></thead>
+          <tbody>${(o.log ?? []).map((l: any) => `<tr class="border-t border-slate-100"><td class="p-2 text-xs text-slate-500">${tarihSaat(l.ts)}</td><td class="p-2">${escape(l.admin_email)}</td><td class="p-2"><code class="text-xs bg-slate-100 px-1 rounded">${l.olay}</code></td><td class="p-2">${l.hedef_id ?? "—"}</td><td class="p-2 text-xs text-slate-600 font-mono max-w-md truncate">${escape(l.payload)}</td></tr>`).join("") || '<tr><td colspan="5" class="p-4 text-center text-slate-400">Log boş</td></tr>'}</tbody>
+        </table>
+      `;
+    } catch (e: any) {
+      document.getElementById("log-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleSaglik() {
+    try {
+      const o = await fetchJSON("/admin/saglik");
+      const sirH = Object.entries(o.sirlar).map(([k, v]) => `<li class="flex justify-between border-b border-slate-100 py-1"><code class="text-xs">${k}</code><span class="${v ? 'text-emerald-600' : 'text-rose-600'}">${v ? '✓ var' : '✗ yok'}</span></li>`).join("");
+      const tabloH = Object.entries(o.tablo_satir_sayisi).map(([k, v]) => `<li class="flex justify-between border-b border-slate-100 py-1"><code class="text-xs">${k}</code><span class="font-mono">${(v as number).toLocaleString("tr-TR")}</span></li>`).join("");
+      document.getElementById("saglik-content")!.innerHTML = `
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <h4 class="text-xs uppercase text-slate-500 mb-2">Environment</h4>
+            <div class="text-sm mb-4"><b>${o.env}</b></div>
+            <h4 class="text-xs uppercase text-slate-500 mb-2">Secrets</h4>
+            <ul class="text-sm">${sirH}</ul>
+          </div>
+          <div>
+            <h4 class="text-xs uppercase text-slate-500 mb-2">D1 Tablo Satır Sayıları</h4>
+            <ul class="text-sm">${tabloH}</ul>
+          </div>
+        </div>
+      `;
+    } catch (e: any) {
+      document.getElementById("saglik-content")!.textContent = `Hata: ${e.message}`;
+    }
+  }
+
+  async function yukleBlast() {
+    // Lansman email HTML'i otomatik doldur
+    const htmlInput = document.getElementById("blast-html") as HTMLTextAreaElement;
+    if (htmlInput && !htmlInput.value) {
+      htmlInput.value = `<!DOCTYPE html><html><body style="margin:0;font-family:Inter,sans-serif;background:#F8FAFC;"><table align="center" width="600" cellpadding="0" cellspacing="0" style="background:#FFF;border-radius:12px;overflow:hidden;margin:40px auto;box-shadow:0 4px 24px rgba(15,26,51,.08);"><tr><td style="background:linear-gradient(135deg,#1B2A4A,#0F1A33);padding:48px 40px;text-align:center;"><h1 style="color:#FFF;font-family:Georgia,serif;font-size:32px;margin:0 0 12px;">🚀 Cadastrum Canlıda!</h1><p style="color:#C9A86A;font-size:14px;letter-spacing:2px;margin:0;">CHROME WEB STORE'DA YAYINDA</p></td></tr><tr><td style="padding:40px;"><p style="color:#334155;font-size:16px;line-height:1.6;margin:0 0 24px;">Merhaba,</p><p style="color:#334155;font-size:16px;line-height:1.6;margin:0 0 24px;">Erken erişim listesine katıldığın için teşekkürler — <strong>Cadastrum bugün Chrome Web Store'da yayınlandı</strong>. Sahibinden ve Hepsiemlak ilanlarını TKGM ile doğrulayan, e-Plan imar çeken ve AI fiyat tahmini sunan Chrome eklentisi artık herkese açık.</p><table align="center" cellpadding="0" cellspacing="0" style="margin:32px auto;"><tr><td style="background:#1B2A4A;border-radius:8px;padding:16px 32px;"><a href="https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej" style="color:#FFF;text-decoration:none;font-weight:600;font-size:15px;">Chrome'a Ekle, Ücretsiz →</a></td></tr></table><div style="background:#FEF3C7;border-radius:8px;padding:16px;margin:24px 0;text-align:center;"><p style="color:#92400E;font-size:14px;margin:0;font-weight:500;">🎁 İlk 100 üyeye özel: <code style="background:#FFF;padding:2px 8px;border-radius:4px;font-weight:700;">ERKEN100</code> kodu ile <strong>6 ay %40 indirim</strong></p></div><hr style="border:0;border-top:1px solid #E2E8F0;margin:32px 0;"><p style="color:#64748B;font-size:14px;line-height:1.6;margin:0 0 12px;"><strong>Ne yapıyor?</strong></p><ul style="color:#64748B;font-size:14px;line-height:1.8;margin:0;padding-left:20px;"><li>🗺️ TKGM resmi parsel doğrulama</li><li>📐 e-Plan imar otomatik (TAKS, Emsal)</li><li>🤖 65.000 mahalle AI fiyat baseline</li><li>📊 Sahibinden + Hepsiemlak canlı emsal</li><li>⚠️ AFAD deprem + taşkın risk</li></ul><p style="color:#334155;font-size:14px;line-height:1.6;margin:32px 0 0;">Geri bildirim: <a href="mailto:iletisim@cadastrum.com.tr" style="color:#1B2A4A;">iletisim@cadastrum.com.tr</a></p><p style="color:#334155;font-size:14px;margin:24px 0 0;">— Enes Parlak<br><span style="color:#94A3B8;">Cadastrum kurucusu</span></p></td></tr><tr><td style="background:#C9A86A;padding:12px;text-align:center;"><p style="color:#1B2A4A;font-size:12px;margin:0;font-weight:600;">cadastrum.com.tr</p></td></tr></table></body></html>`;
+    }
+  }
+
+  async function blastGonder(test: boolean) {
+    const konu = (document.getElementById("blast-konu") as HTMLInputElement).value.trim();
+    const metin = (document.getElementById("blast-metin") as HTMLTextAreaElement).value.trim();
+    const html = (document.getElementById("blast-html") as HTMLTextAreaElement).value.trim();
+    const msg = document.getElementById("blast-msg")!;
+    if (!konu || !metin || !html) {
+      msg.textContent = "Tüm alanlar zorunlu";
+      msg.className = "text-xs text-rose-600";
+      msg.classList.remove("hidden");
+      return;
+    }
+    const btn = test
+      ? document.getElementById("blast-test-btn") as HTMLButtonElement
+      : document.getElementById("blast-send-btn") as HTMLButtonElement;
+    const onceki = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Gönderiliyor…";
+    try {
+      const r = await fetchJSON("/admin/newsletter-blast", {
+        method: "POST",
+        body: JSON.stringify({ konu, metin, html, test }),
+      });
+      msg.textContent = `✓ ${r.gonderildi}/${r.alici} gönderildi${r.hata > 0 ? ` (${r.hata} hata)` : ""}`;
+      msg.className = "text-xs text-emerald-700 font-medium";
+      msg.classList.remove("hidden");
+      if (test && r.gonderildi > 0) {
+        // Test başarılı → Send butonunu aç
+        const sendBtn = document.getElementById("blast-send-btn") as HTMLButtonElement;
+        sendBtn.disabled = false;
+        sendBtn.textContent = `🚀 Hepsine Gönder (${r.alici} kişi)`;
+      }
+    } catch (e: any) {
+      msg.textContent = `Hata: ${e.message}`;
+      msg.className = "text-xs text-rose-600";
+      msg.classList.remove("hidden");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = onceki || "Gönder";
+    }
+  }
+  document.getElementById("blast-test-btn")?.addEventListener("click", () => blastGonder(true));
+  document.getElementById("blast-send-btn")?.addEventListener("click", () => {
+    if (confirm("EMIN MISIN? Tüm waitlist'e mail gidecek. Bu işlem geri alınamaz.")) {
+      blastGonder(false);
+    }
+  });
+
+  const yukleyici: Record<string, () => Promise<void>> = {
+    trend: yukleTrend,
+    kullanicilar: () => yukleKullanicilar(),
+    ai: yukleAi,
+    ilan: yukleIlan,
+    kpi: yukleKpi,
+    outlier: yukleOutlier,
+    abonelik: yukleAbonelik,
+    blast: yukleBlast,
+    guvenlik: yukleGuvenlik,
+    log: yukleLog,
+    saglik: yukleSaglik,
+  };
+  const yuklendi: Record<string, boolean> = {};
+
+  function tabYukle(tab: string) {
+    if (yuklendi[tab]) return;
+    yuklendi[tab] = true;
+    yukleyici[tab]?.();
+  }
+
+  async function yukle() {
+    yukleOzet();
+    yukleGuvenlik();
+    yukleAi();
+    tabYukle("trend");
+  }
+
+  // ── Init ──
+  (async () => {
+    const ok = await girisDogrula();
+    if (ok) {
+      try {
+        const me = await fetchJSON("/auth/ben");
+        document.getElementById("admin-email")!.textContent = me.kullanici.email;
+      } catch {}
+      dashGoster();
+    } else {
+      loginGoster();
+    }
+  })();
+</script>

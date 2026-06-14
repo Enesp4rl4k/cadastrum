@@ -1,0 +1,134 @@
+---
+import Logo from "./Logo.astro";
+const yil = new Date().getFullYear();
+---
+
+<footer class="border-t border-slate-200 bg-slate-50 mt-24">
+  <div class="container-prose py-12">
+    <div class="grid gap-8 md:grid-cols-5">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-2 mb-3">
+          <Logo size={32} className="rounded-md" />
+          <span class="font-display text-lg font-semibold text-ink">Cadastrum</span>
+        </div>
+        <p class="text-sm text-slate-600 max-w-md mb-5">
+          TKGM resmi parsel verisi, e-Plan imar sorgusu ve emsal piyasa analizi —
+          tek bir Chrome eklentisinde. Arsa yatırımı kararlarını saniyeler içinde
+          değerlendirin.
+        </p>
+
+        <!-- Newsletter signup (2026 trend: build email list early) -->
+        <form id="newsletter-form" class="max-w-sm">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+            🔔 Pro lansmanından haberdar ol
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="ornek@domain.com"
+              class="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none transition"
+            />
+            <button type="submit" class="rounded-md bg-imperial text-white px-4 py-2 text-sm font-semibold hover:bg-imperial-700 transition">
+              Kaydol
+            </button>
+          </div>
+          <p id="newsletter-msg" class="hidden mt-2 text-xs text-emerald-700"></p>
+          <p class="mt-2 text-[10px] text-slate-400">
+            İlk 100 üye için %40 indirim kodu. Spam yok, istediğin zaman ayrıl.
+          </p>
+        </form>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          Ürün
+        </h4>
+        <ul class="space-y-2 text-sm text-slate-600">
+          <li><a href="/" class="hover:text-ink">Özellikler</a></li>
+          <li><a href="/fiyat" class="hover:text-ink">Fiyatlandırma</a></li>
+          <li><a href="/blog" class="hover:text-ink">Blog</a></li>
+          <li><a href="/sss" class="hover:text-ink">SSS</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          Veri
+        </h4>
+        <ul class="space-y-2 text-sm text-slate-600">
+          <li><a href="/veri" class="hover:text-ink">Veri Anasayfa</a></li>
+          <li><a href="/veri/istanbul" class="hover:text-ink">İstanbul</a></li>
+          <li><a href="/veri/ankara" class="hover:text-ink">Ankara</a></li>
+          <li><a href="/veri/izmir" class="hover:text-ink">İzmir</a></li>
+          <li><a href="/veri/antalya" class="hover:text-ink">Antalya</a></li>
+          <li><a href="/veri/mugla" class="hover:text-ink">Muğla</a></li>
+          <li><a href="/veri" class="hover:text-ink font-medium text-brand">Tüm iller →</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          Yasal
+        </h4>
+        <ul class="space-y-2 text-sm text-slate-600">
+          <li><a href="/gizlilik" class="hover:text-ink">Gizlilik Politikası</a></li>
+          <li><a href="/kullanim-kosullari" class="hover:text-ink">Kullanım Koşulları</a></li>
+          <li><a href="/mesafeli-satis" class="hover:text-ink">Mesafeli Satış</a></li>
+          <li><a href="/iade-iptal" class="hover:text-ink">İade ve İptal</a></li>
+          <li><a href="/iletisim" class="hover:text-ink">İletişim</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-10 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between gap-2">
+      <p class="text-xs text-slate-500">
+        © {yil} Cadastrum. Tüm hakları saklıdır.
+      </p>
+      <p class="text-xs text-slate-500">
+        Cadastrum bağımsız bir araçtır; TKGM, Sahibinden veya Hepsiemlak ile resmi bağlantısı yoktur.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Newsletter — backend /v1/newsletter/abone-ol entegrasyonu
+  const form = document.getElementById("newsletter-form") as HTMLFormElement | null;
+  const msg = document.getElementById("newsletter-msg") as HTMLParagraphElement | null;
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = (new FormData(form).get("email") as string)?.trim();
+    if (!email) return;
+    const btn = form.querySelector("button[type=submit]") as HTMLButtonElement;
+    if (btn) { btn.disabled = true; btn.textContent = "..."; }
+    try {
+      const res = await fetch("https://cadastrum-api.cadastrum-tr.workers.dev/v1/newsletter/abone-ol", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, kaynak: "footer" }),
+      });
+      const j = await res.json();
+      if (msg) {
+        if (res.ok) {
+          msg.textContent = `✓ ${email} kaydedildi. ${j.sira ? `${j.sira}. sıradasın.` : ""} ERKEN100 ile %40 indirim.`;
+          msg.className = "mt-2 text-xs text-emerald-700";
+          form.reset();
+        } else {
+          msg.textContent = j.hata ?? "Hata oluştu";
+          msg.className = "mt-2 text-xs text-rose-600";
+        }
+        msg.classList.remove("hidden");
+      }
+    } catch (err) {
+      if (msg) {
+        msg.textContent = "Bağlantı hatası, tekrar dene";
+        msg.className = "mt-2 text-xs text-rose-600";
+        msg.classList.remove("hidden");
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Kaydol"; }
+    }
+  });
+</script>
