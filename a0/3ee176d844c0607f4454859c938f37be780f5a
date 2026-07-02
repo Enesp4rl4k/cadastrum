@@ -1,0 +1,63 @@
+data/backtest-rapor.json
+  s_6ab3e1b947fb0f::t_213e5f907331f5 5-6,30-33,35,39-42,44,48-51,77-83,86-89,91,95-100
+  s_6ab3e1b947fb0f::t_e665322df40d28 34,90
+  s_f6fce178877b32::t_0578af9f32ff45 107-108,111,114-117
+  s_6ab3e1b947fb0f::t_a7c6f26b600626 2
+  s_6ab3e1b947fb0f::t_5b19123ae00d0c 4,7,28-29,36,75-76
+scripts/backtest-baseline.mjs
+  s_6ab3e1b947fb0f::t_711914b236b721 38-41
+  s_6ab3e1b947fb0f::t_67afecfc8cbb21 186
+  s_6ab3e1b947fb0f::t_4acd5732f91bb0 203-224
+  s_6ab3e1b947fb0f::t_b66b68964a69b4 266,272-277,280-281,283,285-290,292
+  s_6ab3e1b947fb0f::t_9baca92ca1636e 68,70-71,77-98,105-109,113-114,118,130
+  s_6ab3e1b947fb0f::t_a2119398c85d94 99-104,110-112,115-117,119-128
+src/lib/baseline-engine.ts
+  s_6ab3e1b947fb0f::t_c12d2bc3b6f6ac 242
+  s_6ab3e1b947fb0f::t_87e6760d759735 52-59
+  s_f6fce178877b32::t_a125c7921311d7 290-293
+  s_6ab3e1b947fb0f::t_d1c694e2824d25 24
+  s_6ab3e1b947fb0f::t_96aae8005effd2 237-241,243
+  s_f6fce178877b32::t_3910912d2a48ab 352
+  s_6ab3e1b947fb0f::t_15f1dd3d203746 51
+src/lib/data/ilce-baseline.ts
+  s_6ab3e1b947fb0f::t_2932d3eddd86c8 24-40
+  s_6ab3e1b947fb0f::t_013ce409e7c181 476-477
+  s_6ab3e1b947fb0f::t_cdc05754290e6a 487
+scripts/backtest-guard.mjs
+  s_6ab3e1b947fb0f::t_f873e59289b461 1-97
+.github/workflows/ci.yml
+  s_6ab3e1b947fb0f::t_9938cb8dea8345 33-35
+data/backtest-esik.json
+  s_6ab3e1b947fb0f::t_d5d2e8dcc96f15 1-27
+data/kalibrasyon-rapor.json
+  s_6ab3e1b947fb0f::t_5ec9e5f5712395 1-88
+scripts/kalibrasyon-analiz.mjs
+  s_6ab3e1b947fb0f::t_e451d5c36f5733 1-110
+scripts/baseline-cekirdek.mjs
+  s_6ab3e1b947fb0f::t_aa50be2754249c 31-33
+  s_6ab3e1b947fb0f::t_cee2eab1aa5cd0 34-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "a03ee176d844c0607f4454859c938f37be780f5a",
+  "prompts": {},
+  "sessions": {
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_f6fce178877b32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c53a66da-bb9d-455d-b3d0-d0d29204afa6",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
