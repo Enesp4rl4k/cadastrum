@@ -1,0 +1,23 @@
+scripts/manzara-poc.mjs
+  s_6ab3e1b947fb0f::t_a60d1dad74e22e 71,73,76
+  s_6ab3e1b947fb0f::t_a962429b4a89cb 28
+  s_6ab3e1b947fb0f::t_04aaab141a1b54 1-26,29-60,63-68,80,82-162
+  s_6ab3e1b947fb0f::t_71fdaf32d26b7f 27
+  s_6ab3e1b947fb0f::t_dfc30d187e999b 61-62,69-70,72,74-75,77-79,81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "5365e0e8536b6091d30b6da77a837ebed3cc7c7b",
+  "prompts": {},
+  "sessions": {
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
