@@ -17,6 +17,10 @@ import {
   detaySayilariniGuncelle,
   detayKuyruguTemizle,
 } from "../lib/detay-zenginlestirme";
+import { telemetriKur } from "../lib/telemetri";
+
+// Global hata yakalama — service-worker crash/reject'lerini backend'e bildir
+telemetriKur("service-worker");
 
 // ── Bootstrap state — admin-only Sahibinden tarama ──────────────────
 let bootstrapDurum: BootstrapDurum = {
@@ -232,9 +236,13 @@ async function backendIlanBatchGonder(ilanlar: IlanBilgisi[]): Promise<void> {
     if (batch.length === 0) return;
 
     // Admin bootstrap modu için scraper API secret (kullanıcı Boot tab'tan girer).
-    // Set edilmişse backend /ilan/batch'in beklediği Bearer auth ile gönder.
+    // Secret varsa → /ilan/batch (yüksek güven, Bearer auth).
+    // Secret yoksa → /ilan/katki (normal kullanıcı crowdsource, auth gerekmez).
+    // KRİTİK: eskiden secret'sız /batch'e gidip 401 yiyordu — liste-sayfası hacmi
+    // (özellikle arsa) havuza hiç girmiyordu. /katki bu büyük boruyu açar.
     const sec = await chrome.storage.local.get("scraper_api_secret");
     const secret = typeof sec.scraper_api_secret === "string" ? sec.scraper_api_secret : null;
+    const endpoint = secret ? "/ilan/batch" : "/ilan/katki";
 
     // 100'er bölük gönder (backend max 100/batch)
     let toplamBasarili = 0, toplamHata = 0, toplamDup = 0;
@@ -242,7 +250,7 @@ async function backendIlanBatchGonder(ilanlar: IlanBilgisi[]): Promise<void> {
       const grup = batch.slice(i, i + 100);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (secret) headers["Authorization"] = `Bearer ${secret}`;
-      const res = await fetch(`${BACKEND_API}/ilan/batch`, {
+      const res = await fetch(`${BACKEND_API}${endpoint}`, {
         method: "POST",
         headers,
         body: JSON.stringify({ ilanlar: grup }),
