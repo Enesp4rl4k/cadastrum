@@ -1,0 +1,27 @@
+{
+  "olusturuldu": "2026-07-02T07:56:51.397Z",
+  "tolerans": {
+    "mape": 5,
+    "within20": 3
+  },
+  "esikler": {
+    "arsa": {
+      "baseline": {
+        "n": 62,
+        "mape": 130.06,
+        "within20": 16.1
+      },
+      "mape_max": 135.06,
+      "within20_min": 13.1
+    },
+    "tarla": {
+      "baseline": {
+        "n": 952,
+        "mape": 72.36,
+        "within20": 20.1
+      },
+      "mape_max": 77.36,
+      "within20_min": 17.1
+    }
+  }
+}

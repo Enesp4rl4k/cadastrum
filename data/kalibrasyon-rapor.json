@@ -1,0 +1,88 @@
+{
+  "tarih": "2026-07-02T20:50:16.498Z",
+  "aciklama": "Emsal-sayısı kovasına göre LOO kapsama kalibrasyonu",
+  "segmentler": {
+    "arsa": {
+      "toplamOrnek": 362,
+      "kovalar": [
+        {
+          "kova": "5–6",
+          "n": 154,
+          "medyanApeYuzde": 15.4,
+          "kapsama20": 53.2,
+          "kapsama30": 65.6,
+          "kapsama50": 76.6,
+          "bant80Yuzde": 66.2
+        },
+        {
+          "kova": "7–9",
+          "n": 91,
+          "medyanApeYuzde": 24.2,
+          "kapsama20": 45.1,
+          "kapsama30": 56,
+          "kapsama50": 76.9,
+          "bant80Yuzde": 53.9
+        },
+        {
+          "kova": "10–19",
+          "n": 27,
+          "medyanApeYuzde": 36,
+          "kapsama20": 14.8,
+          "kapsama30": 44.4,
+          "kapsama50": 81.5,
+          "bant80Yuzde": 48.4
+        },
+        {
+          "kova": "20+",
+          "n": 50,
+          "medyanApeYuzde": 19.8,
+          "kapsama20": 52,
+          "kapsama30": 60,
+          "kapsama50": 76,
+          "bant80Yuzde": 85.7
+        }
+      ]
+    },
+    "tarla": {
+      "toplamOrnek": 9892,
+      "kovalar": [
+        {
+          "kova": "5–6",
+          "n": 3000,
+          "medyanApeYuzde": 27.5,
+          "kapsama20": 42.7,
+          "kapsama30": 52,
+          "kapsama50": 68,
+          "bant80Yuzde": 71.5
+        },
+        {
+          "kova": "7–9",
+          "n": 2720,
+          "medyanApeYuzde": 31.3,
+          "kapsama20": 36.5,
+          "kapsama30": 48.2,
+          "kapsama50": 66.3,
+          "bant80Yuzde": 73.4
+        },
+        {
+          "kova": "10–19",
+          "n": 2405,
+          "medyanApeYuzde": 33.2,
+          "kapsama20": 34.3,
+          "kapsama30": 45.9,
+          "kapsama50": 67.2,
+          "bant80Yuzde": 69.3
+        },
+        {
+          "kova": "20+",
+          "n": 697,
+          "medyanApeYuzde": 32.4,
+          "kapsama20": 35.4,
+          "kapsama30": 47.3,
+          "kapsama50": 68,
+          "bant80Yuzde": 62.9
+        }
+      ]
+    }
+  }
+}

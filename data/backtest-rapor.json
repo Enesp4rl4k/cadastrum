@@ -1,6 +1,10 @@
 {
-  "tarih": "2026-06-14T21:53:53.477Z",
+  "tarih": "2026-06-29T18:26:29.424Z",
   "katsayiKaynagi": "default",
+  "kalibrasyon": {
+    "arsa": 0.87,
+    "tarla": 0.87
+  },
   "segmentler": {
     "arsa": {
       "ozellikli": {
@@ -21,21 +25,30 @@
         "within10": 8.6,
         "within20": 13.8
       },
+      "kalibre": {
+        "n": 58,
+        "mape": 131.05,
+        "medyanApe": 58.51,
+        "p90Ape": 350.3,
+        "bias": 92.06,
+        "within10": 6.9,
+        "within20": 13.8
+      },
       "koy": {
         "n": 55,
-        "mape": 158.4,
-        "medyanApe": 59.88,
-        "p90Ape": 417.59,
-        "bias": 128.42,
+        "mape": 134.93,
+        "medyanApe": 56.92,
+        "p90Ape": 350.3,
+        "bias": 98.72,
         "within10": 7.3,
-        "within20": 12.7
+        "within20": 14.5
       },
       "sehir": {
         "n": 3,
-        "mape": 63.83,
-        "medyanApe": 66.38,
-        "p90Ape": 68.33,
-        "bias": -19.58,
+        "mape": 59.86,
+        "medyanApe": 62.4,
+        "p90Ape": 72.44,
+        "bias": -30.03,
         "within10": 0,
         "within20": 0
       }
@@ -59,40 +72,49 @@
         "within10": 12.3,
         "within20": 23.5
       },
+      "kalibre": {
+        "n": 879,
+        "mape": 63.91,
+        "medyanApe": 42.73,
+        "p90Ape": 122.01,
+        "bias": 17.07,
+        "within10": 11.8,
+        "within20": 22.8
+      },
       "koy": {
         "n": 858,
-        "mape": 72.9,
-        "medyanApe": 46.23,
-        "p90Ape": 156.52,
-        "bias": 35.56,
-        "within10": 12.5,
-        "within20": 23.7
+        "mape": 64.37,
+        "medyanApe": 42.73,
+        "p90Ape": 123.17,
+        "bias": 17.94,
+        "within10": 11.8,
+        "within20": 22.4
       },
       "sehir": {
         "n": 21,
-        "mape": 46.26,
-        "medyanApe": 45.75,
-        "p90Ape": 86.54,
-        "bias": -6.38,
-        "within10": 23.8,
-        "within20": 28.6
+        "mape": 45.11,
+        "medyanApe": 51.76,
+        "p90Ape": 88.29,
+        "bias": -18.55,
+        "within10": 14.3,
+        "within20": 38.1
       }
     }
   },
   "mahalleIci": {
     "arsa": {
       "mahalleSayi": 139,
-      "ilanSayi": 693,
-      "mape": 91.12,
+      "ilanSayi": 694,
+      "mape": 91.02,
       "medyanApe": 27.04,
       "within10": 28.4,
-      "within20": 42.7
+      "within20": 42.8
     },
     "tarla": {
-      "mahalleSayi": 2042,
-      "ilanSayi": 12556,
-      "mape": 92.04,
-      "medyanApe": 31.73,
+      "mahalleSayi": 2043,
+      "ilanSayi": 12562,
+      "mape": 92.02,
+      "medyanApe": 31.72,
       "within10": 24.3,
       "within20": 36.5
     }

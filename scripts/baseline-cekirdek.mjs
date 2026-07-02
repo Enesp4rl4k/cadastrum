@@ -28,6 +28,12 @@ export const DEFAULT_KATSAYILAR = {
   ilMerkez: { yakinKm: 15, yakinX: 1.12, ortaKm: 30, ortaX: 1.04, sapaKm: 60, sapaX: 0.92 },
   // Bayesian shrinkage gücü (KAPPA_BY_KATEGORI) — az emsalli mahalleyi ilçeye çeker.
   kappa: { arsa: 30, konut: 25, tarla: 45 },
+  // İlçe→mahalle çarpık-dağılım düzeltmesi. İlçe medyanını mahalleye yansıtmak
+  // sağa-çarpık (log-normal) dağılımda yüzde-hata bazında sistematik yukarı kayar.
+  // <1.0 = soğuk-başlangıç ilçe/il fallback tahminini aşağı çek. 1.0 = no-op.
+  // NOT: harness skew'i kalibreIlceSkew() ile dinamik türetir; bu değer üretimde
+  // motora (src/lib/data/ilce-baseline.ts ILCE_FALLBACK_SKEW) gömülü olanı belgeler.
+  ilceSkew: { arsa: 0.87, konut: 0.87, tarla: 0.87 },
 };
 
 /**
