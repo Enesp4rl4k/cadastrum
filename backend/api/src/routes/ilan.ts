@@ -208,3 +208,71 @@ ilanRoutes.post("/batch", async (c) => {
   }
   return c.json({ basarili, hata, duplicate });
 });
+
+// ── POST /v1/ilan/katki ─────────────────────────────────────────────────
+// Crowdsource: normal kullanıcının liste/arama sayfasında gördüğü ilanlar
+// (opt-in, admin secret'i GEREKMEZ). /batch admin scrape içindir (yüksek güven);
+// bu ise düşük-güven topluluk katkısı — kaynak zorla 'extension', sıkı validasyon,
+// ilan_no ile INSERT OR IGNORE dedup. Arsa kapsamasını asıl bu büyütür.
+ilanRoutes.post("/katki", async (c) => {
+  const body = await c.req.json<{ ilanlar: IlanInput[] }>().catch(() => null);
+  if (!body?.ilanlar || !Array.isArray(body.ilanlar)) return c.json({ error: "Geçersiz body" }, 400);
+  if (body.ilanlar.length === 0) return c.json({ error: "ilanlar boş" }, 400);
+  if (body.ilanlar.length > 100) return c.json({ error: "Max 100 ilan" }, 400);
+
+  let hata = 0;
+  const gecerli: Array<Extract<ReturnType<typeof ilanValidate>, { ok: true }>> = [];
+  for (const item of body.ilanlar) {
+    // Güven spoofing'i engelle — crowdsource her zaman 'extension' kaynaklıdır.
+    const v = ilanValidate({ ...item, kaynak: "extension" });
+    if (!v.ok) { hata++; continue; }
+    gecerli.push(v);
+  }
+
+  const stmt = c.env.DB.prepare(
+    `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
+      fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi,
+      lat, lng, koord_kaynagi)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const now = Date.now();
+  const stmts = gecerli.map((v) => {
+    const ilan = v.ilan as IlanInput;
+    const koord = koordSanitize(ilan.lat, ilan.lng);
+    const koordKaynagi =
+      koord.lat != null && ilan.koord_kaynagi && VALID_KOORD_KAYNAK.has(ilan.koord_kaynagi)
+        ? ilan.koord_kaynagi
+        : null;
+    return stmt.bind(
+      "extension",
+      ilan.ilan_no,
+      normalizeYerAdi(ilan.il!),
+      normalizeYerAdi(ilan.ilce!),
+      ilan.mahalle ? normalizeYerAdi(ilan.mahalle) : null,
+      ilan.fiyat_per_m2,
+      ilan.m2 ?? null,
+      ilan.kategori,
+      ilan.imar_durumu ?? null,
+      ilan.para_birimi ?? "TL",
+      now,
+      koord.lat,
+      koord.lng,
+      koordKaynagi,
+    );
+  });
+
+  let basarili = 0, duplicate = 0;
+  if (stmts.length) {
+    try {
+      const sonuclar = await c.env.DB.batch(stmts);
+      for (const r of sonuclar) {
+        const changed = (r as { meta?: { changes?: number } }).meta?.changes ?? 0;
+        if (changed > 0) basarili++;
+        else duplicate++;
+      }
+    } catch {
+      hata += stmts.length;
+    }
+  }
+  return c.json({ basarili, hata, duplicate });
+});

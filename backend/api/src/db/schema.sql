@@ -126,3 +126,30 @@ CREATE TABLE IF NOT EXISTS admin_log (
 );
 CREATE INDEX IF NOT EXISTS idx_admin_log_ts ON admin_log(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_log_admin ON admin_log(admin_id, ts DESC);
+
+-- ── Paylaşılabilir yatırımcı raporları ───────────────────────────
+-- İstemci (extension/site) tam HTML'i önceden render eder, buraya POST eder;
+-- GET /v1/rapor/:id public shareable link olarak text/html döner.
+CREATE TABLE IF NOT EXISTS raporlar (
+  id            TEXT PRIMARY KEY,          -- kısa public id
+  html          TEXT NOT NULL,             -- önceden render edilmiş tam HTML
+  baslik        TEXT,                      -- il/ilçe ada/parsel özeti
+  olusturuldu   INTEGER NOT NULL,
+  bitis         INTEGER,                   -- expiry ts (null=süresiz)
+  goruntulenme  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_rapor_bitis ON raporlar(bitis);
+
+-- ── Hata telemetrisi (observability) ─────────────────────────────
+-- Extension (service-worker/content-script) ve backend runtime hataları.
+CREATE TABLE IF NOT EXISTS hata_log (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  kaynak  TEXT NOT NULL,             -- 'service-worker' | 'sidepanel' | 'content:sahibinden' | 'backend'
+  mesaj   TEXT NOT NULL,
+  stack   TEXT,
+  surum   TEXT,                      -- extension sürümü
+  meta    TEXT,                      -- JSON ek bağlam
+  ts      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_hata_ts ON hata_log(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_hata_kaynak ON hata_log(kaynak, ts DESC);
