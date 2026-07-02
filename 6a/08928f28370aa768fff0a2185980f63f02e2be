@@ -1,0 +1,38 @@
+backend/api/src/db/schema.sql
+  s_6ab3e1b947fb0f::t_344ea734c26e71 129-141
+  s_6ab3e1b947fb0f::t_0939fc39cf870d 142-155
+backend/api/src/routes/rapor.ts
+  s_6ab3e1b947fb0f::t_e1b901410bb929 1-82
+backend/api/test/ilan-katki.spec.ts
+  s_6ab3e1b947fb0f::t_984aaa618d6856 1-71
+backend/api/src/routes/telemetri.ts
+  s_6ab3e1b947fb0f::t_c2a58f082d9f96 1-74
+backend/api/src/routes/ilan.ts
+  s_6ab3e1b947fb0f::t_8eff5cf2cfe85c 211-278
+backend/api/test/telemetri.spec.ts
+  s_6ab3e1b947fb0f::t_0618e3758ca781 1-59
+backend/api/test/rapor.spec.ts
+  s_6ab3e1b947fb0f::t_37f828969afe44 1-103
+backend/api/src/index.ts
+  s_6ab3e1b947fb0f::t_46dcc8f0f31801 42
+  s_6ab3e1b947fb0f::t_7576e5103a5846 140-142
+  s_6ab3e1b947fb0f::t_f9f553546e9fa7 143-144
+  s_6ab3e1b947fb0f::t_982d6624668d7b 41
+  s_6ab3e1b947fb0f::t_22701aa34f574a 145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "6a08928f28370aa768fff0a2185980f63f02e2be",
+  "prompts": {},
+  "sessions": {
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
