@@ -1,0 +1,35 @@
+src/rapor/main.tsx
+  s_6ab3e1b947fb0f::t_0fe4d1183b1569 21-23
+src/lib/rapor-html.ts
+  s_6ab3e1b947fb0f::t_83f4ee2abd1ea5 201-208
+  s_6ab3e1b947fb0f::t_e23dc166dfd600 237
+  s_6ab3e1b947fb0f::t_339395e5ac0bd8 349,352
+  s_6ab3e1b947fb0f::t_6f3b04fc3d083e 69
+  s_6ab3e1b947fb0f::t_6e5fa241e78652 114
+  s_6ab3e1b947fb0f::t_75e6acacbc12f5 402,422
+test/rapor-html.spec.ts
+  s_6ab3e1b947fb0f::t_96848c5cf63408 59-61,63-66
+  s_6ab3e1b947fb0f::t_96d314e6d384cb 62
+src/lib/tkgm-api.ts
+  s_6ab3e1b947fb0f::t_0c3153880882ac 221-222,227-233,235-238
+  s_6ab3e1b947fb0f::t_7371c5696f9e1f 259-260,265-271,273-276
+  s_6ab3e1b947fb0f::t_08535e4b76aa2e 186-187,189,191-204
+src/lib/eplan-api.ts
+  s_6ab3e1b947fb0f::t_4e50aeb69efa98 158-161,164-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "4ea5014d0ca96deb58a4c4ef754ecb330526b427",
+  "prompts": {},
+  "sessions": {
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
