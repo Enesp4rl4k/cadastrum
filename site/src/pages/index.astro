@@ -2,6 +2,7 @@
 export const prerender = true;
 import Base from "../layouts/Base.astro";
 import HeroMock from "../components/HeroMock.astro";
+import DegerBandiHero from "../components/DegerBandiHero.astro";
 import IntegrationsMarquee from "../components/IntegrationsMarquee.astro";
 import Step from "../components/Step.astro";
 import TopoBg from "../components/TopoBg.astro";
@@ -151,6 +152,43 @@ const features = [
 
   <!-- Integrations marquee -->
   <IntegrationsMarquee />
+
+  <!-- Dürüst güven — değerleme bandı verinin gücüne göre daralır/genişler -->
+  <section class="py-20 md:py-24 border-t border-slate-100 bg-slate-50/60" data-reveal-stagger>
+    <div class="mx-auto max-w-6xl px-6">
+      <div class="grid items-center gap-12 md:grid-cols-2">
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-accent-success">
+            Dürüst değerleme
+          </div>
+          <h2 class="mt-2 text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
+            Bilmediğini bilen değerleme
+          </h2>
+          <p class="mt-4 text-slate-600 leading-relaxed">
+            Çoğu araç size tek bir kesin rakam söyler — verisi zayıf olsa bile. Cadastrum
+            farklı: tahmin bandı, elimizdeki emsalin gücüne göre <b>dürüstçe</b> daralır ya da
+            genişler. Güçlü emsal varsa dar ve net; veri sınırlıysa geniş ve “manuel doğrula”
+            uyarısıyla. Böylece asla <b>emin bir şekilde yanlış</b> olmazsınız.
+          </p>
+          <ul class="mt-6 space-y-2.5 text-sm text-slate-700">
+            <li class="flex items-start gap-2.5">
+              <span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-accent-success"></span>
+              Güven skoru gerçek kapsamayı yansıtır (cross-validation ile kalibre)
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-accent-success"></span>
+              Zayıf veride şeffaf uyarı — sürprizli kayıp yok
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-accent-success"></span>
+              Emsaller, tazelik ve dağılım tek bakışta
+            </li>
+          </ul>
+        </div>
+        <DegerBandiHero />
+      </div>
+    </div>
+  </section>
 
   <!-- /veri CTA — Türkiye mahalle bazlı fiyat verisi keşif -->
   <section class="py-16 md:py-20 border-t border-slate-100" data-reveal-stagger>
