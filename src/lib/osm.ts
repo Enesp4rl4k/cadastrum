@@ -5,10 +5,12 @@ import { db } from "./db";
 // Overpass: birkaç güvenilir mirror sırayla denenir.
 // overpass.osm.ch ve lz4 main mirror'lar genelde stabil.
 const OVERPASS_HOSTS = [
-  "https://overpass.osm.ch/api/interpreter",
+  // NOT: overpass.osm.ch şu an degrade — İstanbul için bile 200+0 element dönüyor.
+  // Bu yüzden sona alındı; retry-on-empty mantığı yine de her mirror'ı deniyor.
   "https://lz4.overpass-api.de/api/interpreter",
   "https://overpass-api.de/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.osm.ch/api/interpreter",
 ];
 const NOMINATIM = "https://nominatim.openstreetmap.org/reverse";
 
@@ -85,13 +87,18 @@ interface OverpassEl {
 
 interface OverpassResponse {
   elements: OverpassEl[];
+  /** Overpass timeout/rate-limit'te 200 döner ama buraya hata yazar. */
+  remark?: string;
 }
 
 const OSM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 gün
 
+// Cache sürümü — artırınca eski kayıtlar geçersiz olur. v2: bozuk osm.ch mirror'ının
+// cache'lediği "0 element" boş sonuçlarını temizlemek için (retry-on-empty fix'i sonrası).
+const OSM_CACHE_VER = "v2";
 function osmCacheKey(lat: number, lng: number): string {
   // 0.001° ≈ 110m — aynı parselde aynı cache
-  return `${lat.toFixed(3)}|${lng.toFixed(3)}`;
+  return `${OSM_CACHE_VER}|${lat.toFixed(3)}|${lng.toFixed(3)}`;
 }
 
 /**
@@ -121,9 +128,14 @@ export async function cevreAnaliziGetir(
   // tag setine `amenity=fuel` ve `power=substation|tower` eklendi.
   const query = `[out:json][timeout:30];(nwr["amenity"~"^(school|hospital|clinic|university|fuel)$"](around:15000,${lat},${lng});node["highway"="bus_stop"](around:15000,${lat},${lng});node["railway"~"^(station|tram_stop|halt)$"](around:15000,${lat},${lng});way["highway"~"^(motorway|trunk|motorway_link|trunk_link)$"](around:30000,${lat},${lng});way["highway"~"^(primary|secondary|primary_link|secondary_link|tertiary)$"](around:10000,${lat},${lng});way["power"~"^(line|cable|minor_line)$"](around:3000,${lat},${lng});nwr["power"~"^(substation|tower|generator)$"](around:3000,${lat},${lng});way["man_made"~"^(pipeline|water_well|water_works)$"](around:3000,${lat},${lng});way["railway"~"^(rail|light_rail|subway)$"](around:3000,${lat},${lng});way["landuse"="industrial"](around:30000,${lat},${lng});nwr["aeroway"="aerodrome"](around:30000,${lat},${lng});nwr["amenity"="ferry_terminal"](around:30000,${lat},${lng});nwr["harbour"="yes"](around:30000,${lat},${lng});nwr["waterway"~"^(river|stream|canal)$"](around:1000,${lat},${lng});nwr["natural"="water"](around:1000,${lat},${lng});nwr["landuse"="reservoir"](around:1000,${lat},${lng});way["highway"~"^(track|unclassified|tertiary|residential|path)$"](around:1000,${lat},${lng});node["place"~"^(village|hamlet)$"](around:5000,${lat},${lng}););out tags center;`;
 
-  // Birden fazla mirror dene — biri 406/timeout dönerse diğerine geç
+  // Birden fazla mirror dene — biri 406/timeout dönerse diğerine geç.
+  // KRİTİK: Overpass aşırı yüklüyken "200 OK + boş elements + remark(timeout)" döner.
+  // Bunu başarı sayıp durursak, dolu bir bölgede (örn. Ayvalık) "0 element = veri yok"
+  // yanılgısı oluşur. Bu yüzden boş/remark yanıtını da BAŞARISIZLIK sayıp sıradaki
+  // mirror'a geçiyoruz; sadece tüm mirror'lar boş dönerse gerçekten boş kabul ediyoruz.
   let lastError: string = "";
   let data: OverpassResponse | null = null;
+  let bosData: OverpassResponse | null = null; // tüm mirror'lar boşsa fallback
   for (const host of OVERPASS_HOSTS) {
     try {
       const result = await proxyFetch(host, {
@@ -136,20 +148,38 @@ export async function cevreAnaliziGetir(
         lastError = `${new URL(host).host} → HTTP ${result.status}`;
         continue;
       }
+      let parsed: OverpassResponse;
       try {
-        const text = result.text;
-        data = JSON.parse(text);
-        break;
+        parsed = JSON.parse(result.text);
       } catch {
         lastError = `${new URL(host).host} → invalid JSON`;
         continue;
       }
+      const bosVeyaHata =
+        (parsed.remark && /timed out|error|rate|limit/i.test(parsed.remark)) ||
+        !parsed.elements ||
+        parsed.elements.length === 0;
+      if (bosVeyaHata) {
+        // Timeout/rate-limit muhtemel — bir sonraki mirror'ı dene, ama sakla
+        lastError = `${new URL(host).host} → ${parsed.remark ? "remark: " + parsed.remark : "0 element (muhtemel timeout)"}`;
+        if (parsed.elements) bosData = parsed;
+        continue;
+      }
+      data = parsed;
+      break;
     } catch (e) {
       lastError = `${new URL(host).host} → ${e instanceof Error ? e.message : "fetch failed"}`;
     }
   }
+  // Hiç dolu yanıt gelmedi: bir mirror boş döndüyse (gerçekten sapa bölge) onu kullan,
+  // hiçbiri yanıt vermediyse hata fırlat.
   if (!data) {
-    throw new Error(`Overpass servisleri yanıt vermiyor (${lastError})`);
+    if (bosData) {
+      data = bosData;
+      console.warn(`[arsa-overpass] tüm mirror'lar boş döndü — bölge gerçekten seyrek olabilir (${lastError})`);
+    } else {
+      throw new Error(`Overpass servisleri yanıt vermiyor (${lastError})`);
+    }
   }
   console.log(
     `[arsa-overpass] ✓ ${(data as { elements?: unknown[] }).elements?.length ?? 0} element bulundu (lat=${lat}, lng=${lng})`,
