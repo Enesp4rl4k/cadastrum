@@ -1,0 +1,26 @@
+test/deger-bandi.spec.ts
+  s_6ab3e1b947fb0f::t_014cd561fafd13 1-46
+src/sidepanel/components/DegerBandi.tsx
+  s_6ab3e1b947fb0f::t_9f09d467b61d18 1-160
+site/src/components/DegerBandiHero.astro
+  s_6ab3e1b947fb0f::t_c09e9b358574a3 1-186
+site/src/pages/index.astro
+  s_6ab3e1b947fb0f::t_ab7edff1c57370 156-192
+  s_6ab3e1b947fb0f::t_36f8a2509a559b 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "d1d2d7b6817183b75f5aaf9a19b2ea1a6092abf4",
+  "prompts": {},
+  "sessions": {
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
