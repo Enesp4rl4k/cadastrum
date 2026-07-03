@@ -1,0 +1,22 @@
+src/lib/osm.ts
+  s_6ab3e1b947fb0f::t_0857c539d71fca 96-98,101
+  s_6ab3e1b947fb0f::t_9a684aa0f77331 90-91
+  s_6ab3e1b947fb0f::t_0e1397fc424cc3 8-9,13
+  s_6ab3e1b947fb0f::t_71af744c16e8a1 131-135,138,151,153,158-169,174-175,177-182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "1c78cda1301dce5d31dfecb5f49947337270636e",
+  "prompts": {},
+  "sessions": {
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
