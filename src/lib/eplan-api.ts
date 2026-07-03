@@ -155,10 +155,15 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
 
     return sonuc;
   } catch (error) {
-    // Network/HTTP 0 — e-plan.gov.tr erişilemez. Content-script fallback devreye girer.
+    // Beklenen degradasyonlar (alarm verme, nazik warn):
+    //   - Network/HTTP 0: e-plan.gov.tr erişilemez.
+    //   - HTTP 404/403: CSB e-Plan API'sini taşıdı/kaldırdı (2026 göçü). Yeni endpoint
+    //     bulunana kadar imar için manuel giriş + TÜCBS ÇDP fallback'leri devrede.
     const mesaj = error instanceof Error ? error.message : String(error);
     if (/HTTP 0|Failed to fetch|NetworkError/i.test(mesaj)) {
-      console.warn("[eplan-api] e-plan ulaşılamıyor, content-script fallback'e geçiliyor");
+      console.warn("[eplan-api] e-plan ulaşılamıyor, content-script/manuel fallback'e geçiliyor");
+    } else if (/HTTP 40[0-9]/i.test(mesaj)) {
+      console.warn("[eplan-api] e-Plan otomatik sorgu API'si yanıt vermiyor (endpoint değişmiş olabilir) — manuel imar/TÜCBS fallback devrede");
     } else {
       console.error("[eplan-api] E-Plan otomatik sorgu başarısız:", error);
     }

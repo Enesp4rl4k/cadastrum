@@ -18,7 +18,9 @@ async function goster(): Promise<void> {
       }
       return;
     }
-    const html = raporHtmlUret(veri);
+    // etkilesim:false → inline script/toolbar yok (extension CSP inline script'i bloklar).
+    // Değerler progressive-enhancement ile JS'siz doğru görünür.
+    const html = raporHtmlUret(veri, { etkilesim: false });
     // Tüm dokümanı üretecin kendine yeten HTML'iyle değiştir (inline script + stil dahil)
     document.open();
     document.write(html);

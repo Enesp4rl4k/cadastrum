@@ -183,19 +183,25 @@ const mahalleListesiCache = new Map<number, Promise<Mahalle[]>>();
 export async function getIlListesi(): Promise<Il[]> {
   if (ilListesiCache) return ilListesiCache;
   ilListesiCache = (async () => {
-    try {
-      const data = await getJson<{
-        type?: string;
-        features?: Array<{ properties?: Record<string, unknown> }>;
-      }>(`${TKGM_PARSEL_BASE}/ilListe.json`);
-      return (data.features ?? []).map((f) => {
+    const mapla = (data: { features?: Array<{ properties?: Record<string, unknown> }> }): Il[] =>
+      (data.features ?? []).map((f) => {
         const p = (f.properties ?? {}) as Record<string, unknown>;
-        return {
-          id: Number(p.id),
-          ad: String(p.text ?? p.ad ?? p.name ?? ""),
-          kod: Number(p.id),
-        };
+        return { id: Number(p.id), ad: String(p.text ?? p.ad ?? p.name ?? ""), kod: Number(p.id) };
       });
+    try {
+      // TKGM parselsorgu statik JSON'u kaldırıldı (302 → online.tkgm.gov.tr).
+      // Canlı kaynak megsis idariYapi; parselsorgu geri dönerse fallback kalsın.
+      try {
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_API_BASE}/idariYapi/ilListe`,
+        );
+        return mapla(data);
+      } catch {
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_PARSEL_BASE}/ilListe.json`,
+        );
+        return mapla(data);
+      }
     } catch (e) {
       ilListesiCache = null; // Hata durumunda cache'i sil ki sonraki çağrı tekrar dener
       throw e;
@@ -212,25 +218,24 @@ export async function getIlceListesi(ilKodu: number): Promise<Ilce[]> {
       const disk = await readIdariStorage<Ilce[]>(`ilce:${ilKodu}`);
       if (disk?.length) return disk;
 
+      const maplaIlce = (data: { features?: Array<{ properties?: Record<string, unknown> }> }): Ilce[] =>
+        parseIdariFeatures(data).map((p) => ({
+          ilceKodu: Number(p.id),
+          ilceAdi: String(p.text ?? p.ilceAdi ?? p.ad ?? ""),
+          ilKodu: Number(p.ilId ?? ilKodu),
+        }));
       let liste: Ilce[];
+      // Canlı kaynak megsis idariYapi; parselsorgu statik JSON kaldırıldı (302) — fallback.
       try {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_PARSEL_BASE}/ilceListe/${ilKodu}.json`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          ilceKodu: Number(p.id),
-          ilceAdi: String(p.text ?? p.ilceAdi ?? p.ad ?? ""),
-          ilKodu: Number(p.ilId ?? ilKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_API_BASE}/idariYapi/ilceListe/${ilKodu}`,
+        );
+        liste = maplaIlce(data);
       } catch {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_API_BASE}/idariYapi/ilceListe/${ilKodu}`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          ilceKodu: Number(p.id),
-          ilceAdi: String(p.text ?? p.ilceAdi ?? p.ad ?? ""),
-          ilKodu: Number(p.ilId ?? ilKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_PARSEL_BASE}/ilceListe/${ilKodu}.json`,
+        );
+        liste = maplaIlce(data);
       }
       void writeIdariStorage(`ilce:${ilKodu}`, liste);
       return liste;
@@ -251,25 +256,24 @@ export async function getMahalleListesi(ilceKodu: number): Promise<Mahalle[]> {
       const disk = await readIdariStorage<Mahalle[]>(`mahalle:${ilceKodu}`);
       if (disk?.length) return disk;
 
+      const maplaMahalle = (data: { features?: Array<{ properties?: Record<string, unknown> }> }): Mahalle[] =>
+        parseIdariFeatures(data).map((p) => ({
+          mahalleKodu: Number(p.id),
+          mahalleAdi: String(p.text ?? p.mahalleAdi ?? p.ad ?? ""),
+          ilceKodu: Number(p.ilceId ?? ilceKodu),
+        }));
       let liste: Mahalle[];
+      // Canlı kaynak megsis idariYapi; parselsorgu statik JSON kaldırıldı (302) — fallback.
       try {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_PARSEL_BASE}/mahalleListe/${ilceKodu}.json`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          mahalleKodu: Number(p.id),
-          mahalleAdi: String(p.text ?? p.mahalleAdi ?? p.ad ?? ""),
-          ilceKodu: Number(p.ilceId ?? ilceKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_API_BASE}/idariYapi/mahalleListe/${ilceKodu}`,
+        );
+        liste = maplaMahalle(data);
       } catch {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_API_BASE}/idariYapi/mahalleListe/${ilceKodu}`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          mahalleKodu: Number(p.id),
-          mahalleAdi: String(p.text ?? p.mahalleAdi ?? p.ad ?? ""),
-          ilceKodu: Number(p.ilceId ?? ilceKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_PARSEL_BASE}/mahalleListe/${ilceKodu}.json`,
+        );
+        liste = maplaMahalle(data);
       }
       void writeIdariStorage(`mahalle:${ilceKodu}`, liste);
       return liste;

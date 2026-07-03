@@ -56,6 +56,14 @@ describe("raporHtmlUret", () => {
     expect(html).toContain("12.500 ₺/m²");
   });
 
+  it("etkilesim:false → inline script/toolbar atlanır (extension CSP), değer yine görünür", () => {
+    const html = raporHtmlUret(veriYap(), { etkilesim: false });
+    expect(html).not.toContain("<script>"); // CSP-safe
+    expect(html).not.toContain('id="cadShare"'); // toolbar elementi yok
+    expect(html).not.toContain('onclick="'); // inline handler yok
+    expect(html).toContain("₺15.500.000"); // değer JS'siz doğru (progressive)
+  });
+
   it("fiyat null iken çökmeden 'değerleme bekliyor' gösterir", () => {
     const html = raporHtmlUret(veriYap({ fiyat: null }));
     expect(html).toContain("Değerleme bekliyor");

@@ -66,7 +66,7 @@ function haritaPanel(gorsel: ReturnType<typeof uyduGorseli>): string {
   const { imgUrl, W, H, pts } = gorsel;
   return `<div class="cad-map-wrap" style="padding-bottom:${((H / W) * 100).toFixed(1)}%">
     <img class="cad-map-img" src="${imgUrl}" alt="Uydu görüntüsü" loading="lazy" referrerpolicy="no-referrer"
-      onerror="this.style.display='none'">
+      >
     <svg class="cad-map-ov" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Parsel sınırı">
       <polygon points="${pts}" fill="#ffd400" fill-opacity="0.18" stroke="#ffd400" stroke-width="3" stroke-linejoin="round"/>
     </svg>
@@ -111,7 +111,7 @@ function skorlarHtml(veri: RaporVerisi): string {
   const bar = (ad: string, sk: Skor | SkorBilinmiyor) => {
     const v = skorVal(sk);
     const w = v ?? 0;
-    return `<div class="cad-score"><span>${ad}</span><div class="cad-sbar"><i style="--w:${w}%"></i></div><b>${v ?? "—"}</b></div>`;
+    return `<div class="cad-score"><span>${ad}</span><div class="cad-sbar"><i style="width:${w}%"></i></div><b>${v ?? "—"}</b></div>`;
   };
   const poi = veri.cevre?.poi;
   const poiHtml = poi
@@ -198,7 +198,14 @@ function tkgmHtml(veri: RaporVerisi): string {
 }
 
 // ── Ana üreteç ──────────────────────────────────────────────────────────
-export function raporHtmlUret(veri: RaporVerisi): string {
+export function raporHtmlUret(
+  veri: RaporVerisi,
+  opts: { etkilesim?: boolean } = {},
+): string {
+  // etkilesim=false → inline <script> ve toolbar atlanır (extension CSP 'script-src self'
+  // inline script'i bloklar). Değerler zaten JS'siz doğru render edilir (progressive
+  // enhancement), animasyon/paylaş sadece web/backend link'te (etkilesim=true) çalışır.
+  const etkilesim = opts.etkilesim !== false;
   const p = veri.parsel;
   const f = veri.fiyat;
   const ozet = riskOzetSkoru(veri.riskler ?? []);
@@ -227,7 +234,7 @@ export function raporHtmlUret(veri: RaporVerisi): string {
     (gorsel ? `<meta name="twitter:image" content="${esc(gorsel.imgUrl)}">` : "");
 
   const heroDeger = f
-    ? `<div class="cad-val" data-target="${Math.round(f.toplamBeklenen)}">₺0</div>
+    ? `<div class="cad-val" data-target="${Math.round(f.toplamBeklenen)}">₺${num(f.toplamBeklenen)}</div>
        <div class="cad-val-band">Aralık ${tlKisa(f.toplamAlt)} – ${tlKisa(f.toplamUst)} · <b>${num(f.beklenenPerM2)} ₺/m²</b></div>
        <div class="cad-conf"><span class="cad-conf-dot"></span> Güven ${f.guvenSkoru}/100 · ${f.baselineAdet || 0} emsal · ${esc(f.baselineKaynak)}</div>`
     : `<div class="cad-val cad-val-na">Değerleme bekliyor</div>
@@ -339,10 +346,10 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1d21;bac
 @media(max-width:560px){.cad-grid{grid-template-columns:1fr}.cad-hero{flex-direction:column}.cad-hero-r{text-align:left;border-left:0;border-top:1px solid #d6dce2;padding-left:0;padding-top:12px}.cad-conf{justify-content:flex-start}.cad-ir{grid-template-columns:1fr}}
 </style></head>
 <body><div class="cad">
-  <div class="cad-bar">
+  ${etkilesim ? `<div class="cad-bar">
     <button class="cad-btn cad-btn-primary" id="cadShare" type="button">Paylaşılabilir link</button>
     <button class="cad-btn" type="button" onclick="print()">PDF indir</button>
-  </div>
+  </div>` : ""}
 
   <div class="cad-top">
     <div class="cad-brand"><span class="cad-logo">◆</span> Cadastrum <span class="cad-tag">Yatırımcı Sunum Raporu</span></div>
@@ -392,14 +399,13 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1d21;bac
     <span class="cad-cta-btn">Ücretsiz dene →</span>
   </a>
 </div>
-<script>
+${etkilesim ? `<script>
 (function(){
   var el=document.querySelector('.cad-val[data-target]');
   if(el){var target=+el.getAttribute('data-target')||0,t0=null,dur=1200;
     function f(n){return '₺'+Math.round(n).toLocaleString('tr-TR');}
     function step(ts){if(!t0)t0=ts;var p=Math.min((ts-t0)/dur,1),e=1-Math.pow(1-p,3);el.textContent=f(target*e);if(p<1)requestAnimationFrame(step);}
     setTimeout(function(){requestAnimationFrame(step);},250);}
-  setTimeout(function(){document.querySelectorAll('.cad-sbar i').forEach(function(b){b.style.width=getComputedStyle(b).getPropertyValue('--w');});},450);
   var sb=document.getElementById('cadShare');
   if(sb){sb.addEventListener('click',async function(){
     sb.disabled=true;var eski=sb.textContent;sb.textContent='Yükleniyor…';
@@ -413,6 +419,6 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1d21;bac
     sb.disabled=false;sb.textContent=eski;
   });}
 })();
-</script>
+</script>` : ""}
 </body></html>`;
 }
