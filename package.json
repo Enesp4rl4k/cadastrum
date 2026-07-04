@@ -14,7 +14,12 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "build:mahalle-merkez": "node scripts/build-mahalle-merkez.mjs",
-    "d1-backup": "node scripts/d1-backup.mjs"
+    "d1-backup": "node scripts/d1-backup.mjs",
+    "data:osb": "node scripts/osb-uret.mjs",
+    "data:nufus": "node scripts/nufus-uret.mjs",
+    "data:taskin": "node scripts/taskin-proxy-uret.mjs",
+    "data:faz-a": "node scripts/faz-a-veri-pipeline.mjs --statik",
+    "data:ilan": "node scripts/faz-a-veri-pipeline.mjs --ilan"
   },
   "dependencies": {
     "dexie": "^4.0.10",

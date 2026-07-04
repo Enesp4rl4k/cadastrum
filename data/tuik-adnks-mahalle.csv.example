@@ -1,0 +1,12 @@
+# TÜİK ADNKS mahalle nüfus CSV şablonu
+#
+# İndirme: https://nip.tuik.gov.tr/Home/Adnks
+#   veya https://biruni.tuik.gov.tr/medas → Yerleşim yeri nüfusları
+#
+# Dosyayı şu isimle kaydedin: data/tuik-adnks-mahalle.csv
+# Ayırıcı: noktalı virgül (;) veya virgül (,)
+#
+# Zorunlu sütunlar (başlık satırı Türkçe, küçük harf normalize edilir):
+il;ilce;mahalle;toplam_nufus
+Adana;Seyhan;Reşatbey;45230
+Balıkesir;Bandırma;Yalı;12840
