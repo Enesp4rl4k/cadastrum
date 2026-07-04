@@ -35,6 +35,8 @@ data/emlakjet-progress*.json
 data/emlakjet-scrape-progress.json
 
 # Pipeline ara çıktıları — SQL'den yeniden üretilir (nihai src/lib/data/*.ts track'te)
+data/.cache-waterway-noktalar.json
+data/nufus-eslesmeyen.json
 # Zincir: emlakjet-*.sql → scrape-baseline-uret → knn-yumusatma → baseline-ts-uret
 data/mahalle-baseline-final.json
 data/mahalle-scrape-baseline.json

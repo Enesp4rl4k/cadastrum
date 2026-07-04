@@ -4,6 +4,7 @@ Operasyonel ve planlama dokümanları. Ürün geliştirme için önce kök [READ
 
 | Doküman | Açıklama |
 |---------|----------|
+| [FAZ-A-VERI.md](./FAZ-A-VERI.md) | Faz A veri pipeline (OSB, nüfus, taşkın, ilan) |
 | [ROADMAP.md](./ROADMAP.md) | Veri katmanları, faz planı, mevcut durum audit'i |
 | [GELISTIRME-PLANI.md](./GELISTIRME-PLANI.md) | Genel geliştirme planı |
 | [GELISTIRME-MAHALLE-PLANI.md](./GELISTIRME-MAHALLE-PLANI.md) | Mahalle veri pipeline planı |

@@ -51,7 +51,8 @@ import { ilLikiditeCarpani } from "./data/il-likidite";
 import { biasCarpani } from "./bias-kalibrasyon";
 import { depremRiskiGetir } from "./data/deprem-zonlari";
 import { pgaCarpani } from "./deprem-tdth";
-import { taskinRiskiGetir, taskinCarpani } from "./data/taskin-risk";
+import { taskinCarpani, parselTaskinRiskiGetir } from "./data/taskin-risk";
+import { mahalleNufusGetir, nufusCarpani } from "./nufus";
 
 export interface FiyatBileseni {
   ad: string;
@@ -1794,7 +1795,12 @@ export async function fiyatTahminEt(
     }
   }
 
-  const taskinBilgi = ilNormForBias ? taskinRiskiGetir(ilNormForBias) : null;
+  const taskinBilgi = parselTaskinRiskiGetir(
+    parsel.ilAd,
+    parsel.ilceAd,
+    parsel.mahalleAd,
+    ilNormForBias,
+  );
   if (taskinBilgi && taskinBilgi.risk !== "orta") {
     const tCarpan = taskinCarpani(taskinBilgi.risk);
     if (tCarpan !== 1.0) {
@@ -1805,6 +1811,17 @@ export async function fiyatTahminEt(
         not: taskinBilgi.not,
       });
     }
+  }
+
+  const nufusBilgi = mahalleNufusGetir(parsel.ilAd, parsel.ilceAd, parsel.mahalleAd);
+  const nufusC = nufusCarpani(nufusBilgi);
+  if (nufusC.carpan !== 1.0 && nufusC.not) {
+    beklenenPerM2 = Math.round(beklenenPerM2 * nufusC.carpan);
+    bilesenler.push({
+      ad: "Nüfus yoğunluğu",
+      carpan: nufusC.carpan,
+      not: nufusC.not,
+    });
   }
 
   const guvenBilgisi = guvenHesapla({

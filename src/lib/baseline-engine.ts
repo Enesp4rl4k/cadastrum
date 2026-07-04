@@ -26,6 +26,7 @@ import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./data/ilce-basel
 import { MAHALLE_OZELLIK, OZELLIK_ESIK } from "./data/mahalle-ozellik";
 import { enflasyonDuzelt, enflasyonDuzeltAsync } from "./enflasyon-duzeltme";
 import { normalizeYerAdi } from "./tkgm-api";
+import { mahalleNufusGetir, nufusCarpani } from "./nufus";
 
 export type Kategori = "arsa" | "konut" | "tarla";
 
@@ -278,6 +279,10 @@ export function mahalleBaselineGetir(
   const ozellik = mKey ? ozellikCarpani(mKey) : { carpan: 1.0, notlar: [] };
   nihai = nihai * ozellik.carpan;
 
+  const nufus = mahalleNufusGetir(ilAd, ilceAd, mahalleAd);
+  const nufusC = nufusCarpani(nufus);
+  nihai = nihai * nufusC.carpan;
+
   // Enflasyon düzelt (BASELINE_TARIH'ten bugüne)
   const { guncelFiyat, carpan } = enflasyonDuzelt(Math.round(nihai));
 
@@ -294,7 +299,7 @@ export function mahalleBaselineGetir(
     hamMahalleFiyat: mahalleTlm2,
     ilceFallback: ilceFiyatHam,
     kaynak: nihaiKaynak,
-    not: `Mahalle baseline (${nihaiKaynak}, ${MAHALLE_BASELINE_TARIH}) — ${kategori} ${mahalleTlm2.toLocaleString("tr-TR")} TL/m²${ilceFiyatHam ? `, ilçe ${ilceFiyatHam.toLocaleString("tr-TR")} ile shrunk` : ""}${ozellik.carpan !== 1.0 ? ` · özellik ×${ozellik.carpan} (${ozellik.notlar.join(", ")})` : ""}${enfNot}`,
+    not: `Mahalle baseline (${nihaiKaynak}, ${MAHALLE_BASELINE_TARIH}) — ${kategori} ${mahalleTlm2.toLocaleString("tr-TR")} TL/m²${ilceFiyatHam ? `, ilçe ${ilceFiyatHam.toLocaleString("tr-TR")} ile shrunk` : ""}${ozellik.carpan !== 1.0 ? ` · özellik ×${ozellik.carpan} (${ozellik.notlar.join(", ")})` : ""}${nufusC.carpan !== 1.0 && nufusC.not ? ` · nüfus ×${nufusC.carpan} (${nufusC.not})` : ""}${enfNot}`,
   };
 }
 

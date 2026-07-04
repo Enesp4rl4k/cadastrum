@@ -1,8 +1,9 @@
 /**
- * Türkiye sel/taşkın risk skoru — il bazlı.
+ * Türkiye sel/taşkın risk skoru — il bazlı + mahalle proxy (dere mesafesi).
  *
  * Kaynak: Çevre, Şehircilik ve İklim Değişikliği Bakanlığı, AFAD Sel Master Planı,
  * Meteoroloji Genel Müdürlüğü tarihsel taşkın olayları.
+ * Mahalle proxy: OSM waterway mesafesi (scripts/taskin-proxy-uret.mjs).
  *
  * Skala:
  *   YUKSEK : Sık sel olayı yaşanan + 100 yıllık dönem riski yüksek bölgeler
@@ -10,8 +11,24 @@
  *   DUSUK  : Genel taşkın riski düşük, su havzasından uzak iller
  *
  * NOT: Mahalle bazlı kesinlik için TKGM/Çevre Bakanlığı taşkın haritası gerekir.
- * Bu il bazlı agregasyon — kıyıda taşkın yüksek, iç-kuzey orta, doğu-yüksek dağlık düşük.
+ * Proxy: dere yatağı <500m → risk bir kademe yükselir.
  */
+
+import { MAHALLE_TASKIN, type MahalleTaskinTuple } from "./mahalle-taskin";
+import { normalizeYerAdi } from "../tkgm-api";
+
+function mahalleKeyOlustur(
+  ilAd: string | null | undefined,
+  ilceAd: string | null | undefined,
+  mahalleAd: string | null | undefined,
+): string | null {
+  if (!ilAd || !ilceAd || !mahalleAd) return null;
+  const il = normalizeYerAdi(ilAd);
+  const ilce = normalizeYerAdi(ilceAd);
+  const mahalle = normalizeYerAdi(mahalleAd);
+  if (!il || !ilce || !mahalle) return null;
+  return `${il}__${ilce}__${mahalle}`;
+}
 
 export type TaskinRiski = "yuksek" | "orta" | "dusuk";
 
@@ -113,6 +130,57 @@ export const IL_TASKIN: Record<string, TaskinBilgi> = {
 export function taskinRiskiGetir(ilNorm: string | null | undefined): TaskinBilgi | null {
   if (!ilNorm) return null;
   return IL_TASKIN[ilNorm] ?? { risk: "orta", not: "Veri yok, orta varsayım" };
+}
+
+function skorToRisk(skor: number): TaskinRiski {
+  if (skor >= 2) return "yuksek";
+  if (skor >= 1) return "orta";
+  return "dusuk";
+}
+
+/**
+ * Mahalle proxy taşkın riski — dere mesafesi + il tablosu.
+ * il/ilçe/mahalle adı veya önceden hesaplanmış key ile.
+ */
+export function mahalleTaskinGetir(
+  ilAd: string | null | undefined,
+  ilceAd: string | null | undefined,
+  mahalleAd: string | null | undefined,
+): TaskinBilgi | null {
+  const ilNorm = ilAd
+    ? ilAd.toLocaleLowerCase("tr").replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c).replace(/[^a-z0-9]/g, "")
+    : null;
+  const ilBilgi = taskinRiskiGetir(ilNorm);
+  if (!ilBilgi) return null;
+
+  const key = mahalleKeyOlustur(ilAd, ilceAd, mahalleAd);
+  if (!key) return ilBilgi;
+
+  const tuple: MahalleTaskinTuple | undefined = MAHALLE_TASKIN[key];
+  if (!tuple) return ilBilgi;
+
+  const [dereKm, skor] = tuple;
+  const risk = skorToRisk(skor);
+  const dereNot =
+    dereKm > 0 && dereKm <= 5
+      ? `En yakın dere ~${dereKm < 1 ? `${Math.round(dereKm * 1000)}m` : `${dereKm.toFixed(1)}km`}`
+      : null;
+  return {
+    risk,
+    not: [ilBilgi.not, dereNot, "OSM dere proxy"].filter(Boolean).join(" · "),
+  };
+}
+
+/** Parsel için birleşik taşkın riski — mahalle proxy öncelikli */
+export function parselTaskinRiskiGetir(
+  ilAd: string | null | undefined,
+  ilceAd: string | null | undefined,
+  mahalleAd: string | null | undefined,
+  ilNorm?: string | null,
+): TaskinBilgi | null {
+  const mahalle = mahalleTaskinGetir(ilAd, ilceAd, mahalleAd);
+  if (mahalle) return mahalle;
+  return taskinRiskiGetir(ilNorm ?? null);
 }
 
 /**
