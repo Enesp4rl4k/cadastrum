@@ -1,0 +1,231 @@
+src/sidepanel/components/FiyatTahminKarti.tsx
+  s_abeb80cb259fc9::t_2ef8733df81fb5 100
+  s_abeb80cb259fc9::t_e387c6e8005211 24
+  s_abeb80cb259fc9::t_ce54b2dcdf25b1 53
+  s_f6fce178877b32::t_b4fd1237ab7743 217-222
+  s_f6fce178877b32::t_c6d949eed087d5 223-227
+  s_abeb80cb259fc9::t_45e5bf5e588f32 37
+  s_6ab3e1b947fb0f::t_7ef014249c6c41 90-91
+  s_f6fce178877b32::t_efd520fdfba61a 228-230
+  s_6ab3e1b947fb0f::t_4922107a1a76aa 231
+src/lib/use-tucbs.ts
+  s_abeb80cb259fc9::t_87d43db356cab6 1-39
+vite.config.ts
+  s_75f5ce8906bfb3::t_a47840a4a01638 57
+  s_75f5ce8906bfb3::t_30680af032f085 1,6-10,12-14
+src/sidepanel/views/MapView.tsx
+  s_abeb80cb259fc9::t_5899569bec22fc 1,3
+  s_abeb80cb259fc9::t_eaa8122542be5b 156-174
+  s_abeb80cb259fc9::t_bd2b27051c88c3 28-29
+  s_abeb80cb259fc9::t_997aea82558fc0 249-254
+  s_abeb80cb259fc9::t_66846c9a2b6e11 109-111,113
+  s_abeb80cb259fc9::t_b2563b6daba1d1 288-329
+  s_abeb80cb259fc9::t_4050fe8caf1d2c 53-54,57-60,331
+  s_abeb80cb259fc9::t_c818fcc11cb2fd 61
+  s_abeb80cb259fc9::t_b738ca601392cc 175
+  s_abeb80cb259fc9::t_d816dea6506960 330
+  s_abeb80cb259fc9::t_4b3c4cf5139154 332-333
+src/background/service-worker.ts
+  s_75f5ce8906bfb3::t_a0067b12ae9e17 3,7-9,11,214-223,248,316-317,319
+  s_75f5ce8906bfb3::t_ef83d2227f7e72 119,128-162
+  s_75f5ce8906bfb3::t_7af4d0f91b4ce6 313
+  s_75f5ce8906bfb3::t_56989c449c5728 249-254,261-283,285-287
+  s_75f5ce8906bfb3::t_aad54742323bdf 193
+src/sidepanel/App.tsx
+  s_75f5ce8906bfb3::t_30123d0e5e379d 1-2
+  s_75f5ce8906bfb3::t_053fef2bd0c2ff 58-60,63-65
+  s_75f5ce8906bfb3::t_56302af2211304 185-189
+  s_75f5ce8906bfb3::t_e839c2e2eb4e91 66
+src/lib/eplan.ts
+  s_75f5ce8906bfb3::t_0c53b60233db1d 4
+src/lib/db.ts
+  s_abeb80cb259fc9::t_3a4191e9f42eee 180
+  s_abeb80cb259fc9::t_0ccc90481da78b 124-130
+  s_abeb80cb259fc9::t_eceb6a3e34591a 328-342
+  s_abeb80cb259fc9::t_bb9aa3cff0393d 343
+src/lib/risk-uyarilari.ts
+  s_abeb80cb259fc9::t_1ad10ea4d90390 45,49,56-57
+  s_abeb80cb259fc9::t_e1bce5e86dc1e8 31
+  s_abeb80cb259fc9::t_ae380ecb06df3b 16-17
+  s_abeb80cb259fc9::t_98c7dc12f7c61c 240-293
+  s_abeb80cb259fc9::t_f9a326cc3a90d6 294
+src/lib/tucbs.ts
+  s_abeb80cb259fc9::t_16d9e937f1f6ad 1-14,16-89,94-96,105-129,147-237,240,242-254,257-394
+  s_abeb80cb259fc9::t_f773abce090c0a 15
+  s_abeb80cb259fc9::t_6c58199b2f95c7 90-93,97-98,103-104
+  s_abeb80cb259fc9::t_bb8ea20e17f852 130-146
+  s_abeb80cb259fc9::t_d3df4fefea107a 238-239,241
+  s_abeb80cb259fc9::t_50e57566fa4880 255-256
+  s_abeb80cb259fc9::t_34e82998ddb9bc 99-102
+manifest.config.ts
+  s_75f5ce8906bfb3::t_1612600e7fb6bf 4-5
+  s_75f5ce8906bfb3::t_01ee091df74984 109-110
+  s_75f5ce8906bfb3::t_d39275d595a8bb 43
+  s_75f5ce8906bfb3::t_4f047307b3c6f6 78-86,95-106
+  s_abeb80cb259fc9::t_472fcba1b6f812 44
+  s_75f5ce8906bfb3::t_8e98f10b882e9e 28
+src/lib/tucbs-wms-tiles.ts
+  s_abeb80cb259fc9::t_ca69d02919586c 40,42
+  s_abeb80cb259fc9::t_c9e41a96e1a395 1-39,41,43
+src/lib/build-flags.ts
+  s_75f5ce8906bfb3::t_f6afd1154102a3 1-2
+src/lib/tkgm-api.ts
+  s_cabfca5225ac1d::t_a41f076b7facbd 414-415,420,429-433
+  s_cabfca5225ac1d::t_af0ef6cb46e03f 296-336,348
+src/sidepanel/components/IlanKarti.tsx
+  s_6ab3e1b947fb0f::t_16a25037ef1446 656-666
+  s_6ab3e1b947fb0f::t_2514405557cd9b 41-47,51-54,56-63
+  s_6ab3e1b947fb0f::t_202b4c6f627acc 48-50,55
+  s_6ab3e1b947fb0f::t_9b6e4765c53de7 174
+  s_6ab3e1b947fb0f::t_914ec14c3fb2ac 25
+  s_6ab3e1b947fb0f::t_4cd86e714b65d5 151
+  s_6ab3e1b947fb0f::t_9446d3f554b750 204
+  s_6ab3e1b947fb0f::t_1e94e5e10b9d53 305-312
+  s_6ab3e1b947fb0f::t_2eacafb2fba2d5 227
+.gitignore
+  s_3396e951ed84fb::t_e9bda5c378f953 9-11
+  s_69f9229f07c3d5::t_f954cc5d8ae9a5 57-61
+backend/api/src/routes/proxy.ts
+  s_abeb80cb259fc9::t_31d6d2f77450d8 17-37
+  s_abeb80cb259fc9::t_bd003d83e01874 112-113,115-116,118,120-152,158,160,163,169-178,230
+  s_abeb80cb259fc9::t_1cfa5128a2a1b1 114,117,179-218
+  s_75f5ce8906bfb3::t_e03a594b8600e5 41-76,93-110
+  s_abeb80cb259fc9::t_84161b981e9d52 6
+  s_abeb80cb259fc9::t_7244b2e551f7e0 119
+  s_abeb80cb259fc9::t_fe056b3ce81812 111
+src/sidepanel/components/CdpKarti.tsx
+  s_abeb80cb259fc9::t_f4ff766755db87 1-136
+src/background/scraping-runtime.ts
+  s_75f5ce8906bfb3::t_6679ae363c2a53 1-368
+src/lib/modul-tanimi.ts
+  s_abeb80cb259fc9::t_71581d328f61fc 72-76
+  s_abeb80cb259fc9::t_c8989ff455a1a9 13
+  s_abeb80cb259fc9::t_6f9670cb289679 71
+  s_abeb80cb259fc9::t_a71bbae185ea70 77
+src/sidepanel/components/AnalizPanel.tsx
+  s_abeb80cb259fc9::t_e74998cd4d813b 437
+  s_abeb80cb259fc9::t_f0f62cf4891d83 44-45
+  s_abeb80cb259fc9::t_4cb0f623c0e29b 71
+  s_abeb80cb259fc9::t_98d7701cbfaac6 404-408,410-414
+chrome-store/LISTING.md
+  s_75f5ce8906bfb3::t_b9284594518736 162
+  s_75f5ce8906bfb3::t_4f23d1459fe685 164
+src/sidepanel/views/cdp-wms-layer.ts
+  s_abeb80cb259fc9::t_44f6efe575ecd9 1-5,7-25,43,47-65
+  s_abeb80cb259fc9::t_b6122e89eee35e 6,26-42,44-46
+test/tucbs.spec.ts
+  s_abeb80cb259fc9::t_18c2bb6d370fe2 8
+  s_abeb80cb259fc9::t_fda6f3bb762060 1-7,9-62,69-129
+  s_abeb80cb259fc9::t_06560310c8c927 63-68
+public/dnr-rules.json
+  s_75f5ce8906bfb3::t_26358120b85273 65-66,71
+src/lib/osm.ts
+  s_6ab3e1b947fb0f::t_1605eb6bba028f 141-144,149
+src/lib/data/tucbs-wms-endpoints.ts
+  s_abeb80cb259fc9::t_a52f1747659cd9 1-131
+tsconfig.json
+  s_75f5ce8906bfb3::t_028bff866f4922 16
+src/sidepanel/components/RiskUyariKarti.tsx
+  s_abeb80cb259fc9::t_3962a1a59c9938 21,26,28-29
+  s_abeb80cb259fc9::t_ac267c3ecd535a 10
+src/lib/eplan-api.ts
+  s_75f5ce8906bfb3::t_6c3c7de5d78e01 26-30,57-60,62,65,79,81-84,86-91
+  s_75f5ce8906bfb3::t_9a1c42db2051c3 122
+  s_75f5ce8906bfb3::t_41e426482b32f9 8
+  s_75f5ce8906bfb3::t_b8b8a61c58c325 209-211
+  s_75f5ce8906bfb3::t_a8592a7b38209e 121,125
+  s_75f5ce8906bfb3::t_139eef170f4e62 4-6,10-25,31,56,68-72,77-78,80,85,95-108,110,114-119,123-124,126-176,179-181,183-208,212-218,222-223,238,255-256,262-266,269,272-273,288,290,293-294,300-307,316,328-329,331,347-350,352-354
+  s_75f5ce8906bfb3::t_7473f005fda7d4 32-55
+  s_75f5ce8906bfb3::t_a328d39e51eb8c 177-178
+  s_75f5ce8906bfb3::t_2ea04d3c13e090 228-234
+  s_75f5ce8906bfb3::t_17ff8032f3eda6 73-76,92-94
+  s_75f5ce8906bfb3::t_8479785cbdac1f 245-254
+  s_75f5ce8906bfb3::t_8d356f47028197 278-282,284
+  s_75f5ce8906bfb3::t_0af209d6e53fab 182
+  s_75f5ce8906bfb3::t_ffa4b4cf246c6f 109,111-113
+src/lib/ayarlar.ts
+  s_abeb80cb259fc9::t_622e6d87dcdfd6 52-62
+test/eplan-api.spec.ts
+  s_75f5ce8906bfb3::t_4a6a8f4df69b9f 1-14
+backend/api/test/proxy.spec.ts
+  s_abeb80cb259fc9::t_c14a658ee1906d 27-35
+  s_abeb80cb259fc9::t_8f920b429f2953 36-38
+package.json
+  s_75f5ce8906bfb3::t_7823e18fc8954e 3
+  s_75f5ce8906bfb3::t_8e12ed4b835a12 37
+  s_75f5ce8906bfb3::t_8a0724dad7a13d 43
+  s_75f5ce8906bfb3::t_04cd46c2d2ff10 8,10-13
+scripts/zip-extension.mjs
+  s_75f5ce8906bfb3::t_51ae999c9faf3b 1-35
+test/tkgm-alan.spec.ts
+  s_cabfca5225ac1d::t_f6b3576f51b6d2 1-32
+src/lib/data/tucbs-kullanim-kodlari.ts
+  s_abeb80cb259fc9::t_7993c3353d1886 1-4,12-14,16-53
+  s_abeb80cb259fc9::t_c3d4b2aabce027 5-11,15
+package-lock.json
+  s_75f5ce8906bfb3::t_4014c6d5f15f80 3,9,24,30,2654-2663,3397-3453,5116-5125,5965-5987,6463-6469
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0bb79c968470d1c3bb68853cecaccde99eed7439",
+  "prompts": {},
+  "sessions": {
+    "s_3396e951ed84fb": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "71bebc06-0efb-4d05-a442-33243daa13fd",
+        "model": "default"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_69f9229f07c3d5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d94ea5d5-08e5-4a83-9757-cc3c94f8dcc3",
+        "model": "default"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_75f5ce8906bfb3": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "512545ef-fdf4-419d-8ccc-7a1784a8ed11",
+        "model": "default"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_abeb80cb259fc9": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "0423e1cf-9c55-4817-b41d-8872235ce0dd",
+        "model": "default"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_cabfca5225ac1d": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "355e7d7b-2e7d-4f02-a299-42d470db7204",
+        "model": "default"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_f6fce178877b32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c53a66da-bb9d-455d-b3d0-d0d29204afa6",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
