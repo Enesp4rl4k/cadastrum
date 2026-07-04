@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
-import { Flame as FlameIcon } from "lucide-react";
+import { Flame as FlameIcon, Layers as LayersIcon } from "lucide-react";
 import { getParselByLatLng } from "../../lib/tkgm-api";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
@@ -25,6 +25,8 @@ import {
   applyHeatmap,
   removeHeatmap,
 } from "./heatmap-layer";
+import { applyCdpWms, removeCdpWms } from "./cdp-wms-layer";
+import { tucbsWmsEndpointGetir } from "../../lib/data/tucbs-wms-endpoints";
 
 interface MapViewProps {
   flyTo?: { lat: number; lng: number; parsel?: Parsel } | null;
@@ -48,7 +50,14 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
   /** Önceki heatmapAcik durumu — true→false→true geçişlerinde fitBounds yapmak için */
   const heatmapOncekiAcikRef = useRef(false);
   const [heatmapMenuAcik, setHeatmapMenuAcik] = useState(false);
+  const [cdpAcik, setCdpAcik] = useState(false);
+  const cdpSlugRef = useRef<string | null>(null);
   parselRef.current = parsel;
+
+  const cdpEndpoint = useMemo(
+    () => (parsel?.ilAd ? tucbsWmsEndpointGetir(parsel.ilAd) : null),
+    [parsel?.ilAd],
+  );
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
@@ -94,12 +103,14 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
     map.setStyle(getBasemap(basemap).style);
     map.once("styledata", () => {
       if (parselRef.current) drawParsel(map, parselRef.current);
-      // Basemap değişince heatmap layer'ı kaybolur; açıksa yeniden çiz
       if (heatmapAcik && heatmapNoktalariRef.current.length > 0) {
         applyHeatmap(map, heatmapNoktalariRef.current, heatmapAnalizTip, { fitBounds: false });
       }
+      if (cdpAcik && cdpSlugRef.current) {
+        applyCdpWms(map, cdpSlugRef.current);
+      }
     });
-  }, [basemap, heatmapAcik, heatmapAnalizTip]);
+  }, [basemap, heatmapAcik, heatmapAnalizTip, cdpAcik]);
 
   // Heatmap toggle / parsel ilçe değişimi → TKGM analiz noktalarını çek + render
   useEffect(() => {
@@ -141,6 +152,26 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
 
     return () => ctrl.abort();
   }, [heatmapAcik, heatmapAnalizTip, parsel?.ilceKodu]);
+
+  // TUCBS ÇDP WMS overlay — il kapsamında ise raster katman
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!cdpAcik || !cdpEndpoint?.slug) {
+      cdpSlugRef.current = null;
+      removeCdpWms(map);
+      return;
+    }
+
+    cdpSlugRef.current = cdpEndpoint.slug;
+    applyCdpWms(map, cdpEndpoint.slug);
+  }, [cdpAcik, cdpEndpoint?.slug]);
+
+  // İl kapsam dışına geçince overlay'i kapat
+  useEffect(() => {
+    if (!cdpEndpoint && cdpAcik) setCdpAcik(false);
+  }, [cdpEndpoint, cdpAcik]);
 
   useEffect(() => {
     if (!flyTo || !mapRef.current) return;
@@ -215,6 +246,12 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
             setHeatmapMenuAcik(false);
           }}
         />
+        <CdpKontrol
+          acik={cdpAcik}
+          kapsamVar={!!cdpEndpoint}
+          bolgeAd={cdpEndpoint?.bolgeAd ?? null}
+          onToggle={() => setCdpAcik((v) => !v)}
+        />
         {loading && (
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-1 text-xs text-white">
             Sorgulanıyor…
@@ -244,6 +281,52 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/** TUCBS ÇDP renk katmanı toggle — heatmap butonunun altında */
+function CdpKontrol({
+  acik,
+  kapsamVar,
+  bolgeAd,
+  onToggle,
+}: {
+  acik: boolean;
+  kapsamVar: boolean;
+  bolgeAd: string | null;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="absolute right-3 top-[5.5rem] z-10 flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={() => {
+          if (!kapsamVar) return;
+          onToggle();
+        }}
+        disabled={!kapsamVar}
+        title={
+          kapsamVar
+            ? acik
+              ? "ÇDP plan katmanını kapat"
+              : "TUCBS Çevre Düzeni Planı renk katmanı"
+            : "Bu il için TUCBS ÇDP verisi yok"
+        }
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          acik
+            ? "border-emerald-600 bg-emerald-600 text-white"
+            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        }`}
+        aria-label="ÇDP katmanı"
+      >
+        <LayersIcon className="h-4 w-4" />
+      </button>
+      {acik && bolgeAd && (
+        <span className="max-w-[9rem] rounded-md border border-slate-200 bg-white px-2 py-0.5 text-right text-3xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          {bolgeAd}
+        </span>
+      )}
     </div>
   );
 }

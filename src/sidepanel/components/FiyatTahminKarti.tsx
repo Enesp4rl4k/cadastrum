@@ -21,6 +21,7 @@ import type { Parsel } from "../../types/tkgm";
 import type { CevreAnalizi } from "../../lib/osm";
 import type { EgimAnalizi } from "../../lib/elevation";
 import type { EPlanImarVerisi } from "../../lib/eplan";
+import type { TucbsCdpSonuc } from "../../lib/tucbs";
 import { ePlanOzet } from "../../lib/eplan";
 import { type AiFiyatSonucu, aiTahmin, chromeBuiltinAiVarMi, aiDurumGetir, type AiDurum } from "../../lib/ai-fiyat";
 import { useAyarlar } from "../../lib/ayarlar";
@@ -33,6 +34,7 @@ interface Props {
   cevre: CevreAnalizi | null;
   egim: EgimAnalizi | null;
   ePlan: EPlanImarVerisi | null;
+  tucbs?: TucbsCdpSonuc | null;
   /** e-Plan sorgu hâlâ yapılıyor mu? — yapılıyorsa imar promptu gösterme, bekle. */
   ePlanLoading: boolean;
   /** Kullanıcı "Bilmiyorum, devam et" dediyse fiyatı TKGM nitelik fallback'iyle hesapla. */
@@ -48,6 +50,7 @@ export function FiyatTahminKarti({
   cevre,
   egim,
   ePlan,
+  tucbs,
   ePlanLoading,
   imarSkipEdildi,
   onImarKaydedildi,
@@ -84,6 +87,8 @@ export function FiyatTahminKarti({
       setAiHata(null);
       return;
     }
+    // NOT: fiyatTahminEt(4 param) tucbs almıyor (TÜCBS imar threading fiyat-tahmin.ts'te
+    // henüz tamamlanmadı). tucbs prop'u deps'te kalıyor; imar threading eklenince buraya geçilir.
     fiyatTahminEt(parsel, cevre, egim, ePlan).then((t) => {
       if (!iptal) setTahmin(t);
     });
@@ -92,7 +97,7 @@ export function FiyatTahminKarti({
     return () => {
       iptal = true;
     };
-  }, [parsel, cevre, egim, ePlan, hesaplanabilir]);
+  }, [parsel, cevre, egim, ePlan, tucbs, hesaplanabilir]);
 
   async function aiCalistir() {
     if (!tahmin) return;
@@ -205,6 +210,21 @@ export function FiyatTahminKarti({
                   İmar gir →
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cold-start: gerçek ilan verisi yok → metodoloji uyarısı */}
+        {coldStart && (
+          <div className="flex items-start gap-2 rounded border border-slate-300 bg-slate-50 px-2 py-1.5 text-2xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <span className="mt-0.5 flex-shrink-0 text-slate-400">⚠</span>
+            <div className="leading-relaxed">
+              <span className="font-medium">Bu bölgede gerçek ilan verisi yok.</span>{" "}
+              Tahmin, komşu mahallelerden istatistiksel çıkarım ile üretildi — medyan hata %45–65 civarında olabilir.
+              {(tahmin.imarOzeti.sinif === "konut-imarli" || tahmin.imarOzeti.sinif === "yapi-mevcut") && (
+                <> Konut/yapı imar için gerçek konut emsal verisi bulunmadığından arsa bazlı tahmin üzerine imar çarpanı uygulandı.</>
+              )}{" "}
+              Yatırım kararı için bölgede gerçek emsal araştırmanızı öneririz.
             </div>
           </div>
         )}

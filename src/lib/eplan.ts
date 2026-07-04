@@ -1,7 +1,7 @@
 import type { Parsel } from "../types/tkgm";
 
 export const EPLAN_STORAGE_KEY = "ePlanSonuc";
-export const EPLAN_URL = "https://e-plan.gov.tr/e-plan/html/imarDurumu.html";
+export const EPLAN_URL = "https://eplan.csb.gov.tr/e-plan/html/imarDurumu.html";
 
 export interface EPlanImarVerisi {
   parselKey: string;

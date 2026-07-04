@@ -1,6 +1,8 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 import pkg from "./package.json";
 
+const scrapingEnabled = process.env.VITE_SCRAPING_ENABLED === "true";
+
 export default defineManifest({
   manifest_version: 3,
   name: "Cadastrum — Arsa TKGM Parsel Zekâsı",
@@ -21,10 +23,9 @@ export default defineManifest({
     "sidePanel",
     "storage",
     "contextMenus",
-    "tabs",
     "alarms",
     "declarativeNetRequest",
-    "scripting",
+    ...(scrapingEnabled ? (["scripting"] as const) : []),
   ],
   declarative_net_request: {
     rule_resources: [
@@ -39,6 +40,8 @@ export default defineManifest({
     "https://cbsapi.tkgm.gov.tr/*",
     "https://parselsorgu.tkgm.gov.tr/*",
     "https://e-plan.gov.tr/*",
+    "https://eplan.csb.gov.tr/*",
+    "https://tucbs-public-api.csb.gov.tr/*",
     "https://overpass-api.de/*",
     "https://lz4.overpass-api.de/*",
     "https://overpass.osm.ch/*",
@@ -72,18 +75,16 @@ export default defineManifest({
       js: ["src/content/sahibinden.ts"],
       run_at: "document_idle",
     },
+    ...(scrapingEnabled
+      ? [
+          {
+            matches: ["https://www.sahibinden.com/*"],
+            js: ["src/content/sahibinden-liste.ts"],
+            run_at: "document_idle" as const,
+          },
+        ]
+      : []),
     {
-      // Sahibinden arama/liste sayfaları — tüm sayfalarda yüklen, script içinde URL filtrele
-      // (mid-path wildcard'lar Chrome MV3'te bazen güvenilmez davranıyor)
-      matches: [
-        "https://www.sahibinden.com/*",
-      ],
-      js: ["src/content/sahibinden-liste.ts"],
-      run_at: "document_idle",
-    },
-    {
-      // Hepsiemlak — tüm sayfalarda çalışsın, script kendi içinde URL filtresi yapar
-      // (mid-path wildcard'lar Chrome'da bazen güvenilmez davranıyor)
       matches: [
         "https://www.hepsiemlak.com/*",
         "https://hepsiemlak.com/*",
@@ -91,17 +92,23 @@ export default defineManifest({
       js: ["src/content/hepsiemlak.ts"],
       run_at: "document_idle",
     },
+    ...(scrapingEnabled
+      ? [
+          {
+            matches: [
+              "https://www.hepsiemlak.com/*",
+              "https://hepsiemlak.com/*",
+            ],
+            js: ["src/content/hepsiemlak-liste.ts"],
+            run_at: "document_idle" as const,
+          },
+        ]
+      : []),
     {
-      // Hepsiemlak liste — aynı şekilde tüm sayfalar, script içinde ayrılır
       matches: [
-        "https://www.hepsiemlak.com/*",
-        "https://hepsiemlak.com/*",
+        "https://eplan.csb.gov.tr/e-plan/html/imarDurumu.html*",
+        "https://e-plan.gov.tr/e-plan/html/imarDurumu.html*",
       ],
-      js: ["src/content/hepsiemlak-liste.ts"],
-      run_at: "document_idle",
-    },
-    {
-      matches: ["https://e-plan.gov.tr/e-plan/html/imarDurumu.html*"],
       js: ["src/content/eplan.ts"],
       run_at: "document_idle",
     },

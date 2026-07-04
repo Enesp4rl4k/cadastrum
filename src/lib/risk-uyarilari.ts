@@ -13,6 +13,8 @@
 
 import type { Parsel } from "../types/tkgm";
 import type { EPlanImarVerisi } from "./eplan";
+import type { TucbsCdpSonuc } from "./tucbs";
+import { tucbsCdpCeliskiVar } from "./tucbs";
 
 export type RiskSeviye = "kritik" | "yuksek" | "orta" | "bilgi";
 
@@ -26,7 +28,7 @@ export interface RiskUyarisi {
   /** Risk seviyesi — UI rengi belirler */
   seviye: RiskSeviye;
   /** Hangi kaynaktan tespit edildi */
-  kaynak: "parsel-nitelik" | "eplan" | "ilan-aciklama" | "konum";
+  kaynak: "parsel-nitelik" | "eplan" | "ilan-aciklama" | "konum" | "tucbs-cdp";
   /** İlgili kanun/yönetmelik referansı (varsa) */
   yasaRef?: string;
   /** Kullanıcıya somut tavsiye */
@@ -40,16 +42,19 @@ export interface RiskUyarisi {
 export function riskleriTara(input: {
   parsel: Parsel;
   ePlan?: EPlanImarVerisi | null;
+  tucbs?: TucbsCdpSonuc | null;
   ilanAciklama?: string | null;
   ilanImarDurumu?: string | null;
 }): RiskUyarisi[] {
-  const { parsel, ePlan, ilanAciklama, ilanImarDurumu } = input;
+  const { parsel, ePlan, tucbs, ilanAciklama, ilanImarDurumu } = input;
   const tumMetin = [
     parsel.nitelik,
     ePlan?.kullanimKarari,
     ePlan?.planKarari,
     ePlan?.planNotu,
     ePlan?.hamMetin?.join(" "),
+    tucbs?.araziKullanimi?.metin,
+    tucbs?.araziKullanimi?.eskiMetin,
     ilanAciklama,
     ilanImarDurumu,
   ]
@@ -229,6 +234,61 @@ export function riskleriTara(input: {
       seviye: "bilgi",
       kaynak: "eplan",
       oneri: "İlgili belediye Yapı Kontrol/İmar Müdürlüğünden 'imar durum belgesi' isteyin.",
+    });
+  }
+
+  // ===== TUCBS ÇDP — resmi üst plan =====
+  if (tucbs?.sitAlani) {
+    uyarilar.push({
+      kod: "TUCBS_SIT",
+      baslik: "TUCBS: Sit / koruma alanı",
+      aciklama:
+        "Çevre Düzeni Planı (1/100.000) bu koordinatı sit veya koruma alanı olarak işaretliyor. Yapılaşma Koruma Kurulu onayına tabi olabilir.",
+      seviye: "yuksek",
+      kaynak: "tucbs-cdp",
+      yasaRef: "2863 sayılı Kültür ve Tabiat Varlıklarını Koruma Kanunu",
+      oneri: "İl Kültür Müdürlüğünden sit derecesini yazılı olarak doğrulayın.",
+    });
+  }
+
+  if (tucbs?.endustriBolgesi || tucbs?.araziKullanimi?.kategori === "sanayi") {
+    uyarilar.push({
+      kod: "TUCBS_SANAYI",
+      baslik: "TUCBS: Sanayi / endüstri planı",
+      aciklama:
+        "Üst planda sanayi, depolama veya organize sanayi bölgesi kararı var. Konut yatırımı için uygun olmayabilir.",
+      seviye: "orta",
+      kaynak: "tucbs-cdp",
+      oneri: "Plan kararını belediye imar müdürlüğü ile teyit edin.",
+    });
+  }
+
+  if (tucbs?.araziKullanimi?.kategori === "tarim-koruma") {
+    const konutIddiasi = /imarlı|imarli|konut|arsa|villa/.test(
+      (ilanImarDurumu ?? "").toLocaleLowerCase("tr"),
+    );
+    uyarilar.push({
+      kod: "TUCBS_TARIM",
+      baslik: "TUCBS: Tarım / koruma alanı",
+      aciklama: `Çevre Düzeni Planı: "${tucbs.araziKullanimi.metin}". Üst planda imar potansiyeli sınırlı görünüyor.${
+        konutIddiasi ? " İlandaki imarlı iddiası planla çelişiyor olabilir." : ""
+      }`,
+      seviye: konutIddiasi ? "yuksek" : "bilgi",
+      kaynak: "tucbs-cdp",
+      oneri:
+        "İmar değişikliği beklentisiyle alım yapmayın; üst plan tarımsal/koruma ise süreç uzun ve belirsizdir.",
+    });
+  }
+
+  if (tucbsCdpCeliskiVar(tucbs, ilanImarDurumu)) {
+    uyarilar.push({
+      kod: "TUCBS_CELISKI",
+      baslik: "İlan imarı ile üst plan çelişkisi",
+      aciklama:
+        "İlanda geçen imar ifadesi, TUCBS Çevre Düzeni Planı kararıyla uyuşmuyor. Satıcı iddiasını bağımsız doğrulayın.",
+      seviye: "yuksek",
+      kaynak: "tucbs-cdp",
+      oneri: "Belediyeden güncel imar durumu belgesi ve ÇDP paftası isteyin.",
     });
   }
 

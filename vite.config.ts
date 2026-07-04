@@ -1,10 +1,17 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { crx } from "@crxjs/vite-plugin";
 import manifest from "./manifest.config";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const scrapingEnabled = env.VITE_SCRAPING_ENABLED === "true";
+
+  return {
   plugins: [react(), crx({ manifest })],
+  define: {
+    "import.meta.env.VITE_SCRAPING_ENABLED": JSON.stringify(scrapingEnabled ? "true" : "false"),
+  },
   build: {
     target: "esnext",
     chunkSizeWarningLimit: 1500,
@@ -47,4 +54,5 @@ export default defineConfig({
       "Access-Control-Allow-Origin": "*",
     },
   },
+};
 });

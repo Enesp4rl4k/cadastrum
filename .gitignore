@@ -6,6 +6,9 @@ dist/
 .env
 .env.local
 
+# Ayrı repo: https://github.com/Enesp4rl4k/ev-scan
+ev-scan/
+
 # Internal scraper tooling — Sahibinden bootstrap. NOT for distribution.
 # Source code is tracked, but local data (cache, snapshots, progress) is not.
 tools/scraper/data/raw-ilanlar.json
@@ -51,3 +54,8 @@ vite.config.ts.timestamp-*.mjs
 
 # Zip dağıtım paketleri (dist'ten üretilir)
 cadastrum-extension-v*.zip
+
+# Store packages / large local artifacts
+chrome-store/*.zip
+thinkpython*.txt
+scripts/make_thinkpython_abridged.py

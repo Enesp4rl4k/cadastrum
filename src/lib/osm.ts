@@ -138,11 +138,15 @@ export async function cevreAnaliziGetir(
   let bosData: OverpassResponse | null = null; // tüm mirror'lar boşsa fallback
   for (const host of OVERPASS_HOSTS) {
     try {
+      // Per-mirror fail-fast timeout (12sn) — asılan/yavaş mirror'ı bekleme, sıradakine geç.
+      // Dış signal ile birleştir (kullanıcı iptal ederse yine durur).
+      const mirrorTimeout = AbortSignal.timeout(12_000);
+      const birlesikSignal = signal ? AbortSignal.any([signal, mirrorTimeout]) : mirrorTimeout;
       const result = await proxyFetch(host, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `data=${encodeURIComponent(query)}`,
-        signal,
+        signal: birlesikSignal,
       });
       if (!result.ok) {
         lastError = `${new URL(host).host} → HTTP ${result.status}`;

@@ -22,7 +22,7 @@ import {
 } from "../../lib/tkgm-api";
 import { mahalleKoduCoz } from "../../lib/mahalle-cozumle";
 import type { Mahalle } from "../../types/tkgm";
-import { db } from "../../lib/db";
+import { db, type IlanGozlem } from "../../lib/db";
 import { getMahalleMerkez } from "../../lib/data/mahalle-merkezleri";
 import { useAyarlar } from "../../lib/ayarlar";
 import { Card } from "../ui/Card";
@@ -37,6 +37,29 @@ interface Props {
 // Production extension'da chrome her zaman var, bu kontrol false olur.
 const HAS_CHROME =
   typeof chrome !== "undefined" && !!chrome?.storage?.local;
+
+/**
+ * ilanGozlem upsert — `&[kaynak+ilanNo]` unique compound index'i ihlal etmeden yaz.
+ * id'siz put() insert dener → aynı (kaynak,ilanNo) varsa ConstraintError. Bu yüzden
+ * önce mevcut kaydı bul, varsa id'siyle put et (update), yoksa yeni ekle. rw transaction
+ * ile atomik: lookup ile put arasında yarış olmaz.
+ */
+async function ilanGozlemUpsert(kayit: Omit<IlanGozlem, "id">): Promise<void> {
+  const kaynak = kayit.kaynak;
+  const ilanNo = kayit.ilanNo;
+  if (!ilanNo || !kaynak) return; // ilanNo/kaynak yoksa unique dedup çalışmaz — atla
+  try {
+    await db.transaction("rw", db.ilanGozlem, async () => {
+      const mevcut = await db.ilanGozlem
+        .where("[kaynak+ilanNo]")
+        .equals([kaynak, ilanNo])
+        .first();
+      await db.ilanGozlem.put(mevcut?.id != null ? { ...kayit, id: mevcut.id } : kayit);
+    });
+  } catch (e) {
+    console.warn("[arsa] ilanGozlem upsert:", (e as Error)?.name ?? e);
+  }
+}
 
 export function IlanKarti(props: Props) {
   if (!HAS_CHROME) return null;
@@ -125,8 +148,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
           }
         }
 
-        db.ilanGozlem
-          .put({
+        void ilanGozlemUpsert({
             kaynak: il.kaynak,
             ilanNo: il.ilanNo,
             url: il.url,
@@ -149,8 +171,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
             lng,
             koordKaynagi,
             koordDogruluk,
-          })
-          .catch(() => {});
+          });
       }
     };
     chrome.storage.onChanged.addListener(dinleyici);
@@ -180,8 +201,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       }
     }
 
-    db.ilanGozlem
-      .put({
+    void ilanGozlemUpsert({
         kaynak: ilan.kaynak,
         ilanNo: ilan.ilanNo,
         url: ilan.url,
@@ -204,8 +224,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
         lng,
         koordKaynagi,
         koordDogruluk,
-      })
-      .catch((e) => console.warn("[arsa] ilanGozlem put hatası:", e?.name, e?.message ?? e));
+      });
   }, [ilan, ayarlar.ilanGozlemiKaydet]);
 
   // İl+ilçe biliniyorsa mahalle listesini hemen ön-yükle (dropdown + hızlı kod eşleşmesi)
@@ -282,6 +301,14 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   const m2Esler =
     acikParsel && ilan?.m2 != null && acikParsel.alan > 0
       ? Math.abs(acikParsel.alan - ilan.m2) / acikParsel.alan < 0.05
+      : null;
+  // Hisse tespiti: ilan m²'si parsel alanından belirgin küçükse (< %90), ilan muhtemelen
+  // parselin tamamını değil bir HİSSE'sini satıyor. Kullanıcı 800 m² sanıp 4036 m²'lik
+  // parselin ~%20'sini alabilir → net uyarı ver.
+  const hisseOrani =
+    acikParsel && ilan?.m2 != null && ilan.m2 > 0 && acikParsel.alan > 0 &&
+    ilan.m2 < acikParsel.alan * 0.9
+      ? ilan.m2 / acikParsel.alan
       : null;
 
   if (!ilan) return null;
@@ -626,6 +653,17 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
               />
             )}
           </div>
+          {hisseOrani != null && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-800">
+              <div className="mb-0.5 flex items-center gap-1 font-semibold text-amber-900">
+                <AlertTriIcon className="h-3.5 w-3.5" /> Hisseli tapu olabilir
+              </div>
+              İlanda <b>{ilan.m2!.toLocaleString("tr-TR")} m²</b> satılıyor ama parsel{" "}
+              <b>{acikParsel.alan.toLocaleString("tr-TR")} m²</b> — yani parselin{" "}
+              <b>~%{Math.round(hisseOrani * 100)}</b>'i. Parselin tamamını değil, muhtemelen{" "}
+              <b>hisse</b> (pay) alıyorsunuz. Tapu türünü (müstakil / hisseli) mutlaka doğrulayın.
+            </div>
+          )}
         </div>
       ) : adaCandidate != null && parselCandidate != null ? (
         <div className="space-y-1.5">

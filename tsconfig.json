@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["chrome", "vite/client"]
+    "types": ["chrome", "vite/client", "node"]
   },
   "include": ["src", "manifest.config.ts", "vite.config.ts"]
 }
