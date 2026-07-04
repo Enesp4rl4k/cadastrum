@@ -1,47 +1,116 @@
-# Arsa TKGM Parsel — Chrome Extension
+# Cadastrum
 
-Chrome side-panel uygulaması. Haritada bir noktaya tıkla → TKGM'nin public CBS API'sinden parsel bilgisini (il/ilçe/mahalle/ada/parsel/alan/nitelik + polygon) çek ve göster.
+Türkiye arsa ve parsel analizi platformu — Chrome uzantısı, REST API ve tanıtım sitesi tek monorepo'da.
 
-## Stack
+Haritada bir noktaya tıklayın → TKGM parsel sınırı, e-Plan imar durumu, 65.000+ mahalle bazlı fiyat tahmini, emsal triangulation, deprem/taşkın riski, TCMB konut fiyat endeksi ve daha fazlası.
 
-- Chrome MV3 + **Side Panel API** (Chrome 114+)
-- Vite + CRXJS + React 18 + TypeScript
-- Tailwind CSS
-- MapLibre GL (vector/raster harita)
-- Dexie (IndexedDB — favoriler + sorgu geçmişi)
+**Sürüm:** `0.3.2` (extension)
 
-## Geliştirme
+## Monorepo yapısı
+
+```
+cadastrum/
+├── src/                 # Chrome MV3 uzantısı (Vite + React + MapLibre)
+├── backend/api/         # Cloudflare Workers + D1 REST API (Hono)
+├── site/                # Tanıtım ve hesap sayfaları (Astro)
+├── scripts/             # Veri pipeline, scraper, seed SQL
+├── data/                # Kalibrasyon ve kalite raporları
+├── docs/                # İç planlama ve operasyon dokümanları
+├── marketing/           # Lansman ve sosyal medya materyalleri
+├── chrome-store/        # Web Store listing ve görseller
+└── recon/               # TKGM API araştırması
+```
+
+## Özellikler (extension)
+
+| Alan | Kaynak |
+|------|--------|
+| Parsel sınır, ada/parsel, alan, nitelik | TKGM CBS API |
+| İmar (TAKS/KAKS/emsal/maks kat) | e-Plan |
+| Mahalle/ilçe/il fiyat tahmini | 65k mahalle AI baseline + canlı ilan triangulation |
+| Emsal ilan karşılaştırma | Sahibinden + Hepsiemlak content script |
+| Deprem riski (PGA bantlı fiyat çarpanı) | AFAD TDTH |
+| İklim, toprak, eğim, OSM çevre | Open-Meteo, ISRIC, Overpass |
+| TKGM satış yoğunluğu heatmap | TKGM analiz API |
+| Favoriler, geçmiş, toplu sorgu, CSV/KML | Dexie (IndexedDB) |
+
+## Hızlı başlangıç
+
+### Chrome uzantısı
 
 ```bash
 npm install
-npm run dev
+npm run dev          # HMR ile geliştirme
+npm run build        # dist/ — yükleme paketi
+npm test             # Vitest
 ```
 
-Sonra Chrome'da `chrome://extensions` → "Developer mode" → "Load unpacked" → bu projenin `dist/` klasörünü seç. Geliştirme sırasında HMR çalışır, manifest değişikliğinde extension'ı reload et.
+Chrome'da `chrome://extensions` → Geliştirici modu → Paketlenmemiş öğe yükle → `dist/`
 
-## Build
+### Backend API
 
 ```bash
-npm run build
-# dist/ klasörü yüklemeye hazır
+cd backend/api
+npm install
+npm run db:migrate-local
+npm run dev          # http://localhost:8787
 ```
 
-## API
+Detaylar: [backend/api/README.md](./backend/api/README.md)
 
-Tüm istekler `https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/*` üzerinden gider. Detaylar için `recon/WEEK1_FEASIBILITY.md`.
+### Site
 
-## Kullanım
+```bash
+cd site
+npm install
+npm run dev          # http://localhost:4321
+npm run build
+```
 
-1. Toolbar'daki extension ikonuna tıkla → side panel açılır.
-2. Haritada bir noktaya tıkla → parsel sorgulanır, polygon çizilir, alttaki panelde detaylar görünür.
-3. Atlas/parselsorgu sayfalarında sağ tık → "Bu noktayı TKGM'de sorgula" ile de panel açılabilir (koordinat aktarımı v0.2'de).
+Detaylar: [site/README.md](./site/README.md)
 
-## Yol haritası
+## Stack
 
-- [x] Hafta 1 — feasibility, public API doğrulandı
-- [x] Hafta 2 — MV3 + side panel + harita + tıkla-sorgula MVP
-- [ ] Hafta 3 — favoriler UI'ı, sorgu geçmişi sayfası
-- [ ] Hafta 4 — ada/parsel ile arama (il/ilçe/mahalle dropdown'ları)
-- [ ] Hafta 5 — toplu sorgu (CSV/KML import-export)
-- [ ] Hafta 6 — atlas.tkgm.gov.tr içine content-script overlay (sağ tık → koordinat → panel)
-- [ ] Hafta 7 — bağımsız bölüm / kat mülkiyeti detay paneli
+| Katman | Teknoloji |
+|--------|-----------|
+| Extension | Chrome MV3, Side Panel API, Vite, CRXJS, React 18, TypeScript, Tailwind, MapLibre GL, Dexie |
+| API | Hono, Cloudflare Workers, D1, Wrangler |
+| Site | Astro, Tailwind |
+| CI | GitHub Actions — extension build/test, backend test, site build |
+
+## Windows kısayolları (kök dizin)
+
+Veri seed, scraper ve deploy için `.bat` dosyaları repo kökünde:
+
+| Script | Amaç |
+|--------|------|
+| `DEPLOY-BACKEND.bat` | API production deploy |
+| `DEPLOY-SITE.bat` | Site deploy |
+| `SEED-EMLAKJET*.bat` | Emlakjet verisini D1'e yükle |
+| `SCRAPE-EMLAKJET*.bat` | Emlakjet scraper çalıştır |
+| `RUN-SCRAPE-*.bat` | Sahibinden baseline scrape |
+| `VERI-KALITE.bat` | Veri kalite raporu |
+
+## Dokümantasyon
+
+- [docs/README.md](./docs/README.md) — planlama, operasyon, mimari
+- [docs/ROADMAP.md](./docs/ROADMAP.md) — veri katmanları ve faz durumu
+- [recon/WEEK1_FEASIBILITY.md](./recon/WEEK1_FEASIBILITY.md) — TKGM public API notları
+
+## API özeti
+
+Tüm public endpoint'ler `https://cadastrum-api.cadastrum-tr.workers.dev/v1` altında:
+
+```
+GET  /health
+GET  /fiyat/mahalle/:il/:ilce/:mahalle
+POST /ilan              # Extension ilan ingest
+POST /auth/kayit        # Hesap oluşturma
+GET  /api/*             # Kurumsal API (X-API-Key)
+```
+
+OpenAPI: [backend/api/openapi.yaml](./backend/api/openapi.yaml)
+
+## Lisans
+
+Özel proje (`private: true`). Dağıtım ve kullanım koşulları için [site/src/pages/kullanim-sartlari.astro](./site/src/pages/kullanim-sartlari.astro) sayfasına bakın.
