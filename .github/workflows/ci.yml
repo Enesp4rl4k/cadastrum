@@ -30,6 +30,9 @@ jobs:
       - name: Extension tests
         run: npm test
 
+      - name: Accuracy regression guard
+        run: node scripts/backtest-guard.mjs
+
       - name: Extension build
         run: npm run build
 

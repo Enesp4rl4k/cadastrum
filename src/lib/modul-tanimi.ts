@@ -10,6 +10,7 @@ export type ModulId =
   | "boyut-sekil"
   | "fiyat-tahmin"
   | "belediye-imar"
+  | "cdp-tucbs"
   | "tkgm-resmi-analiz"
   | "fizibilite"
   | "gunes-enerjisi"
@@ -66,6 +67,13 @@ export const MODULLER: ModulTanimi[] = [
     kategori: "yasal",
     defaultAcik: true,
     aciklama: "İlgili belediye İmar Müdürlüğü sayfa linkleri.",
+  },
+  {
+    id: "cdp-tucbs",
+    ad: "Çevre Düzeni Planı (TUCBS)",
+    kategori: "yasal",
+    defaultAcik: true,
+    aciklama: "1/100.000 üst plan arazi kullanım kararı — resmi TUCBS WMS.",
   },
   {
     id: "tkgm-resmi-analiz",

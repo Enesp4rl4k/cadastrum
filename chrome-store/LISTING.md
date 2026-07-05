@@ -159,9 +159,9 @@ sunan side panel uzantısı.
 
 **`storage`**: Kullanıcı ayarları (tercih edilen kaynak, AI key, harita türü) ve cache (parsel verisi 24 saat) için.
 
-**`contextMenus`**: Sağ tık menüsünden parsel sorgusu başlatmak için ("Cadastrum'da analiz et").
+**`contextMenus`**: Sağ tık menüsünden parsel sorgusu başlatmak için ("Bu noktayı TKGM'de sorgula").
 
-**`tabs`**: Aktif sekmenin URL'sinden ilan tespiti yapmak için (Sahibinden/Hepsiemlak/e-Plan).
+**`scripting`** (yalnızca admin dahili build): Arka plan sekmede minimal DOM okuma — bot engeli tespiti ve ilan link toplama. Chrome Web Store sürümünde bu izin **yok**; content script'ler manifest ile yüklenir.
 
 **`alarms`**: Periyodik veri yenileme (mahalle istatistik, TCMB endeksi 24 saatte bir).
 

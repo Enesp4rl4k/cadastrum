@@ -62,12 +62,12 @@
   {
     "id": 8, "priority": 1,
     "action": { "type": "modifyHeaders", "requestHeaders": [
-      { "header": "Origin", "operation": "set", "value": "https://e-plan.gov.tr" },
-      { "header": "Referer", "operation": "set", "value": "https://e-plan.gov.tr/e-plan/html/imarDurumu.html" },
+      { "header": "Origin", "operation": "set", "value": "https://eplan.csb.gov.tr" },
+      { "header": "Referer", "operation": "set", "value": "https://eplan.csb.gov.tr/e-plan/html/imarDurumu.html" },
       { "header": "Sec-Fetch-Site", "operation": "set", "value": "same-origin" },
       { "header": "Sec-Fetch-Mode", "operation": "set", "value": "cors" },
       { "header": "Sec-Fetch-Dest", "operation": "set", "value": "empty" }
     ]},
-    "condition": { "urlFilter": "||e-plan.gov.tr/api/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||eplan.csb.gov.tr/", "resourceTypes": ["xmlhttprequest"] }
   }
 ]

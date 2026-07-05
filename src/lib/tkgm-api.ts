@@ -183,19 +183,25 @@ const mahalleListesiCache = new Map<number, Promise<Mahalle[]>>();
 export async function getIlListesi(): Promise<Il[]> {
   if (ilListesiCache) return ilListesiCache;
   ilListesiCache = (async () => {
-    try {
-      const data = await getJson<{
-        type?: string;
-        features?: Array<{ properties?: Record<string, unknown> }>;
-      }>(`${TKGM_PARSEL_BASE}/ilListe.json`);
-      return (data.features ?? []).map((f) => {
+    const mapla = (data: { features?: Array<{ properties?: Record<string, unknown> }> }): Il[] =>
+      (data.features ?? []).map((f) => {
         const p = (f.properties ?? {}) as Record<string, unknown>;
-        return {
-          id: Number(p.id),
-          ad: String(p.text ?? p.ad ?? p.name ?? ""),
-          kod: Number(p.id),
-        };
+        return { id: Number(p.id), ad: String(p.text ?? p.ad ?? p.name ?? ""), kod: Number(p.id) };
       });
+    try {
+      // TKGM parselsorgu statik JSON'u kaldırıldı (302 → online.tkgm.gov.tr).
+      // Canlı kaynak megsis idariYapi; parselsorgu geri dönerse fallback kalsın.
+      try {
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_API_BASE}/idariYapi/ilListe`,
+        );
+        return mapla(data);
+      } catch {
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_PARSEL_BASE}/ilListe.json`,
+        );
+        return mapla(data);
+      }
     } catch (e) {
       ilListesiCache = null; // Hata durumunda cache'i sil ki sonraki çağrı tekrar dener
       throw e;
@@ -212,25 +218,24 @@ export async function getIlceListesi(ilKodu: number): Promise<Ilce[]> {
       const disk = await readIdariStorage<Ilce[]>(`ilce:${ilKodu}`);
       if (disk?.length) return disk;
 
+      const maplaIlce = (data: { features?: Array<{ properties?: Record<string, unknown> }> }): Ilce[] =>
+        parseIdariFeatures(data).map((p) => ({
+          ilceKodu: Number(p.id),
+          ilceAdi: String(p.text ?? p.ilceAdi ?? p.ad ?? ""),
+          ilKodu: Number(p.ilId ?? ilKodu),
+        }));
       let liste: Ilce[];
+      // Canlı kaynak megsis idariYapi; parselsorgu statik JSON kaldırıldı (302) — fallback.
       try {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_PARSEL_BASE}/ilceListe/${ilKodu}.json`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          ilceKodu: Number(p.id),
-          ilceAdi: String(p.text ?? p.ilceAdi ?? p.ad ?? ""),
-          ilKodu: Number(p.ilId ?? ilKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_API_BASE}/idariYapi/ilceListe/${ilKodu}`,
+        );
+        liste = maplaIlce(data);
       } catch {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_API_BASE}/idariYapi/ilceListe/${ilKodu}`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          ilceKodu: Number(p.id),
-          ilceAdi: String(p.text ?? p.ilceAdi ?? p.ad ?? ""),
-          ilKodu: Number(p.ilId ?? ilKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_PARSEL_BASE}/ilceListe/${ilKodu}.json`,
+        );
+        liste = maplaIlce(data);
       }
       void writeIdariStorage(`ilce:${ilKodu}`, liste);
       return liste;
@@ -251,25 +256,24 @@ export async function getMahalleListesi(ilceKodu: number): Promise<Mahalle[]> {
       const disk = await readIdariStorage<Mahalle[]>(`mahalle:${ilceKodu}`);
       if (disk?.length) return disk;
 
+      const maplaMahalle = (data: { features?: Array<{ properties?: Record<string, unknown> }> }): Mahalle[] =>
+        parseIdariFeatures(data).map((p) => ({
+          mahalleKodu: Number(p.id),
+          mahalleAdi: String(p.text ?? p.mahalleAdi ?? p.ad ?? ""),
+          ilceKodu: Number(p.ilceId ?? ilceKodu),
+        }));
       let liste: Mahalle[];
+      // Canlı kaynak megsis idariYapi; parselsorgu statik JSON kaldırıldı (302) — fallback.
       try {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_PARSEL_BASE}/mahalleListe/${ilceKodu}.json`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          mahalleKodu: Number(p.id),
-          mahalleAdi: String(p.text ?? p.mahalleAdi ?? p.ad ?? ""),
-          ilceKodu: Number(p.ilceId ?? ilceKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_API_BASE}/idariYapi/mahalleListe/${ilceKodu}`,
+        );
+        liste = maplaMahalle(data);
       } catch {
-        const data = await getJson<{
-          features?: Array<{ properties?: Record<string, unknown> }>;
-        }>(`${TKGM_API_BASE}/idariYapi/mahalleListe/${ilceKodu}`);
-        liste = parseIdariFeatures(data).map((p) => ({
-          mahalleKodu: Number(p.id),
-          mahalleAdi: String(p.text ?? p.mahalleAdi ?? p.ad ?? ""),
-          ilceKodu: Number(p.ilceId ?? ilceKodu),
-        }));
+        const data = await getJson<{ features?: Array<{ properties?: Record<string, unknown> }> }>(
+          `${TKGM_PARSEL_BASE}/mahalleListe/${ilceKodu}.json`,
+        );
+        liste = maplaMahalle(data);
       }
       void writeIdariStorage(`mahalle:${ilceKodu}`, liste);
       return liste;
@@ -289,6 +293,47 @@ interface RawParselFeature {
   Message?: string;
 }
 
+/**
+ * TKGM `alan` alanı endpoint'e göre farklı formatta geliyor:
+ * - `/parsel/{mahalle}/{ada}/{parsel}` → `"260,08"` / `"4.036,38"` (TR)
+ * - `/parsel/{lat}/{lng}/` → `"260.08"` (EN ondalık nokta)
+ *
+ * Eski parse tüm `.` karakterlerini binlik ayırıcı sanıp siliyordu;
+ * haritadan tıklanınca `"260.08"` → 26008 oluyordu.
+ */
+export function parseTkgmAlan(raw: unknown): number {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+
+  const s = String(raw ?? "0")
+    .trim()
+    .replace(/[^\d.,-]/g, "");
+  if (!s || s === "-" || s === "." || s === ",") return 0;
+
+  let normalized: string;
+  if (s.includes(",") && s.includes(".")) {
+    // TR: 4.036,38
+    normalized = s.replace(/\./g, "").replace(",", ".");
+  } else if (s.includes(",")) {
+    // TR ondalık: 260,08
+    normalized = s.replace(",", ".");
+  } else if (s.includes(".")) {
+    const parts = s.split(".");
+    const afterLast = parts[parts.length - 1] ?? "";
+    // Birden fazla nokta veya son grup tam 3 hane → binlik (1.234.567 / 26.008)
+    if (parts.length > 2 || afterLast.length === 3) {
+      normalized = s.replace(/\./g, "");
+    } else {
+      // EN ondalık: 260.08 / 4036.38
+      normalized = s;
+    }
+  } else {
+    normalized = s;
+  }
+
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function parseParselFeature(
   data: RawParselFeature,
   fallback: { mahalleKodu?: number; adaNo?: number; parselNo?: number } = {},
@@ -300,8 +345,7 @@ function parseParselFeature(
   const props = (data.properties ?? {}) as Record<string, unknown>;
   const geom = data.geometry ?? {};
 
-  const alanRaw = String(props.alan ?? "0");
-  const alan = Number.parseFloat(alanRaw.replace(/\./g, "").replace(",", "."));
+  const alan = parseTkgmAlan(props.alan);
 
   let centerLat = 0;
   let centerLng = 0;
@@ -367,11 +411,13 @@ function parseGittigiParseller(raw: unknown): string[] {
 }
 
 const PARSEL_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 gün
+/** v2: lat/lng endpoint EN ondalık alan parse düzeltmesi — eski 26008 cache'lerini atla */
+const PARSEL_CACHE_VER = "v2";
 
 export async function parselCacheGet(key: string): Promise<Parsel | null> {
   try {
     const { db } = await import("./db");
-    const c = await db.parselCache.get(key);
+    const c = await db.parselCache.get(`${PARSEL_CACHE_VER}:${key}`);
     if (c && Date.now() - c.fetchedAt < PARSEL_CACHE_TTL) return c.parsel;
   } catch {}
   return null;
@@ -380,7 +426,11 @@ export async function parselCacheGet(key: string): Promise<Parsel | null> {
 export async function parselCacheSet(key: string, parsel: Parsel): Promise<void> {
   try {
     const { db } = await import("./db");
-    await db.parselCache.put({ key, parsel, fetchedAt: Date.now() });
+    await db.parselCache.put({
+      key: `${PARSEL_CACHE_VER}:${key}`,
+      parsel,
+      fetchedAt: Date.now(),
+    });
   } catch {}
 }
 

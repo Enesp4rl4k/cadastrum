@@ -21,6 +21,23 @@ import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./ilce-baseline-a
 
 export { BASELINE_TARIH };
 
+/**
+ * İlçe→mahalle çarpık-dağılım skew düzeltmesi (<1.0 = aşağı çek).
+ *
+ * İlçe-seviyesi bir agregayı (ilçe baseline/medyan) mahalleye yansıtmak, mahalle
+ * fiyat dağılımı sağa-çarpık (log-normal) olduğu için yüzde-hata bazında sistematik
+ * YUKARI kayar — ilçe içindeki birkaç çok-ucuz kırsal mahallede devasa overshoot olur.
+ * Çözüm: ilçe çıpasını kaynağında bir skaler ile aşağı çek.
+ *
+ * Değerler scripts/backtest-baseline.mjs ile train MAPE minimize edilerek (±%20 isabet
+ * kısıtı altında) türetildi. Arsa: MAPE −%22, bias %121→%92; Tarla: MAPE −%8, bias %35→%17.
+ * baseline-engine.ts de bu sabiti import eder (tek kaynak).
+ */
+export const ILCE_FALLBACK_SKEW: Record<"arsa" | "tarla", number> = {
+  arsa: 0.87,
+  tarla: 0.87,
+};
+
 /** İlçe bazlı ARSA TL/m² baseline (asking fiyat ortalaması, 2025) */
 export const ILCE_BASELINE_ARSA: Record<string, number> = {
   // ── İSTANBUL ──────────────────────────────────────────────────
@@ -456,8 +473,8 @@ export function ilceBaselineGetir(
   if (!ilceVal) return null;
   const aiKaynakli = tablo[ik] == null && aiTablo[ik] != null;
 
-  // Semt çarpanı dene
-  let hammFiyat = ilceVal;
+  // Semt çarpanı dene — ilçe çıpasına skew düzeltmesi uygula (çarpık-dağılım overshoot)
+  let hammFiyat = ilceVal * ILCE_FALLBACK_SKEW[kategori];
   let kaynak: "ilce-baseline" | "ilce-semt-baseline" = "ilce-baseline";
   let baseNot = aiKaynakli
     ? `${ilceAd} ilçe baseline (AI fallback) — ${kategori}`
@@ -467,6 +484,7 @@ export function ilceBaselineGetir(
     const sk = semtKey(ilAd, ilceAd, mahalleAd);
     const carpan = ILCE_SEMT_CARPANI[sk];
     if (carpan) {
+      // Semt çarpanı zaten mahalle-spesifik → kör ilçe projeksiyonu değil, skew uygulanmaz.
       hammFiyat = ilceVal * carpan;
       kaynak = "ilce-semt-baseline";
       baseNot = `${ilceAd} / ${mahalleAd} semt çarpanı (${carpan}×${ilceVal.toLocaleString("tr-TR")} TL/m²) — statik 2025-01`;

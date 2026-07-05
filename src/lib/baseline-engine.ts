@@ -21,7 +21,7 @@
  */
 
 import { MAHALLE_BASELINE, MAHALLE_BASELINE_TARIH, type MahalleBaselineTuple } from "./data/mahalle-baseline";
-import { ILCE_BASELINE_ARSA, ILCE_BASELINE_TARLA, ilceKey } from "./data/ilce-baseline";
+import { ILCE_BASELINE_ARSA, ILCE_BASELINE_TARLA, ilceKey, ILCE_FALLBACK_SKEW } from "./data/ilce-baseline";
 import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./data/ilce-baseline-ai";
 import { MAHALLE_OZELLIK, OZELLIK_ESIK } from "./data/mahalle-ozellik";
 import { enflasyonDuzelt, enflasyonDuzeltAsync } from "./enflasyon-duzeltme";
@@ -48,9 +48,15 @@ export const KAPPA_BY_KATEGORI: Record<Kategori, number> = {
   konut: 25,
   tarla: 45,
 };
-/** @deprecated Use KAPPA_BY_KATEGORI. */
-const KAPPA = 30;
-void KAPPA;
+
+// İlçe→mahalle skew düzeltmesi data/ilce-baseline.ts'te tanımlı (tek kaynak); re-export.
+// Çıpaya uygulandığı için Bayesian shrinkage'la ölçeklenir: ilçeye çok dayanan düşük
+// güvenli köy/knn tam düzeltme alır, güçlü mahalle verisi neredeyse hiç.
+export { ILCE_FALLBACK_SKEW };
+/** Engine kategorisini (konut dahil) skew tablosunun anahtarına eşle — konut arsa çıpası kullanır. */
+function skewKategori(kategori: Kategori): "arsa" | "tarla" {
+  return kategori === "tarla" ? "tarla" : "arsa";
+}
 const SEGMENT_INDEX: Record<Kategori, number> = {
   arsa: 0,
   konut: 2,
@@ -228,7 +234,13 @@ export function mahalleBaselineGetir(
   // İlçe fallback değerini hazırla (shrinkage ve fallback için)
   const ilNorm = ilAd ? normalizeYerAdi(ilAd) : "";
   const ilceNorm = ilceAd ? normalizeYerAdi(ilceAd) : "";
-  const ilceFiyatHam = ilNorm && ilceNorm ? ilceFiyatGetir(ilNorm, ilceNorm, kategori) : null;
+  // İlçe çıpasını skew ile düzelt — çarpık-dağılım overshoot'unu kaynağında kes.
+  // Hem fallback hem Bayesian shrink anchor olarak kullanıldığı için, düzeltme
+  // otomatik olarak ilçeye dayanma derecesiyle orantılı uygulanır.
+  const ilceFiyatRaw = ilNorm && ilceNorm ? ilceFiyatGetir(ilNorm, ilceNorm, kategori) : null;
+  const ilceFiyatHam = ilceFiyatRaw != null
+    ? Math.round(ilceFiyatRaw * ILCE_FALLBACK_SKEW[skewKategori(kategori)])
+    : null;
 
   // Mahalle tuple'ı yoksa, ilçe baseline'ı varsa onu dön
   if (!tuple) {
@@ -275,7 +287,10 @@ export function mahalleBaselineGetir(
   }
 
   // Mahalle özellik çarpanı (sahil/metro/üniversite yakınlığı)
-  const ozellik = mKey ? ozellikCarpani(mKey) : { carpan: 1.0, notlar: [] };
+  // Backtest: ilce-only ve düşük güvenli koy'da çarpan MAPE'yi kötüleştiriyor —
+  // gerçek mahalle verisi olmadan coğrafi feature sinyal/gürültü oranı düşük.
+  const ozellikUygula = mKey && mahalleTlm2 > 0 && mahalleGuven >= 35;
+  const ozellik = ozellikUygula ? ozellikCarpani(mKey!) : { carpan: 1.0, notlar: [] };
   nihai = nihai * ozellik.carpan;
 
   // Enflasyon düzelt (BASELINE_TARIH'ten bugüne)
@@ -334,7 +349,7 @@ const KAYNAK_TIPI_AGIRLIK: Record<string, number> = {
   "api-mahalle": 1.0,        // backend canlı ilan-istatistik
   "api-ilce": 0.85,
   "banka-degerleme": 0.9,
-  "ai-research": 0.05, // kullanılmıyor — scraping öncelikli
+  // "ai-research" kaldırıldı — scrape öncelikli, AI hallucination riski yüksek
   "emlakjet-scrape": 1.0,
   "emlakjet": 1.0,
   "hepsiemlak": 0.95,

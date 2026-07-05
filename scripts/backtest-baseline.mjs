@@ -35,8 +35,10 @@ const MIN_ILCE_TRAIN = 3;     // ilçe tahmini için min train mahalle sayısı
  * Test setini ve train-ilçe-medyanlarını üret.
  * @returns { testler: [{key, il_ilce, segment, gercek, ozellik}], ilceMedyan: Map }
  */
-export function hazirla(segment, ozellikMap) {
-  const mahalleBaseline = JSON.parse(readFileSync(join(ROOT, "data/mahalle-scrape-baseline.json"), "utf8"));
+export function hazirla(segment, ozellikMap, mahalleBaselineInj = null) {
+  // Ground-truth: verilen enjeksiyon (CI'da SQL'den yeniden inşa) veya lokal dosya.
+  const mahalleBaseline = mahalleBaselineInj
+    ?? JSON.parse(readFileSync(join(ROOT, "data/mahalle-scrape-baseline.json"), "utf8"));
 
   // Geçerli kayıtlar: bu segmentte yeterli ilanı olan mahalleler
   const kayitlar = [];
@@ -63,20 +65,69 @@ export function hazirla(segment, ozellikMap) {
     if (arr.length >= MIN_ILCE_TRAIN) ilceMedyan[ilce] = median(arr);
   }
 
-  // Test kayıtları (ilçe tahmini olanlar)
-  const testler = [];
-  for (const k of test) {
+  const kayitToTest = (k) => {
     const ilceTahmin = ilceMedyan[k.il_ilce];
-    if (!ilceTahmin) continue; // ilçede yeterli train verisi yok → değerlendiremeyiz
-    testler.push({
+    if (!ilceTahmin) return null; // ilçede yeterli train verisi yok → değerlendiremeyiz
+    return {
       key: k.key,
       gercek: k.tlm2,
       ilceTahmin,
       ozellik: ozellikMap[k.key] ?? null,
       koy: !ozellikMap[k.key] || (ozellikMap[k.key][1] === 0 && ozellikMap[k.key][2] === 0), // metro+üni yok ≈ köy
-    });
+    };
+  };
+
+  // Test kayıtları (ilçe tahmini olanlar)
+  const testler = [];
+  for (const k of test) {
+    const t = kayitToTest(k);
+    if (t) testler.push(t);
   }
-  return { testler, trainSayi: train.length };
+
+  // Eğitim kayıtları — skew kalibrasyonu SADECE train'den türetilir (sızıntı yok)
+  const egitim = [];
+  for (const k of train) {
+    const t = kayitToTest(k);
+    if (t) egitim.push(t);
+  }
+
+  return { testler, egitim, trainSayi: train.length };
+}
+
+/**
+ * İlçe→mahalle çarpık-dağılım skew düzeltmesi.
+ *
+ * "+%120 bias" bir ORTALAMA artefaktı: ilçe içindeki birkaç çok-ucuz kırsal mahallede
+ * ilçe-medyanı devasa overshoot yapar, MAPE/mean-bias'ı şişirir. Medyan parsel ise zaten
+ * yakındır. Bu yüzden hedef: MAPE'yi (kuyruk overshoot'u) minimize et — ANCAK ±%20 isabet
+ * oranını (tipik parsel) bozmamak kısıtıyla. Böylece arsa güçlü, tarla nazik düzeltilir.
+ * Tek skaler, sadece train'den türetilir (test sızıntısı yok).
+ * @returns çarpan (0.20–1.50), 1.0 = düzeltme yok
+ */
+export function kalibreIlceSkew(segment, ozellikMap, katsayilar = KATSAYILAR) {
+  const { egitim } = hazirla(segment, ozellikMap);
+  if (!egitim || egitim.length < 10) return 1.0;
+
+  const metrik = (c) => {
+    let mapeToplam = 0, within = 0;
+    for (const t of egitim) {
+      const tahmin = t.ilceTahmin * ozellikCarpani(t.ozellik, katsayilar) * c;
+      const ape = Math.abs(tahmin - t.gercek) / t.gercek;
+      mapeToplam += ape;
+      if (ape <= 0.20) within++;
+    }
+    return { mape: mapeToplam / egitim.length, within20: within / egitim.length };
+  };
+
+  const taban = metrik(1.0).within20; // skew=1 (mevcut) isabet oranı — bunu bozmayacağız
+  let best = 1.0, bestMape = metrik(1.0).mape;
+  for (let c = 0.20; c <= 1.5001; c += 0.01) {
+    const m = metrik(c);
+    // Kısıt: ±%20 isabet oranı mevcudun altına düşmesin (küçük tolerans)
+    if (m.within20 < taban - 0.005) continue;
+    if (m.mape < bestMape) { bestMape = m.mape; best = c; }
+  }
+  return Math.round(best * 100) / 100;
 }
 
 /** Bir test seti için hata metrikleri. tahminFn(t) → tahmin TL/m². */
@@ -132,7 +183,7 @@ function yuzdelik(arr, p) {
 }
 
 /** SQL'den ham ilanları (mahalle + segment + tlm2 + m2) parse et. */
-function hamIlanlar() {
+export function hamIlanlar() {
   const re = /'(?:emlakjet|extension)','ej_[^']+','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)'/g;
   const out = [];
   for (const p of SQL_DOSYALAR) {
@@ -145,6 +196,28 @@ function hamIlanlar() {
       if (tlm2 < 100 || tlm2 > 5_000_000 || m2 < 50) continue;
       out.push({ key: `${m[1]}__${m[2]}__${mah.replace(/^'|'$/g, "")}`, tlm2, m2, kategori: m[6] });
     }
+  }
+  return out;
+}
+
+/**
+ * Tracked emlakjet SQL'inden mahalle-scrape-baseline yapısını yeniden inşa et.
+ * CI'da (ignored ground-truth dosyası yokken) segment backtest'i çalıştırmak için.
+ * @returns { "il__ilce__mahalle": { arsa?:{tlm2,ilanAdet}, tarla?:{tlm2,ilanAdet} } }
+ */
+export function mahalleBaselineFromHam(minIlan = 2) {
+  const gruplar = {};
+  for (const il of hamIlanlar()) {
+    if (il.kategori !== "arsa" && il.kategori !== "tarla") continue;
+    (gruplar[il.key] ||= { arsa: [], tarla: [] })[il.kategori].push(il.tlm2);
+  }
+  const out = {};
+  for (const [key, segs] of Object.entries(gruplar)) {
+    const rec = {};
+    for (const seg of ["arsa", "tarla"]) {
+      if (segs[seg].length >= minIlan) rec[seg] = { tlm2: median(segs[seg]), ilanAdet: segs[seg].length };
+    }
+    if (Object.keys(rec).length) out[key] = rec;
   }
   return out;
 }
@@ -190,27 +263,33 @@ function main() {
   console.log(`Özellik vektörü: ${Object.keys(ozellikMap).length.toLocaleString("tr-TR")} mahalle`);
   console.log(`Katsayı kaynağı: ${katsayiArg ?? "DEFAULT (mevcut motor)"}\n`);
 
-  const rapor = { tarih: new Date().toISOString(), katsayiKaynagi: katsayiArg ?? "default", segmentler: {} };
+  const rapor = { tarih: new Date().toISOString(), katsayiKaynagi: katsayiArg ?? "default", kalibrasyon: {}, segmentler: {} };
 
   for (const segment of ["arsa", "tarla"]) {
     const { testler, ozellikli, duz } = backtest(segment, ozellikMap, KATSAYILAR);
     if (testler.length === 0) { console.log(`[${segment}] test verisi yok, atlandı.`); continue; }
 
-    // Köy vs şehir kırılımı (özellikli model)
+    // İlçe→mahalle skew düzeltmesi — train'den MAPE-optimal skaler
+    const skew = kalibreIlceSkew(segment, ozellikMap, KATSAYILAR);
+    const kalibre = olc(testler, (t) => t.ilceTahmin * ozellikCarpani(t.ozellik, KATSAYILAR) * skew);
+    rapor.kalibrasyon[segment] = skew;
+
+    // Köy vs şehir kırılımı (skew uygulanmış model)
     const koyT = testler.filter((t) => t.koy);
     const sehirT = testler.filter((t) => !t.koy);
-    const koy = koyT.length ? olc(koyT, (t) => t.ilceTahmin * ozellikCarpani(t.ozellik, KATSAYILAR)) : null;
-    const sehir = sehirT.length ? olc(sehirT, (t) => t.ilceTahmin * ozellikCarpani(t.ozellik, KATSAYILAR)) : null;
+    const koy = koyT.length ? olc(koyT, (t) => t.ilceTahmin * ozellikCarpani(t.ozellik, KATSAYILAR) * skew) : null;
+    const sehir = sehirT.length ? olc(sehirT, (t) => t.ilceTahmin * ozellikCarpani(t.ozellik, KATSAYILAR) * skew) : null;
 
-    rapor.segmentler[segment] = { ozellikli, duz, koy, sehir };
+    rapor.segmentler[segment] = { ozellikli, duz, kalibre, koy, sehir };
 
-    const delta = (duz.mape - ozellikli.mape).toFixed(2);
-    console.log(`📊 ${segment.toUpperCase()}  (${testler.length} test mahallesi)`);
-    console.log(`   Düz ilçe tahmini    MAPE %${duz.mape}  | medyan %${duz.medyanApe} | ±%20 içinde ${duz.within20}%`);
-    console.log(`   + Özellik çarpanı   MAPE %${ozellikli.mape}  | medyan %${ozellikli.medyanApe} | ±%20 içinde ${ozellikli.within20}%`);
-    console.log(`   → Özellik çarpanı katkısı: ${delta > 0 ? "−" : "+"}%${Math.abs(delta)} MAPE (${delta > 0 ? "iyileştirdi" : "kötüleştirdi"})`);
+    console.log(`📊 ${segment.toUpperCase()}  (${testler.length} test mahallesi)  ·  skew ×${skew}`);
+    console.log(`   Mevcut (skew yok)   MAPE %${ozellikli.mape}  | medyan %${ozellikli.medyanApe} | ±%20 içinde ${ozellikli.within20}% | bias %${ozellikli.bias}`);
+    console.log(`   + Skew düzeltmesi    MAPE %${kalibre.mape}  | medyan %${kalibre.medyanApe} | ±%20 içinde ${kalibre.within20}% | bias %${kalibre.bias}`);
+    const dMape = (ozellikli.mape - kalibre.mape).toFixed(2);
+    const dW20 = (kalibre.within20 - ozellikli.within20).toFixed(1);
+    console.log(`   → MAPE ${dMape >= 0 ? "−" : "+"}%${Math.abs(dMape)} · ±%20 ${dW20 >= 0 ? "+" : ""}${dW20} puan · bias %${ozellikli.bias}→%${kalibre.bias}`);
     if (koy && sehir) console.log(`   Köy MAPE %${koy.mape} (${koy.n}) · Şehir MAPE %${sehir.mape} (${sehir.n})`);
-    console.log(`   Bias: %${ozellikli.bias} (${ozellikli.bias > 0 ? "yüksek tahmin eğilimi" : "düşük tahmin eğilimi"})\n`);
+    console.log("");
   }
 
   // ── 2. katman: mahalle-içi LOO ──

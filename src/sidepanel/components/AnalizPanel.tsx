@@ -41,6 +41,8 @@ import { useLisans } from "../../lib/lisans";
 import { useAyarlar } from "../../lib/ayarlar";
 import { EPLAN_URL } from "../../lib/eplan";
 import { useEPlanVerisi } from "../../lib/use-eplan";
+import { useTucbsCdp } from "../../lib/use-tucbs";
+import { CdpKarti } from "./CdpKarti";
 
 interface Props {
   parsel: Parsel;
@@ -66,6 +68,7 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
   const skorlar = tumSkorlariHesapla(analiz, cevre, egim);
   const autoAnalizKeyRef = useRef<string | null>(null);
   const { veri: ePlanVerisi, loading: ePlanLoading } = useEPlanVerisi(parsel);
+  const { veri: tucbsVerisi, loading: tucbsLoading } = useTucbsCdp(parsel);
   const { veri: manuelVeri, tetikle: manuelTetikle } = useManuelVeri(parsel);
   // Manuel + ePlan birleşik imar — manuel öncelikli alan bazında override eder
   const birlesikImar = imarBirlestir(ePlanVerisi, manuelVeri.imar);
@@ -398,8 +401,17 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       {/* Doğal veri katmanı — AFAD deprem + iklim + toprak (Cadastrum içinde) */}
       <DogalVeriKarti parsel={parsel} />
 
+      {/* TUCBS Çevre Düzeni Planı — üst plan arazi kullanımı */}
+      {acikModuller.includes("cdp-tucbs") && (
+        <CdpKarti veri={tucbsVerisi} loading={tucbsLoading} />
+      )}
+
       {/* Risk taraması — fiyat tahmin kartından ÖNCE: yatırım öncesi kritik */}
-      <RiskUyariKarti parsel={parsel} ePlan={birlesikImar ?? ePlanVerisi} />
+      <RiskUyariKarti
+        parsel={parsel}
+        ePlan={birlesikImar ?? ePlanVerisi}
+        tucbs={tucbsVerisi}
+      />
 
       {/* Likidite — TKGM yıllık işlem yoğunluğu (otomatik fetch) */}
       {parsel.ilceKodu != null && (
@@ -422,6 +434,7 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           cevre={cevre}
           egim={egim}
           ePlan={birlesikImar ?? ePlanVerisi}
+          tucbs={tucbsVerisi}
           ePlanLoading={ePlanLoading}
           imarSkipEdildi={imarSkipEdildi}
           onImarKaydedildi={() => {

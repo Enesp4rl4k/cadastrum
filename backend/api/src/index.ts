@@ -38,6 +38,8 @@ import { aiFiyatRoutes } from "./routes/ai-fiyat.js";
 import { adminRoutes } from "./routes/admin.js";
 import { newsletterRoutes } from "./routes/newsletter.js";
 import { tcmbRoutes } from "./routes/tcmb.js";
+import { raporRoutes } from "./routes/rapor.js";
+import { telemetriRoutes } from "./routes/telemetri.js";
 
 export interface Env {
   DB: D1Database;
@@ -134,6 +136,12 @@ app.route("/v1/newsletter", newsletterRoutes);
 // NOT: EVDS3 yeni sisteminde endpoint format'ı dokümandan farklı çalışıyor.
 // TÜFE × 1.15 fallback (extension içinde) yeterli — ileride TCMB destek netleşince açılacak.
 app.route("/v1/tcmb", tcmbRoutes);
+
+// Paylaşılabilir yatırımcı raporu (public shareable link)
+app.route("/v1/rapor", raporRoutes);
+
+// Hata telemetrisi (observability — extension + backend runtime hataları)
+app.route("/v1/telemetri", telemetriRoutes);
 
 // Cron / manuel istatistik yenileme
 app.get("/v1/istatistik/refresh", async (c) => {

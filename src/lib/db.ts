@@ -121,6 +121,13 @@ export interface DepremRiskCache {
   fetchedAt: number;
 }
 
+/** TUCBS ÇDP WMS — koordinat bazlı üst plan cache (90 gün TTL). */
+export interface TucbsCdpCache {
+  key: string;
+  sonuc: import("./tucbs").TucbsCdpSonuc;
+  fetchedAt: number;
+}
+
 /**
  * Bootstrap detay zenginleştirme kuyruğu (Faz 5 / Sahibinden Scraper).
  *
@@ -170,6 +177,7 @@ class ArsaDB extends Dexie {
   aiFiyatCache!: Table<AiFiyatCache, string>;
   osmCevreCache!: Table<OsmCevreCache, string>;
   depremRiskCache!: Table<DepremRiskCache, string>;
+  tucbsCdpCache!: Table<TucbsCdpCache, string>;
   detayKuyrugu!: Table<DetayKuyrukKayit, string>;
   mahalleAlias!: Table<MahalleAliasKayit, string>;
 
@@ -316,6 +324,22 @@ class ArsaDB extends Dexie {
       depremRiskCache: "&key, fetchedAt",
       detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
       mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+    });
+    // v13: TUCBS Çevre Düzeni Planı cache
+    this.version(13).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
     });
   }
 }

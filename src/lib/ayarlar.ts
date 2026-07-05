@@ -49,7 +49,17 @@ function hasChromeStorage(): boolean {
 export async function ayarlariGetir(): Promise<Ayarlar> {
   if (!hasChromeStorage()) return { ...DEFAULTS };
   const d = await chrome.storage.local.get(STORAGE_KEY);
-  return { ...DEFAULTS, ...(d[STORAGE_KEY] ?? {}) };
+  const stored = (d[STORAGE_KEY] ?? {}) as Partial<Ayarlar>;
+  const merged: Ayarlar = { ...DEFAULTS, ...stored };
+  // Yeni eklenen default-açık modülleri mevcut kullanıcı listesine bir kez ekle
+  if (stored.acikModuller) {
+    for (const m of MODULLER) {
+      if (m.defaultAcik && !merged.acikModuller.includes(m.id)) {
+        merged.acikModuller = [...merged.acikModuller, m.id];
+      }
+    }
+  }
+  return merged;
 }
 
 export async function ayarlariYaz(ayarlar: Partial<Ayarlar>): Promise<void> {

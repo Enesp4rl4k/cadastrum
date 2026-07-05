@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
+import { SCRAPING_ENABLED } from "../lib/build-flags";
 import {
   Map as MapIcon,
   Search as SearchIcon,
@@ -16,7 +17,6 @@ import { AraView } from "./views/AraView";
 import { TopluView } from "./views/TopluView";
 import { BolgeView } from "./views/BolgeView";
 import { LabView } from "./views/LabView";
-import { BootstrapView } from "./views/BootstrapView";
 import { IlanKarti } from "./components/IlanKarti";
 import { KomutPaleti } from "./components/KomutPaleti";
 import { KvkkConsent, useKvkkConsentVerilmis } from "./components/KvkkConsent";
@@ -55,8 +55,14 @@ const TABS: TabConfig[] = [
   { id: "gecmis", label: "Geçmiş", Icon: HistoryIcon },
   // Admin/dev only — admin Chrome profiline (kullanicilar.admin=1) açık.
   // Production'da non-admin kullanıcılar bu sekmeyi göremez.
-  { id: "bootstrap", label: "Boot", Icon: FlaskIcon, adminGerekli: true },
+  ...(SCRAPING_ENABLED
+    ? [{ id: "bootstrap" as const, label: "Boot", Icon: FlaskIcon, adminGerekli: true }]
+    : []),
 ];
+
+const BootstrapView = SCRAPING_ENABLED
+  ? lazy(() => import("./views/BootstrapView").then((m) => ({ default: m.BootstrapView })))
+  : null;
 
 export function App() {
   const [tab, setTab] = useState<Tab>("harita");
@@ -176,7 +182,11 @@ export function App() {
             }}
           />
         )}
-        {tab === "bootstrap" && <BootstrapView />}
+        {tab === "bootstrap" && BootstrapView && (
+          <Suspense fallback={<div className="p-4 text-sm text-slate-500">Yükleniyor…</div>}>
+            <BootstrapView />
+          </Suspense>
+        )}
         {tab === "gecmis" && (
           <GecmisView
             onSelect={(k) => {

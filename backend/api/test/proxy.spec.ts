@@ -24,10 +24,18 @@ describe("proxy endpoints", () => {
     expect(r.status).toBe(400);
   });
 
-  it("e-Plan proxy parametre tip kontrolü — alphanumeric 400", async () => {
-    const r = await fetch(
-      `${API}/proxy/eplan?ilceKodu=123&mahalleKodu=abc&adaNo=456&parselNo=789`,
-    );
+  it("TUCBS proxy parametre kontrolü — eksik 400", async () => {
+    const r = await fetch(`${API}/proxy/tucbs`);
+    expect(r.status).toBe(400);
+  });
+
+  it("TUCBS proxy — geçersiz wms slug 400", async () => {
+    const r = await fetch(`${API}/proxy/tucbs?wms=evil&lat=38.4&lng=27.1`);
+    expect(r.status).toBe(400);
+  });
+
+  it("TUCBS tile proxy — geçersiz bbox 400", async () => {
+    const r = await fetch(`${API}/proxy/tucbs/tile?wms=csb_cdp_im_wms&bbox=bad`);
     expect(r.status).toBe(400);
   });
 });

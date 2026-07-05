@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
 import type { EPlanImarVerisi } from "../../lib/eplan";
+import type { TucbsCdpSonuc } from "../../lib/tucbs";
 import {
   riskleriTara,
   riskOzetSkoru,
@@ -17,14 +18,15 @@ import { Section } from "../ui/Card";
 interface Props {
   parsel: Parsel;
   ePlan?: EPlanImarVerisi | null;
+  tucbs?: TucbsCdpSonuc | null;
   ilanAciklama?: string | null;
   ilanImarDurumu?: string | null;
 }
 
-export function RiskUyariKarti({ parsel, ePlan, ilanAciklama, ilanImarDurumu }: Props) {
+export function RiskUyariKarti({ parsel, ePlan, tucbs, ilanAciklama, ilanImarDurumu }: Props) {
   const uyarilar = useMemo(
-    () => riskleriTara({ parsel, ePlan, ilanAciklama, ilanImarDurumu }),
-    [parsel, ePlan, ilanAciklama, ilanImarDurumu],
+    () => riskleriTara({ parsel, ePlan, tucbs, ilanAciklama, ilanImarDurumu }),
+    [parsel, ePlan, tucbs, ilanAciklama, ilanImarDurumu],
   );
   const ozet = useMemo(() => riskOzetSkoru(uyarilar), [uyarilar]);
   const [acik, setAcik] = useState(uyarilar.some((u) => u.seviye === "kritik"));
