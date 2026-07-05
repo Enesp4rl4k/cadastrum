@@ -2,12 +2,14 @@
 export const prerender = true;
 import Base from "../layouts/Base.astro";
 import HeroMock from "../components/HeroMock.astro";
+import HeroCinematicBg from "../components/HeroCinematicBg.astro";
 import DegerBandiHero from "../components/DegerBandiHero.astro";
 import IntegrationsMarquee from "../components/IntegrationsMarquee.astro";
 import Step from "../components/Step.astro";
 import TopoBg from "../components/TopoBg.astro";
 
 import { CTA, LAUNCHED, CHROME_STORE_URL } from "../config/launch";
+import { HERO_SCRUB_VH } from "../config/hero";
 const cwsUrl = CHROME_STORE_URL;
 
 const features = [
@@ -51,22 +53,35 @@ const features = [
 ---
 
 <Base>
-  <!-- Hero — Imperial Blue + Champagne + 2026 gradient mesh -->
-  <section class="hero-stage relative overflow-hidden aurora">
-    <!-- Gradient mesh blobs (2026 SaaS trend) -->
-    <div aria-hidden="true" class="absolute inset-0 pointer-events-none overflow-hidden">
-      <div class="absolute top-[-20%] left-[-10%] w-[40rem] h-[40rem] rounded-full bg-gradient-to-br from-imperial-200 via-imperial-100 to-transparent blur-3xl opacity-50"></div>
-      <div class="absolute top-[10%] right-[-15%] w-[35rem] h-[35rem] rounded-full bg-gradient-to-bl from-champagne-200 via-champagne-100 to-transparent blur-3xl opacity-40"></div>
-      <div class="absolute bottom-[-20%] left-[20%] w-[45rem] h-[45rem] rounded-full bg-gradient-to-tr from-imperial-100 via-transparent to-transparent blur-3xl opacity-30"></div>
-    </div>
+  <!-- Hero — scroll-scrub cinematic (Higgsfield video veya prosedürel kadastro filmi) -->
+  <section
+    class="hero-scrub"
+    data-hero-scrub
+    style={`--hero-scrub-vh: ${HERO_SCRUB_VH};`}
+  >
+    <div class="hero-stage hero-scrub-sticky overflow-hidden aurora">
+      <!-- Cinematic map / video layer (scroll-driven) -->
+      <HeroCinematicBg />
 
-    <!-- Topografik harita çizgileri (Cadastrum tematik) -->
-    <TopoBg />
+      <!-- Gradient mesh blobs (2026 SaaS trend) -->
+      <div aria-hidden="true" class="absolute inset-0 pointer-events-none overflow-hidden" style="z-index: 0;">
+        <div class="absolute top-[-20%] left-[-10%] w-[40rem] h-[40rem] rounded-full bg-gradient-to-br from-imperial-200 via-imperial-100 to-transparent blur-3xl opacity-40"></div>
+        <div class="absolute top-[10%] right-[-15%] w-[35rem] h-[35rem] rounded-full bg-gradient-to-bl from-champagne-200 via-champagne-100 to-transparent blur-3xl opacity-30"></div>
+        <div class="absolute bottom-[-20%] left-[20%] w-[45rem] h-[45rem] rounded-full bg-gradient-to-tr from-imperial-100 via-transparent to-transparent blur-3xl opacity-25"></div>
+      </div>
 
-    <!-- Champagne shimmer sweep — bir kez geçer, drama ekler -->
-    <div class="hero-shimmer" aria-hidden="true"></div>
+      <!-- Topografik harita çizgileri (Cadastrum tematik) -->
+      <TopoBg />
 
-    <div class="container-prose pt-20 pb-24 md:pt-28 md:pb-32 relative" style="z-index: 1;">
+      <!-- Champagne shimmer sweep — bir kez geçer, drama ekler -->
+      <div class="hero-shimmer" aria-hidden="true"></div>
+
+      <!-- Scroll progress rail -->
+      <div class="hero-scrub-rail" aria-hidden="true">
+        <div class="hero-scrub-rail-fill"></div>
+      </div>
+
+      <div class="container-prose pt-20 pb-24 md:pt-28 md:pb-32 relative" style="z-index: 1;">
       <div class="grid gap-14 lg:grid-cols-12 items-center">
         <!-- Left: Copy -->
         <div class="lg:col-span-7">
@@ -142,11 +157,14 @@ const features = [
           </p>
         </div>
 
-        <!-- Right: Live mock card (sağdan slide-in) -->
+        <!-- Right: Live mock card (sağdan slide-in + scroll parallax) -->
         <div class="hero-mock-wrap lg:col-span-5">
-          <HeroMock />
+          <div class="hero-mock-parallax">
+            <HeroMock />
+          </div>
         </div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -549,6 +567,81 @@ const features = [
 </Base>
 
 <script>
+  // Scroll-scrub cinematic hero — --hero-p (0→1) + optional video playhead
+  let heroScrubCleanup: (() => void) | null = null;
+
+  function initHeroScrub() {
+    heroScrubCleanup?.();
+    heroScrubCleanup = null;
+
+    const section = document.querySelector<HTMLElement>("[data-hero-scrub]");
+    if (!section) return;
+
+    const video = section.querySelector<HTMLVideoElement>("[data-hero-video]");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (reduceMotion) {
+      section.style.setProperty("--hero-p", "1");
+      if (video) {
+        video.pause();
+        const seekEnd = () => {
+          if (video.duration && Number.isFinite(video.duration)) {
+            video.currentTime = video.duration * 0.85;
+          }
+        };
+        if (video.readyState >= 1) seekEnd();
+        else video.addEventListener("loadedmetadata", seekEnd, { once: true });
+      }
+      return;
+    }
+
+    let raf = 0;
+    let videoReady = false;
+
+    if (video) {
+      video.pause();
+      const onMeta = () => { videoReady = Number.isFinite(video.duration) && video.duration > 0; };
+      if (video.readyState >= 1) onMeta();
+      else video.addEventListener("loadedmetadata", onMeta, { once: true });
+    }
+
+    const update = () => {
+      raf = 0;
+      const total = section.offsetHeight - window.innerHeight;
+      if (total <= 0) {
+        section.style.setProperty("--hero-p", "0");
+        return;
+      }
+      const scrolled = Math.min(Math.max(-section.getBoundingClientRect().top, 0), total);
+      const p = scrolled / total;
+      section.style.setProperty("--hero-p", p.toFixed(4));
+
+      if (video && videoReady) {
+        const t = p * video.duration * 0.999;
+        if (Math.abs(video.currentTime - t) > 0.033) {
+          try { video.currentTime = t; } catch { /* seek race */ }
+        }
+      }
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+
+    heroScrubCleanup = () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }
+
+  initHeroScrub();
+  document.addEventListener("astro:page-load", initHeroScrub);
+
   // Hero waitlist form — backend /v1/newsletter/abone-ol
   const heroForm = document.getElementById("hero-waitlist") as HTMLFormElement | null;
   const heroMsg = document.getElementById("hero-waitlist-msg") as HTMLParagraphElement | null;
