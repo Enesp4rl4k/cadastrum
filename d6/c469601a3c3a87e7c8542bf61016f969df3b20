@@ -1,0 +1,27 @@
+site/src/styles/animations.css
+  s_c8c2a2a45b01b9::t_e7c501905c4089 156-240
+site/src/components/HeroCinematicBg.astro
+  s_c8c2a2a45b01b9::t_e7c501905c4089 1-368
+site/src/components/DegerBandiHero.astro
+  s_c8c2a2a45b01b9::t_e7c501905c4089 1-186
+site/src/config/hero.ts
+  s_c8c2a2a45b01b9::t_e7c501905c4089 1-16
+site/src/pages/index.astro
+  s_c8c2a2a45b01b9::t_e7c501905c4089 5-6,12,56-71,73-74,76-82,84,160,162-164,168,174-210,570-644
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d6c469601a3c3a87e7c8542bf61016f969df3b20",
+  "prompts": {},
+  "sessions": {
+    "s_c8c2a2a45b01b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5d6f8ca-f0ac-4027-8892-bcf311a5390f",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
