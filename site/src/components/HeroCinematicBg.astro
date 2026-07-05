@@ -1,0 +1,368 @@
+---
+/**
+ * Scroll-scrub cinematic arka plan.
+ * --hero-p (0→1) ile: geniş uydu → parsel zoom → highlight → fiyat HUD.
+ * HERO_VIDEO doluysa video playhead scroll ile senkron; yoksa SVG film.
+ */
+import { HERO_VIDEO, HERO_VIDEO_FALLBACK, HERO_POSTER } from "../config/hero";
+
+const hasVideo = Boolean(HERO_VIDEO);
+---
+
+<div class="hero-cine-bg" aria-hidden="true">
+  {hasVideo ? (
+    <div class="hero-cine-video-wrap">
+      <video
+        class="hero-cine-video"
+        data-hero-video
+        muted
+        playsinline
+        preload="metadata"
+        poster={HERO_POSTER ?? undefined}
+      >
+        <source src={HERO_VIDEO!} type="video/webm" />
+        {HERO_VIDEO_FALLBACK && <source src={HERO_VIDEO_FALLBACK} type="video/mp4" />}
+      </video>
+    </div>
+  ) : (
+    <div class="hero-cine-film">
+      <svg
+        class="hero-cine-map"
+        viewBox="0 0 960 540"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <filter id="cineCrop" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="11" stitchTiles="stitch" />
+            <feColorMatrix values="0 0 0 0 0.30
+                                   0 0 0 0 0.42
+                                   0 0 0 0 0.18
+                                   0 0 0 1.0 -0.12" />
+            <feComposite in2="SourceGraphic" operator="in" />
+          </filter>
+          <filter id="cineHarvest" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="3" seed="5" stitchTiles="stitch" />
+            <feColorMatrix values="0 0 0 0 0.58
+                                   0 0 0 0 0.54
+                                   0 0 0 0 0.34
+                                   0 0 0 1.0 -0.08" />
+            <feComposite in2="SourceGraphic" operator="in" />
+          </filter>
+          <filter id="cineGrain" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="22" />
+            <feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0" />
+          </filter>
+          <radialGradient id="cineVignette" cx="50%" cy="45%" r="72%">
+            <stop offset="0%" stop-color="#000" stop-opacity="0" />
+            <stop offset="100%" stop-color="#000" stop-opacity="0.45" />
+          </radialGradient>
+          <linearGradient id="cineSkyFade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1B2A4A" stop-opacity="0.35" />
+            <stop offset="40%" stop-color="#1B2A4A" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+
+        <!-- Base terrain -->
+        <rect width="960" height="540" fill="#5a7534" />
+        <path d="M0,0 L420,0 L390,270 L0,280 Z" fill="#4a6b2a" />
+        <path d="M420,0 L960,0 L960,256 L390,270 Z" fill="#5d7e36" />
+        <path d="M0,280 L390,270 L420,540 L0,540 Z" fill="#6b8a3e" />
+        <path d="M390,270 L960,256 L960,540 L420,540 Z" fill="#557030" />
+
+        <g filter="url(#cineCrop)" opacity="0.8">
+          <rect x="0" y="0" width="420" height="280" />
+          <rect x="390" y="270" width="570" height="270" />
+        </g>
+        <g filter="url(#cineHarvest)" opacity="0.5">
+          <rect x="420" y="0" width="540" height="270" />
+          <rect x="0" y="280" width="420" height="260" />
+        </g>
+
+        <!-- Field grid / parcel lines — draw in with progress -->
+        <g class="hero-cine-grid" stroke="#E8B83A" stroke-width="1.2" stroke-dasharray="7 5" fill="none" opacity="0.85">
+          <path d="M0,80 L480,270" />
+          <path d="M0,420 L480,270" />
+          <path d="M960,60 L480,270" />
+          <path d="M960,480 L480,270" />
+          <path d="M-20,270 L960,256" stroke-width="1.5" />
+          <path d="M420,0 L480,540" stroke-width="1.1" />
+        </g>
+
+        <!-- Dirt road -->
+        <path d="M-20,276 L420,270 L960,256" fill="none" stroke="#7d6f4a" stroke-width="4" stroke-opacity="0.45" />
+
+        <!-- Distant structures -->
+        <g opacity="0.9">
+          <rect x="70" y="280" width="22" height="14" fill="#e8e4d8" rx="1" />
+          <rect x="96" y="288" width="12" height="10" fill="#c8c4b8" rx="0.5" />
+          <rect x="48" y="300" width="16" height="11" fill="#d4cfc0" rx="0.5" />
+        </g>
+
+        <!-- Neighbor parcels (faint) -->
+        <g class="hero-cine-neighbors" fill="none" stroke="#fff" stroke-opacity="0.12" stroke-width="1">
+          <path d="M120,80 L280,70 L300,180 L140,190 Z" />
+          <path d="M620,90 L780,80 L800,200 L640,210 Z" />
+          <path d="M100,360 L260,350 L280,480 L120,490 Z" />
+          <path d="M640,340 L820,330 L840,470 L660,480 Z" />
+        </g>
+
+        <!-- Target parcel — highlight grows with scroll -->
+        <g class="hero-cine-parsel">
+          <path
+            class="hero-cine-parsel-fill"
+            d="M410,216 L536,206 L596,284 L572,376 L486,400 L400,356 L376,280 Z"
+            fill="#3B82F6"
+            stroke="#60A5FA"
+            stroke-width="3"
+            stroke-linejoin="round"
+          />
+          <g class="hero-cine-pins" fill="#1D4ED8" stroke="#fff" stroke-width="1.4">
+            <circle cx="410" cy="216" r="4" />
+            <circle cx="536" cy="206" r="4" />
+            <circle cx="596" cy="284" r="4" />
+            <circle cx="572" cy="376" r="4" />
+            <circle cx="486" cy="400" r="4" />
+            <circle cx="400" cy="356" r="4" />
+            <circle cx="376" cy="280" r="4" />
+          </g>
+        </g>
+
+        <rect width="960" height="540" fill="url(#cineVignette)" />
+        <rect width="960" height="540" fill="url(#cineSkyFade)" />
+        <rect width="960" height="540" filter="url(#cineGrain)" opacity="0.4" />
+      </svg>
+
+      <!-- Scan sweep -->
+      <div class="hero-cine-scan"></div>
+
+      <!-- Floating HUD cards — fade in late in scroll -->
+      <div class="hero-cine-hud hero-cine-hud-price">
+        <div class="hero-cine-hud-label">Tahmini piyasa</div>
+        <div class="hero-cine-hud-value">383K TL</div>
+        <div class="hero-cine-hud-meta">208 TL/m² · orta güven</div>
+      </div>
+      <div class="hero-cine-hud hero-cine-hud-tkgm">
+        <span class="hero-cine-hud-dot"></span>
+        TKGM doğrulandı · Ada 412 / Parsel 7
+      </div>
+      <div class="hero-cine-hud hero-cine-hud-imar">
+        e-Plan · Tarla / Kırsal
+      </div>
+    </div>
+  )}
+
+  <!-- Readability veil over cinematic layer -->
+  <div class="hero-cine-veil"></div>
+</div>
+
+<style>
+  .hero-cine-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .hero-cine-video-wrap,
+  .hero-cine-film {
+    position: absolute;
+    inset: -8%;
+    width: 116%;
+    height: 116%;
+    /* Dolly-in: progress 0→1 scale 1→1.18 + slight pan */
+    transform:
+      translate3d(
+        calc(var(--hero-p, 0) * -2%),
+        calc(var(--hero-p, 0) * -1.5%),
+        0
+      )
+      scale(calc(1 + var(--hero-p, 0) * 0.22));
+    transform-origin: 48% 52%;
+    will-change: transform;
+  }
+
+  .hero-cine-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .hero-cine-map {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Grid lines draw in mid-scroll */
+  .hero-cine-grid {
+    stroke-dashoffset: calc(40 * (1 - var(--hero-p, 0)));
+    opacity: calc(0.25 + var(--hero-p, 0) * 0.65);
+  }
+
+  .hero-cine-neighbors {
+    opacity: calc(0.35 + var(--hero-p, 0) * 0.4);
+  }
+
+  /* Parcel: invisible → fill + glow */
+  .hero-cine-parsel-fill {
+    fill-opacity: calc(var(--hero-p, 0) * 0.38);
+    stroke-opacity: calc(0.2 + var(--hero-p, 0) * 0.8);
+    filter: drop-shadow(0 0 calc(var(--hero-p, 0) * 14px) rgba(96, 165, 250, 0.55));
+  }
+
+  .hero-cine-pins {
+    opacity: calc(clamp(0, (var(--hero-p, 0) - 0.35) / 0.25, 1));
+  }
+
+  .hero-cine-scan {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(201, 168, 106, 0.12) 48%,
+      transparent 100%
+    );
+    height: 28%;
+    top: calc(var(--hero-p, 0) * 72%);
+    opacity: calc(0.3 + var(--hero-p, 0) * 0.5);
+  }
+
+  .hero-cine-hud {
+    position: absolute;
+    border-radius: 0.625rem;
+    background: rgba(14, 23, 41, 0.82);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.45);
+    opacity: calc(clamp(0, (var(--hero-p, 0) - 0.45) / 0.3, 1));
+    transform: translateY(calc((1 - clamp(0, (var(--hero-p, 0) - 0.45) / 0.3, 1)) * 12px));
+  }
+
+  .hero-cine-hud-price {
+    right: 8%;
+    bottom: 18%;
+    padding: 0.75rem 1rem;
+    min-width: 9.5rem;
+  }
+
+  .hero-cine-hud-label {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
+  .hero-cine-hud-value {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #34d399;
+    line-height: 1.15;
+    margin-top: 0.15rem;
+  }
+
+  .hero-cine-hud-meta {
+    font-size: 0.625rem;
+    color: #94a3b8;
+    margin-top: 0.2rem;
+  }
+
+  .hero-cine-hud-tkgm {
+    left: 7%;
+    top: 22%;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #fde68a;
+  }
+
+  .hero-cine-hud-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: #34d399;
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
+  }
+
+  .hero-cine-hud-imar {
+    left: 7%;
+    top: 30%;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #cbd5e1;
+    opacity: calc(clamp(0, (var(--hero-p, 0) - 0.55) / 0.25, 1));
+  }
+
+  /* Soft light veil so copy stays readable over map/video */
+  .hero-cine-veil {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        105deg,
+        rgba(251, 250, 247, 0.94) 0%,
+        rgba(251, 250, 247, 0.88) 38%,
+        rgba(251, 250, 247, 0.55) 58%,
+        rgba(251, 250, 247, 0.28) 100%
+      ),
+      radial-gradient(ellipse at 70% 40%, rgba(201, 168, 106, 0.12), transparent 55%);
+    pointer-events: none;
+  }
+
+  @media (max-width: 1023px) {
+    .hero-cine-veil {
+      background:
+        linear-gradient(
+          180deg,
+          rgba(251, 250, 247, 0.92) 0%,
+          rgba(251, 250, 247, 0.78) 45%,
+          rgba(251, 250, 247, 0.55) 100%
+        ),
+        radial-gradient(ellipse at 50% 80%, rgba(201, 168, 106, 0.1), transparent 50%);
+    }
+
+    .hero-cine-hud-price {
+      right: 4%;
+      bottom: 8%;
+      transform: scale(0.92);
+      transform-origin: bottom right;
+    }
+
+    .hero-cine-hud-tkgm,
+    .hero-cine-hud-imar {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-cine-video-wrap,
+    .hero-cine-film {
+      transform: scale(1.08) translate3d(-1%, -0.5%, 0);
+    }
+
+    .hero-cine-parsel-fill {
+      fill-opacity: 0.35;
+      stroke-opacity: 1;
+    }
+
+    .hero-cine-pins,
+    .hero-cine-hud,
+    .hero-cine-hud-imar {
+      opacity: 1;
+      transform: none;
+    }
+
+    .hero-cine-scan {
+      display: none;
+    }
+  }
+</style>
