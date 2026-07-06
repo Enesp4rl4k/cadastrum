@@ -311,7 +311,35 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       ? ilan.m2 / acikParsel.alan
       : null;
 
-  if (!ilan) return null;
+  if (!ilan) {
+    return (
+      <div className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-400 dark:text-slate-500">
+        <div className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-800">
+          <RadioIcon className="h-3.5 w-3.5" />
+        </div>
+        <span>
+          <a
+            href="https://www.sahibinden.com/satilik-arsa"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-500 dark:text-slate-400 hover:text-tkgm-primary transition"
+          >
+            Sahibinden
+          </a>
+          {" "}veya{" "}
+          <a
+            href="https://www.hepsiemlak.com/arsa-satilik"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-500 dark:text-slate-400 hover:text-tkgm-primary transition"
+          >
+            Hepsiemlak
+          </a>
+          {" "}ilanı açınca analiz başlar.
+        </span>
+      </div>
+    );
+  }
   // Kullanıcı bu ilan için paneli kapattıysa gizle (yeni ilan gelince sıfırlanır)
   if (kapatilanIlanNo && kapatilanIlanNo === (ilan.ilanNo ?? ilan.url)) return null;
 

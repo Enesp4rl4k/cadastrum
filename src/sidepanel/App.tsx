@@ -26,6 +26,7 @@ import { TemaSecici } from "./components/TemaSecici";
 import HesapDurumu from "./components/HesapDurumu";
 import { useLisans, type Yetenek } from "../lib/lisans";
 import type { Parsel } from "../types/tkgm";
+import { Onboarding, useOnboardingGoster } from "./components/Onboarding";
 
 type Tab = "harita" | "ara" | "toplu" | "bolge" | "lab" | "favoriler" | "gecmis" | "bootstrap";
 
@@ -70,6 +71,7 @@ export function App() {
   const lisans = useLisans();
   const kvkkVerilmis = useKvkkConsentVerilmis();
   const [kvkkKapali, setKvkkKapali] = useState(false);
+  const [onboardingGoster, onboardingKapat] = useOnboardingGoster();
 
   // Sadece kullanıcının erişebildiği sekmeler — Pro özellikler tamamen gizlenir.
   // adminGerekli sekmeleri DEV build'de veya admin JWT claim'i olanlara açık.
@@ -85,7 +87,8 @@ export function App() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-900">
+    <div className="relative flex h-full flex-col bg-slate-50 dark:bg-slate-900">
+      {onboardingGoster && <Onboarding onKapat={onboardingKapat} />}
       <KomutPaleti />
       {kvkkVerilmis === false && !kvkkKapali && (
         <KvkkConsent onComplete={() => setKvkkKapali(true)} />

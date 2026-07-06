@@ -65,6 +65,93 @@ export function listeLinkleri(html) {
   return [...set];
 }
 
+/**
+ * Yeni Emlakjet liste sayfasından JSON-LD @graph parse — detay sayfası gerekmez.
+ * Her sayfada ~30 RealEstateListing objesi var.
+ */
+export function listeJsonLdParse(html, kategoriHedef, MERKEZ) {
+  const sonuc = [];
+  for (const m of html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)) {
+    let d;
+    try { d = JSON.parse(m[1].trim()); } catch { continue; }
+    if (!d["@graph"] || !Array.isArray(d["@graph"])) continue;
+
+    for (const it of d["@graph"]) {
+      if (it["@type"] !== "RealEstateListing") continue;
+
+      // Fiyat
+      const fiyat = it.offers?.price ?? it.price;
+      if (!fiyat) continue;
+
+      // m2 — "616 m²" formatından parse
+      const props = it.additionalProperty || [];
+      const m2Prop = props.find((p) => p.name === "Metrekare" || p.name === "Alan");
+      if (!m2Prop) continue;
+      const m2 = parseInt(String(m2Prop.value).replace(/\D/g, ""), 10);
+      if (!m2 || m2 < 1 || m2 > 10_000_000) continue;
+
+      const tlm2 = Math.round(fiyat / m2);
+      if (tlm2 < 100 || tlm2 > 10_000_000) continue;
+
+      // Konum — "Mahalle Adı, İlçe" formatı
+      const konumProp = props.find((p) => p.name === "Konum");
+      if (!konumProp) continue;
+      const konumParcalar = konumProp.value.split(",").map((s) => s.trim());
+      const mahRaw = konumParcalar[0] ?? "";
+      const ilceRaw = konumParcalar[1] ?? "";
+      if (!ilceRaw) continue;
+
+      // Kategori — "Satılık Arsa" veya "Satılık Tarla"
+      const tipProp = props.find((p) => p.name === "İlan Tipi");
+      const tipStr = tipProp?.value?.toLocaleLowerCase("tr") ?? "";
+      let kategori = kategoriHedef; // fallback: URL'den gelen kategori
+      if (tipStr.includes("tarla")) kategori = "tarla";
+      else if (tipStr.includes("arsa")) kategori = "arsa";
+
+      // ID — URL'den
+      const idMatch = (it.url ?? "").match(/-(\d{7,})$/);
+      const id = idMatch ? idMatch[1] : null;
+      if (!id) continue;
+
+      // Normalize
+      const ilceN = normalizeTr(ilceRaw);
+      const mahN = normalizeYerAdi(mahRaw) || null;
+
+      // il_norm — MERKEZ'den tahmin (ilçe adını il listesinde ara)
+      // Önce MERKEZ'den eşleşme dene
+      let ilN = null;
+      let lat = null;
+      let lng = null;
+      if (mahN && ilceN) {
+        // MERKEZ key: "il__ilce__mahalle"
+        for (const [key, coords] of Object.entries(MERKEZ)) {
+          const parts = key.split("__");
+          if (parts[1] === ilceN && (parts[2] === mahN || !mahN)) {
+            ilN = parts[0];
+            lat = coords[0];
+            lng = coords[1];
+            break;
+          }
+        }
+      }
+      // Fallback: sadece ilçe eşleşmesi
+      if (!ilN) {
+        for (const key of Object.keys(MERKEZ)) {
+          const parts = key.split("__");
+          if (parts[1] === ilceN) {
+            ilN = parts[0];
+            break;
+          }
+        }
+      }
+      if (!ilN) continue; // il bulunamazsa atla
+
+      sonuc.push({ id, ilN, ilceN, mahN, kategori, tlm2, m2, lat, lng });
+    }
+  }
+  return sonuc;
+}
+
 let _bc = null;
 export function detayParse(html) {
   let fiyat = null;
@@ -290,6 +377,24 @@ export async function ilTara(ilSlug, kategori, maxSayfa, kayitlar, gorulenler, M
     } catch {
       break;
     }
+
+    // Önce yeni JSON-LD liste parse'ı dene (detay sayfasına gitmez, çok daha hızlı)
+    const jsonLdIlanlar = listeJsonLdParse(html, kategori, MERKEZ);
+    if (jsonLdIlanlar.length > 0) {
+      let yeniBuSayfa = 0;
+      for (const ilan of jsonLdIlanlar) {
+        if (gorulenler.has(ilan.id)) continue;
+        gorulenler.add(ilan.id);
+        kayitlar.push(ilan);
+        eklenen++;
+        yeniBuSayfa++;
+      }
+      if (yeniBuSayfa === 0) break; // Tüm ilanlar görüldü, son sayfa
+      await uyku(opts.delayMs ?? 600);
+      continue;
+    }
+
+    // Fallback: eski detay sayfası yöntemi (JSON-LD yoksa)
     const linkler = listeLinkleri(html);
     if (linkler.length === 0) break;
     let yeniBuSayfa = 0;
