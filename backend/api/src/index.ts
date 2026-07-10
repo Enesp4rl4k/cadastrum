@@ -40,6 +40,7 @@ import { newsletterRoutes } from "./routes/newsletter.js";
 import { tcmbRoutes } from "./routes/tcmb.js";
 import { raporRoutes } from "./routes/rapor.js";
 import { telemetriRoutes } from "./routes/telemetri.js";
+import { haritaRoutes } from "./routes/harita.js";
 
 export interface Env {
   DB: D1Database;
@@ -107,6 +108,9 @@ app.route("/v1/api", publicApiRoutes);
 
 // CORS proxy — AFAD TDTH ve e-Plan extension'dan direkt çağrılamıyor (CORS)
 app.route("/v1/proxy", proxyRoutes);
+
+// Harita — TKGM analiz verisi D1'den (tek seferlik seed, site buradan okur)
+app.route("/v1/harita", haritaRoutes);
 
 // Otomatik scraper — aylık cron + admin manuel tetik
 app.route("/v1/scraper", scraperRoutes);

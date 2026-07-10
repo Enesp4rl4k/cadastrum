@@ -224,8 +224,127 @@ proxyRoutes.get("/tucbs/tile", async (c) => {
   }
 });
 
+// ── TKGM İdari Yapı (il/ilçe listesi) ────────────────────────────────────────
+// cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/idariYapi/ilceListe/{ilKodu}
+// Harita sayfasında ilçe kodlarını çekmek için — CORS engeli var, proxy gerekli.
+
+const TKGM_API_BASE = "https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api";
+const VALID_IDARI_TIP = new Set(["ilListe", "ilceListe", "mahalleListe"]);
+
+proxyRoutes.get("/tkgm-idari/:tip/:kod?", async (c) => {
+  const tip = c.req.param("tip");
+  const kod = c.req.param("kod");
+
+  if (!VALID_IDARI_TIP.has(tip)) {
+    return c.json({ error: "Geçersiz idari tip (ilListe | ilceListe | mahalleListe)" }, 400);
+  }
+
+  // ilListe kod gerektirmez; ilceListe ve mahalleListe gerektirir
+  if (tip !== "ilListe") {
+    if (!kod || !/^\d{1,6}$/.test(kod)) {
+      return c.json({ error: "Geçerli sayısal kod gerekli" }, 400);
+    }
+  }
+
+  const path = kod ? `${tip}/${kod}` : tip;
+  const url = `${TKGM_API_BASE}/idariYapi/${path}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
+        Origin: "https://parselsorgu.tkgm.gov.tr",
+        Referer: "https://parselsorgu.tkgm.gov.tr/",
+      },
+      cf: { cacheTtl: 86_400 * 30, cacheEverything: true } as never,
+    });
+    if (!res.ok) {
+      return c.json({ error: `TKGM idari HTTP ${res.status}` }, 502);
+    }
+    const text = await res.text();
+    return new Response(text, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=2592000", // 30 gün — idari yapı nadiren değişir
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
+// ── TKGM Analiz (alım-satım yoğunluğu) ───────────────────────────────────────
+// cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz?AnalizTip=1&Yil=2025&IlceId=XXX
+// Extension'daki LabView heatmap verisi — site haritasında da kullanmak için proxy.
+// Auth gerektirmiyor ama browser'dan CORS engeli var; Worker IP'sinden çözülür.
+
+const TKGM_ANALIZ_BASE = "https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz";
+const VALID_ANALIZ_TIP = new Set([1, 2, 3, 4, 5]);
+const ANALIZ_YIL_MIN = 2003;
+const ANALIZ_YIL_MAX = new Date().getFullYear();
+
+proxyRoutes.get("/tkgm-analiz", async (c) => {
+  const analizTipRaw = c.req.query("analizTip");
+  const yilRaw = c.req.query("yil");
+  const ilceKoduRaw = c.req.query("ilceKodu");
+
+  if (!analizTipRaw || !yilRaw || !ilceKoduRaw) {
+    return c.json({ error: "analizTip, yil, ilceKodu zorunlu" }, 400);
+  }
+
+  const analizTip = Number(analizTipRaw);
+  const yil = Number(yilRaw);
+  const ilceKodu = Number(ilceKoduRaw);
+
+  if (!VALID_ANALIZ_TIP.has(analizTip)) {
+    return c.json({ error: "analizTip 1–5 arasında olmalı" }, 400);
+  }
+  if (!Number.isInteger(yil) || yil < ANALIZ_YIL_MIN || yil > ANALIZ_YIL_MAX) {
+    return c.json({ error: `yil ${ANALIZ_YIL_MIN}–${ANALIZ_YIL_MAX} arasında olmalı` }, 400);
+  }
+  if (!Number.isInteger(ilceKodu) || ilceKodu <= 0 || ilceKodu > 99999) {
+    return c.json({ error: "ilceKodu geçersiz" }, 400);
+  }
+
+  const url = `${TKGM_ANALIZ_BASE}?AnalizTip=${analizTip}&Yil=${yil}&IlceId=${ilceKodu}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
+        // TKGM analiz endpoint'i parselsorgu.tkgm.gov.tr'den çağrılıyor
+        Origin: "https://parselsorgu.tkgm.gov.tr",
+        Referer: "https://parselsorgu.tkgm.gov.tr/",
+      },
+      // Cloudflare Cache: analiz verisi yıllık — 7 gün TTL yeterli
+      cf: { cacheTtl: 86_400 * 7, cacheEverything: true } as never,
+    });
+
+    if (!res.ok) {
+      return c.json({ error: `TKGM analiz HTTP ${res.status}` }, 502);
+    }
+
+    const text = await res.text();
+    return new Response(text, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        // 7 günlük public cache — CDN kenarında tutulur, backend'e istek gelmez
+        "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
 // ── Sağlık ────────────────────────────────────────────────────────────────────
 
 proxyRoutes.get("/health", (c) =>
-  c.json({ ok: true, services: ["eplan", "tucbs"] }),
+  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz"] }),
 );
