@@ -1,13 +1,18 @@
 /**
  * harita-init.ts
- * Türkiye Alım-Satım Yoğunluğu Haritası — MapLibre GL heatmap
+ * Türkiye Alım-Satım Yoğunluğu Haritası — MapLibre GL heatmap + POI katmanları
  *
  * Veri akışı:
  *   TKGM (tek seferlik) → scripts/tkgm-analiz-seed.mjs → D1
  *   Site → GET /v1/harita/analiz/birlesik → D1 → heatmap
  *
- * Ek katman: TUCBS Çevre Düzeni Planı WMS — backend proxy tile endpoint'i.
- * Zoom 8+'dan itibaren imar renkleri görünür, toggle ile açılıp kapanır.
+ * POI Katmanları (statik JSON):
+ *   - Havalimanları (DHMİ kamuya açık liste)
+ *   - OSB'ler (OSBÜK kamuya açık liste)
+ *   - Lojistik merkezler / limanlar
+ *
+ * Yatırım Skoru:
+ *   İlçe bazında OSB yakınlığı + havalimanı yakınlığı + tapu yoğunluğu birleşimi
  */
 
 const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
@@ -70,11 +75,59 @@ interface HeatPoint {
   properties: { sayi: number };
 }
 
+// ─── POI tipleri ──────────────────────────────────────────────────────────────
+
+interface PoiNokta {
+  id: string;
+  ad: string;
+  kisa?: string;
+  il?: string;
+  lat: number;
+  lng: number;
+  tip: string;
+}
+
+interface PoiVeri {
+  havalimanları: PoiNokta[];
+  osblar: PoiNokta[];
+  lojistik_merkezler: PoiNokta[];
+}
+
+// Aktif katman durumu — hangi POI katmanları açık
+const katmanDurum: Record<string, boolean> = {
+  "hava": false,
+  "osb": false,
+  "lojistik": false,
+  "cdp-imar": false,
+};
+
 let harita: import("maplibre-gl").Map | null = null;
 let aktifTip = 1;
 let yuklenenIlceler = new Set<string>();
 let tumNoktalar: HeatPoint[] = [];
 let yukleniyor = false;
+let poiVeri: PoiVeri | null = null;
+
+// ─── Haversine mesafe (km) ────────────────────────────────────────────────────
+
+function kmMesafe(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ─── POI statik verisini yükle ────────────────────────────────────────────────
+
+async function poiVeriYukle(): Promise<PoiVeri> {
+  if (poiVeri) return poiVeri;
+  const res = await fetch("/geo/poi-katmanlari.json");
+  if (!res.ok) throw new Error(`POI veri HTTP ${res.status}`);
+  poiVeri = await res.json() as PoiVeri;
+  return poiVeri;
+}
 
 // ─── D1 backend'den ilçe verisi çek ──────────────────────────────────────────
 
@@ -313,6 +366,305 @@ function legendGuncelle(tip: number) {
   });
 }
 
+// ─── POI GeoJSON source & layer yönetimi ─────────────────────────────────────
+
+function poiSourceEkle(id: string, noktalar: PoiNokta[]) {
+  if (!harita) return;
+  const geojson: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
+    features: noktalar.map((n) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [n.lng, n.lat] },
+      properties: { id: n.id, ad: n.ad, kisa: n.kisa ?? "", il: n.il ?? "", tip: n.tip },
+    })),
+  };
+  if (!harita.getSource(id)) {
+    harita.addSource(id, { type: "geojson", data: geojson });
+  }
+}
+
+// MLPopup — dinamik import sonrası atanır
+let MLPopup: typeof import("maplibre-gl").Popup | null = null;
+
+function poiPopupGoster(lngLat: import("maplibre-gl").LngLat, html: string) {
+  if (!harita || !MLPopup) return;
+  new MLPopup({ closeButton: true, maxWidth: "260px" })
+    .setLngLat(lngLat)
+    .setHTML(`<div style="font-family:inherit;padding:2px 4px">${html}</div>`)
+    .addTo(harita);
+}
+
+function havalimanıLayerEkle() {
+  if (!harita || harita.getLayer("poi-hava-circle")) return;
+  harita.addLayer({
+    id: "poi-hava-circle",
+    type: "circle",
+    source: "poi-hava",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5, 8, 10, 12, 16],
+      "circle-color": ["match", ["get", "tip"], "uluslararasi", "#38bdf8", "#7dd3fc"],
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "#0ea5e9",
+      "circle-opacity": 0.9,
+    },
+  });
+  harita.addLayer({
+    id: "poi-hava-label",
+    type: "symbol",
+    source: "poi-hava",
+    minzoom: 6,
+    layout: {
+      "text-field": ["get", "kisa"],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-size": 10,
+      "text-offset": [0, 1.4],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#e0f2fe", "text-halo-color": "#0c4a6e", "text-halo-width": 1.5 },
+  });
+  harita.on("click", "poi-hava-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p) return;
+    const tip = p["tip"] === "uluslararasi" ? "Uluslararası" : "İç Hat";
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${p["ad"] ?? ""}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">✈️ ${tip} Havalimanı</span>`);
+  });
+}
+
+function osbLayerEkle() {
+  if (!harita || harita.getLayer("poi-osb-circle")) return;
+  harita.addLayer({
+    id: "poi-osb-circle",
+    type: "circle",
+    source: "poi-osb",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"],
+        4, ["match", ["get", "tip"], "buyuk", 6, "orta", 4, 3],
+        8, ["match", ["get", "tip"], "buyuk", 12, "orta", 9, 6],
+        12, ["match", ["get", "tip"], "buyuk", 18, "orta", 14, 10],
+      ],
+      "circle-color": ["match", ["get", "tip"],
+        "buyuk", "#f59e0b", "orta", "#fbbf24", "ihtisas", "#a78bfa", "#fde68a"],
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#d97706",
+      "circle-opacity": 0.85,
+    },
+  });
+  harita.addLayer({
+    id: "poi-osb-label",
+    type: "symbol",
+    source: "poi-osb",
+    minzoom: 7,
+    layout: {
+      "text-field": ["get", "il"],
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-size": 9,
+      "text-offset": [0, 1.3],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#fef3c7", "text-halo-color": "#78350f", "text-halo-width": 1.2 },
+  });
+  harita.on("click", "poi-osb-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p) return;
+    const tipEtiket: Record<string, string> = {
+      buyuk: "Büyük OSB", orta: "Orta Ölçekli OSB", kucuk: "Küçük OSB", ihtisas: "İhtisas OSB",
+    };
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${p["ad"] ?? ""}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">🏭 ${tipEtiket[p["tip"] ?? ""] ?? "OSB"} · ${p["il"] ?? ""}</span>`);
+  });
+}
+
+function lojistikLayerEkle() {
+  if (!harita || harita.getLayer("poi-loj-circle")) return;
+  harita.addLayer({
+    id: "poi-loj-circle",
+    type: "circle",
+    source: "poi-loj",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5, 8, 10, 12, 15],
+      "circle-color": ["match", ["get", "tip"], "liman", "#34d399", "#6ee7b7"],
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#059669",
+      "circle-opacity": 0.85,
+    },
+  });
+  harita.addLayer({
+    id: "poi-loj-label",
+    type: "symbol",
+    source: "poi-loj",
+    minzoom: 7,
+    layout: {
+      "text-field": ["get", "il"],
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-size": 9,
+      "text-offset": [0, 1.3],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#d1fae5", "text-halo-color": "#064e3b", "text-halo-width": 1.2 },
+  });
+  harita.on("click", "poi-loj-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p) return;
+    const ikon = p["tip"] === "liman" ? "⚓" : "🚛";
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${p["ad"] ?? ""}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">${ikon} ${p["tip"] === "liman" ? "Liman" : "Lojistik Merkez"} · ${p["il"] ?? ""}</span>`);
+  });
+}
+
+// ─── Katman görünürlük toggle ─────────────────────────────────────────────────
+
+const POI_LAYER_MAP: Record<string, { layerIds: string[]; srcId: string; yukle: () => void }> = {
+  hava:     { layerIds: ["poi-hava-circle", "poi-hava-label"],   srcId: "poi-hava", yukle: havalimanıLayerEkle },
+  osb:      { layerIds: ["poi-osb-circle", "poi-osb-label"],     srcId: "poi-osb",  yukle: osbLayerEkle },
+  lojistik: { layerIds: ["poi-loj-circle", "poi-loj-label"],     srcId: "poi-loj",  yukle: lojistikLayerEkle },
+};
+
+async function katmanToggle(katman: string) {
+  if (!harita) return;
+  const acik = !katmanDurum[katman];
+  katmanDurum[katman] = acik;
+
+  // CDP imar katmanı özel mantık
+  if (katman === "cdp-imar") {
+    if (acik) {
+      cdpKatmanGuncelle();
+    } else {
+      if (aktifCdpSlug) {
+        const eskiLayer = `cdp-layer-${aktifCdpSlug}`;
+        if (harita.getLayer(eskiLayer)) {
+          harita.setLayoutProperty(eskiLayer, "visibility", "none");
+        }
+      }
+    }
+    btnToggleGuncelle(katman, acik);
+    return;
+  }
+
+  const cfg = POI_LAYER_MAP[katman];
+  if (!cfg) return;
+
+  if (acik) {
+    if (!harita.getSource(cfg.srcId)) {
+      const veri = await poiVeriYukle();
+      const noktaMap: Record<string, PoiNokta[]> = {
+        hava: veri.havalimanları,
+        osb: veri.osblar,
+        lojistik: veri.lojistik_merkezler,
+      };
+      poiSourceEkle(cfg.srcId, noktaMap[katman] ?? []);
+    }
+    cfg.yukle();
+    cfg.layerIds.forEach((id) => {
+      if (harita?.getLayer(id)) harita.setLayoutProperty(id, "visibility", "visible");
+    });
+  } else {
+    cfg.layerIds.forEach((id) => {
+      if (harita?.getLayer(id)) harita.setLayoutProperty(id, "visibility", "none");
+    });
+  }
+
+  btnToggleGuncelle(katman, acik);
+}
+
+function btnToggleGuncelle(katman: string, acik: boolean) {
+  const btn = document.querySelector(`[data-katman="${katman}"]`) as HTMLElement | null;
+  if (btn) {
+    btn.setAttribute("aria-pressed", acik ? "true" : "false");
+    btn.classList.toggle("bg-slate-600", acik);
+    btn.classList.toggle("text-white", acik);
+    btn.classList.toggle("text-slate-400", !acik);
+  }
+}
+
+// ─── TUCBS ÇDP İmar Katmanı (WMS tile) ───────────────────────────────────────
+// Her slug bölgesel ÇDP'yi kapsar. Viewport merkezi lng'ye göre slug seçilir.
+// Backend /v1/proxy/tucbs/tile?wms=SLUG&bbox=BBOX üzerinden proxy'lenir.
+
+const CDP_SLUGLARI: Array<{ slug: string; minLng: number; maxLng: number; ad: string }> = [
+  { slug: "csb_cdp_im_wms",      minLng: 26.0, maxLng: 29.5,  ad: "İstanbul ÇDP" },
+  { slug: "csb_cdp_ma_wms",      minLng: 32.0, maxLng: 37.5,  ad: "Adana-Mersin ÇDP" },
+  { slug: "csb_cdp_abi_wms",     minLng: 29.0, maxLng: 33.0,  ad: "Antalya ÇDP" },
+  { slug: "csb_cdp_kk_wms",      minLng: 34.5, maxLng: 40.0,  ad: "Karadeniz Kıyı ÇDP" },
+  { slug: "csb_cdp_ergene_wms",  minLng: 26.0, maxLng: 28.0,  ad: "Ergene ÇDP" },
+  { slug: "csb_cdp_knna_wms",    minLng: 32.5, maxLng: 36.0,  ad: "Konya-Karaman ÇDP" },
+  { slug: "csb_cdp_ysk_wms",     minLng: 36.5, maxLng: 43.0,  ad: "Doğu Anadolu ÇDP" },
+  { slug: "csb_cdp_zbk_wms",     minLng: 31.0, maxLng: 34.5,  ad: "Zonguldak-Bartın ÇDP" },
+  { slug: "csb_cdp_skc_wms",     minLng: 35.5, maxLng: 39.0,  ad: "Samsun-Çorum ÇDP" },
+  { slug: "csb_cdp_asd_wms",     minLng: 27.0, maxLng: 30.5,  ad: "Aydın-Söke ÇDP" },
+  { slug: "csb_cdp_mbv_wms",     minLng: 27.5, maxLng: 30.0,  ad: "Muğla-Bodrum ÇDP" },
+  { slug: "csb_cdp_akia_wms",    minLng: 29.5, maxLng: 33.5,  ad: "Akdeniz İç Alan ÇDP" },
+  { slug: "csb_cdp_yalova_wms",  minLng: 29.0, maxLng: 30.0,  ad: "Yalova ÇDP" },
+  { slug: "csb_cdp_kirikkale_wms", minLng: 32.5, maxLng: 34.5, ad: "Kırıkkale ÇDP" },
+  { slug: "csb_cdp_bolu_wms",    minLng: 30.5, maxLng: 32.5,  ad: "Bolu ÇDP" },
+  { slug: "csb_cdp_amasya_wms",  minLng: 35.0, maxLng: 37.5,  ad: "Amasya ÇDP" },
+  { slug: "csb_cdp_osmaniye_wms", minLng: 36.0, maxLng: 37.5, ad: "Osmaniye ÇDP" },
+  { slug: "csb_cdp_kilis_wms",   minLng: 36.5, maxLng: 38.0,  ad: "Kilis ÇDP" },
+];
+
+function cdpSlugSec(lng: number): string {
+  // En küçük alanı öne al — viewport merge çakışmasını önler
+  const eslesme = CDP_SLUGLARI
+    .filter((c) => lng >= c.minLng && lng <= c.maxLng)
+    .sort((a, b) => (a.maxLng - a.minLng) - (b.maxLng - b.minLng));
+  return eslesme[0]?.slug ?? "csb_cdp_im_wms";
+}
+
+function cdpImarKatmanEkle(slug: string) {
+  if (!harita) return;
+  const srcId = `cdp-src-${slug}`;
+  const layerId = `cdp-layer-${slug}`;
+  if (harita.getLayer(layerId)) {
+    harita.setLayoutProperty(layerId, "visibility", "visible");
+    return;
+  }
+  if (!harita.getSource(srcId)) {
+    harita.addSource(srcId, {
+      type: "raster",
+      tiles: [
+        `${API_BASE}/proxy/tucbs/tile?wms=${slug}&bbox={bbox-epsg-3857}`,
+      ],
+      tileSize: 256,
+      attribution: "© TUCBS / CSB — Çevre Düzeni Planı",
+    });
+  }
+  harita.addLayer({
+    id: layerId,
+    type: "raster",
+    source: srcId,
+    minzoom: 7,
+    maxzoom: 18,
+    paint: { "raster-opacity": 0.55 },
+  }, "heat-cloud"); // heatmap'in altına
+}
+
+let aktifCdpSlug: string | null = null;
+
+function cdpKatmanGuncelle() {
+  if (!harita || !katmanDurum["cdp-imar"]) return;
+  const center = harita.getCenter();
+  const yeniSlug = cdpSlugSec(center.lng);
+  if (yeniSlug === aktifCdpSlug) return;
+
+  // Eski slug'ı gizle
+  if (aktifCdpSlug) {
+    const eskiLayer = `cdp-layer-${aktifCdpSlug}`;
+    if (harita.getLayer(eskiLayer)) {
+      harita.setLayoutProperty(eskiLayer, "visibility", "none");
+    }
+  }
+  aktifCdpSlug = yeniSlug;
+  cdpImarKatmanEkle(yeniSlug);
+
+  // Bilgi etiketini güncelle
+  const bilgi = document.getElementById("cdp-bilgi");
+  const cdpInfo = CDP_SLUGLARI.find((c) => c.slug === yeniSlug);
+  if (bilgi && cdpInfo) bilgi.textContent = cdpInfo.ad;
+}
+
 function tipDegistir(yeniTip: number, ilceler: IlceBilgi[]) {
   aktifTip = yeniTip;
   tumNoktalar = [];
@@ -345,12 +697,18 @@ export async function initHarita() {
 
   document.getElementById("harita-yukleniyor")?.remove();
 
-  const { Map: MLMap, NavigationControl, AttributionControl } = await import("maplibre-gl");
+  const { Map: MLMap, NavigationControl, AttributionControl, Popup } = await import("maplibre-gl");
+  MLPopup = Popup;
 
   harita = new MLMap({
     container: "turkiye-harita",
     style: {
       version: 8,
+      // POI katmanlarındaki symbol/text-field layer'ları (havalimanı/OSB/liman
+      // etiketleri) glyphs olmadan sessizce başarısız oluyordu (MapLibre "error"
+      // event'i — throw etmiyor, log'a düşüyor). OpenMapTiles'ın açık glyphs
+      // servisi ile düzeltildi.
+      glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
       sources: {
         basemap: {
           type: "raster",
@@ -396,14 +754,22 @@ export async function initHarita() {
 
   harita.on("moveend", () => {
     void gorunenIlceleriYukle(ilceler);
+    cdpKatmanGuncelle();
   });
 
-  // Legend tıklama
+  // Legend tıklama — analiz tipi değiştir
   document.getElementById("analiz-legend")?.addEventListener("click", (e) => {
     const target = (e.target as HTMLElement).closest("[data-tip]") as HTMLElement | null;
     if (!target?.dataset["tip"]) return;
     const yeniTip = Number(target.dataset["tip"]);
     if (yeniTip === aktifTip) return;
     tipDegistir(yeniTip, ilceler);
+  });
+
+  // POI katman toggle butonları
+  document.getElementById("poi-katman-panel")?.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest("[data-katman]") as HTMLElement | null;
+    if (!btn?.dataset["katman"]) return;
+    void katmanToggle(btn.dataset["katman"]);
   });
 }

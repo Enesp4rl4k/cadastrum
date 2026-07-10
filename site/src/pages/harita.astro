@@ -66,8 +66,8 @@ import Base from "../layouts/Base.astro";
   <section class="bg-slate-900 min-h-screen">
     <div class="max-w-6xl mx-auto px-4 py-6">
 
-      <!-- Kontrol şeridi -->
-      <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
+      <!-- Kontrol şeridi — analiz tipi + yıl -->
+      <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-3">
 
         <!-- Analiz tipi legend (JS ile doldurulur) -->
         <div
@@ -88,6 +88,62 @@ import Base from "../layouts/Base.astro";
           >
             <!-- JS tarafından doldurulur -->
           </select>
+        </div>
+      </div>
+
+      <!-- POI Katman Paneli -->
+      <div
+        id="poi-katman-panel"
+        class="flex flex-wrap items-center gap-2 mb-4"
+        role="group"
+        aria-label="Harita katmanları"
+      >
+        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider pr-1">Katmanlar:</span>
+
+        <!-- Havalimanları -->
+        <button
+          data-katman="hava"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-sky-500 hover:text-sky-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-sky-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0" aria-hidden="true"></span>
+          ✈️ Havalimanları
+        </button>
+
+        <!-- OSB'ler -->
+        <button
+          data-katman="osb"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-amber-500 hover:text-amber-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-amber-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true"></span>
+          🏭 OSB'ler
+        </button>
+
+        <!-- Lojistik / Limanlar -->
+        <button
+          data-katman="lojistik"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-emerald-500 hover:text-emerald-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-emerald-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true"></span>
+          ⚓ Liman & Lojistik
+        </button>
+
+        <!-- TUCBS ÇDP İmar Planı -->
+        <button
+          data-katman="cdp-imar"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-violet-500 hover:text-violet-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-violet-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-violet-400 shrink-0" aria-hidden="true"></span>
+          🗺️ ÇDP İmar Planı
+        </button>
+
+        <!-- CDP aktif plan adı + legend açıklaması -->
+        <div class="ml-auto flex items-center gap-3">
+          <span id="cdp-bilgi" class="text-xs text-violet-400 hidden sm:block"></span>
+          <span class="text-xs text-slate-600 hidden sm:block">Tıkla → katmanı aç/kapat</span>
         </div>
       </div>
 
@@ -122,34 +178,42 @@ import Base from "../layouts/Base.astro";
   <section class="bg-white py-12 border-t border-slate-100">
     <div class="max-w-6xl mx-auto px-4">
       <h2 class="font-display text-2xl font-bold text-imperial-700 mb-6">Veri Kaynağı & Metodoloji</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
           <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">1</div>
           <h3 class="font-display font-semibold text-imperial-700 mb-2">TKGM Resmi API</h3>
           <p class="text-sm text-slate-600 leading-relaxed">
-            Tapu ve Kadastro Genel Müdürlüğü'nün <code class="text-xs bg-slate-100 px-1 rounded">cbsapi.tkgm.gov.tr</code> 
-            endpoint'inden gerçek parsel işlem koordinatları ve sayıları.
+            Tapu ve Kadastro Genel Müdürlüğü'nün kamuya açık parsel analiz servisi.
+            Alım-satım, ipotek dahil 5 işlem tipi — 2003'ten bugüne.
           </p>
         </div>
         <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
-          <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">2</div>
-          <h3 class="font-display font-semibold text-imperial-700 mb-2">5 İşlem Tipi</h3>
+          <div class="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center mb-3 font-bold text-sm">✈️</div>
+          <h3 class="font-display font-semibold text-sky-700 mb-2">DHMİ Havalimanları</h3>
           <p class="text-sm text-slate-600 leading-relaxed">
-            Alım-satım, ana taşınmaz satış/ipotek, bağımsız bölüm satış/ipotek.
-            2003'ten günümüze yıllık bazda karşılaştırma.
+            Devlet Hava Meydanları İşletmesi'nin kamuya açık listesinden
+            30 havalimanı — uluslararası ve iç hat ayrımıyla.
           </p>
         </div>
         <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
-          <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">3</div>
-          <h3 class="font-display font-semibold text-imperial-700 mb-2">Lazy Yükleme</h3>
+          <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-3 font-bold text-sm">🏭</div>
+          <h3 class="font-display font-semibold text-amber-700 mb-2">OSBÜK Veritabanı</h3>
           <p class="text-sm text-slate-600 leading-relaxed">
-            Sadece görünen ilçeler yüklenir. Zoom & pan yapınca yeni bölgeler
-            otomatik eklenir — 7 gün CDN cache ile hızlı.
+            Organize Sanayi Bölgeleri Üst Kuruluşu'nun kamuya açık listesinden
+            35+ OSB — büyük, orta ve ihtisas ayrımıyla.
+          </p>
+        </div>
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 font-bold text-sm">⚓</div>
+          <h3 class="font-display font-semibold text-emerald-700 mb-2">Liman & Lojistik</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Türkiye'nin ana limanları ve lojistik merkezleri —
+            Mersin, İzmir, Samsun, Trabzon dahil 8 kritik nokta.
           </p>
         </div>
       </div>
       <p class="mt-4 text-xs text-slate-400">
-        ⚠️ Veriler TKGM'nin kamuya açık analiz servisinden alınmaktadır. Yıllık güncelleme — anlık satış verisi değildir.
+        ⚠️ Tapu verileri TKGM'nin kamuya açık servisinden alınmaktadır. POI katmanları (havalimanı, OSB, liman) kamuya açık idari listelerden derlenmiştir. Yıllık güncelleme — anlık satış verisi değildir.
       </p>
     </div>
   </section>
