@@ -1,0 +1,19 @@
+src/lib/data/mahalle-baseline.ts
+  s_24becf542a459b::t_1f1e80cf06c666 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ffc7e7bfa608e7ad8b8aadf2c209a6faa8a3f6fd",
+  "prompts": {},
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
