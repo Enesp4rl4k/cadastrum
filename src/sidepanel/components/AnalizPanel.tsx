@@ -401,9 +401,14 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       {/* Doğal veri katmanı — AFAD deprem + iklim + toprak (Cadastrum içinde) */}
       <DogalVeriKarti parsel={parsel} />
 
-      {/* TUCBS Çevre Düzeni Planı — üst plan arazi kullanımı */}
+      {/* İmar & Üst Plan — e-Plan KAKS + TUCBS ÇDP birleşik kart */}
       {acikModuller.includes("cdp-tucbs") && (
-        <CdpKarti veri={tucbsVerisi} loading={tucbsLoading} />
+        <CdpKarti
+          veri={tucbsVerisi}
+          loading={tucbsLoading}
+          ePlan={birlesikImar ?? ePlanVerisi}
+          ePlanLoading={ePlanLoading}
+        />
       )}
 
       {/* Risk taraması — fiyat tahmin kartından ÖNCE: yatırım öncesi kritik */}

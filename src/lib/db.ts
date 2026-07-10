@@ -129,6 +129,45 @@ export interface TucbsCdpCache {
 }
 
 /**
+ * Fiyat trendi cache — mahalle/ilçe bazlı haftalık TL/m² zaman serisi.
+ *
+ * Key: `${ilceNorm}|${mahalleNorm}|${kategori}` (mahalle) veya
+ *      `${ilceNorm}||${kategori}` (ilçe fallback).
+ *
+ * TTL: 7 gün. Her hafta ilanGozlem tablosundan yeniden hesaplanır.
+ * Haftalık bucket'lar: ISO hafta (2024-W01 formatı) → medyan TL/m².
+ */
+export interface HaftalikNokta {
+  /** ISO hafta: "2024-W01" */
+  hafta: string;
+  /** Hafta başlangıcı unix timestamp (ms) */
+  ts: number;
+  /** Medyan TL/m² o haftaki ilanlardan */
+  medyanPerM2: number;
+  /** Ortalama TL/m² */
+  ortalamaPerM2: number;
+  /** O haftaki ilan sayısı */
+  ilanAdet: number;
+}
+
+export interface FiyatTrendi {
+  /** Composite key: `${ilceNorm}|${mahalleNorm}|${kategori}` */
+  key: string;
+  ilceNorm: string;
+  mahalleNorm: string;
+  /** "tum" = tüm kategoriler birlikte */
+  kategori: "tum" | "arsa" | "tarla";
+  /** Kronolojik sıralı haftalık noktalar (son 52 hafta) */
+  noktalar: HaftalikNokta[];
+  /** Toplam kullanılan ilan sayısı */
+  toplamIlan: number;
+  /** Hesaplama tarihi */
+  fetchedAt: number;
+  /** Veri kapsama bilgisi: "mahalle" veya "ilce" */
+  seviye: "mahalle" | "ilce";
+}
+
+/**
  * Bootstrap detay zenginleştirme kuyruğu (Faz 5 / Sahibinden Scraper).
  *
  * Liste taramasında her yeni ilan koordsuz olarak Dexie'ye yazılır; ayrı bir
@@ -180,6 +219,7 @@ class ArsaDB extends Dexie {
   tucbsCdpCache!: Table<TucbsCdpCache, string>;
   detayKuyrugu!: Table<DetayKuyrukKayit, string>;
   mahalleAlias!: Table<MahalleAliasKayit, string>;
+  fiyatTrendi!: Table<FiyatTrendi, string>;
 
   constructor() {
     super("ArsaTKGM");
@@ -340,6 +380,45 @@ class ArsaDB extends Dexie {
       detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
       mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
       tucbsCdpCache: "&key, fetchedAt",
+    });
+    // v14: useBolgeOrtalama performans fix — [ilceNorm+mahalleNorm] compound index.
+    // v13'te ilanGozlem full-scan yapılıyordu (toArray() → client-side filter).
+    // Bu index ile direkt where().equals() sorgusu mümkün: 10-50x hız farkı.
+    // Schema additive — tablolar değişmedi, sadece yeni index eklendi.
+    this.version(14).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+    });
+    // v15: fiyatTrendi cache — mahalle/ilçe bazlı haftalık fiyat zaman serisi.
+    // Key format: `${ilceNorm}|${mahalleNorm}|${kategori}` (mahalle) veya
+    //             `${ilceNorm}||${kategori}` (ilçe seviyesi fallback).
+    // TTL: 7 gün — haftalık yeniden hesaplama yeterli.
+    this.version(15).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+      fiyatTrendi: "&key, fetchedAt",
     });
   }
 }
