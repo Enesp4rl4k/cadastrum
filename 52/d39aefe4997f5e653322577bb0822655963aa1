@@ -1,0 +1,23 @@
+vitest.config.ts
+  s_24becf542a459b::t_9f4fee9a520b77 6
+scripts/emlakjet-lib.spec.mjs
+  s_24becf542a459b::t_49f8df0ed7193e 1-417
+scripts/emlakjet-iltara.spec.mjs
+  s_24becf542a459b::t_80c82dbef557ba 1-407
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "52d39aefe4997f5e653322577bb0822655963aa1",
+  "prompts": {},
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
