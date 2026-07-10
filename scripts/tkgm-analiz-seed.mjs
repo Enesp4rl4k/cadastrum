@@ -123,6 +123,24 @@ function ilerlemKaydet(ilceKodu, durum) {
   writeFileSync(ILERLEME_DOSYA, JSON.stringify(kayit, null, 2));
 }
 
+// ─── Öncelikli il sırası ──────────────────────────────────────────────────────
+
+/**
+ * Büyük metropol + yüksek emlak/arsa talebi gören iller önce, kalan 51 il
+ * plaka koduna göre arkadan gelir. TKGM günlük limiti tüm illeri tek günde
+ * bitirmeye yetmediği için harita'nın en çok bakılan bölgelerde önce
+ * "dolu" görünmesini sağlar.
+ */
+function oncelikliIlSirasi() {
+  const ONCELIK = [
+    34, 6, 35, 7, 16, 48, 41, 9, 20, 10, // İstanbul, Ankara, İzmir, Antalya, Bursa, Muğla, Kocaeli, Aydın, Denizli, Balıkesir
+    59, 77, 54, 42, 27, 38, 1, 33, 63, 21, // Tekirdağ, Yalova, Sakarya, Konya, Gaziantep, Kayseri, Adana, Mersin, Şanlıurfa, Diyarbakır
+    44, 61, 55, 46, 31, 45, 26, 58, 25, 52, // Malatya, Trabzon, Samsun, K.maraş, Hatay, Manisa, Eskişehir, Sivas, Erzurum, Ordu
+  ];
+  const kalan = Array.from({ length: 81 }, (_, i) => i + 1).filter((k) => !ONCELIK.includes(k));
+  return [...ONCELIK, ...kalan];
+}
+
 // ─── Ana akış ─────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -134,10 +152,9 @@ async function main() {
   const ilerleme = ilerlemeYukle();
   const tamamlanan = new Set(ilerleme.tamamlananIlceler);
 
-  // İl listesi al
-  const ilKodlari = SADECE_IL
-    ? [SADECE_IL]
-    : Array.from({ length: 81 }, (_, i) => i + 1);
+  // İl listesi al — büyük/yüksek talep gören iller önce (harita hızlı "dolu" görünsün),
+  // kalan iller arkadan plaka koduna göre gelir.
+  const ilKodlari = SADECE_IL ? [SADECE_IL] : oncelikliIlSirasi();
 
   let toplamIlce = 0;
   let toplamNokta = 0;
