@@ -114,6 +114,7 @@ export const GET: APIRoute = () => {
   // Statik sayfalar
   entries.push({ loc: `${SITE}/`, changefreq: "weekly", priority: 1.0, lastmod: TODAY });
   entries.push({ loc: `${SITE}/fiyat`, changefreq: "monthly", priority: 0.8, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/harita`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
   entries.push({ loc: `${SITE}/sss`, changefreq: "monthly", priority: 0.5, lastmod: TODAY });
   entries.push({ loc: `${SITE}/gizlilik`, changefreq: "monthly", priority: 0.3 });
   entries.push({ loc: `${SITE}/kullanim-sartlari`, changefreq: "monthly", priority: 0.3 });

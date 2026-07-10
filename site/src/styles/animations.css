@@ -1,72 +1,100 @@
-/* Cadastrum — kurumsal restrained animasyon paleti
- * Prensip: 200-500ms süre, ease-out, mesafeler küçük (< 24px),
- * her şey isteğe bağlı (prefers-reduced-motion respect).
- */
+/* =============================================================================
+ * Cadastrum — Motion System v2
+ *
+ * Principles (impeccable + design-motion-principles):
+ *   1. Every interaction has a physical counterpart — spring, mass, friction.
+ *   2. Motion is purposeful: it directs attention, communicates hierarchy.
+ *   3. Nothing is instant (teleport). Enter ≠ exit (asymmetric easing).
+ *   4. Duration hierarchy: micro 80ms → element 300ms → scene 600ms → cinematic 1200ms
+ *   5. Springs: cubic-bezier(0.34, 1.56, 0.64, 1) for snappy physical feel.
+ *              cubic-bezier(0.16, 1, 0.3, 1)  for smooth deceleration.
+ *              cubic-bezier(0.4, 0, 0.2, 1)   for shared-axis transitions.
+ *   6. prefers-reduced-motion: everything falls back to instant-visible.
+ * ============================================================================= */
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * EASING TOKENS (used via CSS custom properties where possible)
+ * ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  --ease-spring:      cubic-bezier(0.34, 1.56, 0.64, 1);   /* overshoot / snappy */
+  --ease-out-expo:    cubic-bezier(0.16, 1, 0.3, 1);        /* smooth deceleration */
+  --ease-in-out:      cubic-bezier(0.4, 0, 0.2, 1);         /* shared-axis */
+  --ease-out-back:    cubic-bezier(0.34, 1.3, 0.64, 1);     /* gentle overshoot */
+
+  /* Duration tokens */
+  --dur-micro:   80ms;
+  --dur-element: 300ms;
+  --dur-scene:   600ms;
+  --dur-hero:    900ms;
+  --dur-cinema:  1200ms;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * SCROLL REVEAL — data-reveal / data-reveal-stagger
+ * Entrance: decelerate (out-expo). Exit not animated (content persists).
+ * ───────────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: no-preference) {
 
-  /* === Reveal on scroll ===
-   * data-reveal element'leri ilk başta görünmez/aşağıda durur,
-   * IntersectionObserver tarafından .is-visible eklenince ortaya çıkar.
-   */
   [data-reveal] {
     opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
-                transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateY(20px);
+    transition:
+      opacity  var(--dur-scene) var(--ease-out-expo),
+      transform var(--dur-scene) var(--ease-out-expo);
+    will-change: opacity, transform;
   }
   [data-reveal].is-visible {
     opacity: 1;
     transform: translateY(0);
+    will-change: auto;
   }
-  /* Stagger child'lar */
+
+  /* Stagger — children fan out with 70ms offset, max 6 children */
   [data-reveal-stagger] > * {
     opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
-                transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateY(18px);
+    transition:
+      opacity  700ms var(--ease-out-expo),
+      transform 700ms var(--ease-out-expo);
+    will-change: opacity, transform;
   }
-  [data-reveal-stagger].is-visible > *:nth-child(1) { transition-delay: 0ms; }
-  [data-reveal-stagger].is-visible > *:nth-child(2) { transition-delay: 80ms; }
-  [data-reveal-stagger].is-visible > *:nth-child(3) { transition-delay: 160ms; }
-  [data-reveal-stagger].is-visible > *:nth-child(4) { transition-delay: 240ms; }
-  [data-reveal-stagger].is-visible > *:nth-child(5) { transition-delay: 320ms; }
-  [data-reveal-stagger].is-visible > *:nth-child(6) { transition-delay: 400ms; }
   [data-reveal-stagger].is-visible > * {
     opacity: 1;
     transform: translateY(0);
+    will-change: auto;
   }
+  [data-reveal-stagger].is-visible > *:nth-child(1) { transition-delay:   0ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(2) { transition-delay:  70ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(3) { transition-delay: 140ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(4) { transition-delay: 210ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(5) { transition-delay: 280ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(6) { transition-delay: 350ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(7) { transition-delay: 420ms; }
+  [data-reveal-stagger].is-visible > *:nth-child(8) { transition-delay: 490ms; }
+}
 
-  /* === Hero text reveal (sayfa yüklenince tetiklenir) === */
-  .hero-line {
-    opacity: 0;
-    transform: translateY(20px);
-    animation: hero-line-in 800ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  .hero-line:nth-child(2) { animation-delay: 100ms; }
-  .hero-line:nth-child(3) { animation-delay: 200ms; }
-  .hero-line:nth-child(4) { animation-delay: 300ms; }
-
-  @keyframes hero-line-in {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* === Marquee — sürekli kaydıran integration logoları === */
+/* ─────────────────────────────────────────────────────────────────────────────
+ * MARQUEE — integration logos, infinite scroll
+ * ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
   .marquee-track {
     animation: marquee 40s linear infinite;
   }
   @keyframes marquee {
     from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+    to   { transform: translateX(-50%); }
   }
   .marquee:hover .marquee-track {
     animation-play-state: paused;
   }
+}
 
-  /* === Mock card pulsing dot === */
+/* ─────────────────────────────────────────────────────────────────────────────
+ * MOCK CARD — field-row stagger reveal, pulse dot
+ * ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Pulse dot ring (live indicator) */
   .pulse-dot::before {
     content: "";
     position: absolute;
@@ -74,58 +102,147 @@
     border-radius: inherit;
     background: currentColor;
     opacity: 0.5;
-    animation: pulse-ring 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: pulse-ring 2s var(--ease-out-expo) infinite;
   }
   @keyframes pulse-ring {
-    0% { transform: scale(1); opacity: 0.5; }
+    0%   { transform: scale(1);   opacity: 0.5; }
     100% { transform: scale(2.4); opacity: 0; }
   }
 
-  /* === Mock card field reveal === */
+  /* Field rows: slide in from left with spring bounce */
   .field-row {
     opacity: 0;
-    transform: translateX(-8px);
-    animation: field-in 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform: translateX(-10px);
+    animation: field-in 500ms var(--ease-spring) forwards;
   }
-  .field-row:nth-child(1) { animation-delay: 800ms; }
+  .field-row:nth-child(1) { animation-delay:  800ms; }
   .field-row:nth-child(2) { animation-delay: 1000ms; }
-  .field-row:nth-child(3) { animation-delay: 1200ms; }
-  .field-row:nth-child(4) { animation-delay: 1400ms; }
-  .field-row:nth-child(5) { animation-delay: 1600ms; }
+  .field-row:nth-child(3) { animation-delay: 1150ms; }
+  .field-row:nth-child(4) { animation-delay: 1300ms; }
+  .field-row:nth-child(5) { animation-delay: 1450ms; }
   @keyframes field-in {
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    to { opacity: 1; transform: translateX(0); }
   }
 
-  /* === Number counter — basit fade-in (gerçek count-up JS ile) === */
+  /* Number counter */
   .counter {
     font-variant-numeric: tabular-nums;
-    transition: opacity 400ms ease-out;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * BUTTON INTERACTIONS
+ * Press: scale down (physical weight). Release: spring back.
+ * Hover: lift + shadow bloom.
+ * ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-champagne {
+    transition:
+      transform     var(--dur-element) var(--ease-spring),
+      box-shadow    var(--dur-element) var(--ease-out-expo),
+      background-color 200ms var(--ease-in-out),
+      border-color  200ms var(--ease-in-out);
+    transform-origin: center;
+    position: relative;
+    overflow: hidden;
   }
 
-  /* === Button hover === */
-  .btn-primary, .btn-secondary {
-    transition: transform 200ms ease-out, box-shadow 200ms ease-out, background-color 200ms;
-  }
+  /* Lift on hover */
   .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px -8px rgba(27, 42, 74, 0.5);
+  }
+  .btn-secondary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 20px -8px rgba(13, 110, 253, 0.5);
+    box-shadow: 0 6px 16px -6px rgba(27, 42, 74, 0.2);
+  }
+  .btn-champagne:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px -8px rgba(201, 168, 106, 0.5);
   }
 
-  /* === Card hover lift === */
+  /* Press: physical compression */
+  .btn-primary:active,
+  .btn-secondary:active,
+  .btn-champagne:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: none;
+    transition-duration: var(--dur-micro);
+  }
+
+  /* Shimmer sweep on hover — light catches the surface */
+  .btn-primary::after,
+  .btn-champagne::after {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.18),
+      transparent
+    );
+    transform: skewX(-20deg);
+    transition: none;
+    pointer-events: none;
+  }
+  .btn-primary:hover::after,
+  .btn-champagne:hover::after {
+    animation: btn-shimmer 500ms var(--ease-out-expo) forwards;
+  }
+  @keyframes btn-shimmer {
+    from { left: -100%; }
+    to   { left: 160%; }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * CARD INTERACTIONS — bento grid, pricing, feature cards
+ * Tilt effect is handled via JS (data-tilt). CSS handles lift + border glow.
+ * ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+
   .card-lift {
-    transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1),
-                box-shadow 250ms cubic-bezier(0.16, 1, 0.3, 1),
-                border-color 250ms;
+    transition:
+      transform   250ms var(--ease-spring),
+      box-shadow  250ms var(--ease-out-expo),
+      border-color 250ms var(--ease-out-expo);
+    will-change: transform;
+    transform-style: preserve-3d;
   }
   .card-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px -16px rgba(15, 23, 42, 0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 40px -16px rgba(15, 23, 42, 0.18);
   }
 
-  /* === Pricing popular tier glow === */
+  /* Bento card — 3D tilt support (JS sets --rx, --ry) */
+  .bento-card {
+    transition:
+      transform   350ms var(--ease-out-expo),
+      box-shadow  350ms var(--ease-out-expo),
+      border-color 350ms var(--ease-out-expo);
+    will-change: transform;
+    transform-style: preserve-3d;
+    /* Tilt applied via JS: transform: perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) */
+  }
+  .bento-card:hover {
+    box-shadow: 0 20px 48px -16px rgba(15, 23, 42, 0.16);
+    border-color: rgba(201, 168, 106, 0.3);
+  }
+  /* Reset on mouse leave — spring back */
+  .bento-card.tilt-reset {
+    transition:
+      transform   500ms var(--ease-spring),
+      box-shadow  500ms var(--ease-out-expo),
+      border-color 500ms var(--ease-out-expo);
+  }
+
+  /* Pricing tier popular glow border */
   .tier-popular {
     position: relative;
     overflow: hidden;
@@ -136,28 +253,27 @@
     inset: -1px;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, #0d6efd, #60a5fa, #0d6efd);
+    background: linear-gradient(135deg, #1B2A4A 0%, #C9A86A 50%, #1B2A4A 100%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     background-size: 200% 200%;
-    animation: gradient-shift 4s ease infinite;
+    animation: gradient-shift 4s var(--ease-in-out) infinite;
     pointer-events: none;
     z-index: 0;
   }
   @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
   }
 }
 
-/* ========================================================================
+/* ─────────────────────────────────────────────────────────────────────────────
  * HERO SCROLL-SCRUB — sticky cinematic stage
  * Outer track = scroll room; sticky panel pins while --hero-p goes 0→1
- * ======================================================================== */
-
+ * ───────────────────────────────────────────────────────────────────────────── */
 .hero-scrub {
   position: relative;
   height: calc(var(--hero-scrub-vh, 1.85) * 100vh);
@@ -189,27 +305,22 @@
 
 .hero-scrub-rail-fill {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 0; right: 0; bottom: 0;
   height: calc(var(--hero-p, 0) * 100%);
   background: linear-gradient(180deg, #C9A86A, #1B2A4A);
   border-radius: inherit;
+  transition: height 16ms linear; /* smooth on each frame */
 }
 
 @media (max-width: 767px) {
-  /* Mobile: stacked copy + mock card routinely exceeds any fixed vh budget —
-     drop the sticky pin and let the cinematic bg reveal as a normal scroll-past. */
   .hero-scrub {
     height: auto;
   }
-
   .hero-scrub-sticky {
     position: relative;
     top: auto;
     min-height: 0;
   }
-
   .hero-scrub-rail {
     display: none;
   }
@@ -217,37 +328,30 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .hero-mock-parallax {
-    /* Entrance animasyonu .hero-mock-wrap'ta; parallax iç sarmalayıcıda */
     transform: translate3d(0, calc(var(--hero-p, 0) * -14px), 0);
     will-change: transform;
+    transition: transform 16ms linear;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-scrub {
-    height: auto;
-  }
-
-  .hero-scrub-sticky {
-    position: relative;
-    min-height: 0;
-  }
-
-  .hero-scrub-rail {
-    display: none;
-  }
+  .hero-scrub       { height: auto; }
+  .hero-scrub-sticky { position: relative; min-height: 0; }
+  .hero-scrub-rail  { display: none; }
 }
 
-/* === Mesh gradient (Imperial + Champagne, premium) === */
+/* ─────────────────────────────────────────────────────────────────────────────
+ * BACKGROUNDS — mesh, aurora, dot grid, topo
+ * ───────────────────────────────────────────────────────────────────────────── */
+
 .mesh-gradient {
   background-color: #FBFAF7;
   background-image:
     radial-gradient(at 15% 15%, rgba(27, 42, 74, 0.08) 0px, transparent 50%),
-    radial-gradient(at 85% 5%, rgba(201, 168, 106, 0.10) 0px, transparent 45%),
+    radial-gradient(at 85%  5%, rgba(201, 168, 106, 0.10) 0px, transparent 45%),
     radial-gradient(at 80% 85%, rgba(27, 42, 74, 0.05) 0px, transparent 50%);
 }
 
-/* === Aurora — yavaş yavaş kayan animasyonlu mesh (hero arka planı için) === */
 .aurora {
   background-color: #FBFAF7;
   background-image:
@@ -264,63 +368,59 @@
   }
 }
 @keyframes aurora-drift {
-  0% { background-position: 0% 0%; }
+  0%   { background-position: 0% 0%; }
   100% { background-position: 100% 100%; }
 }
 
-/* === Dot grid pattern (imperial subtle) === */
 .dot-grid {
   background-image: radial-gradient(circle at 1px 1px, rgba(27, 42, 74, 0.10) 1px, transparent 0);
   background-size: 24px 24px;
 }
 
-/* ========================================================================
- * HERO BÜYÜK AÇILIŞ SEKANSI — sinematik, ~2 saniye orchestrated
- * Sıra: aurora fade → pill scale → text mask wipe → underline draw →
- *       açıklama fade → CTA stagger → trust badge → mock card slide
- * ======================================================================== */
+/* ─────────────────────────────────────────────────────────────────────────────
+ * HERO OPENING SEQUENCE — orchestrated ~2s cinematic entrance
+ * Philosophy: each element enters when the eye naturally turns to it.
+ * Stage: aurora → pill → headline (mask wipe) → underline draw →
+ *        description → CTAs → trust → mock card
+ * ───────────────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: no-preference) {
 
-  /* 0-400ms: Aurora arka plan opacity'si fade-in */
+  /* Stage fade-in (entire hero surface) */
   .hero-stage {
-    animation: stage-in 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: stage-in 500ms var(--ease-out-expo) forwards;
     opacity: 0;
   }
   @keyframes stage-in {
     to { opacity: 1; }
   }
 
-  /* 200ms: Yeni özellik pill — küçük scale-up + opacity */
+  /* Pills — spring scale-up from above (200ms) */
   .hero-pill {
     opacity: 0;
-    transform: translateY(-8px) scale(0.92);
-    animation: hero-pill-in 600ms cubic-bezier(0.34, 1.4, 0.64, 1) 200ms forwards;
+    transform: translateY(-10px) scale(0.88);
+    animation: hero-pill-in 550ms var(--ease-spring) 200ms forwards;
   }
   @keyframes hero-pill-in {
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
-  /* 400-1400ms: Hero text — clip-path wipe (aşağıdan yukarıya beliren maske) */
+  /* Headline — clip-path wipe from bottom (lines stagger 200ms each) */
   .hero-headline > .hero-line {
-    /* Bu .hero-line var olan animasyonu override ediyor */
-    opacity: 1;
+    opacity: 1;          /* override base .hero-line */
     transform: none;
-    clip-path: inset(0 0 100% 0);
-    animation: hero-mask-reveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    clip-path: inset(0 0 105% 0);
+    animation: hero-mask-reveal var(--dur-hero) var(--ease-out-expo) forwards;
   }
-  .hero-headline > .hero-line:nth-child(1) { animation-delay: 400ms; }
-  .hero-headline > .hero-line:nth-child(2) { animation-delay: 600ms; }
-  .hero-headline > .hero-line:nth-child(3) { animation-delay: 800ms; }
+  .hero-headline > .hero-line:nth-child(1) { animation-delay: 380ms; }
+  .hero-headline > .hero-line:nth-child(2) { animation-delay: 560ms; }
+  .hero-headline > .hero-line:nth-child(3) { animation-delay: 740ms; }
   @keyframes hero-mask-reveal {
-    from { clip-path: inset(0 0 100% 0); }
-    to { clip-path: inset(0 0 0 0); }
+    from { clip-path: inset(0 0 105% 0); }
+    to   { clip-path: inset(0 0 0% 0); }
   }
 
-  /* Champagne underline — "resmi veriyle" altında çizilen çizgi (1100ms) */
+  /* Champagne underline draw (1100ms after page load) */
   .accent-underline {
     position: relative;
     display: inline-block;
@@ -328,67 +428,67 @@
   .accent-underline::after {
     content: "";
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 0; right: 0;
     bottom: -0.06em;
-    height: 0.12em;
-    background: linear-gradient(90deg, #C9A86A 0%, #D2B375 100%);
+    height: 0.13em;
+    background: linear-gradient(90deg, #C9A86A 0%, #E8CF93 50%, #C9A86A 100%);
+    background-size: 200% 100%;
     transform-origin: left center;
     transform: scaleX(0);
-    animation: underline-draw 700ms cubic-bezier(0.65, 0, 0.35, 1) 1200ms forwards;
+    animation:
+      underline-draw   700ms var(--ease-out-expo) 1100ms forwards,
+      underline-shimmer 2s   linear                2000ms infinite;
     border-radius: 999px;
   }
   @keyframes underline-draw {
     to { transform: scaleX(1); }
   }
+  @keyframes underline-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 
-  /* 1500ms: Açıklama fade-up */
+  /* Description fade-up */
   .hero-desc {
     opacity: 0;
-    transform: translateY(12px);
-    animation: hero-fade-up 700ms cubic-bezier(0.16, 1, 0.3, 1) 1500ms forwards;
+    transform: translateY(14px);
+    animation: hero-fade-up 650ms var(--ease-out-expo) 1400ms forwards;
   }
   @keyframes hero-fade-up {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  /* 1700-1850ms: CTA butonları stagger */
+  /* CTAs — stagger with spring */
   .hero-cta-group > * {
     opacity: 0;
     transform: translateY(12px);
-    animation: hero-fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: hero-fade-up 600ms var(--ease-spring) forwards;
   }
-  .hero-cta-group > *:nth-child(1) { animation-delay: 1700ms; }
-  .hero-cta-group > *:nth-child(2) { animation-delay: 1850ms; }
+  .hero-cta-group > *:nth-child(1) { animation-delay: 1600ms; }
+  .hero-cta-group > *:nth-child(2) { animation-delay: 1750ms; }
 
-  /* 2000ms: Trust badges */
+  /* Trust row */
   .hero-trust {
     opacity: 0;
-    animation: stage-in 600ms ease-out 2000ms forwards;
+    animation: stage-in 500ms var(--ease-out-expo) 1950ms forwards;
   }
 
-  /* 800ms: Mock card sağdan slide-in + scale */
+  /* Mock card — slide from right with spring */
   .hero-mock-wrap {
     opacity: 0;
-    transform: translateX(40px) scale(0.96);
-    animation: mock-slide-in 1000ms cubic-bezier(0.16, 1, 0.3, 1) 800ms forwards;
+    transform: translateX(44px) scale(0.95);
+    animation: mock-slide-in 900ms var(--ease-spring) 700ms forwards;
   }
   @keyframes mock-slide-in {
-    to {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
+    to { opacity: 1; transform: translateX(0) scale(1); }
   }
 
-  /* Mock card içindeki field-row reveal'lerini geciktirelim — mock card geldikten sonra */
+  /* Mock field rows — after card arrives */
   .hero-mock-wrap .field-row {
-    animation-delay: calc(var(--field-delay, 0ms) + 1500ms);
+    animation-delay: calc(var(--field-delay, 0ms) + 1400ms);
   }
 
-  /* Background highlight — büyük açılışta hero zemininde geçen ışık efekti */
+  /* Champagne shimmer sweep across hero (one-shot, cinematic drama) */
   .hero-shimmer {
     position: absolute;
     inset: 0;
@@ -398,27 +498,24 @@
   .hero-shimmer::before {
     content: "";
     position: absolute;
-    top: -50%;
-    left: -100%;
-    width: 50%;
+    top: -50%; left: -100%;
+    width: 45%;
     height: 200%;
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(201, 168, 106, 0.15),
+      rgba(201, 168, 106, 0.14),
       transparent
     );
-    transform: rotate(15deg);
-    animation: shimmer-sweep 2.5s cubic-bezier(0.16, 1, 0.3, 1) 200ms forwards;
+    transform: rotate(12deg);
+    animation: shimmer-sweep 2.8s var(--ease-out-expo) 150ms forwards;
   }
   @keyframes shimmer-sweep {
-    to {
-      left: 200%;
-    }
+    to { left: 220%; }
   }
 }
 
-/* Reduced motion: animasyonsuz, anında görünür */
+/* Reduced motion — everything instantly visible */
 @media (prefers-reduced-motion: reduce) {
   .hero-stage,
   .hero-pill,
@@ -439,10 +536,6 @@
   .hero-shimmer::before {
     display: none;
   }
-}
-
-/* === Reduced motion respect === */
-@media (prefers-reduced-motion: reduce) {
   [data-reveal],
   [data-reveal-stagger] > *,
   .hero-line,

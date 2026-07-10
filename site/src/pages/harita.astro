@@ -1,0 +1,180 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="Türkiye Alım-Satım Yoğunluğu Haritası — TKGM Gerçek Veri | Cadastrum"
+  description="TKGM resmi verisinden Türkiye geneli alım-satım, ipotek ve tapu işlem yoğunluğu haritası. İlçe bazında parsel işlem dağılımı, yıllık karşılaştırma."
+  keywords={[
+    "TKGM alım satım haritası", "tapu işlem yoğunluğu", "Türkiye parsel analizi",
+    "ipotek yoğunluk haritası", "ilçe bazlı tapu", "gayrimenkul ısı haritası",
+  ]}
+>
+
+  <!-- ─── HERO ─────────────────────────────────────────────────────────── -->
+  <section class="relative overflow-hidden bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white py-10 md:py-14">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute -top-16 -right-16 w-80 h-80 rounded-full bg-champagne-500 opacity-10 blur-3xl"></div>
+      <div class="absolute -bottom-16 -left-16 w-80 h-80 rounded-full bg-accent-info opacity-10 blur-3xl"></div>
+    </div>
+
+    <div class="relative max-w-6xl mx-auto px-4">
+      <nav class="text-sm text-imperial-100 mb-5" aria-label="Breadcrumb">
+        <a href="/" class="hover:text-white transition">Cadastrum</a>
+        <span class="mx-2 opacity-40" aria-hidden="true">›</span>
+        <span class="text-white font-medium">Yoğunluk Haritası</span>
+      </nav>
+
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-champagne-200 text-xs font-medium mb-4">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true"></span>
+        TKGM Resmi Veri · Yıllık
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+        <div>
+          <h1 class="font-display text-3xl md:text-5xl font-bold leading-tight mb-3 text-white">
+            Türkiye Tapu<br/>
+            <span class="text-champagne-200">İşlem Yoğunluğu</span>
+          </h1>
+          <p class="text-imperial-100 text-base md:text-lg max-w-xl leading-relaxed">
+            TKGM'nin resmi parsel analiz verisinden üretilen alım-satım,
+            ipotek ve tapu işlem yoğunluk haritası.
+          </p>
+        </div>
+
+        <div class="flex gap-6 shrink-0">
+          <div class="text-center">
+            <div class="font-display text-3xl font-bold text-white" id="stat-il">81</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İl</div>
+          </div>
+          <div class="w-px bg-white/20" aria-hidden="true"></div>
+          <div class="text-center">
+            <div class="font-display text-3xl font-bold text-white" id="stat-ilce">957</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İlçe</div>
+          </div>
+          <div class="w-px bg-white/20" aria-hidden="true"></div>
+          <div class="text-center">
+            <div class="font-display text-3xl font-bold text-champagne-200" id="stat-aktif">—</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İşlem Noktası</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── KONTROL + HARİTA ──────────────────────────────────────────────── -->
+  <section class="bg-slate-900 min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+
+      <!-- Kontrol şeridi -->
+      <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
+
+        <!-- Analiz tipi legend (JS ile doldurulur) -->
+        <div
+          id="analiz-legend"
+          class="flex flex-wrap items-center gap-1 p-1 bg-slate-800 border border-slate-700 rounded-xl"
+          role="group"
+          aria-label="Analiz tipi seçimi"
+        >
+          <!-- JS tarafından doldurulur -->
+        </div>
+
+        <!-- Yıl seçici -->
+        <div class="flex items-center gap-2">
+          <label for="zaman-filtre" class="text-xs text-slate-400 font-medium whitespace-nowrap">Yıl:</label>
+          <select
+            id="zaman-filtre"
+            class="text-sm border border-slate-600 rounded-lg px-3 py-1.5 bg-slate-800 text-slate-200 focus:border-imperial focus:outline-none transition"
+          >
+            <!-- JS tarafından doldurulur -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Harita -->
+      <div
+        id="turkiye-harita"
+        class="w-full rounded-2xl border border-slate-700 overflow-hidden bg-slate-800"
+        style="height: 600px;"
+        aria-label="Türkiye tapu işlem yoğunluğu haritası"
+        role="application"
+      >
+        <div id="harita-yukleniyor" class="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+          <svg class="w-10 h-10 animate-spin text-imperial-200" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-sm font-medium">Harita yükleniyor…</span>
+        </div>
+      </div>
+
+      <!-- Alt bilgi -->
+      <div class="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+        <span>🖱️ Scroll ile zoom · Sürükle ile kaydır</span>
+        <span>🔍 Zoom yapınca bölge detayı artar</span>
+        <span id="harita-guncelleme">⏱ Yükleniyor…</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── METODOLOJI ────────────────────────────────────────────────────── -->
+  <section class="bg-white py-12 border-t border-slate-100">
+    <div class="max-w-6xl mx-auto px-4">
+      <h2 class="font-display text-2xl font-bold text-imperial-700 mb-6">Veri Kaynağı & Metodoloji</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">1</div>
+          <h3 class="font-display font-semibold text-imperial-700 mb-2">TKGM Resmi API</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Tapu ve Kadastro Genel Müdürlüğü'nün <code class="text-xs bg-slate-100 px-1 rounded">cbsapi.tkgm.gov.tr</code> 
+            endpoint'inden gerçek parsel işlem koordinatları ve sayıları.
+          </p>
+        </div>
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">2</div>
+          <h3 class="font-display font-semibold text-imperial-700 mb-2">5 İşlem Tipi</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Alım-satım, ana taşınmaz satış/ipotek, bağımsız bölüm satış/ipotek.
+            2003'ten günümüze yıllık bazda karşılaştırma.
+          </p>
+        </div>
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">3</div>
+          <h3 class="font-display font-semibold text-imperial-700 mb-2">Lazy Yükleme</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Sadece görünen ilçeler yüklenir. Zoom & pan yapınca yeni bölgeler
+            otomatik eklenir — 7 gün CDN cache ile hızlı.
+          </p>
+        </div>
+      </div>
+      <p class="mt-4 text-xs text-slate-400">
+        ⚠️ Veriler TKGM'nin kamuya açık analiz servisinden alınmaktadır. Yıllık güncelleme — anlık satış verisi değildir.
+      </p>
+    </div>
+  </section>
+
+</Base>
+
+<!-- ─── STİL ──────────────────────────────────────────────────────────────── -->
+<style>
+  /* MapLibre z-index düzeltmesi */
+  .maplibregl-map {
+    position: absolute;
+    inset: 0;
+  }
+  .maplibregl-ctrl-bottom-right,
+  .maplibregl-ctrl-bottom-left {
+    z-index: 5;
+  }
+  /* Legend aktif buton */
+  #analiz-legend [data-tip] {
+    transition: background 0.15s, color 0.15s;
+  }
+</style>
+
+<!-- ─── HARİTA JS ─────────────────────────────────────────────────────────── -->
+<script>
+  import { initHarita } from "../scripts/harita-init";
+  document.addEventListener("astro:page-load", () => initHarita());
+</script>
