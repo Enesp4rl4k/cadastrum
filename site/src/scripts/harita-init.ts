@@ -97,16 +97,23 @@ async function ilceBirlesikCek(ilceKodu: number, tip: number): Promise<D1Nokta[]
 
 // ─── TKGM idari yapı — ilçe listesi (backend proxy) ─────────────────────────
 
+// İdari yapı (il/ilçe) TKGM'de nadiren değişir — backend zaten 30 gün cache'liyor,
+// istemci tarafında da aynı süre localStorage'da tutup ilk yüklemeyi hızlandırıyoruz.
+const ILCE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
 async function tumIlceleriCek(): Promise<IlceBilgi[]> {
-  const cacheKey = "tkgm-ilce-listesi-v2";
+  const cacheKey = "tkgm-ilce-listesi-v3";
   try {
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached) as IlceBilgi[];
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const { veri, zaman } = JSON.parse(cached) as { veri: IlceBilgi[]; zaman: number };
+      if (Date.now() - zaman < ILCE_CACHE_TTL_MS) return veri;
+    }
   } catch {}
 
   const ilceler: IlceBilgi[] = [];
   const ilKodlari = Array.from({ length: 81 }, (_, i) => i + 1);
-  const GRUP = 8;
+  const GRUP = 24;
 
   for (let i = 0; i < ilKodlari.length; i += GRUP) {
     const grup = ilKodlari.slice(i, i + GRUP);
@@ -137,7 +144,9 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
     );
   }
 
-  try { sessionStorage.setItem(cacheKey, JSON.stringify(ilceler)); } catch {}
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ veri: ilceler, zaman: Date.now() }));
+  } catch {}
   return ilceler;
 }
 
