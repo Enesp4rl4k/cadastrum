@@ -258,16 +258,17 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
               properties: { sayi: n.sayi },
             }))
           );
-          sourceGuncelle();
         } catch {
           // sessiz fail — seed edilmemiş ilçe
         }
       })
     );
+    // Harita çizimini ilçe başına değil, batch başına güncelle — "damla damla"
+    // yerine düzgün, birkaç kademeli adımda dolan bir görünüm.
+    sourceGuncelle();
+    const araMaxSayi = tumNoktalar.reduce((m, p) => Math.max(m, (p.properties as { sayi: number }).sayi), 1);
+    layerEkleVeyaGuncelle(araMaxSayi);
   }
-
-  const maxSayi = tumNoktalar.reduce((m, p) => Math.max(m, (p.properties as { sayi: number }).sayi), 1);
-  layerEkleVeyaGuncelle(maxSayi);
 
   const toplamNokta = tumNoktalar.length;
   durumGuncelle(`${toplamNokta.toLocaleString("tr-TR")} işlem noktası (tüm yıllar birleşik)`);
