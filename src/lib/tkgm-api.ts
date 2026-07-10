@@ -513,7 +513,7 @@ export function normalizeTr(s: string): string {
     .toLocaleLowerCase("tr")
     // Büyük harflerden gelen İ ve I özel durumu toLocaleLowerCase("tr") ile çözülür.
     // Kalan küçük Türkçe harfler:
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

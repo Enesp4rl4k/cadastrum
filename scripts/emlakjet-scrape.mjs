@@ -26,7 +26,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // ── Normalizasyon (extension'daki tkgm-api.ts ile birebir) ──
 function normalizeTr(s) {
   return s.toLocaleLowerCase("tr")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ").trim();
 }

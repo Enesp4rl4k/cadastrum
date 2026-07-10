@@ -77,7 +77,7 @@ const uyu = (ms) => new Promise((r) => setTimeout(r, ms + Math.random() * 1000))
 function normalize(s) {
   if (!s) return null;
   return s.toLocaleLowerCase("tr")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .replace(/\s+/g, " ")
     .trim();
 }

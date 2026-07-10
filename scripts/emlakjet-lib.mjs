@@ -10,7 +10,7 @@ export const UA =
 export function normalizeTr(s) {
   return s
     .toLocaleLowerCase("tr")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -152,10 +152,10 @@ export function listeJsonLdParse(html, kategoriHedef, MERKEZ) {
   return sonuc;
 }
 
-let _bc = null;
 export function detayParse(html) {
   let fiyat = null;
   let baslik = null;
+  let _bc = null;
   for (const m of html.matchAll(/application\/ld\+json">(.*?)<\/script>/gs)) {
     try {
       const d = JSON.parse(m[1]);
@@ -196,7 +196,6 @@ export function detayParse(html) {
     for (const v of m2lar) f[v] = (f[v] || 0) + 1;
     m2 = Number(Object.entries(f).sort((a, b) => b[1] - a[1])[0][0]);
   }
-  _bc = null;
   return { il: yerler[0], ilce: yerler[1], mahalle: yerler[2], kategori, fiyat, m2, baslik };
 }
 
@@ -333,7 +332,7 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
   let patternIdx = 0;
 
   for (let sayfa = 1; sayfa <= maxSayfa; sayfa++) {
-    const suffix = sayfa > 1 ? (sayfa === 2 ? `?sayfa=${sayfa}` : `?sayfa=${sayfa}`) : "";
+    const suffix = sayfa > 1 ? `?sayfa=${sayfa}` : "";
     let html = null;
     for (let p = patternIdx; p < urlPatterns.length; p++) {
       try {

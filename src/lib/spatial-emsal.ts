@@ -94,8 +94,8 @@ export function semantikFiltre(kayit: IlanGozlem): number {
   // tr-locale lowercase + ascii fold (ı→i, ş→s, ü→u, ö→o, ç→c, ğ→g) — Türkçe
   // \b word boundary edge case'lerinden kaçınmak için substring search.
   const ham = `${kayit.baslik ?? ""} ${kayit.imarDurumu ?? ""}`.toLocaleLowerCase("tr");
-  const metin = ham.replace(/[çğıöşü]/g, (c) =>
-    ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c,
+  const metin = ham.replace(/[çğıöşüâîû]/g, (c) =>
+    ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c,
   );
 
   const elemKalipari = [
