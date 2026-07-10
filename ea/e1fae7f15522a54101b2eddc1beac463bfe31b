@@ -1,0 +1,20 @@
+scripts/tkgm-analiz-seed.mjs
+  s_24becf542a459b::t_ebbaf8c838f619 155-157
+  s_24becf542a459b::t_d757fcd22886f8 126-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "eae1fae7f15522a54101b2eddc1beac463bfe31b",
+  "prompts": {},
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
