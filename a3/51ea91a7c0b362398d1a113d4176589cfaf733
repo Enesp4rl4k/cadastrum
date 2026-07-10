@@ -1,0 +1,33 @@
+site/src/scripts/harita-init.ts
+  s_24becf542a459b::t_d1ba6181c08ba2 707-711
+  s_d46f35d9175f27::t_ebb4e155819994 3,9-15,78-103,109-130,369-667,700-701,757,760,768-774
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "a351ea91a7c0b362398d1a113d4176589cfaf733",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_d46f35d9175f27": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ad458df2-d2e2-4573-84fa-24811319c202",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
