@@ -140,6 +140,57 @@ import Base from "../layouts/Base.astro";
           🗺️ ÇDP İmar Planı
         </button>
 
+        <!-- Fiyat Choropleth -->
+        <button
+          id="fiyat-katman-btn"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-blue-500 hover:text-blue-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-blue-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0" aria-hidden="true"></span>
+          💰 TL/m² Fiyat
+        </button>
+
+        <!-- Likidite Choropleth -->
+        <button
+          id="likidite-katman-btn"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-cyan-500 hover:text-cyan-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-cyan-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0" aria-hidden="true"></span>
+          💧 Piyasa Likiditesi
+        </button>
+
+        <!-- Trend / Sıcaklık Choropleth -->
+        <button
+          id="trend-katman-btn"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-orange-500 hover:text-orange-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-orange-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" aria-hidden="true"></span>
+          🌡️ Fiyat Trendi
+        </button>
+
+        <!-- Fiyat kategori seçici (fiyat katmanı açıkken görünür) -->
+        <div id="fiyat-kategori-wrap" class="hidden items-center gap-1.5">
+          <span class="text-xs text-slate-500">Fiyat:</span>
+          <button data-fiyat-kategori="arsa"  class="fiyat-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-700 text-blue-300 font-semibold" aria-pressed="true">Arsa</button>
+          <button data-fiyat-kategori="tarla" class="fiyat-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-800 text-slate-400" aria-pressed="false">Tarla</button>
+        </div>
+
+        <!-- Likidite kategori seçici -->
+        <div id="likidite-kat-wrap" class="hidden items-center gap-1.5">
+          <span class="text-xs text-slate-500">Likidite:</span>
+          <button data-likidite-kat="arsa"  data-likidite-kategori="arsa"  class="likidite-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-700 text-cyan-300 font-semibold" aria-pressed="true">Arsa</button>
+          <button data-likidite-kat="tarla" data-likidite-kategori="tarla" class="likidite-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-800 text-slate-400" aria-pressed="false">Tarla</button>
+        </div>
+
+        <!-- Trend kategori seçici -->
+        <div id="trend-kat-wrap" class="hidden items-center gap-1.5">
+          <span class="text-xs text-slate-500">Trend:</span>
+          <button data-trend-kategori="arsa"  class="trend-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-700 text-orange-300 font-semibold" aria-pressed="true">Arsa</button>
+          <button data-trend-kategori="tarla" class="trend-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-800 text-slate-400" aria-pressed="false">Tarla</button>
+        </div>
+
         <!-- CDP aktif plan adı + legend açıklaması -->
         <div class="ml-auto flex items-center gap-3">
           <span id="cdp-bilgi" class="text-xs text-violet-400 hidden sm:block"></span>
@@ -162,6 +213,30 @@ import Base from "../layouts/Base.astro";
           </svg>
           <span class="text-sm font-medium">Harita yükleniyor…</span>
         </div>
+      </div>
+
+      <!-- Fiyat legend (fiyat katmanı açıkken görünür) -->
+      <div id="fiyat-legend-wrap" class="hidden mt-2 flex flex-wrap items-center gap-2 p-2 bg-slate-800/80 rounded-lg border border-slate-700">
+        <span class="text-xs text-slate-400 font-medium mr-1">Arsa TL/m²:</span>
+        <div id="fiyat-legend" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- Trend legend (trend katmanı açıkken görünür) -->
+      <div id="trend-legend-wrap" class="hidden mt-2 flex flex-wrap items-center gap-3 p-2 bg-slate-800/80 rounded-lg border border-slate-700">
+        <span class="text-xs text-slate-400 font-medium mr-1">Fiyat Trendi (3 ay):</span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#dc2626] inline-block"></span>+15%↑ Çok Isınıyor
+        </span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#f97316] inline-block"></span>+5%↑ Isınıyor
+        </span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#94a3b8] inline-block"></span>Stabil
+        </span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#22d3ee] inline-block"></span>-5%↓ Soğuyor
+        </span>
+        <span class="text-xs text-slate-500 ml-auto">Soluk daire = veri yok</span>
       </div>
 
       <!-- Alt bilgi -->
@@ -209,6 +284,16 @@ import Base from "../layouts/Base.astro";
           <p class="text-sm text-slate-600 leading-relaxed">
             Türkiye'nin ana limanları ve lojistik merkezleri —
             Mersin, İzmir, Samsun, Trabzon dahil 8 kritik nokta.
+          </p>
+        </div>
+
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-3 font-bold text-sm">💰</div>
+          <h3 class="font-display font-semibold text-blue-700 mb-2">TL/m² Fiyat Haritası</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Sahibinden ve Emlakjet ilan medyanından üretilen il bazlı arsa/tarla TL/m²
+            değerleri. Veri yetersiz illerde AI baseline kullanılır (turuncu nokta).
+            İle tıkla — ilçe sıralaması ve /veri bağlantısı açılır.
           </p>
         </div>
       </div>

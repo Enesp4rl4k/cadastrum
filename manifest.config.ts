@@ -113,6 +113,12 @@ export default defineManifest({
       run_at: "document_idle",
     },
     {
+      // Parselsorgu — tapu kısıt (şerh/beyan/ipotek/haciz) DOM parse
+      matches: ["https://parselsorgu.tkgm.gov.tr/*"],
+      js: ["src/content/tkgm-parsel.ts"],
+      run_at: "document_idle",
+    },
+    {
       // Site ↔ Extension auth köprüsü — cadastrum.com.tr'de window.postMessage dinler
       matches: [
         "https://cadastrum.com.tr/*",

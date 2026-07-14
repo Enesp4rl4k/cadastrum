@@ -15,6 +15,9 @@ import type { Parsel } from "../types/tkgm";
 import type { EPlanImarVerisi } from "./eplan";
 import type { TucbsCdpSonuc } from "./tucbs";
 import { tucbsCdpCeliskiVar } from "./tucbs";
+import type { OrmanHazineRisk } from "./orman-hazine";
+import type { SulamaAltyapisi } from "./sulama";
+import type { TkgmKisitVerisi } from "../content/tkgm-parsel";
 
 export type RiskSeviye = "kritik" | "yuksek" | "orta" | "bilgi";
 
@@ -28,7 +31,7 @@ export interface RiskUyarisi {
   /** Risk seviyesi — UI rengi belirler */
   seviye: RiskSeviye;
   /** Hangi kaynaktan tespit edildi */
-  kaynak: "parsel-nitelik" | "eplan" | "ilan-aciklama" | "konum" | "tucbs-cdp";
+  kaynak: "parsel-nitelik" | "eplan" | "ilan-aciklama" | "konum" | "tucbs-cdp" | "orman-hazine" | "tapu-kisit" | "sulama";
   /** İlgili kanun/yönetmelik referansı (varsa) */
   yasaRef?: string;
   /** Kullanıcıya somut tavsiye */
@@ -45,8 +48,14 @@ export function riskleriTara(input: {
   tucbs?: TucbsCdpSonuc | null;
   ilanAciklama?: string | null;
   ilanImarDurumu?: string | null;
+  /** Orman/Hazine/koruma alanı risk analizi (opsiyonel) */
+  ormanHazine?: OrmanHazineRisk | null;
+  /** Tapu kısıt verisi — şerh/ipotek/haciz (opsiyonel) */
+  tapuKisit?: TkgmKisitVerisi | null;
+  /** DSİ sulama altyapısı (opsiyonel — tarla/arsa için) */
+  sulama?: SulamaAltyapisi | null;
 }): RiskUyarisi[] {
-  const { parsel, ePlan, tucbs, ilanAciklama, ilanImarDurumu } = input;
+  const { parsel, ePlan, tucbs, ilanAciklama, ilanImarDurumu, ormanHazine, tapuKisit, sulama } = input;
   const tumMetin = [
     parsel.nitelik,
     ePlan?.kullanimKarari,
@@ -290,6 +299,130 @@ export function riskleriTara(input: {
       kaynak: "tucbs-cdp",
       oneri: "Belediyeden güncel imar durumu belgesi ve ÇDP paftası isteyin.",
     });
+  }
+
+  // ===== TAPU KISIT — şerh/ipotek/haciz =====
+  if (tapuKisit?.kisitVar) {
+    if (tapuKisit.hacizler.length > 0) {
+      uyarilar.push({
+        kod: "TAPU-HACIZ",
+        baslik: `Tapu haczi tespit edildi (${tapuKisit.hacizler.length} adet)`,
+        aciklama: tapuKisit.hacizler
+          .slice(0, 3)
+          .map((h) => h.aciklama)
+          .join(" | "),
+        seviye: "kritik",
+        kaynak: "tapu-kisit",
+        yasaRef: "2004 sayılı İcra ve İflas Kanunu",
+        oneri: "Hacizli mülk satın almadan önce icra dosyasını inceleyin ve alacak miktarını öğrenin.",
+      });
+    }
+
+    if (tapuKisit.ipotekler.length > 0) {
+      uyarilar.push({
+        kod: "TAPU-IPOTEK",
+        baslik: `İpotek kaydı var (${tapuKisit.ipotekler.length} adet)`,
+        aciklama: tapuKisit.ipotekler
+          .slice(0, 2)
+          .map((i) => [i.aciklama, i.alacakli, i.miktar].filter(Boolean).join(" — "))
+          .join(" | "),
+        seviye: "yuksek",
+        kaynak: "tapu-kisit",
+        yasaRef: "Türk Medeni Kanunu Md. 881",
+        oneri: "Satın almadan önce ipoteğin fekkini (kaldırılmasını) satıcıdan talep edin veya kalan borcu müzakere edin.",
+      });
+    }
+
+    if (tapuKisit.kritikKisitVar && tapuKisit.serhler.length > 0) {
+      const kritikSerhler = tapuKisit.serhler.filter((s) =>
+        ["kamulaştırma", "orman", "sit", "tedbir", "iflas"].some((k) =>
+          s.aciklama.toLocaleLowerCase("tr").includes(k)
+        )
+      );
+      if (kritikSerhler.length > 0) {
+        uyarilar.push({
+          kod: "TAPU-KRITIK-SERH",
+          baslik: `Kritik tapu şerhi: ${kritikSerhler[0]!.aciklama.slice(0, 60)}`,
+          aciklama: kritikSerhler.map((s) => s.aciklama).join(" | "),
+          seviye: "kritik",
+          kaynak: "tapu-kisit",
+          oneri: "Bu şerh türü alım/satımı veya yapılaşmayı doğrudan engelleyebilir. Tapu müdürlüğünden yazılı bilgi alın.",
+        });
+      }
+    } else if (tapuKisit.serhler.length > 0) {
+      uyarilar.push({
+        kod: "TAPU-SERH",
+        baslik: `Tapu şerhi mevcut (${tapuKisit.serhler.length} adet)`,
+        aciklama: tapuKisit.serhler.slice(0, 2).map((s) => s.aciklama).join(" | "),
+        seviye: "orta",
+        kaynak: "tapu-kisit",
+        oneri: "Şerh türünü ve etkisini tapu müdürlüğünden teyit edin.",
+      });
+    }
+
+    if (tapuKisit.beyanlar.length > 0) {
+      uyarilar.push({
+        kod: "TAPU-BEYAN",
+        baslik: `Tapu beyanı mevcut (${tapuKisit.beyanlar.length} adet)`,
+        aciklama: tapuKisit.beyanlar.slice(0, 2).map((b) => b.aciklama).join(" | "),
+        seviye: "bilgi",
+        kaynak: "tapu-kisit",
+        oneri: "Beyanların içeriğini tapu sicil müdürlüğünden öğrenin.",
+      });
+    }
+  }
+
+  // ===== ORMAN / HAZİNE / KORUMA ALANI =====
+  if (ormanHazine && ormanHazine.riskSeviyesi !== "yok") {
+    const seviye: RiskSeviye =
+      ormanHazine.riskSeviyesi === "kritik" ? "kritik" :
+      ormanHazine.riskSeviyesi === "yuksek" ? "yuksek" :
+      ormanHazine.riskSeviyesi === "orta" ? "orta" : "bilgi";
+
+    const kritikTespitler = ormanHazine.tespitler.filter((t) =>
+      ["orman", "sit-alani", "doga-koruma", "kiy-kenari", "mera"].includes(t.tip)
+    );
+
+    if (kritikTespitler.length > 0) {
+      const ilkTespit = kritikTespitler[0]!;
+      uyarilar.push({
+        kod: `ORMAN-${ilkTespit.tip.toUpperCase()}`,
+        baslik: `${ilkTespit.cakisiyor ? "Parsel içinde" : `${ilkTespit.mesafeM}m mesafede`} ${ilkTespit.tip === "orman" ? "orman" : ilkTespit.tip === "mera" ? "mera" : "koruma"} alanı`,
+        aciklama: ormanHazine.riskYorumu,
+        seviye,
+        kaynak: "orman-hazine",
+        yasaRef: ormanHazine.yasalMevzuat[0],
+        oneri: ilkTespit.cakisiyor
+          ? "OGM (Orman Genel Müdürlüğü) orman kadastro sorgusunu mutlaka yaptırın. Hatalı tescil riski var."
+          : "Komşu parsellerden biri orman içinde olabilir. Kadastro müdürlüğünden sınır tescil belgesi alın.",
+      });
+    }
+  }
+
+  // ===== SULAMA ALTYAPISI (tarla/arsa için bilgi) =====
+  if (sulama) {
+    const nitelikLower = (parsel.nitelik ?? "").toLocaleLowerCase("tr");
+    const tarlaArsa = /tarla|arsa|bahçe|bağ|zeytin|meyve|tarım/.test(nitelikLower);
+
+    if (tarlaArsa && sulama.erisim === "yok") {
+      uyarilar.push({
+        kod: "SULAMA-YOK",
+        baslik: "Sulama altyapısı tespit edilemedi",
+        aciklama: sulama.tarimYorum,
+        seviye: "bilgi",
+        kaynak: "sulama",
+        oneri: "DSİ bölge müdürlüğünden sulama kanalı imkânını sorgulayın. Kuyu açma maliyetini değerlendirin.",
+      });
+    } else if (tarlaArsa && sulama.erisim === "cok-yakin") {
+      // Pozitif bilgi — sulama var, risk değil
+      uyarilar.push({
+        kod: "SULAMA-MUKEMMEL",
+        baslik: "Mükemmel sulama erişimi",
+        aciklama: sulama.tarimYorum,
+        seviye: "bilgi",
+        kaynak: "sulama",
+      });
+    }
   }
 
   // Seviyeye göre sırala (kritik öncelik)

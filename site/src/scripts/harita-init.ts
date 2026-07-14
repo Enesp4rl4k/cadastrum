@@ -17,6 +17,32 @@
 
 const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
+// ─── Fiyat choropleth renk paleti (TL/m² log skala) ──────────────────────────
+// Logaritmik interpolasyon: 500 TL/m² (kırsal) → 100.000 TL/m² (İstanbul merkez)
+
+const FIYAT_SKALA = [
+  { eşik: 500,    renk: "#f1f5f9", etiket: "< 500" },
+  { eşik: 1500,   renk: "#bfdbfe", etiket: "500 – 1.5K" },
+  { eşik: 4000,   renk: "#60a5fa", etiket: "1.5K – 4K" },
+  { eşik: 10000,  renk: "#2563eb", etiket: "4K – 10K" },
+  { eşik: 25000,  renk: "#1d4ed8", etiket: "10K – 25K" },
+  { eşik: 60000,  renk: "#1e3a8a", etiket: "25K – 60K" },
+  { eşik: Infinity, renk: "#0f172a", etiket: "> 60K" },
+];
+
+function fiyatRenk(tlm2: number): string {
+  for (const { eşik, renk } of FIYAT_SKALA) {
+    if (tlm2 < eşik) return renk;
+  }
+  return FIYAT_SKALA[FIYAT_SKALA.length - 1]!.renk;
+}
+
+function fmtTLM2(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M TL/m²`;
+  if (n >= 1_000)    return `${(n / 1_000).toFixed(0)}K TL/m²`;
+  return `${n.toLocaleString("tr-TR")} TL/m²`;
+}
+
 const TIP_RENKLERI: Record<number, string> = {
   1: "#7c3aed",
   2: "#16a34a",
@@ -73,6 +99,576 @@ interface HeatPoint {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [number, number] };
   properties: { sayi: number };
+}
+
+// ─── Fiyat choropleth state ────────────────────────────────────────────────────
+
+interface IlFiyatOzet {
+  il_norm: string;
+  medyan: number;
+  ilan_adet: number;
+  kaynak: "ilan" | "ai-baseline";
+}
+
+let fiyatKategori: "arsa" | "tarla" = "arsa";
+let fiyatKatmanAcik = false;
+let fiyatVerisi: IlFiyatOzet[] = [];
+
+async function fiyatVerisiCek(kategori: "arsa" | "tarla"): Promise<IlFiyatOzet[]> {
+  const cacheKey = `fiyat-ozet-v1:${kategori}`;
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { veri, ts } = JSON.parse(cached) as { veri: IlFiyatOzet[]; ts: number };
+      // 2 saat cache
+      if (Date.now() - ts < 7_200_000) return veri;
+    }
+  } catch {}
+
+  const res = await fetch(`${API_BASE}/fiyat/toplu-ozet?kategori=${kategori}`);
+  if (!res.ok) throw new Error(`fiyat/toplu-ozet HTTP ${res.status}`);
+  const data = await res.json() as { iller: IlFiyatOzet[] };
+  const veri = data.iller ?? [];
+
+  try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
+  return veri;
+}
+
+/** İl centroid koordinatları — choropleth daireler için (il kodu → [lat, lng]) */
+const IL_CENTROID: Record<string, [number, number]> = {
+  adana:[37.00,35.32],adiyaman:[37.76,38.28],afyonkarahisar:[38.76,30.54],agri:[39.72,43.06],
+  amasya:[40.65,35.83],ankara:[39.92,32.85],antalya:[36.90,30.70],artvin:[41.18,41.82],
+  aydin:[37.85,27.85],balikesir:[39.65,27.88],bilecik:[40.15,29.97],bingol:[39.00,40.50],
+  bitlis:[38.40,42.11],bolu:[40.74,31.61],burdur:[37.72,30.29],bursa:[40.19,29.06],
+  canakkale:[40.15,26.41],cankiri:[40.60,33.62],corum:[40.55,34.95],denizli:[37.78,29.09],
+  diyarbakir:[37.91,40.22],edirne:[41.67,26.56],elazig:[38.68,39.22],erzincan:[39.75,39.49],
+  erzurum:[39.91,41.27],eskisehir:[39.78,30.52],gaziantep:[37.07,37.38],giresun:[40.91,38.39],
+  gumushane:[40.44,39.48],hakkari:[37.58,43.74],hatay:[36.60,36.16],isparta:[37.76,30.56],
+  mersin:[36.80,34.64],istanbul:[41.01,28.95],izmir:[38.42,27.14],kars:[40.61,36.10],
+  kastamonu:[41.37,33.78],kayseri:[38.72,35.49],kirklareli:[41.73,27.22],kirsehir:[39.15,33.52],
+  kocaeli:[40.85,29.88],konya:[37.87,32.49],kutahya:[39.42,29.98],malatya:[38.35,38.31],
+  manisa:[38.62,27.43],kahramanmaras:[37.58,36.94],mardin:[37.32,40.74],mugla:[37.21,28.37],
+  mus:[38.73,41.49],nevsehir:[38.62,34.72],nigde:[37.97,34.68],ordu:[40.98,37.88],
+  rize:[41.02,40.52],sakarya:[40.69,30.43],samsun:[41.28,36.33],siirt:[38.00,41.95],
+  sinop:[42.03,35.15],sivas:[39.75,37.02],tekirdag:[41.42,27.98],tokat:[40.31,36.55],
+  trabzon:[40.99,39.73],tunceli:[39.11,39.55],sanliurfa:[37.16,38.80],usak:[38.67,29.40],
+  van:[38.50,43.41],yozgat:[39.83,34.81],zonguldak:[41.46,31.80],aksaray:[38.35,33.99],
+  bayburt:[40.26,40.22],karaman:[37.18,33.22],kirikkale:[40.11,33.51],batman:[37.89,41.14],
+  sirnak:[37.52,42.46],bartin:[41.63,32.34],ardahan:[41.11,42.70],igdir:[39.89,44.04],
+  yalova:[40.65,29.27],karabuk:[41.20,32.64],kilis:[36.72,37.12],osmaniye:[37.07,36.23],
+  duzce:[40.84,31.16],
+};
+
+function fiyatKatmanEkle(veri: IlFiyatOzet[]) {
+  if (!harita) return;
+
+  // Fiyat verisini il_norm → medyan eşlemesine çevir
+  const fiyatMap = new Map(veri.map(d => [d.il_norm, d]));
+
+  // GeoJSON Feature'larını centroid üzerinden oluştur
+  const features: GeoJSON.Feature[] = [];
+  for (const [ilNorm, centroid] of Object.entries(IL_CENTROID)) {
+    const bilgi = fiyatMap.get(ilNorm);
+    if (!bilgi || bilgi.medyan <= 0) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [centroid[1], centroid[0]] },
+      properties: {
+        il_norm: ilNorm,
+        medyan: bilgi.medyan,
+        ilan_adet: bilgi.ilan_adet,
+        kaynak: bilgi.kaynak,
+        renk: fiyatRenk(bilgi.medyan),
+        etiket: fmtTLM2(bilgi.medyan),
+      },
+    });
+  }
+
+  const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
+
+  const srcId = "fiyat-src";
+  const circleId = "fiyat-circle";
+  const labelId  = "fiyat-label";
+
+  const src = harita.getSource(srcId) as import("maplibre-gl").GeoJSONSource | undefined;
+  if (src) {
+    src.setData(geojson);
+  } else {
+    harita.addSource(srcId, { type: "geojson", data: geojson });
+
+    harita.addLayer({
+      id: circleId,
+      type: "circle",
+      source: srcId,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 16, 6, 22, 8, 30],
+        "circle-color": ["get", "renk"],
+        "circle-opacity": 0.82,
+        "circle-stroke-width": 1.5,
+        "circle-stroke-color": "rgba(255,255,255,0.6)",
+      },
+    });
+
+    harita.addLayer({
+      id: labelId,
+      type: "symbol",
+      source: srcId,
+      minzoom: 5,
+      layout: {
+        "text-field": ["get", "etiket"],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 5, 9, 8, 11],
+        "text-offset": [0, 1.6],
+        "text-anchor": "top",
+        "text-allow-overlap": false,
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": "#f1f5f9",
+        "text-halo-color": "#0f172a",
+        "text-halo-width": 1.5,
+      },
+    });
+
+    // Tıklama popup
+    harita.on("click", circleId, (e) => {
+      const p = e.features?.[0]?.properties as Record<string, unknown> | undefined;
+      if (!p || !MLPopup || !harita) return;
+      const ilNorm = String(p["il_norm"]);
+      const ilAd = ilNorm.charAt(0).toUpperCase() + ilNorm.slice(1);
+      const kaynakBadge = p["kaynak"] === "ilan"
+        ? `<span style="color:#4ade80">● Gerçek ilan</span>`
+        : `<span style="color:#fb923c">● AI tahmin</span>`;
+      const popupId = `popup-il-${ilNorm.replace(/[^a-z]/g, "")}`;
+
+      const popup = new MLPopup({ closeButton: true, maxWidth: "280px" })
+        .setLngLat(e.lngLat)
+        .setHTML(`
+          <div id="${popupId}" style="font-family:Inter,sans-serif;padding:2px 4px;min-width:220px">
+            <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px">${ilAd}</div>
+            <div style="font-size:18px;font-weight:800;color:${String(p["renk"])};font-variant-numeric:tabular-nums">
+              ${String(p["etiket"])}
+            </div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px;margin-bottom:8px">
+              ${Number(p["ilan_adet"])} ilan · ${kaynakBadge}
+            </div>
+            <div id="${popupId}-ilceler" style="font-size:10px;color:#64748b">
+              <span style="color:#94a3b8">İlçe detayları yükleniyor…</span>
+            </div>
+          </div>
+        `)
+        .addTo(harita);
+
+      // Popup açıldıktan sonra ilçe listesini lazy yükle
+      void (async () => {
+        await new Promise<void>(r => setTimeout(r, 50));
+        const ilcelerEl = document.getElementById(`${popupId}-ilceler`);
+        if (!ilcelerEl) return;
+        try {
+          const res = await fetch(`${API_BASE}/fiyat/ilce/${ilNorm}?kategori=${fiyatKategori}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json() as {
+            mahalleler?: Array<{ ilce_norm: string; medyan: number; ilan_adet: number }>;
+          };
+          const ilceler = (data.mahalleler ?? []).slice(0, 8);
+          if (ilceler.length === 0) {
+            ilcelerEl.textContent = "İlçe verisi yok";
+            return;
+          }
+          const maxMedyan = Math.max(...ilceler.map(i => i.medyan));
+          ilcelerEl.innerHTML = [
+            `<div style="font-weight:600;color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">En Pahalı İlçeler</div>`,
+            ...ilceler.map(ilce => {
+              const bar = Math.round((ilce.medyan / maxMedyan) * 100);
+              const renk = fiyatRenk(ilce.medyan);
+              const ad = ilce.ilce_norm.charAt(0).toUpperCase() + ilce.ilce_norm.slice(1);
+              return `<div style="margin-bottom:5px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+                  <span style="color:#e2e8f0;font-size:10px">${ad}</span>
+                  <span style="color:${renk};font-size:10px;font-weight:700;font-variant-numeric:tabular-nums">${fmtTLM2(ilce.medyan)}</span>
+                </div>
+                <div style="height:3px;background:#334155;border-radius:2px;overflow:hidden">
+                  <div style="height:100%;width:${bar}%;background:${renk};border-radius:2px"></div>
+                </div>
+              </div>`;
+            }),
+            `<div style="text-align:right;margin-top:4px">
+              <a href="/veri/${ilNorm}" style="color:#60a5fa;font-size:9px;text-decoration:none">Tüm mahalleler →</a>
+            </div>`,
+          ].join("");
+        } catch {
+          if (ilcelerEl) ilcelerEl.textContent = "İlçe verisi alınamadı";
+        }
+      })();
+
+      void popup;
+    });
+
+    harita.on("mouseenter", circleId, () => {
+      if (harita) harita.getCanvas().style.cursor = "pointer";
+    });
+    harita.on("mouseleave", circleId, () => {
+      if (harita) harita.getCanvas().style.cursor = "";
+    });
+  }
+}
+
+function fiyatKatmanGorunurluk(gorünür: boolean) {
+  if (!harita) return;
+  const vis = gorünür ? "visible" : "none";
+  if (harita.getLayer("fiyat-circle")) harita.setLayoutProperty("fiyat-circle", "visibility", vis);
+  if (harita.getLayer("fiyat-label"))  harita.setLayoutProperty("fiyat-label",  "visibility", vis);
+}
+
+async function fiyatToggle(kategori: "arsa" | "tarla" = "arsa") {
+  if (!harita) return;
+
+  // Kategori değiştiyse veriye yeniden çek
+  if (kategori !== fiyatKategori || fiyatVerisi.length === 0) {
+    fiyatKategori = kategori;
+    try {
+      fiyatVerisi = await fiyatVerisiCek(kategori);
+      fiyatKatmanEkle(fiyatVerisi);
+    } catch (e) {
+      console.warn("[choropleth] fiyat verisi alınamadı:", e);
+      return;
+    }
+  } else {
+    fiyatKatmanEkle(fiyatVerisi);
+  }
+
+  fiyatKatmanAcik = true;
+  fiyatKatmanGorunurluk(true);
+  fiyatLegendGuncelle();
+}
+
+function fiyatKatmanKapat() {
+  fiyatKatmanAcik = false;
+  fiyatKatmanGorunurluk(false);
+}
+
+// ─── Likidite choropleth ───────────────────────────────────────────────────────
+
+interface IlLikiditeSonuc {
+  il_norm: string;
+  skor: number;
+  yillik_satis: number;
+  ipotekli_oran: number;
+  nufus_m: number;
+  etiket: string;
+}
+
+let likiditKatmanAcik = false;
+let likiditKategori: "arsa" | "tarla" = "arsa";
+let likiditVerisi: IlLikiditeSonuc[] = [];
+
+const LIKIDITE_SKALA = [
+  { esik: 0.30, renk: "#1e293b", etiket: "Düşük" },
+  { esik: 0.50, renk: "#334155", etiket: "Normal" },
+  { esik: 0.70, renk: "#0369a1", etiket: "Aktif" },
+  { esik: 0.85, renk: "#0ea5e9", etiket: "Çok Aktif" },
+  { esik: Infinity, renk: "#38bdf8", etiket: "En Likit" },
+];
+
+function likiditRenk(skor: number): string {
+  for (const { esik, renk } of LIKIDITE_SKALA) {
+    if (skor < esik) return renk;
+  }
+  return LIKIDITE_SKALA[LIKIDITE_SKALA.length - 1]!.renk;
+}
+
+async function likiditVerisiCek(kategori: "arsa" | "tarla"): Promise<IlLikiditeSonuc[]> {
+  const cacheKey = `likidite-v1:${kategori}`;
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { veri, ts } = JSON.parse(cached) as { veri: IlLikiditeSonuc[]; ts: number };
+      if (Date.now() - ts < 86_400_000) return veri; // 24 saat cache
+    }
+  } catch {}
+  const res = await fetch(`${API_BASE}/harita/likidite?kategori=${kategori}`);
+  if (!res.ok) throw new Error(`likidite HTTP ${res.status}`);
+  const data = await res.json() as { iller: IlLikiditeSonuc[] };
+  const veri = data.iller ?? [];
+  try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
+  return veri;
+}
+
+function likiditKatmanEkle(veri: IlLikiditeSonuc[]) {
+  if (!harita) return;
+  const fiyatMap = new Map(veri.map(d => [d.il_norm, d]));
+  const features: GeoJSON.Feature[] = [];
+  for (const [ilNorm, centroid] of Object.entries(IL_CENTROID)) {
+    const bilgi = fiyatMap.get(ilNorm);
+    if (!bilgi) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [centroid[1], centroid[0]] },
+      properties: {
+        il_norm: ilNorm,
+        skor: bilgi.skor,
+        yillik_satis: bilgi.yillik_satis,
+        etiket: bilgi.etiket,
+        renk: likiditRenk(bilgi.skor),
+        boyut: Math.round(10 + bilgi.skor * 20), // 10-30px arası
+      },
+    });
+  }
+  const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
+  const srcId = "likidite-src";
+  const src = harita.getSource(srcId) as import("maplibre-gl").GeoJSONSource | undefined;
+  if (src) {
+    src.setData(geojson);
+  } else {
+    harita.addSource(srcId, { type: "geojson", data: geojson });
+    harita.addLayer({
+      id: "likidite-circle",
+      type: "circle",
+      source: srcId,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, ["get", "boyut"], 6, ["+", ["get", "boyut"], 8], 8, ["+", ["get", "boyut"], 18]],
+        "circle-color": ["get", "renk"],
+        "circle-opacity": 0.80,
+        "circle-stroke-width": 1.5,
+        "circle-stroke-color": "rgba(255,255,255,0.5)",
+      },
+    });
+    harita.addLayer({
+      id: "likidite-label",
+      type: "symbol",
+      source: srcId,
+      minzoom: 5,
+      layout: {
+        "text-field": ["get", "etiket"],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 5, 8, 8, 10],
+        "text-offset": [0, 1.8],
+        "text-anchor": "top",
+        "text-allow-overlap": false,
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": "#e0f2fe",
+        "text-halo-color": "#0c4a6e",
+        "text-halo-width": 1.5,
+      },
+    });
+    harita.on("click", "likidite-circle", (e) => {
+      const p = e.features?.[0]?.properties as Record<string, unknown> | undefined;
+      if (!p || !MLPopup || !harita) return;
+      const ilAd = String(p["il_norm"]);
+      const skor = Number(p["skor"]);
+      const renk = String(p["renk"]);
+      new MLPopup({ closeButton: true, maxWidth: "260px" })
+        .setLngLat(e.lngLat)
+        .setHTML(`
+          <div style="font-family:Inter,sans-serif;padding:2px 4px;min-width:200px">
+            <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px">
+              ${ilAd.charAt(0).toUpperCase() + ilAd.slice(1)}
+            </div>
+            <div style="font-size:18px;font-weight:800;color:${renk}">${String(p["etiket"])}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:4px">
+              Likidite skoru: <strong>${Math.round(skor * 100)}%</strong><br>
+              Yıllık satış: <strong>${Number(p["yillik_satis"]).toLocaleString("tr-TR")}</strong>
+            </div>
+          </div>
+        `)
+        .addTo(harita);
+    });
+    harita.on("mouseenter", "likidite-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+    harita.on("mouseleave", "likidite-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+  }
+}
+
+function likiditKatmanGorunurluk(gorünür: boolean) {
+  if (!harita) return;
+  const vis = gorünür ? "visible" : "none";
+  if (harita.getLayer("likidite-circle")) harita.setLayoutProperty("likidite-circle", "visibility", vis);
+  if (harita.getLayer("likidite-label"))  harita.setLayoutProperty("likidite-label",  "visibility", vis);
+}
+
+async function likiditToggle(kategori: "arsa" | "tarla" = "arsa") {
+  if (!harita) return;
+  if (kategori !== likiditKategori || likiditVerisi.length === 0) {
+    likiditKategori = kategori;
+    try {
+      likiditVerisi = await likiditVerisiCek(kategori);
+      likiditKatmanEkle(likiditVerisi);
+    } catch (e) {
+      console.warn("[likidite] veri alınamadı:", e);
+      return;
+    }
+  } else {
+    likiditKatmanEkle(likiditVerisi);
+  }
+  likiditKatmanAcik = true;
+  likiditKatmanGorunurluk(true);
+}
+
+// ─── Trend / sıcaklık choropleth ───────────────────────────────────────────────
+
+interface IlTrendSonuc {
+  il_norm: string;
+  degisim_yuzde: number;
+  son3_ort: number | null;
+  once3_ort: number | null;
+  veri_var: boolean;
+  etiket: string;
+}
+
+let trendKatmanAcik = false;
+let trendKategori: "arsa" | "tarla" = "arsa";
+let trendVerisi: IlTrendSonuc[] = [];
+
+function trendRenk(degisim: number): string {
+  if (degisim > 15)  return "#dc2626"; // kırmızı — çok ısınıyor
+  if (degisim > 5)   return "#f97316"; // turuncu — ısınıyor
+  if (degisim > -5)  return "#94a3b8"; // gri — stabil
+  if (degisim > -15) return "#22d3ee"; // cyan — soğuyor
+  return "#0891b2";                    // koyu mavi — çok soğuyor
+}
+
+async function trendVerisiCek(kategori: "arsa" | "tarla"): Promise<IlTrendSonuc[]> {
+  const cacheKey = `trend-v1:${kategori}`;
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { veri, ts } = JSON.parse(cached) as { veri: IlTrendSonuc[]; ts: number };
+      if (Date.now() - ts < 3_600_000) return veri; // 1 saat cache
+    }
+  } catch {}
+  const res = await fetch(`${API_BASE}/harita/trend?kategori=${kategori}`);
+  if (!res.ok) throw new Error(`trend HTTP ${res.status}`);
+  const data = await res.json() as { iller: IlTrendSonuc[] };
+  const veri = data.iller ?? [];
+  try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
+  return veri;
+}
+
+function trendKatmanEkle(veri: IlTrendSonuc[]) {
+  if (!harita) return;
+  const trendMap = new Map(veri.map(d => [d.il_norm, d]));
+  const features: GeoJSON.Feature[] = [];
+  for (const [ilNorm, centroid] of Object.entries(IL_CENTROID)) {
+    const bilgi = trendMap.get(ilNorm);
+    const degisim = bilgi?.veri_var ? bilgi.degisim_yuzde : 0;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [centroid[1], centroid[0]] },
+      properties: {
+        il_norm: ilNorm,
+        degisim: degisim,
+        veri_var: bilgi?.veri_var ?? false,
+        etiket: bilgi?.etiket ?? "Veri Yok",
+        son3_ort: bilgi?.son3_ort ?? null,
+        once3_ort: bilgi?.once3_ort ?? null,
+        renk: trendRenk(degisim),
+        degisim_text: degisim > 0 ? `+${degisim.toFixed(1)}%` : `${degisim.toFixed(1)}%`,
+      },
+    });
+  }
+  const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
+  const srcId = "trend-src";
+  const src = harita.getSource(srcId) as import("maplibre-gl").GeoJSONSource | undefined;
+  if (src) {
+    src.setData(geojson);
+  } else {
+    harita.addSource(srcId, { type: "geojson", data: geojson });
+    harita.addLayer({
+      id: "trend-circle",
+      type: "circle",
+      source: srcId,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 6, 20, 8, 28],
+        "circle-color": ["get", "renk"],
+        "circle-opacity": ["case", ["get", "veri_var"], 0.85, 0.30],
+        "circle-stroke-width": 1.5,
+        "circle-stroke-color": "rgba(255,255,255,0.4)",
+      },
+    });
+    harita.addLayer({
+      id: "trend-label",
+      type: "symbol",
+      source: srcId,
+      minzoom: 5,
+      layout: {
+        "text-field": ["case", ["get", "veri_var"], ["get", "degisim_text"], ""],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 5, 8, 8, 11],
+        "text-offset": [0, 0],
+        "text-anchor": "center",
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": "#f8fafc",
+        "text-halo-color": "#0f172a",
+        "text-halo-width": 1.5,
+      },
+    });
+    harita.on("click", "trend-circle", (e) => {
+      const p = e.features?.[0]?.properties as Record<string, unknown> | undefined;
+      if (!p || !MLPopup || !harita) return;
+      const ilAd = String(p["il_norm"]);
+      const renk = String(p["renk"]);
+      const veriVar = Boolean(p["veri_var"]);
+      new MLPopup({ closeButton: true, maxWidth: "260px" })
+        .setLngLat(e.lngLat)
+        .setHTML(`
+          <div style="font-family:Inter,sans-serif;padding:2px 4px;min-width:220px">
+            <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px">
+              ${ilAd.charAt(0).toUpperCase() + ilAd.slice(1)}
+            </div>
+            ${veriVar ? `
+              <div style="font-size:22px;font-weight:800;color:${renk}">${String(p["degisim_text"])}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px">${String(p["etiket"])} (son 3 ay)</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:4px">
+                Son 3 ay ort: <strong>${Number(p["son3_ort"]).toLocaleString("tr-TR")} TL/m²</strong><br>
+                Önceki 3 ay: <strong>${Number(p["once3_ort"]).toLocaleString("tr-TR")} TL/m²</strong>
+              </div>
+            ` : `<div style="font-size:12px;color:#94a3b8">Bu il için yeterli trend verisi yok</div>`}
+          </div>
+        `)
+        .addTo(harita);
+    });
+    harita.on("mouseenter", "trend-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+    harita.on("mouseleave", "trend-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+  }
+}
+
+function trendKatmanGorunurluk(gorünür: boolean) {
+  if (!harita) return;
+  const vis = gorünür ? "visible" : "none";
+  if (harita.getLayer("trend-circle")) harita.setLayoutProperty("trend-circle", "visibility", vis);
+  if (harita.getLayer("trend-label"))  harita.setLayoutProperty("trend-label",  "visibility", vis);
+}
+
+async function trendToggle(kategori: "arsa" | "tarla" = "arsa") {
+  if (!harita) return;
+  if (kategori !== trendKategori || trendVerisi.length === 0) {
+    trendKategori = kategori;
+    try {
+      trendVerisi = await trendVerisiCek(kategori);
+      trendKatmanEkle(trendVerisi);
+    } catch (e) {
+      console.warn("[trend] veri alınamadı:", e);
+      return;
+    }
+  } else {
+    trendKatmanEkle(trendVerisi);
+  }
+  trendKatmanAcik = true;
+  trendKatmanGorunurluk(true);
+}
+
+function fiyatLegendGuncelle() {
+  const el = document.getElementById("fiyat-legend");
+  if (!el) return;
+  el.innerHTML = FIYAT_SKALA.slice(0, -1).map(s =>
+    `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;color:#94a3b8">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.renk};border:1px solid rgba(255,255,255,0.3)"></span>
+      ${s.etiket}
+    </span>`
+  ).join("") + `<span style="font-size:9px;color:#94a3b8"> TL/m²</span>`;
 }
 
 // ─── POI tipleri ──────────────────────────────────────────────────────────────
@@ -625,7 +1221,7 @@ function cdpImarKatmanEkle(slug: string) {
     harita.addSource(srcId, {
       type: "raster",
       tiles: [
-        `${API_BASE}/proxy/tucbs/tile?wms=${slug}&bbox={bbox-epsg-3857}`,
+        `${API_BASE}/proxy/tucbs/tile/${slug}/{z}/{x}/{y}`,
       ],
       tileSize: 256,
       attribution: "© TUCBS / CSB — Çevre Düzeni Planı",
@@ -771,5 +1367,146 @@ export async function initHarita() {
     const btn = (e.target as HTMLElement).closest("[data-katman]") as HTMLElement | null;
     if (!btn?.dataset["katman"]) return;
     void katmanToggle(btn.dataset["katman"]);
+  });
+
+  // ── Fiyat choropleth toggle ──────────────────────────────────────────────
+  const fiyatBtn = document.getElementById("fiyat-katman-btn") as HTMLButtonElement | null;
+  const fiyatKategoriWrap = document.getElementById("fiyat-kategori-wrap") as HTMLElement | null;
+  const fiyatLegendWrap   = document.getElementById("fiyat-legend-wrap") as HTMLElement | null;
+
+  let seciliFiyatKat: "arsa" | "tarla" = "arsa";
+
+  async function fiyatKatmanAc(kat: "arsa" | "tarla") {
+    seciliFiyatKat = kat;
+    document.querySelectorAll<HTMLButtonElement>(".fiyat-kat-btn").forEach((b) => {
+      const aktif = b.dataset["fiyatKategori"] === kat;
+      b.setAttribute("aria-pressed", aktif ? "true" : "false");
+      b.classList.toggle("text-blue-300", aktif);
+      b.classList.toggle("font-semibold", aktif);
+      b.classList.toggle("bg-slate-700", aktif);
+      b.classList.toggle("text-slate-400", !aktif);
+      b.classList.toggle("bg-slate-800", !aktif);
+    });
+    await fiyatToggle(kat);
+  }
+
+  fiyatBtn?.addEventListener("click", async () => {
+    const acik = fiyatBtn.getAttribute("aria-pressed") === "true";
+    if (acik) {
+      fiyatBtn.setAttribute("aria-pressed", "false");
+      fiyatBtn.classList.remove("bg-slate-600", "text-white", "border-blue-400");
+      fiyatBtn.classList.add("text-slate-400");
+      fiyatKategoriWrap?.classList.replace("flex", "hidden");
+      fiyatLegendWrap?.classList.add("hidden");
+      fiyatKatmanKapat();
+    } else {
+      fiyatBtn.setAttribute("aria-pressed", "true");
+      fiyatBtn.classList.add("bg-slate-600", "text-white", "border-blue-400");
+      fiyatBtn.classList.remove("text-slate-400");
+      fiyatKategoriWrap?.classList.replace("hidden", "flex");
+      fiyatLegendWrap?.classList.remove("hidden");
+      await fiyatKatmanAc(seciliFiyatKat);
+    }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".fiyat-kat-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const kat = btn.dataset["fiyatKategori"] as "arsa" | "tarla" | undefined;
+      if (!kat) return;
+      const legendLabel = fiyatLegendWrap?.querySelector("span");
+      if (legendLabel) legendLabel.textContent = `${kat.charAt(0).toUpperCase() + kat.slice(1)} TL/m²:`;
+      await fiyatKatmanAc(kat);
+    });
+  });
+
+  // ── Likidite katman toggle ────────────────────────────────────────────────
+  const likiditBtn = document.getElementById("likidite-katman-btn") as HTMLButtonElement | null;
+  const likiditKatWrap = document.getElementById("likidite-kat-wrap") as HTMLElement | null;
+  let seciliLikiditKat: "arsa" | "tarla" = "arsa";
+
+  async function likiditKatmanAc(kat: "arsa" | "tarla") {
+    seciliLikiditKat = kat;
+    document.querySelectorAll<HTMLButtonElement>(".likidite-kat-btn").forEach((b) => {
+      const aktif = b.dataset["likiditKategori"] === kat;
+      b.setAttribute("aria-pressed", aktif ? "true" : "false");
+      b.classList.toggle("text-cyan-300", aktif);
+      b.classList.toggle("font-semibold", aktif);
+      b.classList.toggle("bg-slate-700", aktif);
+      b.classList.toggle("text-slate-400", !aktif);
+    });
+    await likiditToggle(kat);
+  }
+
+  likiditBtn?.addEventListener("click", async () => {
+    const acik = likiditBtn.getAttribute("aria-pressed") === "true";
+    if (acik) {
+      likiditBtn.setAttribute("aria-pressed", "false");
+      likiditBtn.classList.remove("bg-slate-600", "text-white", "border-cyan-400");
+      likiditBtn.classList.add("text-slate-400");
+      likiditKatWrap?.classList.replace("flex", "hidden");
+      likiditKatmanAcik = false;
+      likiditKatmanGorunurluk(false);
+    } else {
+      likiditBtn.setAttribute("aria-pressed", "true");
+      likiditBtn.classList.add("bg-slate-600", "text-white", "border-cyan-400");
+      likiditBtn.classList.remove("text-slate-400");
+      likiditKatWrap?.classList.replace("hidden", "flex");
+      await likiditKatmanAc(seciliLikiditKat);
+    }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".likidite-kat-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const kat = btn.dataset["likiditKategori"] as "arsa" | "tarla" | undefined;
+      if (!kat) return;
+      await likiditKatmanAc(kat);
+    });
+  });
+
+  // ── Trend / sıcaklık katman toggle ───────────────────────────────────────
+  const trendBtn = document.getElementById("trend-katman-btn") as HTMLButtonElement | null;
+  const trendKatWrap = document.getElementById("trend-kat-wrap") as HTMLElement | null;
+  const trendLegendWrap = document.getElementById("trend-legend-wrap") as HTMLElement | null;
+  let seciliTrendKat: "arsa" | "tarla" = "arsa";
+
+  async function trendKatmanAc(kat: "arsa" | "tarla") {
+    seciliTrendKat = kat;
+    document.querySelectorAll<HTMLButtonElement>(".trend-kat-btn").forEach((b) => {
+      const aktif = b.dataset["trendKategori"] === kat;
+      b.setAttribute("aria-pressed", aktif ? "true" : "false");
+      b.classList.toggle("text-orange-300", aktif);
+      b.classList.toggle("font-semibold", aktif);
+      b.classList.toggle("bg-slate-700", aktif);
+      b.classList.toggle("text-slate-400", !aktif);
+    });
+    await trendToggle(kat);
+  }
+
+  trendBtn?.addEventListener("click", async () => {
+    const acik = trendBtn.getAttribute("aria-pressed") === "true";
+    if (acik) {
+      trendBtn.setAttribute("aria-pressed", "false");
+      trendBtn.classList.remove("bg-slate-600", "text-white", "border-orange-400");
+      trendBtn.classList.add("text-slate-400");
+      trendKatWrap?.classList.replace("flex", "hidden");
+      trendLegendWrap?.classList.add("hidden");
+      trendKatmanAcik = false;
+      trendKatmanGorunurluk(false);
+    } else {
+      trendBtn.setAttribute("aria-pressed", "true");
+      trendBtn.classList.add("bg-slate-600", "text-white", "border-orange-400");
+      trendBtn.classList.remove("text-slate-400");
+      trendKatWrap?.classList.replace("hidden", "flex");
+      trendLegendWrap?.classList.remove("hidden");
+      await trendKatmanAc(seciliTrendKat);
+    }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".trend-kat-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const kat = btn.dataset["trendKategori"] as "arsa" | "tarla" | undefined;
+      if (!kat) return;
+      await trendKatmanAc(kat);
+    });
   });
 }

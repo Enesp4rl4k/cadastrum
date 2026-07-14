@@ -1,7 +1,7 @@
 {
   "meta": {
-    "kaynak": "OSBÜK kamuya açık liste + DHMİ resmi liste",
-    "guncelleme": "2025",
+    "kaynak": "OSBÜK kamuya açık liste + DHMİ resmi liste + DSİ sulama bölge müdürlükleri",
+    "guncelleme": "2026",
     "lisans": "Kamuya açık idari veri — işlenmiş/derleme"
   },
   "havalimanları": [
@@ -82,5 +82,25 @@
     { "id": "iskenderun", "ad": "İskenderun Limanı", "il": "Hatay", "lat": 36.6040, "lng": 36.1620, "tip": "liman" },
     { "id": "samsun-liman", "ad": "Samsun Limanı", "il": "Samsun", "lat": 41.2960, "lng": 36.3340, "tip": "liman" },
     { "id": "trabzon-liman", "ad": "Trabzon Limanı", "il": "Trabzon", "lat": 41.0010, "lng": 39.7260, "tip": "liman" }
+  ],
+  "dsi_bolge_mudurlukleri": [
+    { "id": "dsi-1", "ad": "DSİ 1. Bölge (İstanbul)", "il": "İstanbul", "lat": 41.0082, "lng": 28.9784, "tip": "dsi" },
+    { "id": "dsi-2", "ad": "DSİ 2. Bölge (İzmir)", "il": "İzmir", "lat": 38.4192, "lng": 27.1287, "tip": "dsi" },
+    { "id": "dsi-3", "ad": "DSİ 3. Bölge (Ankara)", "il": "Ankara", "lat": 39.9334, "lng": 32.8597, "tip": "dsi" },
+    { "id": "dsi-4", "ad": "DSİ 4. Bölge (Konya)", "il": "Konya", "lat": 37.8746, "lng": 32.4932, "tip": "dsi" },
+    { "id": "dsi-5", "ad": "DSİ 5. Bölge (Aydın)", "il": "Aydın", "lat": 37.8444, "lng": 27.8458, "tip": "dsi" },
+    { "id": "dsi-6", "ad": "DSİ 6. Bölge (Adana)", "il": "Adana", "lat": 37.0000, "lng": 35.3213, "tip": "dsi" },
+    { "id": "dsi-7", "ad": "DSİ 7. Bölge (Samsun)", "il": "Samsun", "lat": 41.2867, "lng": 36.3300, "tip": "dsi" },
+    { "id": "dsi-8", "ad": "DSİ 8. Bölge (Erzurum)", "il": "Erzurum", "lat": 39.9043, "lng": 41.2679, "tip": "dsi" },
+    { "id": "dsi-9", "ad": "DSİ 9. Bölge (Elazığ)", "il": "Elazığ", "lat": 38.6810, "lng": 39.2264, "tip": "dsi" },
+    { "id": "dsi-10", "ad": "DSİ 10. Bölge (Diyarbakır)", "il": "Diyarbakır", "lat": 37.9144, "lng": 40.2306, "tip": "dsi" },
+    { "id": "dsi-11", "ad": "DSİ 11. Bölge (Edirne)", "il": "Edirne", "lat": 41.6818, "lng": 26.5623, "tip": "dsi" },
+    { "id": "dsi-12", "ad": "DSİ 12. Bölge (Kayseri)", "il": "Kayseri", "lat": 38.7312, "lng": 35.4787, "tip": "dsi" },
+    { "id": "dsi-14", "ad": "DSİ 14. Bölge (Bursa)", "il": "Bursa", "lat": 40.1826, "lng": 29.0669, "tip": "dsi" },
+    { "id": "dsi-16", "ad": "DSİ 16. Bölge (Antalya)", "il": "Antalya", "lat": 36.8969, "lng": 30.7133, "tip": "dsi" },
+    { "id": "dsi-17", "ad": "DSİ 17. Bölge (Trabzon)", "il": "Trabzon", "lat": 40.9862, "lng": 39.7321, "tip": "dsi" },
+    { "id": "dsi-18", "ad": "DSİ 18. Bölge (Isparta)", "il": "Isparta", "lat": 37.7648, "lng": 30.5566, "tip": "dsi" },
+    { "id": "dsi-20", "ad": "DSİ 20. Bölge (Şanlıurfa)", "il": "Şanlıurfa", "lat": 37.1591, "lng": 38.7969, "tip": "dsi" },
+    { "id": "dsi-21", "ad": "DSİ 21. Bölge (Afyonkarahisar)", "il": "Afyonkarahisar", "lat": 38.7507, "lng": 30.5567, "tip": "dsi" }
   ]
 }
