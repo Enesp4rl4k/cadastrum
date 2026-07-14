@@ -1,0 +1,24 @@
+src/sidepanel/views/MapView.tsx
+  h_2675fe4e526316 3,30-38,43-44,47,66-70,271-320,348,701-791
+src/sidepanel/App.tsx
+  h_2675fe4e526316 4-5,16,36,57-58,74-75,77-78,110-113,212,261-268
+src/sidepanel/components/ParselDetay.tsx
+  h_2675fe4e526316 1,15,20-21,24,29,31-38,56-57,151,162-166,214
+src/lib/karsilastirma-store.tsx
+  h_2675fe4e526316 1-124
+src/sidepanel/views/KarsilastirmaView.tsx
+  h_2675fe4e526316 1-336
+src/sidepanel/components/KarsilastirmaButonu.tsx
+  h_2675fe4e526316 1-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b9e04c37eb012fbc0379cbcf35fca01fb17e63c5",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
