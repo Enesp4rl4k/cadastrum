@@ -1,0 +1,41 @@
+site/src/pages/harita.astro
+  h_2675fe4e526316 143-193,218-241,289-298
+backend/api/src/routes/harita.ts
+  h_2675fe4e526316 16-21,29-125,232-402
+src/lib/orman-hazine.ts
+  h_2675fe4e526316 1-333
+site/src/scripts/harita-init.ts
+  h_2675fe4e526316 20-45,104-673,1371-1511
+  s_24becf542a459b::t_ab943fd9da9fcf 1224
+src/lib/risk-uyarilari.ts
+  h_2675fe4e526316 18-20,34,51-56,58,304-427
+src/content/tkgm-parsel.ts
+  h_2675fe4e526316 1-289
+manifest.config.ts
+  h_2675fe4e526316 116-120
+site/public/geo/poi-katmanlari.json
+  h_2675fe4e526316 3-4,85-104
+src/lib/sulama.ts
+  h_2675fe4e526316 1-277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "458f879f648735f6ac350925bc1ea2c349a80dcf",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
