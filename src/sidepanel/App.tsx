@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { SCRAPING_ENABLED } from "../lib/build-flags";
 import { ToastProvider } from "./components/Toast";
+import { KarsilastirmaProvider } from "../lib/karsilastirma-store";
+import { KarsilastirmaView } from "./views/KarsilastirmaView";
 import {
   Map as MapIcon,
   Search as SearchIcon,
@@ -11,6 +13,7 @@ import {
   History as HistoryIcon,
   Building2 as Building2Icon,
   MoreHorizontal as MoreIcon,
+  GitCompare as CompareIcon,
 } from "lucide-react";
 import { MapView } from "./views/MapView";
 import { FavorilerView } from "./views/FavorilerView";
@@ -30,7 +33,7 @@ import { useLisans, type Yetenek } from "../lib/lisans";
 import type { Parsel } from "../types/tkgm";
 import { Onboarding, useOnboardingGoster } from "./components/Onboarding";
 
-type Tab = "harita" | "ara" | "toplu" | "bolge" | "lab" | "favoriler" | "gecmis" | "bootstrap";
+type Tab = "harita" | "ara" | "toplu" | "bolge" | "lab" | "favoriler" | "gecmis" | "bootstrap" | "karsilastirma";
 
 interface FlyToTarget {
   lat: number;
@@ -47,13 +50,14 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { id: "harita",    label: "Harita",   Icon: MapIcon },
-  { id: "ara",       label: "Ara",      Icon: SearchIcon },
-  { id: "favoriler", label: "Favori",   Icon: StarIcon },
-  { id: "gecmis",    label: "Geçmiş",   Icon: HistoryIcon },
-  { id: "toplu",     label: "Toplu",    Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },
-  { id: "bolge",     label: "Bölge",    Icon: LayoutGridIcon },
-  { id: "lab",       label: "Lab",      Icon: FlaskIcon, yetenek: "ai-fiyat" },
+  { id: "harita",         label: "Harita",   Icon: MapIcon },
+  { id: "ara",            label: "Ara",      Icon: SearchIcon },
+  { id: "favoriler",      label: "Favori",   Icon: StarIcon },
+  { id: "gecmis",         label: "Geçmiş",   Icon: HistoryIcon },
+  { id: "karsilastirma",  label: "Karşılaştır", Icon: CompareIcon },
+  { id: "toplu",          label: "Toplu",    Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },
+  { id: "bolge",          label: "Bölge",    Icon: LayoutGridIcon },
+  { id: "lab",            label: "Lab",      Icon: FlaskIcon, yetenek: "ai-fiyat" },
   ...(SCRAPING_ENABLED
     ? [{ id: "bootstrap" as const, label: "Boot", Icon: FlaskIcon, adminGerekli: true }]
     : []),
@@ -67,9 +71,11 @@ const BootstrapView = SCRAPING_ENABLED
 
 export function App() {
   return (
-    <ToastProvider>
-      <AppInner />
-    </ToastProvider>
+    <KarsilastirmaProvider>
+      <ToastProvider>
+        <AppInner />
+      </ToastProvider>
+    </KarsilastirmaProvider>
   );
 }
 
@@ -100,7 +106,12 @@ function AppInner() {
   return (
     <div className="relative flex h-full flex-col" style={{ background: "var(--surface-0)" }}>
       {onboardingGoster && <Onboarding onKapat={onboardingKapat} />}
-      <KomutPaleti />
+      <KomutPaleti
+        onParselSec={(parsel) => {
+          setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
+          setTab("harita");
+        }}
+      />
       {kvkkVerilmis === false && !kvkkKapali && (
         <KvkkConsent onComplete={() => setKvkkKapali(true)} />
       )}
@@ -195,7 +206,11 @@ function AppInner() {
       <main className="relative flex-1 overflow-hidden" style={{ background: "var(--surface-0)" }}>
         <div className={tab === "harita" ? "h-full" : "hidden h-full"}>
           <ErrorBoundary etiket="Harita">
-            <MapView flyTo={flyTo} onConsumed={() => setFlyTo(null)} />
+            <MapView
+              flyTo={flyTo}
+              onConsumed={() => setFlyTo(null)}
+              onTabDegistir={(t) => setTab(t as Tab)}
+            />
           </ErrorBoundary>
         </div>
         {tab === "ara" && (
@@ -239,6 +254,14 @@ function AppInner() {
                   ? { lat: k.lat, lng: k.lng, parsel: k.parsel }
                   : { lat: k.lat, lng: k.lng },
               );
+              setTab("harita");
+            }}
+          />
+        )}
+        {tab === "karsilastirma" && (
+          <KarsilastirmaView
+            onFlyTo={(parsel) => {
+              setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
               setTab("harita");
             }}
           />

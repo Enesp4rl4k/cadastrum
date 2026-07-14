@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Star as StarIcon,
   Check as CheckIcon,
@@ -12,17 +12,30 @@ import { AnalizPanel } from "./AnalizPanel";
 import { FiyatTrendiKarti } from "./FiyatTrendiKarti";
 import { MetricCard, Divider } from "../ui/Card";
 import { useToast } from "./Toast";
+import { KarsilastirmaButonu } from "./KarsilastirmaButonu";
 
 interface Props {
   parsel: Parsel;
   onYakinPoiler?: (poiler: import("../../lib/osm").YakinNoktaMesafesi[] | null) => void;
+  /** Karşılaştır butonuna tıklandığında karşılaştırma tabına geç */
+  onKarsilastirTabAc?: () => void;
 }
 
-export function ParselDetay({ parsel, onYakinPoiler }: Props) {
+export function ParselDetay({ parsel, onYakinPoiler, onKarsilastirTabAc }: Props) {
   const [not, setNot] = useState("");
   const [saved, setSaved] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const { toast } = useToast();
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Unmount olduğunda timer'ı temizle — memory leak ve stale state güncellemesini önler
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current !== null) {
+        clearTimeout(savedTimerRef.current);
+      }
+    };
+  }, []);
 
   async function favoriyeEkle() {
     try {
@@ -40,7 +53,8 @@ export function ParselDetay({ parsel, onYakinPoiler }: Props) {
       setSaved(true);
       setShowNote(false);
       setNot("");
-      setTimeout(() => setSaved(false), 2500);
+      if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 2500);
       const lokasyon = [parsel.mahalleAd, parsel.ilceAd].filter(Boolean).join(", ");
       toast.success(
         lokasyon
@@ -134,7 +148,7 @@ export function ParselDetay({ parsel, onYakinPoiler }: Props) {
       )}
 
       {/* ── Favori butonu ── */}
-      <div className="flex items-center gap-2 pt-0.5">
+      <div className="flex items-center gap-2 pt-0.5 flex-wrap">
         {!showNote && !saved && (
           <button
             type="button"
@@ -145,6 +159,11 @@ export function ParselDetay({ parsel, onYakinPoiler }: Props) {
             Favorilere ekle
           </button>
         )}
+        <KarsilastirmaButonu
+          parsel={parsel}
+          varyant="compact"
+          onEklendi={onKarsilastirTabAc}
+        />
         {saved && (
           <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 px-3 py-1.5 check-draw">
             <CheckIcon className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
@@ -192,6 +211,7 @@ export function ParselDetay({ parsel, onYakinPoiler }: Props) {
       {/* Fiyat trendi */}
       {parsel.ilceAd && (
         <FiyatTrendiKarti
+          il={parsel.ilAd ?? ""}
           ilce={parsel.ilceAd}
           mahalle={parsel.mahalleAd ?? ""}
         />
