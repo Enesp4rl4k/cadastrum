@@ -26,6 +26,9 @@ logs/
 SET-SCRAPER-SECRET.bat
 SIFRE-SIFIRLA.bat
 
+# API debug çıktıları (JWT/token içerebilir)
+backend/api/k*.json
+
 # Büyük cache dosyaları (OSM/anayol/sahil/üniversite/metro — yeniden üretilebilir)
 data/.cache-*.json
 data/.ai-log*.txt
