@@ -265,6 +265,89 @@ export async function fiyatTrendiGetir(
   return sonuc;
 }
 
+// ── Backend Projeksiyon API ──────────────────────────────────────────────────
+
+export interface TrendProjesyonNoktasi {
+  yil: number;
+  ay: number;
+  tahmin: number;
+  guven_alt: number;
+  guven_ust: number;
+}
+
+export interface TrendProjesyonSonuc {
+  gecmis: Array<{ yil: number; ay: number; medyan: number; ilan_adet: number }>;
+  projeksiyon: TrendProjesyonNoktasi[];
+  yillikDegisimYuzde: number;
+  ruelDegisimYuzde: number;
+  trend: "yukseliyor" | "dusuyor" | "duruyor";
+  r2: number;
+  aylikEgimTlm2: number;
+  veriAyAdet: number;
+}
+
+/**
+ * Backend /v1/fiyat/trend/:il/:ilce/:mahalle endpoint'ini çağırır.
+ * Son 18 aylık geçmiş + 6 aylık OLS projeksiyonu + TÜFE reel değişim.
+ *
+ * Dexie cache: 6 saat TTL.
+ */
+export async function trendProjesyonGetir(
+  il: string,
+  ilce: string,
+  mahalle: string,
+  kategori: FiyatTrendi["kategori"] = "tum",
+): Promise<TrendProjesyonSonuc | null> {
+  const API_BASE =
+    typeof chrome !== "undefined"
+      ? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"
+      : "/v1";
+
+  const ilNorm      = normalizeYerAdi(il) ?? "";
+  const ilceNorm    = normalizeYerAdi(ilce) ?? "";
+  const mahalleNorm = normalizeYerAdi(mahalle) ?? "";
+
+  if (!ilNorm || !ilceNorm || !mahalleNorm) return null;
+
+  // Dexie cache — key: "trend_proj:{il}:{ilce}:{mahalle}:{kategori}"
+  const cacheKey = `trend_proj:${ilNorm}:${ilceNorm}:${mahalleNorm}:${kategori}`;
+  const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 saat
+  try {
+    const cached = await db.fiyatTrendi.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+      // Cache'den veri var ama type farklı — raw JSON saklıyoruz
+      const raw = (cached as unknown as { projeksiyon?: TrendProjesyonSonuc }).projeksiyon;
+      if (raw) return raw;
+    }
+  } catch { /* cache yoksa devam */ }
+
+  try {
+    const url = `${API_BASE}/fiyat/trend/${encodeURIComponent(ilNorm)}/${encodeURIComponent(ilceNorm)}/${encodeURIComponent(mahalleNorm)}?kategori=${kategori}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+    if (!res.ok) return null;
+
+    const data = await res.json() as TrendProjesyonSonuc;
+    if (!data.gecmis?.length) return null;
+
+    // Cache'e yaz — FiyatTrendi type'ına sığdırmak için projeksiyon verisini serialize ediyoruz
+    db.fiyatTrendi.put({
+      key: cacheKey,
+      ilceNorm,
+      mahalleNorm,
+      kategori,
+      noktalar: [],
+      toplamIlan: data.veriAyAdet,
+      fetchedAt: Date.now(),
+      seviye: "mahalle",
+      projeksiyon: data,
+    } as unknown as FiyatTrendi).catch(() => {});
+
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Hem mahalle hem ilçe trendini getir, hangisi daha iyi veri içeriyorsa onu döndür.
  * Mahalle en az 3 veri noktasına sahipse öncelikli; yoksa ilçeye fall back.

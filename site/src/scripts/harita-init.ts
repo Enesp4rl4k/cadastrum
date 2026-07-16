@@ -1,6 +1,6 @@
 /**
  * harita-init.ts
- * Türkiye Alım-Satım Yoğunluğu Haritası — MapLibre GL heatmap + POI katmanları
+ * Türkiye Alım-Satım Yoğunluğu Haritası — MapLibre GL heatmap + POI katmanları + Otoyol/D-yol
  *
  * Veri akışı:
  *   TKGM (tek seferlik) → scripts/tkgm-analiz-seed.mjs → D1
@@ -687,6 +687,10 @@ interface PoiVeri {
   havalimanları: PoiNokta[];
   osblar: PoiNokta[];
   lojistik_merkezler: PoiNokta[];
+  serbest_bolgeler?: PoiNokta[];
+  tmo_depolari?: PoiNokta[];
+  buyuk_barajlar?: PoiNokta[];
+  enerji_santralleri?: PoiNokta[];
 }
 
 // Aktif katman durumu — hangi POI katmanları açık
@@ -695,7 +699,125 @@ const katmanDurum: Record<string, boolean> = {
   "osb": false,
   "lojistik": false,
   "cdp-imar": false,
+  "tmo": false,
+  "stb": false,
+  "baraj": false,
+  "enerji": false,
+  "otoyol": false,
 };
+
+// ─── Otoyol & D-yol layer ─────────────────────────────────────────────────────
+// /geo/otoyollar.geojson — extract-otoyollar.mjs ile üretilir
+
+let otoyolVeriYuklendi = false;
+
+async function otoyolLayerEkle() {
+  if (!harita) return;
+  if (harita.getLayer("otoyol-motorway")) return;
+
+  // GeoJSON henüz yüklenmemişse fetch et
+  if (!harita.getSource("otoyol-src")) {
+    durumGuncelle("Otoyol verisi yükleniyor…");
+    try {
+      const res = await fetch("/geo/otoyollar.geojson");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as GeoJSON.FeatureCollection;
+      harita.addSource("otoyol-src", { type: "geojson", data });
+      otoyolVeriYuklendi = true;
+    } catch (e) {
+      console.warn("[otoyol] GeoJSON yüklenemedi:", e);
+      durumGuncelle("Otoyol verisi alınamadı");
+      return;
+    } finally {
+      durumGuncelle("");
+    }
+  }
+
+  // Motorway — kırmızı, kalın
+  harita.addLayer({
+    id: "otoyol-motorway",
+    type: "circle",
+    source: "otoyol-src",
+    filter: ["==", ["get", "tip"], "motorway"],
+    minzoom: 5,
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 8, 3.5, 12, 5],
+      "circle-color": "#ef4444",
+      "circle-opacity": 0.75,
+      "circle-stroke-width": 0,
+    },
+  });
+
+  // Trunk — turuncu, ince
+  harita.addLayer({
+    id: "otoyol-trunk",
+    type: "circle",
+    source: "otoyol-src",
+    filter: ["==", ["get", "tip"], "trunk"],
+    minzoom: 6,
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 8, 2.5, 12, 4],
+      "circle-color": "#f97316",
+      "circle-opacity": 0.65,
+      "circle-stroke-width": 0,
+    },
+  });
+
+  // Label — yol adı (yüksek zoom)
+  harita.addLayer({
+    id: "otoyol-label",
+    type: "symbol",
+    source: "otoyol-src",
+    filter: ["==", ["get", "tip"], "motorway"],
+    minzoom: 9,
+    layout: {
+      "text-field": ["get", "ad"],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-size": 9,
+      "text-offset": [0, 1.2],
+      "text-anchor": "top",
+      "text-allow-overlap": false,
+      "text-optional": true,
+    },
+    paint: {
+      "text-color": "#fca5a5",
+      "text-halo-color": "#1f2937",
+      "text-halo-width": 1.2,
+    },
+  });
+
+  harita.on("click", "otoyol-motorway", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p || !MLPopup || !harita) return;
+    new MLPopup({ closeButton: true, maxWidth: "220px" })
+      .setLngLat(e.lngLat)
+      .setHTML(`<div style="font-family:Inter,sans-serif;padding:2px 4px">
+        <strong style="font-size:13px">🛣️ ${p["ad"] ?? "Otoyol"}</strong><br>
+        <span style="font-size:11px;color:#94a3b8">Motorway</span>
+      </div>`)
+      .addTo(harita);
+  });
+
+  harita.on("click", "otoyol-trunk", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p || !MLPopup || !harita) return;
+    new MLPopup({ closeButton: true, maxWidth: "220px" })
+      .setLngLat(e.lngLat)
+      .setHTML(`<div style="font-family:Inter,sans-serif;padding:2px 4px">
+        <strong style="font-size:13px">🛤️ ${p["ad"] ?? "Devlet Yolu"}</strong><br>
+        <span style="font-size:11px;color:#94a3b8">Devlet Yolu (D-yol)</span>
+      </div>`)
+      .addTo(harita);
+  });
+}
+
+function otoyolGorunurluk(gorünür: boolean) {
+  if (!harita) return;
+  const vis = gorünür ? "visible" : "none";
+  for (const id of ["otoyol-motorway", "otoyol-trunk", "otoyol-label"]) {
+    if (harita.getLayer(id)) harita.setLayoutProperty(id, "visibility", vis);
+  }
+}
 
 let harita: import("maplibre-gl").Map | null = null;
 let aktifTip = 1;
@@ -1113,16 +1235,221 @@ function lojistikLayerEkle() {
 
 // ─── Katman görünürlük toggle ─────────────────────────────────────────────────
 
+// ─── TMO Depoları layer ───────────────────────────────────────────────────────
+
+function tmoLayerEkle() {
+  if (!harita || harita.getLayer("poi-tmo-circle")) return;
+  harita.addLayer({
+    id: "poi-tmo-circle",
+    type: "circle",
+    source: "poi-tmo",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5, 8, 9, 12, 13],
+      "circle-color": "#facc15",
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#ca8a04",
+      "circle-opacity": 0.85,
+    },
+  });
+  harita.addLayer({
+    id: "poi-tmo-label",
+    type: "symbol",
+    source: "poi-tmo",
+    minzoom: 7,
+    layout: {
+      "text-field": ["get", "il"],
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-size": 9,
+      "text-offset": [0, 1.3],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#fef9c3", "text-halo-color": "#713f12", "text-halo-width": 1.2 },
+  });
+  harita.on("click", "poi-tmo-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p) return;
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${p["ad"] ?? ""}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">🌾 TMO Alım Merkezi · ${p["il"] ?? ""}</span>`);
+  });
+  harita.on("mouseenter", "poi-tmo-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+  harita.on("mouseleave", "poi-tmo-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+}
+
+// ─── Serbest Bölgeler layer ───────────────────────────────────────────────────
+
+function stbLayerEkle() {
+  if (!harita || harita.getLayer("poi-stb-circle")) return;
+  harita.addLayer({
+    id: "poi-stb-circle",
+    type: "circle",
+    source: "poi-stb",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 8, 11, 12, 16],
+      "circle-color": "#a855f7",
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#7e22ce",
+      "circle-opacity": 0.85,
+    },
+  });
+  harita.addLayer({
+    id: "poi-stb-label",
+    type: "symbol",
+    source: "poi-stb",
+    minzoom: 6,
+    layout: {
+      "text-field": ["get", "il"],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-size": 9,
+      "text-offset": [0, 1.5],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#e9d5ff", "text-halo-color": "#3b0764", "text-halo-width": 1.5 },
+  });
+  harita.on("click", "poi-stb-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, string> | undefined;
+    if (!p) return;
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${p["ad"] ?? ""}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">🏛️ Serbest Ticaret Bölgesi · ${p["il"] ?? ""}</span>`);
+  });
+  harita.on("mouseenter", "poi-stb-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+  harita.on("mouseleave", "poi-stb-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+}
+
+// ─── Büyük Barajlar layer ─────────────────────────────────────────────────────
+
+function barajLayerEkle() {
+  if (!harita || harita.getLayer("poi-baraj-circle")) return;
+  harita.addLayer({
+    id: "poi-baraj-circle",
+    type: "circle",
+    source: "poi-baraj",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"],
+        4, ["interpolate", ["linear"], ["get", "kapasite_mw"], 0, 4, 2400, 12],
+        8, ["interpolate", ["linear"], ["get", "kapasite_mw"], 0, 7, 2400, 20],
+      ],
+      "circle-color": "#38bdf8",
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#0369a1",
+      "circle-opacity": 0.80,
+    },
+  });
+  harita.addLayer({
+    id: "poi-baraj-label",
+    type: "symbol",
+    source: "poi-baraj",
+    minzoom: 6,
+    layout: {
+      "text-field": ["get", "ad"],
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-size": 9,
+      "text-offset": [0, 1.6],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#e0f2fe", "text-halo-color": "#0c4a6e", "text-halo-width": 1.5 },
+  });
+  harita.on("click", "poi-baraj-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, unknown> | undefined;
+    if (!p) return;
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${String(p["ad"] ?? "")}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">💧 Baraj · ${String(p["il"] ?? "")}</span><br>
+       <span style="font-size:11px;color:#38bdf8">⚡ ${Number(p["kapasite_mw"] ?? 0).toLocaleString("tr-TR")} MW</span>`);
+  });
+  harita.on("mouseenter", "poi-baraj-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+  harita.on("mouseleave", "poi-baraj-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+}
+
+// ─── Enerji Santralleri layer ─────────────────────────────────────────────────
+
+const ENERJI_RENK: Record<string, string> = {
+  termik: "#f97316",
+  nukleer: "#dc2626",
+  res: "#86efac",
+  ges: "#fde047",
+};
+
+const ENERJI_IKON: Record<string, string> = {
+  termik: "🏭", nukleer: "⚛️", res: "💨", ges: "☀️",
+};
+
+function enerjiLayerEkle() {
+  if (!harita || harita.getLayer("poi-enerji-circle")) return;
+  harita.addLayer({
+    id: "poi-enerji-circle",
+    type: "circle",
+    source: "poi-enerji",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5, 8, 9, 12, 14],
+      "circle-color": [
+        "match", ["get", "tip"],
+        "termik", "#f97316",
+        "nukleer", "#dc2626",
+        "res", "#86efac",
+        "ges", "#fde047",
+        "#94a3b8",
+      ],
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "rgba(255,255,255,0.5)",
+      "circle-opacity": 0.85,
+    },
+  });
+  harita.addLayer({
+    id: "poi-enerji-label",
+    type: "symbol",
+    source: "poi-enerji",
+    minzoom: 7,
+    layout: {
+      "text-field": ["get", "il"],
+      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+      "text-size": 8,
+      "text-offset": [0, 1.3],
+      "text-anchor": "top",
+    },
+    paint: { "text-color": "#f8fafc", "text-halo-color": "#0f172a", "text-halo-width": 1.2 },
+  });
+  harita.on("click", "poi-enerji-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, unknown> | undefined;
+    if (!p) return;
+    const tip = String(p["tip"] ?? "");
+    const ikon = ENERJI_IKON[tip] ?? "⚡";
+    poiPopupGoster(e.lngLat,
+      `<strong style="font-size:13px">${String(p["ad"] ?? "")}</strong><br>
+       <span style="font-size:11px;color:#94a3b8">${ikon} ${tip.charAt(0).toUpperCase() + tip.slice(1)} Santrali · ${String(p["il"] ?? "")}</span><br>
+       <span style="font-size:11px;color:${ENERJI_RENK[tip] ?? "#94a3b8"}">⚡ ${Number(p["kapasite_mw"] ?? 0).toLocaleString("tr-TR")} MW</span>`);
+  });
+  harita.on("mouseenter", "poi-enerji-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+  harita.on("mouseleave", "poi-enerji-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+}
+
 const POI_LAYER_MAP: Record<string, { layerIds: string[]; srcId: string; yukle: () => void }> = {
   hava:     { layerIds: ["poi-hava-circle", "poi-hava-label"],   srcId: "poi-hava", yukle: havalimanıLayerEkle },
   osb:      { layerIds: ["poi-osb-circle", "poi-osb-label"],     srcId: "poi-osb",  yukle: osbLayerEkle },
   lojistik: { layerIds: ["poi-loj-circle", "poi-loj-label"],     srcId: "poi-loj",  yukle: lojistikLayerEkle },
+  tmo:      { layerIds: ["poi-tmo-circle", "poi-tmo-label"],     srcId: "poi-tmo",  yukle: tmoLayerEkle },
+  stb:      { layerIds: ["poi-stb-circle", "poi-stb-label"],     srcId: "poi-stb",  yukle: stbLayerEkle },
+  baraj:    { layerIds: ["poi-baraj-circle", "poi-baraj-label"], srcId: "poi-baraj", yukle: barajLayerEkle },
+  enerji:   { layerIds: ["poi-enerji-circle", "poi-enerji-label"], srcId: "poi-enerji", yukle: enerjiLayerEkle },
 };
 
 async function katmanToggle(katman: string) {
   if (!harita) return;
   const acik = !katmanDurum[katman];
   katmanDurum[katman] = acik;
+
+  // Otoyol & D-yol katmanı — GeoJSON'dan özel yükleme
+  if (katman === "otoyol") {
+    if (acik) {
+      await otoyolLayerEkle();
+      otoyolGorunurluk(true);
+    } else {
+      otoyolGorunurluk(false);
+    }
+    btnToggleGuncelle(katman, acik);
+    return;
+  }
 
   // CDP imar katmanı özel mantık
   if (katman === "cdp-imar") {
@@ -1147,9 +1474,13 @@ async function katmanToggle(katman: string) {
     if (!harita.getSource(cfg.srcId)) {
       const veri = await poiVeriYukle();
       const noktaMap: Record<string, PoiNokta[]> = {
-        hava: veri.havalimanları,
-        osb: veri.osblar,
+        hava:     veri.havalimanları,
+        osb:      veri.osblar,
         lojistik: veri.lojistik_merkezler,
+        tmo:      veri.tmo_depolari ?? [],
+        stb:      veri.serbest_bolgeler ?? [],
+        baraj:    veri.buyuk_barajlar ?? [],
+        enerji:   veri.enerji_santralleri ?? [],
       };
       poiSourceEkle(cfg.srcId, noktaMap[katman] ?? []);
     }

@@ -3,6 +3,8 @@ import type { CevreAnalizi, YakinNoktaMesafesi } from "./osm";
 import { HAVALIMANLARITÜMÜ } from "./data/havalimanları";
 import { LIMANLAR } from "./data/limanlar";
 import { OSBLAR } from "./data/osblar";
+import { SERBEST_BOLGELER } from "./data/serbest-bolgeler";
+import { LISANSLI_DEPOLAR } from "./data/lisansli-depolar";
 import {
   OTOYOL_NOKTALARI,
   OTOYOL_GRID,
@@ -83,6 +85,8 @@ export function statikLojistikZenginleştir(
   güncelleStatik(HAVALIMANLARITÜMÜ, "airport", "✈️");
   güncelleStatik(LIMANLAR, "port", "⚓");
   güncelleStatik(OSBLAR, "osb", "🏭");
+  güncelleStatik(SERBEST_BOLGELER, "serbest-bolge", "🏛️");
+  güncelleStatik(LISANSLI_DEPOLAR, "lisansli-depo", "🌾");
 
   const otoyol = enYakinOtoyol(parselLat, parselLng, "motorway");
   if (otoyol) {

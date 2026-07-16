@@ -195,8 +195,8 @@ export async function cevreAnaliziGetir(
 
   try {
     await db.osmCevreCache.put({ key, cevre: zenginlestirilmis, fetchedAt: Date.now() });
-  } catch {
-    // cache yazımı başarısız olsa bile veri kullanıcıya döner
+  } catch (e) {
+    console.debug("[arsa-osm] osmCevreCache yazma hatası (kota/izin):", e);
   }
   return zenginlestirilmis;
 }
@@ -416,18 +416,38 @@ export async function adresGetir(
 }
 
 /**
- * Background SW üzerinden fetch — DNR rules sayesinde Origin strip edilir.
- * Browser preview'da chrome global yok → direkt fetch fallback.
- */
-/**
- * Direkt fetch — extension context'inde DNR rules zaten Origin'i strip ediyor.
- * SW proxy bazı durumlarda 'Failed to fetch' veriyor (sebep belirsiz);
- * direkt side panel fetch'i daha güvenilir.
+ * Overpass POST isteklerini SW üzerinden gönderir — DNR rules Origin header'ını strip eder.
+ * Side panel'den direkt POST yapıldığında Overpass "Origin: chrome-extension://" görüp 406 döner.
+ * SW üzerinden gönderildiğinde DNR rules header'ı temizler, istek normal görünür.
+ *
+ * Nominatim ve diğer GET istekleri için direkt fetch yeterli (DNR rules GET'te çalışır).
  */
 async function proxyFetch(
   url: string,
   init: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal } = {},
 ): Promise<{ ok: boolean; status: number; text: string }> {
+  const isPost = (init.method ?? "GET").toUpperCase() === "POST";
+
+  // POST isteklerini (Overpass) SW üzerinden proxy et
+  if (isPost && typeof chrome !== "undefined" && chrome?.runtime?.sendMessage) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { tip: "overpass-proxy", url, body: init.body ?? "" },
+        (resp: { ok: boolean; status: number; text: string } | undefined) => {
+          if (chrome.runtime.lastError || !resp) {
+            // SW yanıt vermezse direkt fetch'e düş
+            fetch(url, { method: "POST", headers: init.headers, body: init.body, signal: init.signal })
+              .then(async (r) => resolve({ ok: r.ok, status: r.status, text: await r.text() }))
+              .catch(() => resolve({ ok: false, status: 0, text: "" }));
+          } else {
+            resolve(resp);
+          }
+        },
+      );
+    });
+  }
+
+  // GET istekleri (Nominatim vb.) — direkt fetch, DNR rules zaten çalışır
   const res = await fetch(url, {
     method: init.method,
     headers: init.headers,

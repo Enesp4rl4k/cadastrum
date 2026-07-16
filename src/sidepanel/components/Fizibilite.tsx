@@ -2,17 +2,26 @@ import { useMemo, useState } from "react";
 import {
   type YapiTipi,
   YAPI_PRESETLERI,
+  PRESET_TARIHI,
   fizibiliteHesapla,
   trFmt,
 } from "../../lib/fizibilite";
 import type { Parsel } from "../../types/tkgm";
+import type { FiyatTahmini } from "../../lib/fiyat-tahmin";
 
 interface Props {
   parsel: Parsel;
+  /** Fiyat tahmininden gelen beklenen TL değeri — arsa maliyeti başlangıcı için */
+  fiyatTahmini?: FiyatTahmini | null;
 }
 
-export function Fizibilite({ parsel }: Props) {
-  const [arsaMaliyet, setArsaMaliyet] = useState<number>(parsel.alan * 5000);
+export function Fizibilite({ parsel, fiyatTahmini }: Props) {
+  // Arsa maliyeti başlangıcı: fiyat tahmini varsa onu kullan, yoksa kaba il baseline
+  const baslangicArsaMaliyet = fiyatTahmini?.toplamBeklenen
+    ? fiyatTahmini.toplamBeklenen
+    : parsel.alan * 5_000;
+
+  const [arsaMaliyet, setArsaMaliyet] = useState<number>(baslangicArsaMaliyet);
   const [yapiTipi, setYapiTipi] = useState<YapiTipi>("apartman");
   const [hedef, setHedef] = useState<"satis" | "kira">("satis");
   const preset = YAPI_PRESETLERI[yapiTipi];
@@ -38,6 +47,7 @@ export function Fizibilite({ parsel }: Props) {
         yapiTipi,
         preset: {
           ad: preset.ad,
+          aciklama: preset.aciklama,
           insaatBirimMaliyet: insaatBirim,
           satisBirimFiyat: satisBirim,
           kiraAylikBirim: kiraBirim,
@@ -50,6 +60,13 @@ export function Fizibilite({ parsel }: Props) {
 
   return (
     <div className="space-y-2 rounded border border-slate-200 bg-white p-2">
+      {/* Arsa maliyeti kaynağı — fiyat tahmininden geldiyse göster */}
+      {fiyatTahmini?.toplamBeklenen && (
+        <div className="rounded bg-blue-50 px-2 py-1 text-[10px] text-blue-700 border border-blue-100">
+          💡 Arsa maliyeti fiyat tahmininden alındı ({fiyatTahmini.toplamBeklenen.toLocaleString("tr-TR")} TL). Değiştirebilirsiniz.
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <Input label="Arsa alanı (m²)" value={parsel.alan} readOnly />
         <Input
@@ -72,6 +89,8 @@ export function Fizibilite({ parsel }: Props) {
               </option>
             ))}
           </select>
+          {/* Preset açıklaması */}
+          <span className="text-[9px] text-slate-400 leading-tight">{preset.aciklama}</span>
         </label>
         <Input
           label="İnşaat birim maliyet (TL/m²)"
@@ -143,6 +162,10 @@ export function Fizibilite({ parsel }: Props) {
           </>
         )}
         <div className="mt-2 italic text-tkgm-muted">{sonuc.not}</div>
+        {/* Preset güncelleme tarihi uyarısı */}
+        <div className="mt-2 text-[9px] text-slate-400">
+          ⚠ Preset değerleri {PRESET_TARIHI} büyükşehir ortalamasıdır. Gerçek analizde yerel fiyatlarla güncelleyin.
+        </div>
       </div>
     </div>
   );

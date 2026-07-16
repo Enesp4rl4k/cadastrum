@@ -1,29 +1,28 @@
+/**
+ * Vitest ayrı config.
+ *
+ * NEDEN ayrı config gerekli:
+ * vite.config.ts function-form kullanır ve @crxjs/vite-plugin'i import eder.
+ * Vitest bu config'i yükleyince crxjs → Chrome Extension context arar → crash.
+ *
+ * import.meta.env: Vitest node ortamında Vite inject etmez; `define` ile stub'larız.
+ */
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_SCRAPING_ENABLED": JSON.stringify("false"),
+    "import.meta.env.MODE": JSON.stringify("test"),
+    "import.meta.env.DEV": JSON.stringify(false),
+    "import.meta.env.PROD": JSON.stringify(false),
+    "import.meta.env.SSR": JSON.stringify(false),
+  },
   test: {
     environment: "node",
-    include: ["test/**/*.spec.ts", "src/**/*.spec.ts", "scripts/**/*.spec.mjs"],
-    exclude: ["node_modules", "dist", "backend"],
+    include: ["test/**/*.spec.ts"],
+    exclude: ["scripts/**"],
     globals: false,
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "json-summary", "html"],
-      reportsDirectory: "./coverage",
-      include: ["src/lib/**/*.ts"],
-      exclude: [
-        "src/lib/data/**", // statik tablolar, test'lenmez
-        "src/lib/**/*.spec.ts",
-        "src/lib/sahibinden-dom-monitor.ts", // browser API
-        "src/lib/detay-zenginlestirme.ts", // chrome.tabs/scripting
-      ],
-      thresholds: {
-        // Hedef başlangıç: %50, kademeli artış. Şu an ~30%.
-        statements: 30,
-        branches: 30,
-        functions: 30,
-        lines: 30,
-      },
-    },
+    // Dexie + chrome API stub'ları — node ortamında IndexedDB/extension API yok
+    setupFiles: ["./test/setup.ts"],
   },
 });

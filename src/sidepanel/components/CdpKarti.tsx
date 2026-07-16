@@ -12,10 +12,16 @@ import {
   Zap as ZapIcon,
   FileCheck as FileCheckIcon,
   Layers as LayersIcon,
+  ExternalLink as ExternalLinkIcon,
 } from "lucide-react";
 import type { TucbsCdpSonuc, TucbsCdpKategori } from "../../lib/tucbs";
 import type { EPlanImarVerisi } from "../../lib/eplan";
 import { Section } from "../ui/Card";
+import {
+  belediyePortalBul,
+  tkgmParselsorguUrl,
+  EPLAN_IMAR_URL,
+} from "../../lib/belediye-imar";
 
 interface Props {
   veri: TucbsCdpSonuc | null;
@@ -23,6 +29,11 @@ interface Props {
   /** e-Plan imar verisi — KAKS/TAKS/maks kat görsel özeti için */
   ePlan?: EPlanImarVerisi | null;
   ePlanLoading?: boolean;
+  /** Belediye portal linkleri için parsel bilgisi */
+  ilAd?: string;
+  mahalleKodu?: number | null;
+  adaNo?: number;
+  parselNo?: number;
 }
 
 // ─── Kategori konfigürasyonu ──────────────────────────────────────────────────
@@ -192,11 +203,15 @@ function GuvenBar({ skor }: { skor: number }) {
 
 // ─── Ana bileşen ──────────────────────────────────────────────────────────────
 
-export function CdpKarti({ veri, loading, ePlan, ePlanLoading }: Props) {
+export function CdpKarti({ veri, loading, ePlan, ePlanLoading, ilAd, mahalleKodu, adaNo, parselNo }: Props) {
   const ePlanVar = ePlan && (
     ePlan.kullanimKarari || ePlan.planKarari ||
     ePlan.emsal != null || ePlan.taks != null || ePlan.maksKat != null
   );
+
+  // Belediye portalları (il-eksik durumunda gösterilir)
+  const belediyePortallari = ilAd ? belediyePortalBul(ilAd) : [];
+  const tkgmUrl = tkgmParselsorguUrl(mahalleKodu, adaNo, parselNo);
 
   // Yükleniyor
   if (loading || ePlanLoading) {
@@ -311,18 +326,87 @@ export function CdpKarti({ veri, loading, ePlan, ePlanLoading }: Props) {
           );
         })()}
 
-        {/* ÇDP kapsam dışı */}
+        {/* ÇDP kapsam dışı — belediye portalları + ePlan + TKGM linkleri */}
         {veri && veri.kapsam === "il-eksik" && (
-          <div className="rounded-md bg-slate-50 border border-slate-200 p-2.5 space-y-1">
-            <div className="flex items-center gap-1.5">
-              <InfoIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <span className="text-xs font-medium text-slate-700">
-                {veri.il ?? "Bu il"} TUCBS ÇDP kapsamı dışında
-              </span>
+          <div className="space-y-2">
+            {/* Başlık */}
+            <div className="rounded-md bg-slate-50 border border-slate-200 p-2.5 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <InfoIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span className="text-xs font-medium text-slate-700">
+                  {veri.il ?? "Bu il"} — TUCBS kapsam dışında
+                </span>
+              </div>
+              <p className="text-3xs text-slate-500 leading-relaxed">
+                CSB'nin açık WMS servisi bu ili kapsamıyor. e-Plan verisini aşağıda görebilirsiniz;
+                detaylı imar durumu için belediye portalarına gidin.
+              </p>
             </div>
-            <p className="text-3xs text-slate-500 leading-relaxed">
-              CSB'nin bölgesel ÇDP WMS servisleri İstanbul, Ankara, Bursa gibi büyük illeri henüz kapsamıyor.
-            </p>
+
+            {/* Aksiyon butonları */}
+            <div className="space-y-1.5">
+              {/* e-Plan — CSB üzerinden imar sorgusu */}
+              <a
+                href={EPLAN_IMAR_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 hover:bg-emerald-100 transition-colors"
+              >
+                <div className="flex items-center gap-1.5">
+                  <FileCheckIcon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="text-2xs font-semibold text-emerald-800">CSB e-Plan Portal</div>
+                    <div className="text-3xs text-emerald-600">Resmi ücretsiz imar sorgusu — eplan.csb.gov.tr</div>
+                  </div>
+                </div>
+                <ExternalLinkIcon className="h-3 w-3 text-emerald-500 shrink-0" />
+              </a>
+
+              {/* TKGM Parselsorgu */}
+              <a
+                href={tkgmUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 hover:bg-sky-100 transition-colors"
+              >
+                <div className="flex items-center gap-1.5">
+                  <MapIcon className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                  <div>
+                    <div className="text-2xs font-semibold text-sky-800">TKGM Parsel Sorgu</div>
+                    <div className="text-3xs text-sky-600">Tapu ve kadastro bilgileri — parselsorgu.tkgm.gov.tr</div>
+                  </div>
+                </div>
+                <ExternalLinkIcon className="h-3 w-3 text-sky-500 shrink-0" />
+              </a>
+
+              {/* Belediye portalları */}
+              {belediyePortallari.map((portal) => (
+                <a
+                  key={portal.url}
+                  href={portal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 hover:bg-violet-100 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <BuildingIcon className="h-3.5 w-3.5 text-violet-600 shrink-0" />
+                    <div>
+                      <div className="text-2xs font-semibold text-violet-800">{portal.ad}</div>
+                      <div className="text-3xs text-violet-600">{new URL(portal.url).hostname}</div>
+                    </div>
+                  </div>
+                  <ExternalLinkIcon className="h-3 w-3 text-violet-500 shrink-0" />
+                </a>
+              ))}
+
+              {belediyePortallari.length === 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
+                  <div className="text-2xs text-amber-700">
+                    Bu il için belediye portalı kayıtlı değil. e-Plan CSB'den imar durumu sorgulayabilirsiniz.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

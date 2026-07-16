@@ -84,8 +84,10 @@ export async function mahalleKoduCoz(
   girdi: MahalleCozumleGirdi,
   opts: { aliasKaydet?: boolean } = { aliasKaydet: true },
 ): Promise<MahalleCozumleCikti> {
+  // ilceVeListe tek seferinde çekiliyor — hem secilenMahalleKodu hem fallback zinciri paylaşır
+  const ctx = await ilceVeListe(girdi);
+
   if (girdi.secilenMahalleKodu != null) {
-    const ctx = await ilceVeListe(girdi);
     const m = ctx?.mahalleler.find((x) => x.mahalleKodu === girdi.secilenMahalleKodu);
     if (m) {
       const sonuc = basarili(m, "manuel-kod", 100);
@@ -103,7 +105,6 @@ export async function mahalleKoduCoz(
     }
   }
 
-  const ctx = await ilceVeListe(girdi);
   if (!ctx) {
     return {
       ok: false,

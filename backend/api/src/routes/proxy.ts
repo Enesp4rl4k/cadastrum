@@ -177,16 +177,53 @@ proxyRoutes.get("/tucbs", async (c) => {
 });
 
 // WMS GetMap tile — MapLibre {bbox-epsg-3857} placeholder'ı client'ta doldurulur
-proxyRoutes.get("/tucbs/tile", async (c) => {
-  const wms = c.req.query("wms");
-  const bbox = c.req.query("bbox");
+/** Standart XYZ tile → EPSG:3857 bbox (Web Mercator tam daire: ±20037508.342789244m) */
+function xyzToBbox3857(z: number, x: number, y: number): string {
+  const WORLD = 20037508.342789244;
+  const tileSize = (WORLD * 2) / 2 ** z;
+  const minX = -WORLD + x * tileSize;
+  const maxX = minX + tileSize;
+  const maxY = WORLD - y * tileSize;
+  const minY = maxY - tileSize;
+  return `${minX},${minY},${maxX},${maxY}`;
+}
+
+// TUCBS'in kendi sunucusu Cloudflare Worker IP aralığını yavaşlatıyor/engelliyor
+// (canlı istekler 522/timeout ile sonuçlanıyor). Bu yüzden tile'lar R2'de
+// write-through cache'leniyor: önce R2'ye bak, yoksa TUCBS'ten çek + R2'ye yaz.
+// z/x/y standart slippy-map şeması — hem R2 anahtarı hem MapLibre tile source'u
+// için tutarlı (bkz. site/src/scripts/harita-init.ts).
+proxyRoutes.get("/tucbs/tile/:wms/:z/:x/:y", async (c) => {
+  const wms = c.req.param("wms");
+  const z = Number(c.req.param("z"));
+  const x = Number(c.req.param("x"));
+  const y = Number(c.req.param("y").replace(/\.png$/, ""));
+
   if (!wms || !TUCBS_WMS_SLUGS.has(wms)) {
     return c.json({ error: "Geçersiz wms slug" }, 400);
   }
-  if (!bbox || !/^-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(bbox)) {
-    return c.json({ error: "bbox zorunlu (EPSG:3857 minX,minY,maxX,maxY)" }, 400);
+  if (!Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y) || z < 0 || z > 20) {
+    return c.json({ error: "Geçersiz z/x/y" }, 400);
   }
 
+  const r2Key = `${wms}/${z}/${x}/${y}.png`;
+
+  // 1) R2'den dene
+  const cached = await c.env.TUCBS_TILES.get(r2Key);
+  if (cached) {
+    return new Response(cached.body, {
+      status: 200,
+      headers: {
+        "Content-Type": cached.httpMetadata?.contentType ?? "image/png",
+        "Cache-Control": "public, max-age=2592000, immutable",
+        "Access-Control-Allow-Origin": "*",
+        "X-Tile-Cache": "r2-hit",
+      },
+    });
+  }
+
+  // 2) R2'de yok — TUCBS'ten canlı çek (yavaş/engelli olabilir, bu yüzden kısa timeout)
+  const bbox = xyzToBbox3857(z, x, y);
   const params = new URLSearchParams({
     SERVICE: "WMS",
     VERSION: "1.3.0",
@@ -205,18 +242,27 @@ proxyRoutes.get("/tucbs/tile", async (c) => {
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)" },
-      cf: { cacheTtl: 86_400 * 7, cacheEverything: true } as never,
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       return c.json({ error: `TUCBS tile ${res.status}` }, 502);
     }
     const buf = await res.arrayBuffer();
+
+    // 3) Write-through — bir daha kimse bu tile için TUCBS'e gitmesin
+    c.executionCtx.waitUntil(
+      c.env.TUCBS_TILES.put(r2Key, buf, {
+        httpMetadata: { contentType: res.headers.get("Content-Type") ?? "image/png" },
+      }),
+    );
+
     return new Response(buf, {
       status: 200,
       headers: {
         "Content-Type": res.headers.get("Content-Type") ?? "image/png",
-        "Cache-Control": "public, max-age=604800",
+        "Cache-Control": "public, max-age=2592000, immutable",
         "Access-Control-Allow-Origin": "*",
+        "X-Tile-Cache": "miss-fetched",
       },
     });
   } catch (e) {

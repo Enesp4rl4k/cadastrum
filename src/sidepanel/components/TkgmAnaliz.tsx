@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ExternalLink as ExternalLinkIcon } from "lucide-react";
 import {
   type AnalizNoktasi,
   type AnalizTip,
@@ -35,6 +36,30 @@ export function TkgmAnaliz({ ilceKodu, ilceAd }: Props) {
     setTipOzetleri([]);
     setTrendVerisi([]);
     setError(null);
+  }, [ilceKodu]);
+
+  // Otomatik yükleme: bileşen açılınca son yıl Tip 1 (Alım Satım Yoğunluğu) çek
+  useEffect(() => {
+    if (tipOzetleri.length > 0) return;
+    const ctrl = new AbortController();
+    const sonYil = YIL_SECENEKLERI[0] ?? new Date().getFullYear() - 1;
+    tkgmAnalizGetir({ analizTip: 1, yil: sonYil, ilceKodu }, ctrl.signal)
+      .then((noktalar) => {
+        if (!ctrl.signal.aborted) {
+          const ozet = analizOzetCikar(noktalar);
+          setTipOzetleri([{
+            tip: 1,
+            etiket: ANALIZ_TIPI_ETIKETLERI[1],
+            toplamIslem: ozet.toplamIslem,
+            toplamParsel: ozet.toplamNokta,
+            ortalama: ozet.ortalamaIslem,
+          }]);
+          setYil(sonYil);
+        }
+      })
+      .catch(() => {}); // sessiz hata — kullanıcı butona basarak retry yapabilir
+    return () => ctrl.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ilceKodu]);
 
   // 5 yıllık trend (seçili tip için) — otomatik yüklen
@@ -103,7 +128,15 @@ export function TkgmAnaliz({ ilceKodu, ilceAd }: Props) {
         <span className="font-semibold text-purple-800">
           🔥 TKGM Resmi Analiz · {ilceAd}
         </span>
-        <span className="text-[9px] text-purple-600">cbsapi.tkgm.gov.tr</span>
+        <a
+          href={`https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz?AnalizTip=1&Yil=${yil}&IlceId=${ilceKodu}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-[9px] text-purple-600 hover:text-purple-800 hover:underline"
+        >
+          <ExternalLinkIcon className="h-2.5 w-2.5" />
+          cbsapi.tkgm.gov.tr
+        </a>
       </div>
 
       <div className="flex items-end gap-2">

@@ -20,14 +20,22 @@ import {
   BarChart2 as BarChartIcon,
   RefreshCw as RefreshIcon,
   AlertCircle as AlertIcon,
+  ChevronRight as ChevronRightIcon,
 } from "lucide-react";
-import { enIyiTrendiGetir, type TrendYorumu } from "../../lib/fiyat-trendi";
+import {
+  enIyiTrendiGetir,
+  trendProjesyonGetir,
+  type TrendYorumu,
+  type TrendProjesyonSonuc,
+} from "../../lib/fiyat-trendi";
 import type { FiyatTrendi } from "../../lib/db";
 import { Sparkline } from "./Sparkline";
 
 interface Props {
   ilce: string;
   mahalle: string;
+  /** İl adı — backend projeksiyon için gerekli */
+  il?: string;
   /** Varsayılan "tum". Parsel tipine göre filtrele. */
   kategori?: FiyatTrendi["kategori"];
   /** Son N haftayı göster (default 26 = 6 ay) */
@@ -37,11 +45,14 @@ interface Props {
 export function FiyatTrendiKarti({
   ilce,
   mahalle,
+  il,
   kategori = "tum",
   maxHafta = 26,
 }: Props) {
   const [trend, setTrend] = useState<FiyatTrendi | null>(null);
   const [yorum, setYorum] = useState<TrendYorumu | null>(null);
+  const [projeksiyon, setProje] = useState<TrendProjesyonSonuc | null>(null);
+  const [projeAcik, setProjeAcik] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(false);
   const [hata, setHata] = useState<string | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -52,7 +63,10 @@ export function FiyatTrendiKarti({
     force ? setYenileniyor(true) : setYukleniyor(true);
     setHata(null);
     try {
-      const sonuc = await enIyiTrendiGetir(ilce, mahalle, kategori);
+      const [sonuc, projeSonuc] = await Promise.all([
+        enIyiTrendiGetir(ilce, mahalle, kategori),
+        il && mahalle ? trendProjesyonGetir(il, ilce, mahalle, kategori) : Promise.resolve(null),
+      ]);
       if (sonuc) {
         setTrend(sonuc.trend);
         setYorum(sonuc.yorum);
@@ -60,6 +74,7 @@ export function FiyatTrendiKarti({
         setTrend(null);
         setYorum(null);
       }
+      setProje(projeSonuc);
     } catch (e) {
       setHata(e instanceof Error ? e.message : "Trend verisi alınamadı");
     } finally {
@@ -261,6 +276,67 @@ export function FiyatTrendiKarti({
         <p className="mt-1 text-[9px] italic text-slate-400">
           Az veri — daha uzun dönem için bu bölgede ilan gezmeye devam edin.
         </p>
+      )}
+
+      {/* Projeksiyon bölümü — backend verisi varsa göster */}
+      {projeksiyon && projeksiyon.projeksiyon.length > 0 && (
+        <div className="mt-2 border-t border-dashed border-slate-200 pt-2">
+          {/* Toggle başlık */}
+          <button
+            type="button"
+            onClick={() => setProjeAcik(v => !v)}
+            className="flex w-full items-center justify-between text-[9px] font-medium text-slate-500 hover:text-slate-700 transition"
+          >
+            <span className="flex items-center gap-1">
+              <ChevronRightIcon className={`h-2.5 w-2.5 transition-transform ${projeAcik ? "rotate-90" : ""}`} />
+              6 aylık projeksiyon
+            </span>
+            {/* Reel değişim badge */}
+            <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold tabular-nums ${
+              projeksiyon.ruelDegisimYuzde > 0
+                ? "bg-emerald-50 text-emerald-700"
+                : projeksiyon.ruelDegisimYuzde < 0
+                  ? "bg-red-50 text-red-700"
+                  : "bg-slate-100 text-slate-600"
+            }`}>
+              Reel {projeksiyon.ruelDegisimYuzde > 0 ? "+" : ""}{projeksiyon.ruelDegisimYuzde}%
+            </span>
+          </button>
+
+          {projeAcik && (
+            <div className="mt-1.5 space-y-0.5">
+              {/* Geçmiş + projeksiyon mini tablo */}
+              <div className="grid grid-cols-3 gap-x-1 text-[8px] text-slate-400 pb-0.5">
+                <span>Ay/Yıl</span>
+                <span className="text-right">Tahmin</span>
+                <span className="text-right">Güven Aralığı</span>
+              </div>
+              {projeksiyon.projeksiyon.map((p) => (
+                <div key={`${p.yil}-${p.ay}`} className="grid grid-cols-3 gap-x-1 text-[9px]">
+                  <span className="text-slate-500 font-medium">{p.ay}/{p.yil}</span>
+                  <span className="text-right tabular-nums font-semibold text-slate-700">
+                    {p.tahmin.toLocaleString("tr-TR")}
+                  </span>
+                  <span className="text-right tabular-nums text-slate-400 text-[8px]">
+                    {p.guven_alt.toLocaleString("tr-TR")}–{p.guven_ust.toLocaleString("tr-TR")}
+                  </span>
+                </div>
+              ))}
+
+              {/* Meta bilgi */}
+              <div className="mt-1 flex items-center justify-between text-[8px] text-slate-400">
+                <span>OLS lineer regresyon · R²={projeksiyon.r2}</span>
+                <span>
+                  {projeksiyon.trend === "yukseliyor" ? "↑ Yükseliyor" : projeksiyon.trend === "dusuyor" ? "↓ Düşüyor" : "→ Yatay"}
+                  {" · "}{projeksiyon.aylikEgimTlm2 > 0 ? "+" : ""}{projeksiyon.aylikEgimTlm2.toLocaleString("tr-TR")} TL/ay
+                </span>
+              </div>
+              <p className="text-[8px] italic text-slate-300">
+                ⚠ Projeksiyon istatistiksel tahmin, garanti değildir.
+              </p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

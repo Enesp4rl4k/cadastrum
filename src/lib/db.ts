@@ -424,3 +424,13 @@ class ArsaDB extends Dexie {
 }
 
 export const db = new ArsaDB();
+
+// Dexie açılış sorunlarını izle — başka bir sekme eski versiyonu tutuyorsa "blocked" ateşlenir.
+db.on("blocked", () => {
+  console.warn("[arsa-db] Dexie upgrade blocked — eski sekme veya tab DB'yi tutuyor. Sekmeleri kapatıp sayfayı yenile.");
+});
+
+// Başka bir sekme DB'yi daha yeni bir versiyona upgrade ettiğinde bu sekmeyi uyar.
+db.on("versionchange", () => {
+  console.warn("[arsa-db] DB versiyonu başka bir sekmede güncellendi — mevcut oturum eskidi, sayfayı yenile.");
+});

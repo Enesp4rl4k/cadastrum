@@ -165,8 +165,8 @@ async function writeIdariStorage<T>(key: string, data: T): Promise<void> {
     if (typeof chrome === "undefined" || !chrome.storage?.local) return;
     const sk = IDARI_STORAGE_PREFIX + key;
     await chrome.storage.local.set({ [sk]: { at: Date.now(), data } satisfies IdariStorageRow<T> });
-  } catch {
-    // kota / izin — sessizce atla
+  } catch (e) {
+    console.debug("[arsa-cache] writeIdariStorage hata — key:", key, e);
   }
 }
 
@@ -350,13 +350,24 @@ function parseParselFeature(
   let centerLat = 0;
   let centerLng = 0;
   let ring: number[][] = [];
+
   if (geom.type === "Polygon" && Array.isArray(geom.coordinates)) {
     const coords = geom.coordinates as number[][][];
     ring = coords[0] ?? [];
-    if (ring.length > 0) {
-      centerLng = ring.reduce((s, c) => s + (c[0] ?? 0), 0) / ring.length;
-      centerLat = ring.reduce((s, c) => s + (c[1] ?? 0), 0) / ring.length;
-    }
+  } else if (geom.type === "MultiPolygon" && Array.isArray(geom.coordinates)) {
+    // En büyük outer ring'i seç (nokta sayısına göre) — genellikle ana gövde
+    const allRings = (geom.coordinates as number[][][][])
+      .map((poly) => poly[0] ?? [])
+      .filter((r) => r.length > 0);
+    ring = allRings.reduce(
+      (best, r) => (r.length > best.length ? r : best),
+      [] as number[][],
+    );
+  }
+
+  if (ring.length > 0) {
+    centerLng = ring.reduce((s, c) => s + (c[0] ?? 0), 0) / ring.length;
+    centerLat = ring.reduce((s, c) => s + (c[1] ?? 0), 0) / ring.length;
   }
 
   const gittigiRaw = props.gittigiParselListe;
@@ -419,7 +430,9 @@ export async function parselCacheGet(key: string): Promise<Parsel | null> {
     const { db } = await import("./db");
     const c = await db.parselCache.get(`${PARSEL_CACHE_VER}:${key}`);
     if (c && Date.now() - c.fetchedAt < PARSEL_CACHE_TTL) return c.parsel;
-  } catch {}
+  } catch (e) {
+    console.debug("[arsa-cache] parselCacheGet hata — key:", key, e);
+  }
   return null;
 }
 
@@ -431,7 +444,9 @@ export async function parselCacheSet(key: string, parsel: Parsel): Promise<void>
       parsel,
       fetchedAt: Date.now(),
     });
-  } catch {}
+  } catch (e) {
+    console.debug("[arsa-cache] parselCacheSet hata — key:", key, e);
+  }
 }
 
 export async function getParselByLatLng(

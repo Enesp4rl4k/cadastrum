@@ -100,6 +100,16 @@ import Base from "../layouts/Base.astro";
       >
         <span class="text-xs text-slate-500 font-medium uppercase tracking-wider pr-1">Katmanlar:</span>
 
+        <!-- Otoyol & D-yolları -->
+        <button
+          data-katman="otoyol"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-red-400 hover:text-red-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-red-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" aria-hidden="true"></span>
+          🛣️ Otoyol & D-yol
+        </button>
+
         <!-- Havalimanları -->
         <button
           data-katman="hava"
@@ -138,6 +148,46 @@ import Base from "../layouts/Base.astro";
         >
           <span class="w-2.5 h-2.5 rounded-full bg-violet-400 shrink-0" aria-hidden="true"></span>
           🗺️ ÇDP İmar Planı
+        </button>
+
+        <!-- TMO Depoları -->
+        <button
+          data-katman="tmo"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-yellow-500 hover:text-yellow-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-yellow-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" aria-hidden="true"></span>
+          🌾 TMO Depoları
+        </button>
+
+        <!-- Serbest Bölgeler -->
+        <button
+          data-katman="stb"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-purple-500 hover:text-purple-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-purple-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0" aria-hidden="true"></span>
+          🏛️ Serbest Bölgeler
+        </button>
+
+        <!-- Büyük Barajlar -->
+        <button
+          data-katman="baraj"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-blue-400 hover:text-blue-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-blue-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0" aria-hidden="true"></span>
+          💧 Büyük Barajlar
+        </button>
+
+        <!-- Enerji Santralleri -->
+        <button
+          data-katman="enerji"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-orange-400 hover:text-orange-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-orange-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" aria-hidden="true"></span>
+          ⚡ Enerji Santralleri
         </button>
 
         <!-- Fiyat Choropleth -->

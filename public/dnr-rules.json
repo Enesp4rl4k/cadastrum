@@ -8,7 +8,7 @@
       { "header": "Sec-Fetch-Mode", "operation": "remove" },
       { "header": "Sec-Fetch-Dest", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||cbsapi.tkgm.gov.tr/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||cbsapi.tkgm.gov.tr/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 2, "priority": 1,
@@ -17,7 +17,7 @@
       { "header": "Referer", "operation": "set", "value": "https://parselsorgu.tkgm.gov.tr/" },
       { "header": "Sec-Fetch-Site", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||parselsorgu.tkgm.gov.tr/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||parselsorgu.tkgm.gov.tr/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 3, "priority": 1,
@@ -25,7 +25,7 @@
       { "header": "Origin", "operation": "remove" },
       { "header": "Sec-Fetch-Site", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||overpass-api.de/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||overpass-api.de/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 4, "priority": 1,
@@ -33,7 +33,7 @@
       { "header": "Origin", "operation": "remove" },
       { "header": "Sec-Fetch-Site", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||nominatim.openstreetmap.org/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||nominatim.openstreetmap.org/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 5, "priority": 1,
@@ -41,7 +41,7 @@
       { "header": "Origin", "operation": "remove" },
       { "header": "Sec-Fetch-Site", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||api.open-meteo.com/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||api.open-meteo.com/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 6, "priority": 1,
@@ -49,7 +49,7 @@
       { "header": "Origin", "operation": "remove" },
       { "header": "Sec-Fetch-Site", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||overpass.private.coffee/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||overpass.private.coffee/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 7, "priority": 1,
@@ -57,7 +57,7 @@
       { "header": "Origin", "operation": "remove" },
       { "header": "Sec-Fetch-Site", "operation": "remove" }
     ]},
-    "condition": { "urlFilter": "||maps.mail.ru/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||maps.mail.ru/", "resourceTypes": ["xmlhttprequest", "other"] }
   },
   {
     "id": 8, "priority": 1,
@@ -68,6 +68,22 @@
       { "header": "Sec-Fetch-Mode", "operation": "set", "value": "cors" },
       { "header": "Sec-Fetch-Dest", "operation": "set", "value": "empty" }
     ]},
-    "condition": { "urlFilter": "||eplan.csb.gov.tr/", "resourceTypes": ["xmlhttprequest"] }
+    "condition": { "urlFilter": "||eplan.csb.gov.tr/", "resourceTypes": ["xmlhttprequest", "other"] }
+  },
+  {
+    "id": 9, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||overpass.osm.ch/", "resourceTypes": ["xmlhttprequest", "other"] }
+  },
+  {
+    "id": 10, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [
+      { "header": "Origin", "operation": "remove" },
+      { "header": "Sec-Fetch-Site", "operation": "remove" }
+    ]},
+    "condition": { "urlFilter": "||lz4.overpass-api.de/", "resourceTypes": ["xmlhttprequest", "other"] }
   }
 ]

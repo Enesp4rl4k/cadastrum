@@ -5,22 +5,35 @@
  * geçmiş + hızlı navigasyon.
  *
  * Liste 3 bölüm:
- *   1. Doğal dil sorgu sonucu (varsa) — backend `/v1/emsal/spatial` veya
- *      mahalle istatistik çağrısı
- *   2. Favori parsellerim (Dexie)
- *   3. Son sorgular (Dexie gecmis)
+ *   1. Doğal dil sorgu sonucu (varsa) — parse görselleştirme
+ *   2. Favori parsellerim (Dexie) — tıklayınca parsel açılır
+ *   3. Son sorgular (Dexie gecmis) — ada/parsel adı + koordinat
  *
- * MVP: NL parser sonucunu göster + kullanıcı detayını kullanır (gerçek arama
- * Faz 5+ sprint'inde backend endpoint ile).
+ * Sprint H+: Backend bağlantısı eklenince NL sorgu gerçek API'ye bağlanacak.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Search as SearchIcon, X as XIcon } from "lucide-react";
+import {
+  Search as SearchIcon,
+  X as XIcon,
+  MapPin as MapPinIcon,
+  Clock as ClockIcon,
+  Star as StarIcon,
+} from "lucide-react";
 import { db } from "../../lib/db";
 import { nlParse, type NlSorgu } from "../../lib/nl-sorgu";
+import type { Parsel } from "../../types/tkgm";
 
-export function KomutPaleti() {
+interface Props {
+  /**
+   * Favori veya geçmişteki bir parsele tıklandığında çağrılır.
+   * App.tsx'de setFlyTo() ile harita navigasyonu tetiklenir.
+   */
+  onParselSec?: (parsel: Parsel) => void;
+}
+
+export function KomutPaleti({ onParselSec }: Props) {
   const [acik, setAcik] = useState(false);
   const [metin, setMetin] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +54,6 @@ export function KomutPaleti() {
 
   useEffect(() => {
     if (acik) {
-      // Focus input
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       setMetin("");
@@ -53,8 +65,14 @@ export function KomutPaleti() {
     return nlParse(metin);
   }, [metin]);
 
-  const favoriler = useLiveQuery(() => db.favoriler.orderBy("eklenmeTarihi").reverse().limit(5).toArray(), []);
-  const gecmis = useLiveQuery(() => db.gecmis.orderBy("zaman").reverse().limit(5).toArray(), []);
+  const favoriler = useLiveQuery(
+    () => db.favoriler.orderBy("eklenmeTarihi").reverse().limit(8).toArray(),
+    [],
+  );
+  const gecmis = useLiveQuery(
+    () => db.gecmis.orderBy("zaman").reverse().limit(8).toArray(),
+    [],
+  );
 
   // Favori filtre — input metniyle fuzzy match
   const filtrelenmisFav = useMemo(() => {
@@ -62,12 +80,42 @@ export function KomutPaleti() {
     if (!metin.trim()) return favoriler;
     const t = metin.toLocaleLowerCase("tr");
     return favoriler.filter((f) =>
-      `${f.ilAd} ${f.ilceAd} ${f.mahalleAd}`.toLocaleLowerCase("tr").includes(t),
+      `${f.ilAd} ${f.ilceAd} ${f.mahalleAd} ${f.adaNo} ${f.parselNo}`
+        .toLocaleLowerCase("tr")
+        .includes(t),
     );
   }, [favoriler, metin]);
 
+  // Geçmiş filtre — parsel bilgisi olanları öne al
+  const filtrelenmisGecmis = useMemo(() => {
+    if (!gecmis) return [];
+    if (!metin.trim()) return gecmis;
+    const t = metin.toLocaleLowerCase("tr");
+    return gecmis.filter((g) => {
+      if (!g.parsel) return false;
+      return `${g.parsel.ilAd ?? ""} ${g.parsel.ilceAd ?? ""} ${g.parsel.mahalleAd ?? ""} ${g.parsel.adaNo} ${g.parsel.parselNo}`
+        .toLocaleLowerCase("tr")
+        .includes(t);
+    });
+  }, [gecmis, metin]);
+
+  const handleFavoriSec = useCallback(
+    (parsel: Parsel) => {
+      setAcik(false);
+      onParselSec?.(parsel);
+    },
+    [onParselSec],
+  );
+
+  const handleGecmisSec = useCallback(
+    (parsel: Parsel) => {
+      setAcik(false);
+      onParselSec?.(parsel);
+    },
+    [onParselSec],
+  );
+
   if (!acik) {
-    // Yardımcı bilgi — sayfa altında küçük hint
     return (
       <button
         onClick={() => setAcik(true)}
@@ -86,38 +134,43 @@ export function KomutPaleti() {
       onClick={() => setAcik(false)}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-[92%] max-w-md max-h-[70vh] overflow-hidden"
+        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-[92%] max-w-md max-h-[72vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 p-3 border-b">
-          <SearchIcon className="h-4 w-4 text-slate-400" />
+        {/* Search input */}
+        <div className="flex items-center gap-2 p-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <SearchIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={metin}
             onChange={(e) => setMetin(e.target.value)}
-            placeholder="ör: Beykoz arsa 1000m² üstü, 5M altı"
-            className="flex-1 bg-transparent outline-none text-sm"
+            placeholder="ör: Beykoz arsa 1000m² üstü, favoriler, geçmiş…"
+            className="flex-1 bg-transparent outline-none text-sm placeholder-slate-400"
           />
-          <button onClick={() => setAcik(false)} className="text-slate-400 hover:text-slate-700">
+          <button
+            onClick={() => setAcik(false)}
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+          >
             <XIcon className="h-4 w-4" />
           </button>
-          <span className="text-2xs text-slate-400">ESC</span>
+          <span className="text-2xs text-slate-400 hidden sm:block">ESC</span>
         </div>
 
-        <div className="overflow-y-auto max-h-[60vh] p-2 space-y-3">
+        {/* Results */}
+        <div className="overflow-y-auto flex-1 p-2 space-y-3">
           {/* NL Sorgu sonucu */}
           {parse && parse.bulunan.length > 0 && (
-            <div className="p-2 rounded bg-indigo-50 dark:bg-indigo-950">
+            <div className="p-2 rounded bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800">
               <div className="text-2xs font-semibold text-indigo-900 dark:text-indigo-300 mb-1">
-                Parse edildi
+                🔍 Sorgu parse edildi
               </div>
               <div className="space-y-0.5 text-2xs text-indigo-800 dark:text-indigo-300">
                 {parse.kategori && <div>Kategori: <strong>{parse.kategori}</strong></div>}
                 {parse.ilNorm && <div>İl: <strong>{parse.ilNorm}</strong></div>}
                 {parse.ilceNorm && <div>İlçe: <strong>{parse.ilceNorm}</strong></div>}
-                {parse.minM2 != null && <div>Min m²: <strong>{parse.minM2}</strong></div>}
-                {parse.maksM2 != null && <div>Maks m²: <strong>{parse.maksM2}</strong></div>}
+                {parse.minM2 != null && <div>Min m²: <strong>{parse.minM2.toLocaleString("tr-TR")}</strong></div>}
+                {parse.maksM2 != null && <div>Maks m²: <strong>{parse.maksM2.toLocaleString("tr-TR")}</strong></div>}
                 {parse.minFiyat != null && (
                   <div>Min fiyat: <strong>₺{parse.minFiyat.toLocaleString("tr-TR")}</strong></div>
                 )}
@@ -127,8 +180,8 @@ export function KomutPaleti() {
                 {parse.sahilYakini && <div>📍 Sahile yakın</div>}
                 {parse.dusukDepremRiski && <div>🛡 Düşük deprem riski</div>}
               </div>
-              <p className="text-3xs italic text-indigo-700 dark:text-indigo-400 mt-1">
-                MVP: Backend bağlantısı bir sonraki sprint'te. Şu an parse görselleştirme.
+              <p className="text-3xs italic text-indigo-600 dark:text-indigo-400 mt-1.5">
+                Backend bağlantısı yakında — şu an parse görselleştirme.
               </p>
             </div>
           )}
@@ -136,16 +189,32 @@ export function KomutPaleti() {
           {/* Favoriler */}
           {filtrelenmisFav.length > 0 && (
             <div>
-              <div className="text-3xs font-semibold uppercase tracking-wider text-slate-500 mb-1 px-2">
+              <div className="flex items-center gap-1.5 text-3xs font-semibold uppercase tracking-wider text-slate-500 mb-1 px-1">
+                <StarIcon className="h-3 w-3" />
                 Favoriler
               </div>
               <ul className="space-y-0.5">
                 {filtrelenmisFav.map((f) => (
                   <li key={f.id}>
-                    <button className="w-full text-left px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-2xs">
-                      <span className="font-medium">{f.mahalleAd}</span>
-                      <span className="text-slate-500 ml-1">
-                        · {f.ilceAd}/{f.ilAd} · {f.adaNo}/{f.parselNo}
+                    <button
+                      className="w-full text-left px-2 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md flex items-start gap-2 group"
+                      onClick={() => handleFavoriSec(f.parsel)}
+                    >
+                      <MapPinIcon className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-2xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {f.mahalleAd}
+                          <span className="ml-1 text-slate-500 font-normal">
+                            Ada {f.adaNo} / Parsel {f.parselNo}
+                          </span>
+                        </div>
+                        <div className="text-3xs text-slate-500 truncate">
+                          {f.ilceAd} · {f.ilAd}
+                          {f.not && <span className="ml-1 italic">— {f.not}</span>}
+                        </div>
+                      </div>
+                      <span className="text-3xs text-slate-400 group-hover:text-indigo-500 flex-shrink-0 self-center">
+                        Aç →
                       </span>
                     </button>
                   </li>
@@ -155,17 +224,75 @@ export function KomutPaleti() {
           )}
 
           {/* Geçmiş */}
-          {gecmis && gecmis.length > 0 && !metin.trim() && (
+          {filtrelenmisGecmis.length > 0 && (
             <div>
-              <div className="text-3xs font-semibold uppercase tracking-wider text-slate-500 mb-1 px-2">
+              <div className="flex items-center gap-1.5 text-3xs font-semibold uppercase tracking-wider text-slate-500 mb-1 px-1">
+                <ClockIcon className="h-3 w-3" />
                 Son sorgular
               </div>
               <ul className="space-y-0.5">
-                {gecmis.map((g) => (
-                  <li key={g.id} className="px-2 py-1.5 text-2xs text-slate-600 dark:text-slate-400">
-                    {g.lat.toFixed(4)}, {g.lng.toFixed(4)}{" "}
-                    <span className="text-slate-400">
-                      · {new Date(g.zaman).toLocaleDateString("tr-TR")}
+                {filtrelenmisGecmis.map((g) => {
+                  const p = g.parsel;
+                  return (
+                    <li key={g.id}>
+                      <button
+                        className="w-full text-left px-2 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md flex items-start gap-2 group"
+                        onClick={() => p && handleGecmisSec(p)}
+                        disabled={!p}
+                      >
+                        <MapPinIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          {p ? (
+                            <>
+                              <div className="text-2xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                                {p.mahalleAd ?? "Bilinmeyen mahalle"}
+                                <span className="ml-1 text-slate-500 font-normal">
+                                  Ada {p.adaNo} / Parsel {p.parselNo}
+                                </span>
+                              </div>
+                              <div className="text-3xs text-slate-500 truncate">
+                                {p.ilceAd} · {p.ilAd}
+                                {" · "}
+                                {new Date(g.zaman).toLocaleDateString("tr-TR")}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-2xs text-slate-500">
+                              {g.lat.toFixed(4)}, {g.lng.toFixed(4)}
+                              {" · "}
+                              {new Date(g.zaman).toLocaleDateString("tr-TR")}
+                            </div>
+                          )}
+                        </div>
+                        {p && (
+                          <span className="text-3xs text-slate-400 group-hover:text-indigo-500 flex-shrink-0 self-center">
+                            Aç →
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* Geçmişte parsel bilgisi olmayan eski kayıtlar */}
+          {!metin.trim() && gecmis && gecmis.length > 0 && filtrelenmisGecmis.length === 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-3xs font-semibold uppercase tracking-wider text-slate-500 mb-1 px-1">
+                <ClockIcon className="h-3 w-3" />
+                Son sorgular
+              </div>
+              <ul className="space-y-0.5">
+                {gecmis.slice(0, 5).map((g) => (
+                  <li key={g.id} className="px-2 py-1.5 text-2xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <MapPinIcon className="h-3 w-3 text-slate-300 flex-shrink-0" />
+                    <span>
+                      {g.lat.toFixed(4)}, {g.lng.toFixed(4)}
+                    </span>
+                    <span className="text-slate-400 ml-auto text-3xs">
+                      {new Date(g.zaman).toLocaleDateString("tr-TR")}
                     </span>
                   </li>
                 ))}
@@ -173,9 +300,13 @@ export function KomutPaleti() {
             </div>
           )}
 
-          {!parse && !filtrelenmisFav.length && (!gecmis || gecmis.length === 0) && (
-            <div className="text-2xs text-slate-500 italic px-2 py-4 text-center">
-              Doğal dil sorgu yazın veya favorilerinize göz atın.
+          {/* Boş durum */}
+          {!parse && filtrelenmisFav.length === 0 && filtrelenmisGecmis.length === 0 && (
+            <div className="text-2xs text-slate-500 italic px-2 py-6 text-center">
+              <SearchIcon className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              Favori eklemek için bir parseli analiz edip ★ ikonuna tıklayın.
+              <br />
+              Önceki sorgularınız burada görünür.
             </div>
           )}
         </div>

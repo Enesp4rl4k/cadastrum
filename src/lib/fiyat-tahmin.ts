@@ -52,6 +52,7 @@ import { biasCarpani } from "./bias-kalibrasyon";
 import { depremRiskiGetir } from "./data/deprem-zonlari";
 import { pgaCarpani } from "./deprem-tdth";
 import { taskinRiskiGetir, taskinCarpani } from "./data/taskin-risk";
+import { nufusCarpani } from "./data/il-nufus";
 
 export interface FiyatBileseni {
   ad: string;
@@ -818,6 +819,21 @@ function konumCarpani(parsel: Parsel): { carpan: number; not: string } {
     notlar.push("iç il");
   }
   return { carpan: 1.0, not: notlar.join(", ") };
+}
+
+/**
+ * Nüfus yoğunluğu fiyat çarpanı — TÜİK 2023 ADNKS verisine dayalı.
+ * Yüksek yoğunluk = yüksek talep baskısı = arsa fiyatı yükseliş.
+ * Özellikle fallback/il-baseline durumlarında belirleyici olur.
+ */
+function nufusYogunlukCarpani(ilNorm: string | null): { carpan: number; not: string } {
+  if (!ilNorm) return { carpan: 1.0, not: "Nüfus verisi: il bilgisi yok" };
+  const sonuc = nufusCarpani(ilNorm);
+  if (sonuc.yogunluk === null) return { carpan: 1.0, not: "Nüfus verisi: il bulunamadı" };
+  return {
+    carpan: sonuc.carpan,
+    not: sonuc.aciklama,
+  };
 }
 
 function cevreCarpani(cevre: CevreAnalizi | null): { carpan: number; not: string } {
@@ -1712,6 +1728,7 @@ export async function fiyatTahminEt(
 
   // İnce ayar çarpanları (alan + konum + çevre + eğim + kırsal) — clamp İÇİ:
   // Bunlar fine-tuning sinyalleri, aşırı sapma genelde eksik veriye işaret.
+  // Not: nüfus çarpanı ilNormForBias gerektirir, aşağıda tanımlandıktan sonra eklenir.
   const rawIncearMultiplier = alan.carpan * konum.carpan * cevreC.carpan * egimC.carpan * kirsalC.carpan;
   const clampedIncearMultiplier =
     rawIncearMultiplier <= 0
@@ -1774,6 +1791,19 @@ export async function fiyatTahminEt(
       ad: "Bias düzeltme",
       carpan: bias.carpan,
       not: bias.aciklama,
+    });
+  }
+
+  // Nüfus yoğunluğu çarpanı — TÜİK 2023 ADNKS (il bazlı)
+  // Özellikle fallback/il-baseline durumlarında belirleyici; il baseline
+  // nüfusu zaten kısmen yansıttığı için çarpan kasıtlı küçük (±%12 max).
+  const nufusC = nufusYogunlukCarpani(ilNormForBias);
+  if (nufusC.carpan !== 1.0) {
+    beklenenPerM2 = Math.round(beklenenPerM2 * nufusC.carpan);
+    bilesenler.push({
+      ad: "Nüfus yoğunluğu",
+      carpan: nufusC.carpan,
+      not: nufusC.not,
     });
   }
 

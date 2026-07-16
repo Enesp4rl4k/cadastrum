@@ -17,6 +17,7 @@ import {
   fmtTL,
   fmtTLM2,
 } from "../../lib/fiyat-tahmin";
+import { FiyatBantGostergesi } from "./FiyatBantGostergesi";
 import type { Parsel } from "../../types/tkgm";
 import type { CevreAnalizi } from "../../lib/osm";
 import type { EgimAnalizi } from "../../lib/elevation";
@@ -44,6 +45,11 @@ interface Props {
   onImarSkip: () => void;
   /** Skip sonrası warn banner'dan "İmar gir" — skip'i geri çevirir, prompt'u tekrar açar. */
   onImarTekrarSor: () => void;
+  /**
+   * Fiyat tahmini hesaplandığında parent'a bildir.
+   * YatirimSkoruKarti ikinci bir fiyatTahminEt() çağrısı yapmaktan kurtulur.
+   */
+  onTahminHesaplandi?: (tahmin: FiyatTahmini | null) => void;
 }
 
 export function FiyatTahminKarti({
@@ -57,6 +63,7 @@ export function FiyatTahminKarti({
   onImarKaydedildi,
   onImarSkip,
   onImarTekrarSor,
+  onTahminHesaplandi,
 }: Props) {
   const [tahmin, setTahmin] = useState<FiyatTahmini | null>(null);
   const [acik, setAcik] = useState(false);
@@ -84,6 +91,7 @@ export function FiyatTahminKarti({
     if (!hesaplanabilir) {
       // İmar yoksa eski tahmini temizle — yanıltıcı stale değer kalmasın
       setTahmin(null);
+      onTahminHesaplandi?.(null);
       setAiSonuc(null);
       setAiHata(null);
       return;
@@ -91,7 +99,10 @@ export function FiyatTahminKarti({
     // NOT: fiyatTahminEt(4 param) tucbs almıyor (TÜCBS imar threading fiyat-tahmin.ts'te
     // henüz tamamlanmadı). tucbs prop'u deps'te kalıyor; imar threading eklenince buraya geçilir.
     fiyatTahminEt(parsel, cevre, egim, ePlan).then((t) => {
-      if (!iptal) setTahmin(t);
+      if (!iptal) {
+        setTahmin(t);
+        onTahminHesaplandi?.(t);
+      }
     });
     setAiSonuc(null);
     setAiHata(null);
@@ -249,40 +260,16 @@ export function FiyatTahminKarti({
           </div>
         </div>
 
-        {/* Alt-Üst aralık */}
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-md bg-slate-50 px-2 py-1.5">
-            <div className="text-3xs uppercase tracking-wide text-slate-500">
-              Alt sınır
-            </div>
-            <div className="text-xs font-semibold tabular-nums text-slate-700">
-              {fmtTL(tahmin.toplamAlt)}
-            </div>
-            <div className="text-3xs text-slate-400 tabular-nums">
-              {fmtTLM2(tahmin.altPerM2)}
-            </div>
-          </div>
-          <div className="rounded-md bg-slate-50 px-2 py-1.5">
-            <div className="text-3xs uppercase tracking-wide text-slate-500">
-              Üst sınır
-            </div>
-            <div className="text-xs font-semibold tabular-nums text-slate-700">
-              {fmtTL(tahmin.toplamUst)}
-            </div>
-            <div className="text-3xs text-slate-400 tabular-nums">
-              {fmtTLM2(tahmin.ustPerM2)}
-            </div>
-          </div>
-        </div>
+        {/* Görsel fiyat bandı — alt/beklenen/üst + "neden geniş" */}
+        <FiyatBantGostergesi tahmin={tahmin} />
 
-        {/* Veri kaynağı + Sahibinden ara butonu */}
-        <div className="rounded-md border border-slate-200 bg-white/80 px-2 py-1.5 text-3xs dark:border-slate-700 dark:bg-slate-800/80">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-slate-700 dark:text-slate-100">Tahmin bandı</span>
-            <span className="font-mono text-slate-500 dark:text-slate-300">%{tahmin.aralikGenisligiYuzde}</span>
+        {/* m²/fiyat bilgi satırı */}
+        <div className="grid grid-cols-2 gap-2 text-center text-3xs text-slate-500">
+          <div>
+            <span className="font-medium">Alt </span>{fmtTLM2(tahmin.altPerM2)}
           </div>
-          <div className="mt-0.5 text-slate-500 dark:text-slate-300">
-            Daha düşük yüzde daha dar ve daha güvenli fiyat aralığı demek.
+          <div>
+            <span className="font-medium">Üst </span>{fmtTLM2(tahmin.ustPerM2)}
           </div>
         </div>
 

@@ -92,6 +92,9 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   const [duzeltIl, setDuzeltIl] = useState("");
   const [duzeltIlce, setDuzeltIlce] = useState("");
   const [duzeltMahalle, setDuzeltMahalle] = useState("");
+  /** Manuel düzeltilen ada/parsel no — açıklamada farklı no varsa kullanıcı buradan girer */
+  const [duzeltAda, setDuzeltAda] = useState("");
+  const [duzeltParsel, setDuzeltParsel] = useState("");
   const [ayarlar] = useAyarlar();
 
   // İlan değişince storage'dan yükle + dinle.
@@ -187,7 +190,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
     if (!ilan || !ayarlar.ilanGozlemiKaydet) return;
     const fiyatPerM2 =
       ilan.fiyat != null && ilan.m2 != null && ilan.m2 > 0
-        ? ilan.fiyat / ilan.m2
+        ? Math.round(ilan.fiyat / ilan.m2)  // tam sayıya yuvarla — liste ile tutarlılık
         : null;
 
     // Faz 2 — koord fallback zinciri: DOM scrape → mahalle merkez tablo → null
@@ -265,20 +268,22 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   const aciklamaAdaParsel = ilan?.aciklamadaAdaParsel[0];
   const adaCandidate = ilan?.adaNo ?? aciklamaAdaParsel?.ada ?? null;
   const parselCandidate = ilan?.parselNo ?? aciklamaAdaParsel?.parsel ?? null;
+  // Ada olmadan sadece parsel no varsa — TKGM ada=0 ile dene
+  const adaCandidateEff = adaCandidate ?? (parselCandidate != null ? 0 : null);
 
-  // Otomatik doğrulama — ilan ada/parsel içeriyorsa, mahalle de doluysa
+  // Otomatik doğrulama — ilan parsel içeriyorsa, mahalle de doluysa
   // ve henüz açık parsel yoksa, kullanıcı tıklamak zorunda kalmadan TKGM'den çekelim.
   const otoDogrulamaTetiklenmisRef = useRef<string | null>(null);
   useEffect(() => {
     if (!ilan) return;
     if (acikParsel) return; // zaten parsel açık, atla
-    if (adaCandidate == null || parselCandidate == null) return;
+    if (adaCandidateEff == null || parselCandidate == null) return;
     if (!ilan.il || !ilan.ilce) return;
     // Mahalle null ise dropdown ile manuel seçim gerekiyor — oto tetikleme
     if (!ilan.mahalle && !secilenMahalleKodu) return;
     if (dogrulaniyor || dogrulamaHatasi) return;
 
-    const ilanKey = `${ilan.ilanNo ?? ""}/${adaCandidate}/${parselCandidate}`;
+    const ilanKey = `${ilan.ilanNo ?? ""}/${adaCandidateEff}/${parselCandidate}`;
     if (otoDogrulamaTetiklenmisRef.current === ilanKey) return;
     otoDogrulamaTetiklenmisRef.current = ilanKey;
 
@@ -348,7 +353,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   if (kapatilanIlanNo && kapatilanIlanNo === (ilan.ilanNo ?? ilan.url)) return null;
 
   async function dogrula() {
-    if (!ilan || adaCandidate == null || parselCandidate == null) return;
+    if (!ilan || adaCandidateEff == null || parselCandidate == null) return;
     setDogrulamaHatasi(null);
     setDogrulaniyor(true);
     setDogrulamaAdimNo(0);
@@ -394,7 +399,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       setDogrulamaAdimNo(2);
       const parsel = await getParselByCodes(
         mahalleKodu,
-        adaCandidate,
+        adaCandidateEff,
         parselCandidate,
       );
 
@@ -569,11 +574,13 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
             <button
               type="button"
               onClick={() => {
-                setYerDuzeltModu(true);
-                setDuzeltIl(ilan.il ?? "");
-                setDuzeltIlce(ilan.ilce ?? "");
-                setDuzeltMahalle(ilan.mahalle ?? "");
-              }}
+                  setYerDuzeltModu(true);
+                  setDuzeltIl(ilan.il ?? "");
+                  setDuzeltIlce(ilan.ilce ?? "");
+                  setDuzeltMahalle(ilan.mahalle ?? "");
+                  setDuzeltAda(ilan.adaNo != null ? String(ilan.adaNo) : "");
+                  setDuzeltParsel(ilan.parselNo != null ? String(ilan.parselNo) : "");
+                }}
               className="text-3xs italic text-slate-500 hover:text-accent-ilan underline"
             >
               Yer yanlış mı? Düzelt →
@@ -597,7 +604,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
               onChange={(e) => setDuzeltIlce(e.target.value)}
               className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
             />
-            {/* Mahalle: il+ilçe biliniyorsa dropdown, değilse text input */}
+            {/* Mahalle: il+ilçe biliniyorsa dropdown (TKGM listesi), değilse text input */}
             {duzeltIl && duzeltIlce && mahallelerDropdown.length > 0 ? (
               <select
                 value={duzeltMahalle}
@@ -611,6 +618,18 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
                   </option>
                 ))}
               </select>
+            ) : duzeltIl && duzeltIlce ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  placeholder="Mahalle (yükleniyor…)"
+                  value={duzeltMahalle}
+                  onChange={(e) => setDuzeltMahalle(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
+                  readOnly
+                />
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-orange-300 border-t-orange-600 flex-shrink-0" />
+              </div>
             ) : (
               <input
                 type="text"
@@ -620,17 +639,46 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
                 className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
               />
             )}
+            {/* Ada / Parsel No — açıklamada farklı bilgi varsa veya ada eksikse */}
+            <div className="grid grid-cols-2 gap-1">
+              <label className="flex flex-col gap-0.5">
+                <span className="text-3xs text-slate-500">Ada No <span className="text-slate-400">(opsiyonel)</span></span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="örn: 116"
+                  value={duzeltAda}
+                  onChange={(e) => setDuzeltAda(e.target.value)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-3xs text-slate-500">Parsel No</span>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="örn: 977"
+                  value={duzeltParsel}
+                  onChange={(e) => setDuzeltParsel(e.target.value)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
+                />
+              </label>
+            </div>
             <div className="flex gap-1">
               <button
                 type="button"
                 onClick={() => {
                   if (!ilan) return;
+                  const adaDuzelt = duzeltAda.trim() ? Number(duzeltAda.trim()) : undefined;
+                  const parselDuzelt = duzeltParsel.trim() ? Number(duzeltParsel.trim()) : undefined;
                   // İlan'ı override et
                   const yeniIlan: IlanBilgisi = {
                     ...ilan,
                     il: duzeltIl.trim() || ilan.il,
                     ilce: duzeltIlce.trim() || ilan.ilce,
                     mahalle: duzeltMahalle.trim() || ilan.mahalle,
+                    ...(adaDuzelt != null && !isNaN(adaDuzelt) ? { adaNo: adaDuzelt } : {}),
+                    ...(parselDuzelt != null && !isNaN(parselDuzelt) ? { parselNo: parselDuzelt } : {}),
                     manuelDuzeltildi: true,
                   };
                   setIlan(yeniIlan);
@@ -653,7 +701,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
               </button>
             </div>
             <div className="text-3xs italic text-slate-500">
-              Düzeltme TKGM sorgusunu yeniden başlatır + bulut emsal verisini doğru mahalleden çeker.
+              Mahalle TKGM'den seçilir. Ada boş bırakılırsa sadece parsel no ile sorgulanır.
             </div>
           </div>
         )}
