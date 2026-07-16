@@ -1,0 +1,173 @@
+src/sidepanel/components/FiyatTahminKarti.tsx
+  h_2675fe4e526316 20,48-52,66,94,102,104-105,263-264,266-267,269,271-272
+  s_c38c98d20083fb::t_2c08dd1295724e 103,268
+src/lib/osm.ts
+  h_2675fe4e526316 198-199,419-423,429-450
+src/lib/data/osblar.ts
+  h_2675fe4e526316 133-321
+README.md
+  h_2675fe4e526316 1,3-4,6,8,10,12-113,116,118-119,121-142,145-150,152,155-161,165-233,236,238,240,242-243,245,247
+src/sidepanel/index.css
+  h_2675fe4e526316 448-452
+src/sidepanel/components/AnalizPanel.tsx
+  h_2675fe4e526316 1,30,38,48,63-64,75,82-86,88-89,132-136,138-141,143-146,152,158,166-167,474,592,603-605,643-678
+backend/api/wrangler.toml
+  s_24becf542a459b::t_b8e6cb3af6a495 15-21
+  s_24becf542a459b::t_880726a1210808 23-26,28,34-46
+src/lib/fiyat-trendi.ts
+  h_2675fe4e526316 268-350
+src/lib/data/ilce-baseline-ai.ts
+  h_2675fe4e526316 2-3,6,8-12,16,18,20-111,116-207
+site/public/geo/poi-katmanlari.json
+  h_2675fe4e526316 105-189
+src/lib/fiyat-tahmin.ts
+  h_2675fe4e526316 55,824-838,1731,1797-1806
+  s_f6fce178877b32::t_a33f455535b8fb 1807-1809
+src/lib/fizibilite.ts
+  h_2675fe4e526316 1-13,19-24,27-30,34-38,42-46,50-54,58-62,65-70,74-75
+test/elevation-idw.spec.ts
+  h_2675fe4e526316 1-105
+src/lib/data/serbest-bolgeler.ts
+  h_2675fe4e526316 1-49
+backend/api/src/index.ts
+  s_24becf542a459b::t_bdc08fa42d6f54 101-108,110-112
+  h_2675fe4e526316 38,174-175
+  s_24becf542a459b::t_01c92587ff24f6 109
+  s_24becf542a459b::t_8fa662fbb8bf79 49-50
+  s_24becf542a459b::t_525f8e5ab0fa56 51
+  s_24becf542a459b::t_dbd4d52c8fb7e7 98-100
+  s_24becf542a459b::t_6425eecf6bca78 113-115
+  s_24becf542a459b::t_5811b551840c6d 30,45,53-56,97,116-129,197-198,208-209,240-354,366,370,375-391,442-473
+site/src/scripts/harita-init.ts
+  h_2675fe4e526316 3,690-693,702-706,709-820,1238-1426,1431-1434,1442-1453,1480-1483
+  s_24becf542a459b::t_a15157af0ed33a 821,1477-1478
+vitest.config.ts
+  h_2675fe4e526316 1-9,13-19,23,25-26
+  s_c38c98d20083fb::t_19bd0599d6b523 22
+backend/api/src/routes/proxy.ts
+  s_24becf542a459b::t_ace336c6f1624f 180-201,205-206,209-226,245,251-258,263,265
+backend/api/src/db/0018_ai_scorecard_cache.sql
+  h_2675fe4e526316 1-16
+src/sidepanel/components/Onboarding.tsx
+  h_2675fe4e526316 3-8,10,19,24-130,132,136,140-141,145-147,157-166,168-177,179,181,183-186,194-196,198-202,204-213,215,222-228,232-233,237-239,241,244-245,250,257-259,262-272,276,281-288,293-294,299-300,302,309,317-318
+backend/api/src/routes/fiyat.ts
+  h_2675fe4e526316 187-442
+src/lib/spatial-emsal.ts
+  h_2675fe4e526316 188-190,341-439
+  s_c38c98d20083fb::t_fdb506021da428 440
+test/setup.ts
+  h_2675fe4e526316 1-58
+src/lib/elevation.ts
+  h_2675fe4e526316 44-51,54
+src/lib/db.ts
+  h_2675fe4e526316 427-436
+backend/api/src/db/0017_poi_noktalari.sql
+  h_2675fe4e526316 1-21
+src/lib/tkgm-api.ts
+  h_2675fe4e526316 168-169,353,357-370,433-434,447-448
+  s_c38c98d20083fb::t_5730f8eb641143 435,449
+src/sidepanel/components/YatirimSkoruKarti.tsx
+  h_2675fe4e526316 2,6-10,17,26,33-37,59,63-65,68-69,71-76,78-79,81-82,84,89,91-92,94,98-99,101,107-110,112,150-155,190-193,208
+src/sidepanel/components/Fizibilite.tsx
+  h_2675fe4e526316 5,10,14-15,18-24,50,63-69,92-93,165-168
+test/multipolygon.spec.ts
+  h_2675fe4e526316 1-75
+scripts/tucbs-tile-seed.mjs
+  s_24becf542a459b::t_2d1cbc30168641 1-139
+src/lib/ai-fiyat.ts
+  h_2675fe4e526316 586-587
+scripts/geocode-tmo.mjs
+  h_2675fe4e526316 1-268
+src/sidepanel/components/IlanKarti.tsx
+  h_2675fe4e526316 95-97,193,271-272,280,286,356,402,581-582,607,621-632,642-666,672-673,680-681,704
+  s_6ab3e1b947fb0f::t_07fc2288f98e25 274,577-580,583
+test/ilan-parsel-akisi.spec.ts
+  h_2675fe4e526316 1-147
+src/lib/data/il-nufus.ts
+  h_2675fe4e526316 1-179
+src/sidepanel/components/ScorecardKarti.tsx
+  h_2675fe4e526316 1-319
+src/lib/data/lisansli-depolar.ts
+  h_2675fe4e526316 1-134
+src/sidepanel/components/KomutPaleti.tsx
+  h_2675fe4e526316 8-10,12,15,19-22,26,28-36,69-70,73-74,83,89-100,102-117,137,140-142,148-149,153,157,160-161,164,166,172-173,183-184,192-193,200-201,203-205,207-217,227,229-230,234-281,283-284,288-294,303-309
+site/src/pages/harita.astro
+  h_2675fe4e526316 103-112,153-192
+scripts/extract-otoyollar.mjs
+  h_2675fe4e526316 22,32-34,37,40,45-48,137-139,166,182-195
+src/sidepanel/components/FiyatTrendiKarti.tsx
+  h_2675fe4e526316 23,27-29,37-38,48,54-55,66-69,77,280-339
+public/dnr-rules.json
+  s_24becf542a459b::t_f0467b4dfa69af 11,20,28,36,44,52,60,71-87
+src/lib/statik-lojistik.ts
+  h_2675fe4e526316 6-7,88-89
+src/lib/mahalle-cozumle.ts
+  h_2675fe4e526316 87-89
+src/lib/yatirim-skoru.ts
+  h_2675fe4e526316 180-189,192-193,195-212,244-246,253-254,262
+src/sidepanel/views/terrain-egim-layer.ts
+  h_2675fe4e526316 1-272
+src/lib/ai-scorecard.ts
+  h_2675fe4e526316 1-130
+backend/api/src/routes/ai-scorecard.ts
+  h_2675fe4e526316 1-337
+src/sidepanel/components/CdpKarti.tsx
+  s_c8c2a2a45b01b9::t_ed372a056a4ebc 15,20-24,32-36,206,212-215,329,331-408
+src/background/service-worker.ts
+  s_6ab3e1b947fb0f::t_a9cc25169a5c43 111-116,305-325
+src/sidepanel/components/FiyatBantGostergesi.tsx
+  s_c38c98d20083fb::t_3a34786a2dbf9b 1-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "75561cf078d395e839789608f07d23f3ed8b7b21",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_6ab3e1b947fb0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58f307ab-4d69-4b19-9aca-cf095166e5a9",
+        "model": "unknown"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_c38c98d20083fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7423e138-64b8-4408-8f8a-b6ed77e438fd",
+        "model": "unknown"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_c8c2a2a45b01b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5d6f8ca-f0ac-4027-8892-bcf311a5390f",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_f6fce178877b32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c53a66da-bb9d-455d-b3d0-d0d29204afa6",
+        "model": "unknown"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
