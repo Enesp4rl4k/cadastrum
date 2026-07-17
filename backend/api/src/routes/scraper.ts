@@ -19,24 +19,15 @@ export const scraperRoutes = new Hono<{ Bindings: Env }>();
 
 scraperRoutes.use("/*", jwtMiddleware);
 
-// JWT payload inline decode (admin claim kontrolü için)
-function decodeJwtPayload(token: string | undefined): { adm?: number; admin?: number } | null {
-  if (!token) return null;
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    const b64 = parts[1]!.replace(/-/g, "+").replace(/_/g, "/")
-      .padEnd(parts[1]!.length + ((4 - (parts[1]!.length % 4)) % 4), "=");
-    return JSON.parse(atob(b64));
-  } catch { return null; }
-}
-
-// Admin gate — JWT `adm` veya `admin` claim
-function adminMi(c: { req: { header(name: string): string | undefined } }): boolean {
-  const authH = c.req.header("Authorization");
-  if (!authH?.startsWith("Bearer ")) return false;
-  const payload = decodeJwtPayload(authH.slice(7));
-  return payload?.admin === 1 || payload?.adm === 1;
+/**
+ * S2: Admin claim kontrolü — artık imzasız base64 decode DEĞİL,
+ * jwtMiddleware'in verify ile doğruladığı payload'dan okunuyor.
+ * jwtMiddleware zaten HS256 imza doğrulaması yapıyor (hesap.ts).
+ */
+function adminMi(c: Parameters<typeof jwtMiddleware>[0]): boolean {
+  const payload = c.get("jwtPayload" as never) as { adm?: number; admin?: number } | null | undefined;
+  if (!payload) return false;
+  return payload.adm === 1 || payload.admin === 1;
 }
 
 scraperRoutes.get("/run-log", async (c) => {

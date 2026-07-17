@@ -271,7 +271,6 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
 
     const planList = JSON.parse(queryRes.text) as Record<string, unknown>[];
     if (!Array.isArray(planList) || planList.length === 0) {
-      console.log("[eplan-api] Bu parsel için aktif e-Plan bulunamadı.");
       return null;
     }
 
@@ -293,7 +292,6 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
     const gmlRows = JSON.parse(gmlRes.text) as Record<string, unknown>[];
     const details = pickBestGmlRow(Array.isArray(gmlRows) ? gmlRows : []);
     if (!details) {
-      console.log("[eplan-api] GML verisi boş döndü.");
       return null;
     }
 
@@ -338,7 +336,6 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
     };
 
     await chrome.storage.local.set({ [EPLAN_STORAGE_KEY]: sonuc });
-    console.log("[eplan-api] Otomatik e-Plan verisi başarıyla çekildi:", sonuc);
     return sonuc;
   } catch (error) {
     const mesaj = error instanceof Error ? error.message : String(error);

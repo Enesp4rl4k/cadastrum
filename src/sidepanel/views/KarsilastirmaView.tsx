@@ -9,15 +9,17 @@
  *   - Toprak + TUCBS kategorisi (varsa)
  *
  * Veri lazy yüklenir — her parsel ayrı ayrı sorgulanır.
+ * N4 — PDF export: window.print() + @media print CSS
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X as XIcon,
   GitCompare as CompareIcon,
   Loader2 as LoaderIcon,
   MapPin as MapPinIcon,
   Info as InfoIcon,
+  FileDown as FileDownIcon,
 } from "lucide-react";
 import {
   useKarsilastirma,
@@ -276,6 +278,125 @@ function BosEkran() {
   );
 }
 
+// ─── PDF rapor HTML üretici ───────────────────────────────────────────────────
+
+function pdfRaporHtmlUret(liste: KarsilastirmaKayit[]): string {
+  const tarih = new Date().toLocaleString("tr-TR");
+
+  function fmtM2(n: number) {
+    return `${n.toLocaleString("tr-TR")} m²`;
+  }
+  function fmtTL(n: number) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)} M TL`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)} K TL`;
+    return `${n.toLocaleString("tr-TR")} TL`;
+  }
+  function fmtTLM2(n: number) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M TL/m²`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K TL/m²`;
+    return `${n.toLocaleString("tr-TR")} TL/m²`;
+  }
+  function guvenTR(g: "yuksek" | "orta" | "dusuk") {
+    return g === "yuksek" ? "Yüksek" : g === "orta" ? "Orta" : "Düşük";
+  }
+
+  const kolonWidth = Math.floor(100 / liste.length);
+
+  const kolonlerHtml = liste.map((kayit) => {
+    const { parsel, fiyat, ePlan } = kayit;
+    const adres = [parsel.mahalleAd, parsel.ilceAd, parsel.ilAd].filter(Boolean).join(" / ");
+
+    const fiyatHtml = fiyat
+      ? `
+        <tr><td class="label">Beklenen</td><td class="value">${fmtTLM2(fiyat.beklenenPerM2)}</td></tr>
+        <tr><td class="label">Aralık</td><td class="value">${fmtTLM2(fiyat.altPerM2)} – ${fmtTLM2(fiyat.ustPerM2)}</td></tr>
+        <tr><td class="label">Toplam</td><td class="value">${fmtTL(fiyat.toplamBeklenen)}</td></tr>
+        <tr><td class="label">Güven</td><td class="value">${guvenTR(fiyat.guven)} (${fiyat.guvenSkoru}/100)</td></tr>
+        <tr><td class="label">Kaynak</td><td class="value small">${fiyat.baselineKaynak}</td></tr>
+      `
+      : `<tr><td colspan="2" class="empty">Veri yok</td></tr>`;
+
+    const ePlanHtml = ePlan
+      ? `
+        <tr><td class="label">Kullanım</td><td class="value">${ePlan.kullanimKarari ?? ePlan.planKarari ?? "—"}</td></tr>
+        <tr><td class="label">Emsal</td><td class="value">${ePlan.emsal != null ? ePlan.emsal.toFixed(2) : "—"}</td></tr>
+        <tr><td class="label">TAKS</td><td class="value">${ePlan.taks != null ? ePlan.taks.toFixed(2) : "—"}</td></tr>
+        <tr><td class="label">Maks Kat</td><td class="value">${ePlan.maksKat != null ? `${ePlan.maksKat} kat` : "—"}</td></tr>
+        <tr><td class="label">Güven</td><td class="value">${ePlan.guvenSkoru}%</td></tr>
+      `
+      : `<tr><td colspan="2" class="empty">e-Plan verisi yok</td></tr>`;
+
+    return `
+      <div class="kolon" style="width:${kolonWidth}%">
+        <div class="kolon-baslik">
+          <div class="ada-parsel">Ada ${parsel.adaNo} / Parsel ${parsel.parselNo}</div>
+          <div class="adres">${adres || "—"}</div>
+        </div>
+        <div class="bolum-baslik">Parsel Bilgisi</div>
+        <table class="veri-tablo">
+          <tr><td class="label">Alan</td><td class="value">${fmtM2(parsel.alan)}</td></tr>
+          <tr><td class="label">Nitelik</td><td class="value">${parsel.nitelik || "—"}</td></tr>
+          <tr><td class="label">Durum</td><td class="value">${parsel.durum || "—"}</td></tr>
+          <tr><td class="label">Mahalle Kodu</td><td class="value font-mono">${parsel.mahalleKodu ?? "—"}</td></tr>
+        </table>
+        <div class="bolum-baslik">Fiyat Tahmini</div>
+        <table class="veri-tablo">${fiyatHtml}</table>
+        <div class="bolum-baslik">İmar Durumu</div>
+        <table class="veri-tablo">${ePlanHtml}</table>
+      </div>
+    `;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<title>Parsel Karşılaştırma Raporu — Cadastrum</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: #fff; }
+  .rapor-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 16px 20px 12px; border-bottom: 2px solid #1B2A4A; margin-bottom: 16px; }
+  .rapor-baslik { font-size: 18px; font-weight: 700; color: #1B2A4A; }
+  .rapor-alt { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .rapor-tarih { font-size: 10px; color: #64748b; text-align: right; }
+  .kolonlar { display: flex; gap: 12px; padding: 0 20px; }
+  .kolon { flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+  .kolon-baslik { background: #1B2A4A; color: #fff; padding: 8px 10px; }
+  .ada-parsel { font-size: 12px; font-weight: 700; }
+  .adres { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+  .bolum-baslik { background: #f1f5f9; color: #475569; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 10px; border-top: 1px solid #e2e8f0; }
+  .veri-tablo { width: 100%; border-collapse: collapse; }
+  .veri-tablo tr:not(:last-child) td { border-bottom: 1px solid #f1f5f9; }
+  .veri-tablo td { padding: 3px 10px; vertical-align: top; }
+  .veri-tablo .label { color: #64748b; font-size: 9px; width: 42%; }
+  .veri-tablo .value { color: #1e293b; font-weight: 600; font-size: 10px; }
+  .veri-tablo .value.small { font-size: 8px; font-weight: 400; color: #64748b; }
+  .veri-tablo .empty { color: #94a3b8; font-style: italic; font-size: 9px; text-align: center; padding: 6px; }
+  .rapor-footer { margin-top: 20px; padding: 10px 20px; border-top: 1px solid #e2e8f0; font-size: 8px; color: #94a3b8; font-style: italic; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .kolon-baslik { background: #1B2A4A !important; -webkit-print-color-adjust: exact; }
+    .bolum-baslik { background: #f1f5f9 !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="rapor-header">
+    <div>
+      <div class="rapor-baslik">Parsel Karşılaştırma Raporu</div>
+      <div class="rapor-alt">Cadastrum — ${liste.length} parsel karşılaştırması</div>
+    </div>
+    <div class="rapor-tarih">Oluşturulma: ${tarih}</div>
+  </div>
+  <div class="kolonlar">${kolonlerHtml}</div>
+  <div class="rapor-footer">
+    Bu rapor Cadastrum uzantısı tarafından oluşturulmuştur. Fiyat tahminleri heuristic modeldir ve resmi
+    değerleme belgesi yerine geçmez. Karar vermeden önce uzman görüşü alınız.
+  </div>
+</body>
+</html>`;
+}
+
 // ─── Ana bileşen ──────────────────────────────────────────────────────────────
 
 interface KarsilastirmaViewProps {
@@ -284,6 +405,52 @@ interface KarsilastirmaViewProps {
 
 export function KarsilastirmaView({ onFlyTo }: KarsilastirmaViewProps) {
   const { liste, temizle } = useKarsilastirma();
+  const [pdfYukleniyor, setPdfYukleniyor] = useState(false);
+  const printFrameRef = useRef<HTMLIFrameElement | null>(null);
+
+  function pdfIndir() {
+    if (liste.length === 0) return;
+    setPdfYukleniyor(true);
+
+    try {
+      // Gizli iframe yöntemi — mevcut sayfayı bozmaz
+      const html = pdfRaporHtmlUret(liste);
+
+      // Varsa eski iframe'i temizle
+      if (printFrameRef.current) {
+        document.body.removeChild(printFrameRef.current);
+      }
+
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;border:none;opacity:0;pointer-events:none;";
+      document.body.appendChild(iframe);
+      printFrameRef.current = iframe;
+
+      const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+      if (!doc) { setPdfYukleniyor(false); return; }
+
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      // Resimlerin yüklenmesini bekle, sonra print
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.print();
+          setPdfYukleniyor(false);
+          // iframe'i kısa süre sonra temizle
+          setTimeout(() => {
+            if (printFrameRef.current) {
+              try { document.body.removeChild(printFrameRef.current); } catch { /* zaten silinmiş */ }
+              printFrameRef.current = null;
+            }
+          }, 1000);
+        }, 200);
+      };
+    } catch {
+      setPdfYukleniyor(false);
+    }
+  }
 
   if (liste.length === 0) return <BosEkran />;
 
@@ -300,13 +467,25 @@ export function KarsilastirmaView({ onFlyTo }: KarsilastirmaViewProps) {
             {liste.length}/3
           </span>
         </div>
-        <button
-          type="button"
-          onClick={temizle}
-          className="text-3xs text-slate-400 hover:text-red-500 transition-colors"
-        >
-          Tümünü Temizle
-        </button>
+        <div className="flex items-center gap-2">
+          {/* N4 — PDF export */}
+          <button
+            type="button"
+            onClick={pdfIndir}
+            disabled={pdfYukleniyor}
+            className="flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-3xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300"
+          >
+            <FileDownIcon className="h-3 w-3" />
+            {pdfYukleniyor ? "Hazırlanıyor…" : "PDF İndir"}
+          </button>
+          <button
+            type="button"
+            onClick={temizle}
+            className="text-3xs text-slate-400 hover:text-red-500 transition-colors"
+          >
+            Temizle
+          </button>
+        </div>
       </div>
 
       {/* Parsel kolonları — yatay kaydırmalı */}

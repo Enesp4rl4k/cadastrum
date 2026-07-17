@@ -11,6 +11,8 @@ import { depremRiskKoordGetir, type DepremRiskKoord } from "../../lib/deprem-tdt
 import { iklimVerisiGetir, type IklimVerisi } from "../../lib/iklim";
 import { toprakVerisiGetir, type ToprakVerisi } from "../../lib/toprak";
 import { taskinRiskiGetir, type TaskinBilgi, type TaskinRiski } from "../../lib/data/taskin-risk";
+import { taskinRiskKoordGetir, type TaskinKoordSonuc } from "../../lib/taskin-koord";
+import { heyelanVerisiGetir, heyelanRenk, heyelanRiskEtiket, type HeyelanVerisi } from "../../lib/heyelan";
 import { normalizeYerAdi } from "../../lib/tkgm-api";
 import { Section } from "../ui/Card";
 import { useLisans } from "../../lib/lisans";
@@ -36,14 +38,20 @@ export function DogalVeriKarti({ parsel }: Props) {
   // Deprem statik tablodan, anında — async yok
   const deprem: DepremRiski = depremRiskiHesapla(parsel.ilAd);
 
-  // Koordinat bazlı deprem (TDTH → il-tablo fallback). Yüklenince UI üzerine
-  // bindirilir; il-tablo zaten DepremBolumu'nu doldurduğu için yüklenirken
-  // kullanıcı boş ekran görmez.
+  // Koordinat bazlı deprem (TDTH → il-tablo fallback)
   const [depremKoord, setDepremKoord] = useState<DepremRiskKoord | null>(null);
 
-  // Taşkın il tablosundan (sync)
+  // Taşkın il tablosundan (sync fallback)
   const ilNorm = parsel.ilAd ? normalizeYerAdi(parsel.ilAd) : null;
-  const taskin: TaskinBilgi | null = taskinRiskiGetir(ilNorm);
+  const taskinIl: TaskinBilgi | null = taskinRiskiGetir(ilNorm);
+
+  // Koordinat bazlı taşkın (Open-Meteo GloFAS)
+  const [taskinKoord, setTaskinKoord] = useState<TaskinKoordSonuc | null>(null);
+  const [taskinYukleniyor, setTaskinYukleniyor] = useState(true);
+
+  // Heyelan duyarlılık (OpenLandMap slope)
+  const [heyelan, setHeyelan] = useState<HeyelanVerisi | null>(null);
+  const [heyelanYukleniyor, setHeyelanYukleniyor] = useState(true);
 
   useEffect(() => {
     let iptal = false;
@@ -61,6 +69,52 @@ export function DogalVeriKarti({ parsel }: Props) {
       ctrl.abort();
     };
   }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng, parsel.ilAd]);
+
+  // Koordinat bazlı taşkın fetch — GloFAS
+  useEffect(() => {
+    let iptal = false;
+    const ctrl = new AbortController();
+    setTaskinYukleniyor(true);
+    taskinRiskKoordGetir(
+      parsel.merkezNokta.lat,
+      parsel.merkezNokta.lng,
+      ctrl.signal,
+    ).then((v) => {
+      if (!iptal) {
+        setTaskinKoord(v);
+        setTaskinYukleniyor(false);
+      }
+    }).catch(() => {
+      if (!iptal) setTaskinYukleniyor(false);
+    });
+    return () => {
+      iptal = true;
+      ctrl.abort();
+    };
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
+
+  // Heyelan fetch — OpenLandMap MERIT slope
+  useEffect(() => {
+    let iptal = false;
+    const ctrl = new AbortController();
+    setHeyelanYukleniyor(true);
+    heyelanVerisiGetir(
+      parsel.merkezNokta.lat,
+      parsel.merkezNokta.lng,
+      ctrl.signal,
+    ).then((v) => {
+      if (!iptal) {
+        setHeyelan(v);
+        setHeyelanYukleniyor(false);
+      }
+    }).catch(() => {
+      if (!iptal) setHeyelanYukleniyor(false);
+    });
+    return () => {
+      iptal = true;
+      ctrl.abort();
+    };
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
 
   useEffect(() => {
     if (!proAcik) return; // Free tier'da iklim/toprak fetch etme — gereksiz API çağrısı
@@ -107,8 +161,15 @@ export function DogalVeriKarti({ parsel }: Props) {
         {/* Deprem riski — tüm tier'larda görünür */}
         <DepremBolumu deprem={deprem} koord={depremKoord} />
 
-        {/* Taşkın riski — tüm tier'larda */}
-        <TaskinBolumu taskin={taskin} />
+        {/* Taşkın riski — koordinat bazlı GloFAS + il tablo fallback, tüm tier'larda */}
+        <TaskinBolumu
+          taskinIl={taskinIl}
+          taskinKoord={taskinKoord}
+          yukleniyor={taskinYukleniyor}
+        />
+
+        {/* Heyelan duyarlılık — OpenLandMap slope, tüm tier'larda */}
+        <HeyelanBolumu heyelan={heyelan} yukleniyor={heyelanYukleniyor} />
 
         {/* İklim + Toprak — Pro özelliği */}
         {proAcik ? (
@@ -193,37 +254,64 @@ function taskinRenk(risk: TaskinRiski | undefined): {
   }
 }
 
-function TaskinBolumu({ taskin }: { taskin: TaskinBilgi | null }) {
-  if (!taskin) {
-    return (
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
-        <div className="flex items-center gap-1.5">
-          <DropletsIcon className="h-3.5 w-3.5 text-slate-500" />
-          <span className="text-2xs font-semibold text-slate-600">Taşkın Riski</span>
-        </div>
-        <div className="text-3xs italic text-slate-500 mt-1">
-          Veri yetersiz — il bazlı taşkın tablosunda kayıt yok.
-        </div>
-      </div>
-    );
-  }
-  const r = taskinRenk(taskin.risk);
+function TaskinBolumu({
+  taskinIl,
+  taskinKoord,
+  yukleniyor,
+}: {
+  taskinIl: TaskinBilgi | null;
+  taskinKoord: TaskinKoordSonuc | null;
+  yukleniyor: boolean;
+}) {
+  // Koordinat bazlı sonuç geldiyse onu kullan, yoksa il tablosuna düş
+  const aktifRisk = taskinKoord?.risk ?? taskinIl?.risk ?? null;
+  const aktifNot = taskinKoord?.not ?? taskinIl?.not ?? null;
+  const kaynak = taskinKoord
+    ? "Open-Meteo GloFAS (koordinat bazlı, son 90 gün)"
+    : "AFAD Sel Master Planı + MGM tarihsel taşkın olayları (il bazlı)";
+
+  const r = taskinRenk(aktifRisk ?? undefined);
+
   return (
     <div className={`rounded-md border ${r.border} ${r.bg} p-2.5 dark:border-slate-600 dark:bg-slate-900`}>
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5">
           <DropletsIcon className={`h-3.5 w-3.5 ${r.text}`} />
           <span className={`text-2xs font-semibold ${r.text}`}>Taşkın Riski</span>
+          {/* GloFAS koordinat bazlı badge */}
+          {taskinKoord && (
+            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              GloFAS
+            </span>
+          )}
         </div>
         <span className={`text-3xs font-bold uppercase tracking-wider ${r.text}`}>
-          {taskinEtiket(taskin.risk)}
+          {aktifRisk ? taskinEtiket(aktifRisk) : yukleniyor ? "…" : "Veri yok"}
         </span>
       </div>
-      <p className={`text-3xs leading-snug ${r.text} opacity-90 dark:text-slate-200`}>
-        {taskin.not}
-      </p>
+
+      {/* Debi bilgisi (sadece GloFAS'tan) */}
+      {taskinKoord?.maxDebi != null && (
+        <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+          <KpiBox label="Max Debi" value={`${taskinKoord.maxDebi} m³/s`} alt="son 90 gün" />
+          <KpiBox label="Risk" value={taskinEtiket(taskinKoord.risk)} />
+        </div>
+      )}
+
+      {aktifNot && (
+        <p className={`text-3xs leading-snug ${r.text} opacity-90 dark:text-slate-200`}>
+          {aktifNot}
+        </p>
+      )}
+
+      {yukleniyor && !taskinKoord && (
+        <p className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+          GloFAS koordinat sorgusu yapılıyor…
+        </p>
+      )}
+
       <p className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
-        Kaynak: AFAD Sel Master Planı + MGM tarihsel taşkın olayları (il bazlı)
+        Kaynak: {kaynak}
       </p>
     </div>
   );
@@ -412,4 +500,66 @@ function toprakSinifEtiket(sinif: ToprakVerisi["sinif"]): string {
     case "siltli": return "Siltli";
     case "karisik": return "Karışık";
   }
+}
+
+function HeyelanBolumu({
+  heyelan,
+  yukleniyor,
+}: {
+  heyelan: HeyelanVerisi | null;
+  yukleniyor: boolean;
+}) {
+  if (yukleniyor) {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm">⛰️</span>
+          <span className="text-2xs font-semibold text-slate-600 dark:text-slate-300">Heyelan Duyarlılık</span>
+        </div>
+        <div className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+          OpenLandMap eğim verisi yükleniyor…
+        </div>
+      </div>
+    );
+  }
+
+  if (!heyelan) {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm">⛰️</span>
+          <span className="text-2xs font-semibold text-slate-600 dark:text-slate-300">Heyelan Duyarlılık</span>
+        </div>
+        <div className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+          Eğim verisi alınamadı — koordinat dışı veya API geçici hata.
+        </div>
+      </div>
+    );
+  }
+
+  const r = heyelanRenk(heyelan.risk);
+  return (
+    <div className={`rounded-md border ${r.border} ${r.bg} p-2.5 dark:border-slate-600 dark:bg-slate-900`}>
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm">⛰️</span>
+          <span className={`text-2xs font-semibold ${r.text} dark:text-slate-200`}>Heyelan Duyarlılık</span>
+        </div>
+        <span className={`text-3xs font-bold uppercase tracking-wider ${r.text} dark:text-slate-200`}>
+          {heyelanRiskEtiket(heyelan.risk)}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+        <KpiBox label="Eğim %" value={`${heyelan.egimYuzde}%`} />
+        <KpiBox label="Eğim °" value={`${heyelan.egimDerece}°`} />
+        <KpiBox label="Fiyat çarpanı" value={`×${heyelan.fiyatCarpani.toFixed(2)}`} />
+      </div>
+      <p className={`text-3xs leading-snug ${r.text} opacity-90 dark:text-slate-300`}>
+        {heyelan.not}
+      </p>
+      <p className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+        Kaynak: OpenLandMap MERIT DEM 250m (slope %) — koordinat bazlı
+      </p>
+    </div>
+  );
 }

@@ -19,6 +19,13 @@ database_id = "6d8b1c0c-6cb7-420c-92a2-0dabe5735ae9"
 binding = "TUCBS_TILES"
 bucket_name = "cadastrum-tucbs-tiles"
 
+# KV Rate Limit — D1 write yerine KV (çok daha hızlı, write-light)
+# Deploy öncesi oluştur: wrangler kv:namespace create "RATE_LIMIT_KV"
+# Çıktıdaki id'yi buraya yaz.
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
 # Cron Triggers:
 #   "0 3 * * *"   — günde bir, istatistik refresh + rate_limit/giris_denemesi cleanup
 #   "0 * * * *"   — saatlik, bildirim abonelik kontrolü (fiyat-degisimi/yeni-emsal)
@@ -44,3 +51,7 @@ RATE_LIMIT_PER_HOUR = "100"
 #
 # NOT: Her secret farklı ve rastgele olmalı.
 # Üretmek için: openssl rand -hex 32
+#
+# KV NAMESPACE OLUŞTURMA:
+#   wrangler kv:namespace create "RATE_LIMIT_KV"
+#   → çıktıdaki id'yi [[kv_namespaces]] id alanına yaz

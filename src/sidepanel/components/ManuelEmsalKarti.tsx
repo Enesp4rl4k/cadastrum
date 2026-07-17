@@ -152,7 +152,7 @@ export function ManuelEmsalKarti({ parsel, onDegisti }: Props) {
                   <label className="mb-0.5 block text-[10px] font-medium text-emerald-900">Kategori</label>
                   <select
                     value={kategori}
-                    onChange={(e) => setKategori(e.target.value as any)}
+                    onChange={(e) => setKategori(e.target.value as "arsa" | "tarla" | "konut")}
                     className="w-full rounded border border-emerald-300 bg-white px-2 py-1 text-[11px] focus:border-emerald-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   >
                     <option value="arsa">Arsa</option>

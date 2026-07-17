@@ -27,6 +27,7 @@ import { trendProjesyonGetir } from "../../lib/fiyat-trendi";
 import { Section } from "../ui/Card";
 import { useLisans } from "../../lib/lisans";
 import { PaywallKilit } from "./PaywallKilit";
+import { AlSatKararMotoru } from "./AlSatKararMotoru";
 
 interface Props {
   parsel: Parsel;
@@ -224,6 +225,18 @@ export function YatirimSkoruKarti({ parsel, fiyat: fiyatProp, cevre, ePlan }: Pr
             ))}
           </ul>
         </details>
+
+        {/* W4 — Al/Sat/Bekle Karar Motoru */}
+        <div className="border-t border-slate-100 dark:border-slate-700 pt-2">
+          <div className="text-2xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
+            🎯 Yatırım Kararı
+          </div>
+          <AlSatKararMotoru
+            skor={skor}
+            fiyat={fiyatProp}
+            trendYillikDegisim={trendYillikDegisim}
+          />
+        </div>
       </div>
     </Section>
   );

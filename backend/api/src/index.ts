@@ -37,17 +37,21 @@ import { lemonRoutes } from "./routes/lemon.js";
 import { aiFiyatRoutes } from "./routes/ai-fiyat.js";
 import { aiScorecardRoutes } from "./routes/ai-scorecard.js";
 import { adminRoutes } from "./routes/admin.js";
+import { milliEmlakRoutes } from "./routes/milli-emlak.js";
 import { newsletterRoutes } from "./routes/newsletter.js";
 import { tcmbRoutes } from "./routes/tcmb.js";
 import { raporRoutes } from "./routes/rapor.js";
 import { telemetriRoutes } from "./routes/telemetri.js";
 import { haritaRoutes } from "./routes/harita.js";
 import { rateLimitMiddleware, rateLimitTemizle } from "./lib/rate-limit.js";
+import { bearerYetkilendir, cspHeader } from "./lib/security.js";
 
 export interface Env {
   DB: D1Database;
   /** TUCBS ÇDP tile kalıcı cache'i — write-through, TUCBS'e canlı bağımlılığı azaltır */
   TUCBS_TILES: R2Bucket;
+  /** Rate limit sayaçları — D1 yerine KV (10x daha hızlı write, aylık kota D1'den çok düşük) */
+  RATE_LIMIT_KV?: KVNamespace;
   /** Scraper ingest auth — sadece /v1/ilan ve /v1/scraper için */
   SCRAPER_API_SECRET: string;
   /** Baseline seed auth — sadece /v1/baseline/seed için (SCRAPER_API_SECRET'tan ayrı) */
@@ -67,9 +71,11 @@ export interface Env {
 const app = new Hono<{ Bindings: Env }>();
 
 // CORS — extension + Cloudflare Pages site + localhost dev
+// S4: null origin → reject (Postman/cURL'den gelince "*" dönmemeli)
 app.use("/*", cors({
   origin: (origin) => {
-    if (!origin) return "*";
+    // S4: origin yoksa (null/undefined) → reject — sadece tarayıcı isteklerini kabul et
+    if (!origin) return null;
     if (origin.startsWith("chrome-extension://")) return origin;
     // Cloudflare Pages production + preview URL'leri
     if (origin.endsWith(".cadastrum-site.pages.dev")) return origin;
@@ -86,6 +92,14 @@ app.use("/*", cors({
   allowHeaders: ["Content-Type", "Authorization"],
   maxAge: 86400,
 }));
+
+// Global CSP header — tüm API response'larında (S4)
+app.use("/*", async (c, next) => {
+  await next();
+  c.header("Content-Security-Policy", cspHeader());
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+});
 
 // Health check
 app.get("/v1/health", (c) => c.json({
@@ -157,6 +171,13 @@ app.route("/v1/harita", haritaRoutes);
 // Otomatik scraper — aylık cron + admin manuel tetik
 app.route("/v1/scraper", scraperRoutes);
 
+// Milli Emlak ihale fiyatları — gerçek satış referans verisi
+// POST /v1/milli-emlak/admin/seed (SCRAPER_API_SECRET korumalı)
+// GET  /v1/milli-emlak/sorgu?il=&ilce= (public, cached)
+// GET  /v1/milli-emlak/ozet/:il/:ilce (public, cached)
+app.use("/v1/milli-emlak/sorgu", rateLimitMiddleware(60, "milli-emlak"));
+app.route("/v1/milli-emlak", milliEmlakRoutes);
+
 // Cross-validation rapor + bias kalibrasyon
 app.route("/v1/validation", validationRoutes);
 
@@ -192,21 +213,29 @@ app.route("/v1/rapor", raporRoutes);
 app.route("/v1/telemetri", telemetriRoutes);
 
 // Cron / manuel istatistik yenileme
-app.get("/v1/istatistik/refresh", async (c) => {
-  const secret = c.req.query("secret");
-  // STATS_SECRET kullanılır — SCRAPER_API_SECRET'tan bağımsız
-  if (!secret || secret !== c.env.STATS_SECRET) {
+// S1: secret artık URL param değil, Authorization: Bearer header'ında
+// S3: timing-safe karşılaştırma
+app.post("/v1/istatistik/refresh", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.STATS_SECRET,
+  );
+  if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const result = await istatistikRefresh(c.env.DB);
   return c.json(result);
 });
+// Backward-compat: eski GET + query param desteği kaldırıldı (güvenlik)
 
 // AI baseline seed — extension'ın yerel mahalle-baseline.ts'inin server kopyası
+// S3: timing-safe secret karşılaştırma
 app.post("/v1/baseline/seed", async (c) => {
-  const auth = c.req.header("Authorization");
-  // SEED_SECRET kullanılır — SCRAPER_API_SECRET'tan bağımsız
-  if (!auth || auth !== `Bearer ${c.env.SEED_SECRET}`) {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SEED_SECRET,
+  );
+  if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const body = await c.req.json<{ rows: Array<{
@@ -265,8 +294,11 @@ app.post("/v1/baseline/seed", async (c) => {
 const GECERLI_ILAN_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik"]);
 
 app.post("/v1/ilan/batch-seed", async (c) => {
-  const auth = c.req.header("Authorization");
-  if (!auth || auth !== `Bearer ${c.env.SEED_SECRET}`) {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SEED_SECRET,
+  );
+  if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 

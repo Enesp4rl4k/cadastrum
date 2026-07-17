@@ -14,18 +14,19 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     target: "esnext",
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 4000, // Büyük statik veri chunk'ları için — gerçek yük lazy
     rollupOptions: {
       input: {
         sidepanel: "src/sidepanel/index.html",
         rapor: "src/rapor/index.html",
       },
       output: {
-        // Bundle splitting — ana modüller ayrı chunk'lara çıkar. Sidepanel
-        // boot süresi: 5MB tek chunk → ~1.5MB ana + lazy 3.5MB diğerleri.
+        // Bundle splitting — ana modüller ayrı chunk'lara çıkar.
+        // Büyük veri chunk'ları (mahalle/merkez/ozellik) ayrı dosyalarda kalır;
+        // browser bunları paralel indirir. Gerçek lazy yükleme S5 kapsamında gelecek.
         manualChunks: (id) => {
           if (!id.includes("node_modules") && !id.includes("src/lib/data/")) return undefined;
-          // Statik veri tabloları — büyük tuple objeler
+          // Statik veri tabloları — büyük tuple objeler — ayrı chunk'a al
           if (id.includes("src/lib/data/mahalle-baseline")) return "data-mahalle";
           if (id.includes("src/lib/data/mahalle-merkezleri")) return "data-merkez";
           if (id.includes("src/lib/data/mahalle-ozellik")) return "data-ozellik";

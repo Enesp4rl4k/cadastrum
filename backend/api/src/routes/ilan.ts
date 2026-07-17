@@ -143,8 +143,10 @@ ilanRoutes.post("/", async (c) => {
 
 ilanRoutes.post("/batch", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-  const auth = c.req.header("Authorization");
-  if (!auth || auth !== `Bearer ${c.env.SCRAPER_API_SECRET}`) {
+  // S3: timing-safe compare
+  const { bearerYetkilendir } = await import("../lib/security.js");
+  const yetki = await bearerYetkilendir(c.req.header("Authorization"), c.env.SCRAPER_API_SECRET);
+  if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const body = await c.req.json<{ ilanlar: IlanInput[] }>().catch(() => null);

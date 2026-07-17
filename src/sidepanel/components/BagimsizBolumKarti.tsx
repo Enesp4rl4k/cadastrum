@@ -169,15 +169,15 @@ export function BagimsizBolumKarti({ parsel }: Props) {
   const [hata, setHata] = useState<string | null>(null);
   const [yuklendi, setYuklendi] = useState(false);
 
-  // Nitelik uygun değilse bileşeni gizle
-  if (!nitelikKatMulkiyetiGoster(parsel.nitelik)) return null;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Hook'lar daima koşulsuz çağrılmalı (Rules of Hooks) — early return'den önce
   useEffect(() => {
     setBloklar([]);
     setHata(null);
     setYuklendi(false);
   }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);
+
+  // Nitelik uygun değilse bileşeni gizle (hook'lardan SONRA)
+  if (!nitelikKatMulkiyetiGoster(parsel.nitelik)) return null;
 
   async function bloklariYukle() {
     if (!parsel.mahalleKodu || !parsel.adaNo || !parsel.parselNo) {

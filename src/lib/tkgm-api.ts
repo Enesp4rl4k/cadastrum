@@ -373,6 +373,14 @@ function parseParselFeature(
   const gittigiRaw = props.gittigiParselListe;
   const gittigiParseller = parseGittigiParseller(gittigiRaw);
 
+  // Malik sayısı — TKGM bazı parsellerle döndürür (malikSayisi veya malikSayis)
+  const malikSayisiRaw = props.malikSayisi ?? props.malikSayis ?? props.MalikSayisi ?? null;
+  const malikSayisi = malikSayisiRaw != null ? Number(malikSayisiRaw) || null : null;
+
+  // Pay bilgisi — hisseli parsellerde "pay" veya "hissePay" alanı olabilir
+  const payBilgisiRaw = props.pay ?? props.hissePay ?? props.payBilgisi ?? null;
+  const payBilgisi = payBilgisiRaw != null ? String(payBilgisiRaw).trim() || null : null;
+
   return {
     mahalleKodu: Number(props.mahalleId ?? fallback.mahalleKodu ?? 0) || null,
     ilKodu: Number(props.ilId ?? 0) || null,
@@ -393,6 +401,8 @@ function parseParselFeature(
     },
     merkezNokta: { lat: centerLat, lng: centerLng },
     koordinatlar: ring.map((c) => ({ lat: c[1] ?? 0, lng: c[0] ?? 0 })),
+    malikSayisi,
+    payBilgisi,
   };
 }
 
@@ -457,7 +467,6 @@ export async function getParselByLatLng(
   const cacheKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
   const cached = await parselCacheGet(cacheKey);
   if (cached) {
-    console.log("[arsa-cache] hit", cacheKey, cached.adaNo + "/" + cached.parselNo);
     return cached;
   }
 
@@ -484,7 +493,6 @@ export async function getParselByCodes(
   const cacheKey = `${mahalleKodu}/${adaNo}/${parselNo}`;
   const cached = await parselCacheGet(cacheKey);
   if (cached) {
-    console.log("[arsa-cache] hit", cacheKey);
     return cached;
   }
   const data = await getJson<RawParselFeature>(

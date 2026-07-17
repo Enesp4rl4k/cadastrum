@@ -40,7 +40,7 @@ function manuelEmsaliIlanaCevir(parsel: Parsel, m: ManuelEmsal): IlanGozlem {
     zaman: m.girilmeTarihi,
   };
 }
-import { bolgeFiyatOzetiHesapla, dinamikIndirimOrani, outlierTemizle } from "./fiyat-correction";
+import { bolgeFiyatOzetiHesapla, dinamikIndirimOrani, outlierTemizle, outlierTemizleBaglamsalAsimli } from "./fiyat-correction";
 import { normalizeYerAdi } from "./tkgm-api";
 import { dovizliMi, fiyatPerM2TLOlarak } from "./kur";
 import { ilceBaselineGetir } from "./data/ilce-baseline";
@@ -971,7 +971,13 @@ async function bolgeBaseliniGetir(parsel: Parsel, ekEmsaller: IlanGozlem[] = [])
   if (secilenEmsaller.length >= minEmsal) {
     // TL'ye çevrilmiş fiyatları kullan — USD/EUR ilanları artık havuzun dışında değil
     const fiyatlar = secilenEmsaller.map((a) => a.fiyatPerM2TL);
-    const outlier = outlierTemizle(fiyatlar);
+    // Bağlamsal outlier temizliği: önce il+kategori mutlak sınır, sonra IQR
+    const ilNormStr = normalizeYerAdi(parsel.ilAd ?? "");
+    const kategoriStr = parsel.nitelik
+      ? normalizeYerAdi(parsel.nitelik).split(" ")[0] ?? "arsa"
+      : "arsa";
+    const baglamsalOutlier = outlierTemizleBaglamsalAsimli(fiyatlar, ilNormStr, kategoriStr);
+    const outlier = { temiz: baglamsalOutlier.temiz, cikarilan: [...baglamsalOutlier.mutlakAtilanlar, ...baglamsalOutlier.iqrAtilanlar] };
     const temizSet = new Set(outlier.temiz);
     const temizEmsaller =
       outlier.temiz.length >= Math.max(3, Math.ceil(secilenEmsaller.length / 2))

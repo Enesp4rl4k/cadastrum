@@ -653,3 +653,110 @@ export async function chromeAiDestekleniyor(): Promise<boolean> {
   const oldAi = (self as { ai?: { languageModel?: unknown; assistant?: unknown } }).ai;
   return !!(oldAi?.languageModel || oldAi?.assistant);
 }
+
+/**
+ * AI Sanity Check — hafif prompt, sadece tahmin makul mu kontrol eder.
+ *
+ * Tam analiz yerine tek soru: "Bu fiyat aralığı bu bölge için makul mu?"
+ * Referans veriler: il ortalaması, Milli Emlak ihale ortalaması.
+ *
+ * Döndürdüğü:
+ *   makul: true/false
+ *   sapmaYuzde: AI'ın tahmin ettiği sapma (negatif = tahmin çok yüksek)
+ *   uyari: kullanıcıya gösterilecek uyarı metni (null = uyarı yok)
+ */
+export interface AiSanityCheckSonuc {
+  makul: boolean;
+  sapmaYuzde: number | null;
+  uyari: string | null;
+  sureMs: number;
+}
+
+export async function aiSanityCheck(
+  parsel: { ilAd: string; ilceAd: string; nitelik: string; alan: number },
+  tahminPerM2: number,
+  referanslar: {
+    ilOrtalamaPerM2?: number | null;
+    milliEmlakOrtPerM2?: number | null;
+    ilceStatistikPerM2?: number | null;
+  },
+  opts: { saglayici?: AiSaglayici } = {},
+): Promise<AiSanityCheckSonuc | null> {
+  // En az bir referans gerekli, aksi halde kontrol anlamsız
+  const refDegerler = [
+    referanslar.ilOrtalamaPerM2,
+    referanslar.milliEmlakOrtPerM2,
+    referanslar.ilceStatistikPerM2,
+  ].filter((v): v is number => v != null && v > 0);
+
+  if (refDegerler.length === 0) return null;
+
+  const refOrtalama = refDegerler.reduce((s, v) => s + v, 0) / refDegerler.length;
+  const sapma = ((tahminPerM2 - refOrtalama) / refOrtalama) * 100;
+
+  // ±%50'den az sapma — AI'ya sormaya gerek yok, heuristic yeterli
+  if (Math.abs(sapma) < 50) {
+    return {
+      makul: true,
+      sapmaYuzde: Math.round(sapma),
+      uyari: null,
+      sureMs: 0,
+    };
+  }
+
+  // Sapma büyük — AI'ya sor (eğer sağlayıcı ayarlıysa)
+  const saglayici = opts.saglayici ?? "yok";
+  if (saglayici === "yok") {
+    // AI yok ama heuristik uyarı yap
+    return {
+      makul: Math.abs(sapma) < 100,
+      sapmaYuzde: Math.round(sapma),
+      uyari: Math.abs(sapma) >= 100
+        ? `Tahmin bölge ortalamasından %${Math.round(Math.abs(sapma))} ${sapma > 0 ? "yüksek" : "düşük"} — olağandışı yüksek sapma.`
+        : null,
+      sureMs: 0,
+    };
+  }
+
+  const baslangic = Date.now();
+  const prompt = `Türkiye'de ${parsel.ilAd}/${parsel.ilceAd} bölgesinde ${parsel.nitelik} kategorisinde ${parsel.alan.toLocaleString("tr-TR")} m² arsa için hesaplanan tahmini fiyat ${tahminPerM2.toLocaleString("tr-TR")} TL/m². Bölge referans ortalaması yaklaşık ${Math.round(refOrtalama).toLocaleString("tr-TR")} TL/m² (${refDegerler.length} kaynaktan). Bu tahmin makul mu? Sadece "makul" veya "yüksek" veya "düşük" yaz, ardından kısa gerekçe (max 1 cümle).`;
+
+  try {
+    let yanit = "";
+
+    if (saglayici === "chrome-builtin") {
+      const lm = (self as { LanguageModel?: { create(o?: object): Promise<{ prompt(t: string): Promise<string> }> } }).LanguageModel;
+      if (lm) {
+        const session = await lm.create({ systemPrompt: "Türkiye gayrimenkul değerleme uzmanısın. Kısa ve net yanıt ver." });
+        yanit = await session.prompt(prompt);
+      }
+    }
+
+    // Yanıt parse
+    const yanitLower = yanit.toLocaleLowerCase("tr");
+    let makul = true;
+    if (yanitLower.startsWith("yüksek") || yanitLower.startsWith("yuksek")) makul = false;
+    else if (yanitLower.startsWith("düşük") || yanitLower.startsWith("dusuk")) makul = false;
+
+    const uyari = !makul
+      ? `AI analizi: tahmin ${sapma > 0 ? "yüksek" : "düşük"} görünüyor. ${yanit.split("\n")[0]?.slice(0, 100) ?? ""}`
+      : null;
+
+    return {
+      makul,
+      sapmaYuzde: Math.round(sapma),
+      uyari,
+      sureMs: Date.now() - baslangic,
+    };
+  } catch {
+    // AI hata — heuristic sonucu döndür
+    return {
+      makul: Math.abs(sapma) < 100,
+      sapmaYuzde: Math.round(sapma),
+      uyari: Math.abs(sapma) >= 100
+        ? `Tahmin bölge ortalamasından %${Math.round(Math.abs(sapma))} ${sapma > 0 ? "yüksek" : "düşük"}.`
+        : null,
+      sureMs: Date.now() - baslangic,
+    };
+  }
+}

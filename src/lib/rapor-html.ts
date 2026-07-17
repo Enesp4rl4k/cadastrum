@@ -406,6 +406,26 @@ ${etkilesim ? `<script>
     function f(n){return '₺'+Math.round(n).toLocaleString('tr-TR');}
     function step(ts){if(!t0)t0=ts;var p=Math.min((ts-t0)/dur,1),e=1-Math.pow(1-p,3);el.textContent=f(target*e);if(p<1)requestAnimationFrame(step);}
     setTimeout(function(){requestAnimationFrame(step);},250);}
+
+  /* W7 — Arsa Pasaportu: Paylaş → URL + QR kodu */
+  function qrGoster(url){
+    var mevcut=document.getElementById('cadQrPanel');
+    if(mevcut)mevcut.remove();
+    var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(url);
+    var panel=document.createElement('div');
+    panel.id='cadQrPanel';
+    panel.style.cssText='position:fixed;bottom:24px;right:24px;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:20px;text-align:center;z-index:9999;max-width:240px;font-family:system-ui,sans-serif;';
+    panel.innerHTML='<div style="font-size:13px;font-weight:700;color:#1B2A4A;margin-bottom:8px;">Arsa Pasaportu</div>'
+      +'<img src="'+qrUrl+'" width="180" height="180" alt="QR Kod" style="border-radius:8px;border:1px solid #e5e7eb;">'
+      +'<div style="margin-top:8px;font-size:11px;color:#6b7280;">QR kodu tara veya linki kopyala</div>'
+      +'<input value="'+url+'" readonly style="width:100%;margin-top:6px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;color:#374151;" onclick="this.select()">'
+      +'<div style="margin-top:10px;display:flex;gap:6px;justify-content:center;">'
+      +'<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+url+'\').then(function(){this.textContent=\'Kopyalandı ✓\'}.bind(this))" style="flex:1;padding:6px;background:#1B2A4A;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;">Kopyala</button>'
+      +'<button onclick="document.getElementById(\'cadQrPanel\').remove()" style="flex:1;padding:6px;background:#f3f4f6;color:#374151;border:none;border-radius:6px;font-size:11px;cursor:pointer;">Kapat</button>'
+      +'</div>';
+    document.body.appendChild(panel);
+  }
+
   var sb=document.getElementById('cadShare');
   if(sb){sb.addEventListener('click',async function(){
     sb.disabled=true;var eski=sb.textContent;sb.textContent='Yükleniyor…';
@@ -413,7 +433,7 @@ ${etkilesim ? `<script>
       var html='<!DOCTYPE html>\\n'+document.documentElement.outerHTML;
       var r=await fetch('${RAPOR_API_BASE}/rapor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html:html,baslik:${JSON.stringify(baslik)}})});
       var j=await r.json();
-      if(j&&j.url){window.prompt('Paylaşılabilir link (kopyalayın):',j.url);}
+      if(j&&j.url){qrGoster(j.url);}
       else{alert('Paylaşım başarısız: '+(j&&j.error||'bilinmeyen hata'));}
     }catch(e){alert('Paylaşım başarısız: '+e.message);}
     sb.disabled=false;sb.textContent=eski;

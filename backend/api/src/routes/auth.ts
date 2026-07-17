@@ -156,30 +156,18 @@ export async function emailGonder(env: Env, alici: string, konu: string, html: s
 }
 
 // ── Rate limit (IP başına dakika başına 10 giriş denemesi) ──────
-// Cleanup'ı saatte bir koşullu yap (her istek = N+1 DELETE pahalı)
-let _lastCleanupHour = -1;
+// Cleanup artık module-level değişken kullanmıyor — tamamen DB tabanlı.
+// Eski satırların silinmesi index.ts'deki günlük cron ("0 3 * * *") tarafından yapılır.
 async function rateLimitKontrol(env: Env, ip: string): Promise<boolean> {
   const dakika = Math.floor(Date.now() / 60000);
-  const saat = Math.floor(Date.now() / 3_600_000);
-  if (saat !== _lastCleanupHour) {
-    _lastCleanupHour = saat;
-    const eskiSinir = dakika - 60 * 24;
-    // waitUntil yok burada — fire-and-forget değil, ama saat başı 1 kez
-    env.DB.prepare("DELETE FROM giris_denemesi WHERE dakika < ?")
-      .bind(eskiSinir).run().catch(() => {});
-  }
-  // Bu IP + dakika için kaç deneme?
+  // Atomik increment — SELECT + ayrı INSERT/UPDATE yerine tek UPSERT RETURNING
   const row = await env.DB.prepare(
-    "SELECT sayi FROM giris_denemesi WHERE ip = ? AND dakika = ?"
-  ).bind(ip, dakika).first<{ sayi: number }>();
-  const mevcut = row?.sayi ?? 0;
-  if (mevcut >= 10) return false;
-  // Inkremente et
-  await env.DB.prepare(
     `INSERT INTO giris_denemesi (ip, dakika, sayi) VALUES (?, ?, 1)
-     ON CONFLICT(ip, dakika) DO UPDATE SET sayi = sayi + 1`
-  ).bind(ip, dakika).run();
-  return true;
+     ON CONFLICT(ip, dakika) DO UPDATE SET sayi = sayi + 1
+     RETURNING sayi`
+  ).bind(ip, dakika).first<{ sayi: number }>();
+  const yeniSayi = row?.sayi ?? 1;
+  return yeniSayi <= 10;
 }
 
 function clientIp(c: any): string {
@@ -329,16 +317,14 @@ auth.post("/dogrula", async (c) => {
 // IP başına dakikada 3 sıfırlama isteği yeterli.
 async function sifreSifirlaRateLimit(env: Env, ip: string): Promise<boolean> {
   const dakika = Math.floor(Date.now() / 60000);
+  // Atomik increment — module-level state yok, her Worker instance'ı DB'ye bakar
   const row = await env.DB.prepare(
-    "SELECT sayi FROM giris_denemesi WHERE ip = ? AND dakika = ?"
-  ).bind(`reset:${ip}`, dakika).first<{ sayi: number }>();
-  const mevcut = row?.sayi ?? 0;
-  if (mevcut >= 3) return false;
-  await env.DB.prepare(
     `INSERT INTO giris_denemesi (ip, dakika, sayi) VALUES (?, ?, 1)
-     ON CONFLICT(ip, dakika) DO UPDATE SET sayi = sayi + 1`
-  ).bind(`reset:${ip}`, dakika).run();
-  return true;
+     ON CONFLICT(ip, dakika) DO UPDATE SET sayi = sayi + 1
+     RETURNING sayi`
+  ).bind(`reset:${ip}`, dakika).first<{ sayi: number }>();
+  const yeniSayi = row?.sayi ?? 1;
+  return yeniSayi <= 3;
 }
 
 auth.post("/sifre-sifirla", async (c) => {

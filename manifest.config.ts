@@ -24,6 +24,7 @@ export default defineManifest({
     "storage",
     "contextMenus",
     "alarms",
+    "notifications",
     "declarativeNetRequest",
     ...(scrapingEnabled ? (["scripting"] as const) : []),
   ],
@@ -57,6 +58,8 @@ export default defineManifest({
     "https://hepsiemlak.com/*",
     // Harita tile sunucuları
     "https://server.arcgisonline.com/*",
+    "https://wayback.maptiles.arcgis.com/*",
+    "https://services.arcgisonline.com/*",
     "https://tile.openstreetmap.org/*",
     "https://*.basemaps.cartocdn.com/*",
     "https://*.tile.opentopomap.org/*",

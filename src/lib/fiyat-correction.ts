@@ -5,13 +5,121 @@
  *
  * Bu modül:
  *  1. Asking → estimated kapanış correction
- *  2. Outlier rejection (Tukey IQR)
+ *  2. Outlier rejection (Tukey IQR + bağlamsal mutlak sınırlar)
  *  3. Trim mean / median seçimi
  *  4. Bölge volatilite hesabı (CV — coefficient of variation)
  */
 
 /** Türkiye ortalama asking → kapanış indirimi (2025 piyasa verisi) */
 export const ASKING_KAPANIS_INDIRIM = 0.12;
+
+/**
+ * İl + kategori bazlı makul TL/m² sınırları — absürd değerleri IQR'dan ÖNCE temizle.
+ *
+ * Mantık:
+ *   - Kırsal tarla: 50–500.000 TL/m² (köyde 50 TL normal, şehir yakını 500K olabilir)
+ *   - İstanbul/İzmir/Ankara arsa: 500–50.000.000 TL/m² (premium merkez)
+ *   - Diğer iller arsa: 100–20.000.000 TL/m²
+ *
+ * Bu sınırlar "veri girişi hatası" (örn. 1 TL/m², 8M TL/m² köy tarlası)
+ * ile gerçek extreme değerleri ayırt eder.
+ */
+export const IL_KATEGORI_SINIR: Record<string, { altMin: number; ustMax: number }> = {
+  // Format: "ilNorm:kategori" → { altMin: TL/m², ustMax: TL/m² }
+
+  // İstanbul — premium, çok geniş aralık
+  "istanbul:arsa":    { altMin: 500,   ustMax: 100_000_000 },
+  "istanbul:tarla":   { altMin: 200,   ustMax: 10_000_000  },
+
+  // İzmir, Ankara — yüksek
+  "izmir:arsa":       { altMin: 300,   ustMax: 50_000_000  },
+  "izmir:tarla":      { altMin: 100,   ustMax: 5_000_000   },
+  "ankara:arsa":      { altMin: 300,   ustMax: 50_000_000  },
+  "ankara:tarla":     { altMin: 100,   ustMax: 3_000_000   },
+
+  // Kıyı illeri — turizm etkisi
+  "antalya:arsa":     { altMin: 300,   ustMax: 30_000_000  },
+  "antalya:tarla":    { altMin: 100,   ustMax: 5_000_000   },
+  "mugla:arsa":       { altMin: 300,   ustMax: 30_000_000  },
+  "mugla:tarla":      { altMin: 100,   ustMax: 8_000_000   },
+
+  // Büyükşehirler (genel)
+  "bursa:arsa":       { altMin: 200,   ustMax: 20_000_000  },
+  "kocaeli:arsa":     { altMin: 200,   ustMax: 20_000_000  },
+  "tekirdag:arsa":    { altMin: 150,   ustMax: 15_000_000  },
+
+  // Default — tüm iller için fallback
+  "_default:arsa":    { altMin: 50,    ustMax: 20_000_000  },
+  "_default:tarla":   { altMin: 30,    ustMax: 3_000_000   },
+  "_default:bahce":   { altMin: 50,    ustMax: 5_000_000   },
+  "_default:bag":     { altMin: 30,    ustMax: 2_000_000   },
+  "_default:zeytinlik":{ altMin: 50,   ustMax: 2_000_000   },
+  "_default:konut":   { altMin: 1_000, ustMax: 100_000_000 },
+};
+
+/**
+ * İl + kategori bazlı mutlak sınır filtresi — IQR'dan önce çalışır.
+ * Veri girişi hatalarını (1 TL/m²) ve imkânsız değerleri eler.
+ *
+ * @param fiyatlar  TL/m² değerleri
+ * @param ilNorm    normalizeYerAdi(il) — küçük harf, ascii
+ * @param kategori  "arsa" | "tarla" | vb.
+ */
+export function mutlakSinirFiltrele(
+  fiyatlar: number[],
+  ilNorm: string,
+  kategori: string,
+): { temiz: number[]; cikarilan: number[] } {
+  const sinirKey = `${ilNorm}:${kategori}`;
+  const sinir = IL_KATEGORI_SINIR[sinirKey] ?? IL_KATEGORI_SINIR[`_default:${kategori}`] ?? IL_KATEGORI_SINIR["_default:arsa"]!;
+
+  const temiz: number[] = [];
+  const cikarilan: number[] = [];
+
+  for (const f of fiyatlar) {
+    if (f >= sinir.altMin && f <= sinir.ustMax) {
+      temiz.push(f);
+    } else {
+      cikarilan.push(f);
+    }
+  }
+
+  return { temiz, cikarilan };
+}
+
+/**
+ * Bağlamsal outlier temizleme — iki aşamalı:
+ *  1. Mutlak sınır filtresi (il + kategori bazlı)
+ *  2. Tukey IQR (bağlam sınırlarını geçen değerler içinde)
+ *
+ * Klasik IQR'ya göre avantajı: İstanbul arsası ile Erzurum tarlası
+ * aynı havuza girdiğinde IQR'ın başarısız olması durumunu önler.
+ */
+export function outlierTemizleBaglamsalAsimli(
+  fiyatlar: number[],
+  ilNorm: string,
+  kategori: string,
+): {
+  temiz: number[];
+  mutlakAtilanlar: number[];
+  iqrAtilanlar: number[];
+} {
+  // Aşama 1: Mutlak sınır
+  const { temiz: mutlakTemiz, cikarilan: mutlakAtilan } = mutlakSinirFiltrele(
+    fiyatlar,
+    ilNorm,
+    kategori,
+  );
+
+  // Aşama 2: IQR (sınır sonrası kalan değerlerde)
+  const { temiz: iqrTemiz, cikarilan: iqrAtilan } = outlierTemizle(mutlakTemiz);
+
+  return {
+    temiz: iqrTemiz,
+    mutlakAtilanlar: mutlakAtilan,
+    iqrAtilanlar: iqrAtilan,
+  };
+}
 
 export interface IndirimModeliOptions {
   segment?: "arsa" | "tarla";

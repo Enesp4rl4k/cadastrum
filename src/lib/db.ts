@@ -1,6 +1,17 @@
 import Dexie, { type EntityTable, type Table } from "dexie";
 import type { Parsel } from "../types/tkgm";
 
+/** Renk etiket — not defteri renk kodlaması */
+export type ParselEtiket = "kirmizi" | "sari" | "yesil" | "mavi" | "mor" | "gri";
+
+/** Tek bir tarihli not kaydı */
+export interface ParselNot {
+  id: string;          // nanoid(8) — IndexedDB içinde nested, ayrı tablo değil
+  metin: string;       // max 500 karakter
+  tarih: number;       // unix ms
+  duzenlemeTarihi?: number;
+}
+
 export interface FavoriParsel {
   id?: number;
   mahalleKodu: number;
@@ -9,7 +20,11 @@ export interface FavoriParsel {
   ilAd: string;
   ilceAd: string;
   mahalleAd: string;
-  not: string;
+  not: string;         // geriye dönük uyumluluk — eski tek-satır not
+  /** N1 — Not Defteri: tarihli not listesi */
+  notlar?: ParselNot[];
+  /** N1 — Renk etiketi (izleme durumu için) */
+  etiket?: ParselEtiket | null;
   eklenmeTarihi: number;
   parsel: Parsel;
 }
@@ -150,6 +165,16 @@ export interface HaftalikNokta {
   ilanAdet: number;
 }
 
+export interface TaskinRiskCache {
+  /** `taskin|lat|lng` formatında composite key */
+  key: string;
+  risk: "yuksek" | "orta" | "dusuk";
+  maxDebi: number | null;
+  not: string;
+  kaynak: "open-meteo-glofas" | "il-tablo-fallback";
+  fetchedAt: number;
+}
+
 export interface FiyatTrendi {
   /** Composite key: `${ilceNorm}|${mahalleNorm}|${kategori}` */
   key: string;
@@ -220,6 +245,7 @@ class ArsaDB extends Dexie {
   detayKuyrugu!: Table<DetayKuyrukKayit, string>;
   mahalleAlias!: Table<MahalleAliasKayit, string>;
   fiyatTrendi!: Table<FiyatTrendi, string>;
+  taskinRiskCache!: Table<TaskinRiskCache, string>;
 
   constructor() {
     super("ArsaTKGM");
@@ -401,9 +427,6 @@ class ArsaDB extends Dexie {
       tucbsCdpCache: "&key, fetchedAt",
     });
     // v15: fiyatTrendi cache — mahalle/ilçe bazlı haftalık fiyat zaman serisi.
-    // Key format: `${ilceNorm}|${mahalleNorm}|${kategori}` (mahalle) veya
-    //             `${ilceNorm}||${kategori}` (ilçe seviyesi fallback).
-    // TTL: 7 gün — haftalık yeniden hesaplama yeterli.
     this.version(15).stores({
       favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi",
       gecmis: "++id, zaman",
@@ -419,6 +442,59 @@ class ArsaDB extends Dexie {
       mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
       tucbsCdpCache: "&key, fetchedAt",
       fiyatTrendi: "&key, fetchedAt",
+    });
+    // v16: taskinRiskCache — koordinat bazlı Open-Meteo GloFAS taşkın risk sonuçları.
+    // TTL: 7 gün. Key: `taskin|lat|lng` (0.1° hassasiyet).
+    this.version(16).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+      fiyatTrendi: "&key, fetchedAt",
+      taskinRiskCache: "&key, fetchedAt",
+    });
+    // v17: N1 — Parsel Not Defteri.
+    // FavoriParsel'e `notlar` (ParselNot[]) ve `etiket` (ParselEtiket) eklendi.
+    // Dexie'de nested array index'lenemez, dolayısıyla schema değişmedi —
+    // sadece TypeScript interface güncellendi. Eski kayıtlar otomatik uyumlu.
+    this.version(17).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi, etiket",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+      fiyatTrendi: "&key, fetchedAt",
+      taskinRiskCache: "&key, fetchedAt",
+    }).upgrade(async (tx) => {
+      // Eski `not` string varsa `notlar` array'e taşı
+      await tx
+        .table<FavoriParsel>("favoriler")
+        .toCollection()
+        .modify((kayit) => {
+          if (!kayit.notlar) {
+            kayit.notlar = kayit.not
+              ? [{ id: Math.random().toString(36).slice(2, 10), metin: kayit.not, tarih: kayit.eklenmeTarihi }]
+              : [];
+          }
+          if (kayit.etiket === undefined) kayit.etiket = null;
+        });
     });
   }
 }

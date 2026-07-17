@@ -51,8 +51,11 @@ telemetriRoutes.post("/hata", async (c) => {
 });
 
 // ── GET /v1/telemetri/ozet (admin) ──────────────────────────────────────
+// S1+S3: URL query param → Authorization header + timing-safe compare
 telemetriRoutes.get("/ozet", async (c) => {
-  if (c.req.query("secret") !== c.env.SCRAPER_API_SECRET) {
+  const { bearerYetkilendir } = await import("../lib/security.js");
+  const yetki = await bearerYetkilendir(c.req.header("Authorization"), c.env.SCRAPER_API_SECRET);
+  if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const gun = Math.min(Math.max(Number(c.req.query("gun")) || 7, 1), 90);

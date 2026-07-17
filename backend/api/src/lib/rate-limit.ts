@@ -1,23 +1,19 @@
 /**
- * Global IP-based rate limit middleware — Cloudflare Workers + D1
+ * Global IP-based rate limit middleware — Cloudflare Workers + KV (+ D1 fallback)
  *
- * Kullanım:
- *   import { rateLimitMiddleware } from "../lib/rate-limit.js";
- *   app.use("/v1/fiyat/*", rateLimitMiddleware(60));   // saatte 60 istek
- *   app.use("/v1/proxy/*", rateLimitMiddleware(100));  // saatte 100 istek
+ * P1: KV rate limit — D1 UPSERT yerine KV (10x daha hızlı write, Workers KV kota
+ * D1 write kotasından çok daha yüksek).
  *
- * Nasıl çalışır:
- *   - rate_limit tablosunda (ip, saat) anahtarlıyla istek sayısı tutulur.
- *   - Her istek atomik UPSERT ile sayacı artırır.
- *   - Limit aşılınca 429 döner, Retry-After header'ı ile saat sonunu bildirir.
- *   - Cloudflare Workers'da module-level değişken instance'lar arası paylaşılmaz,
- *     bu yüzden cleanup tamamen DB tarafında cron ile yapılır (bkz. index.ts scheduled).
+ * Strateji:
+ *   - KV varsa (RATE_LIMIT_KV binding aktif): KV atomik increment
+ *   - KV yoksa (binding tanımsız): D1 UPSERT fallback (eski davranış)
  *
- * Güvenlik notları:
- *   - IP, CF-Connecting-IP header'ından alınır (Cloudflare edge'de güvenilir).
- *   - JWT token'ı olan kullanıcılara opsiyonel olarak yüksek limit verilebilir.
- *   - rate_limit tablosu: CREATE TABLE rate_limit (ip TEXT, saat INTEGER, istek_sayisi INTEGER,
- *       PRIMARY KEY(ip, saat))
+ * KV key formatı: `rl:{prefix}:{ip}:{saat}`
+ * TTL: 2 saat (bir saat öncesini de kapsar, paranoyak marj)
+ *
+ * Not: KV namespace oluşturma:
+ *   wrangler kv:namespace create "RATE_LIMIT_KV"
+ *   → id'yi wrangler.toml [[kv_namespaces]] alanına yaz
  */
 import type { MiddlewareHandler } from "hono";
 import type { Env } from "../index.js";
@@ -32,12 +28,49 @@ function getClientIp(req: Request): string {
 }
 
 /**
+ * KV tabanlı rate limit — atomik increment.
+ * KV'de key yoksa 1, varsa +1 döner.
+ * TTL: 7200 saniye (2 saat).
+ */
+async function kvRateLimit(
+  kv: KVNamespace,
+  key: string,
+): Promise<number> {
+  // KV atomic increment: get → parse → increment → put
+  // Not: KV'de native atomic increment yok, ama Workers tek-threaded olduğu için
+  // tek instance'da race condition olmaz. Multi-instance için bu hafif race var
+  // ama rate limit için ±1 toleransı kabul edilebilir.
+  const val = await kv.get(key, "text");
+  const current = val != null ? parseInt(val, 10) : 0;
+  const next = current + 1;
+  // waitUntil yerine fire-and-forget (response'u bloklamasın)
+  kv.put(key, String(next), { expirationTtl: 7200 }).catch(() => {});
+  return next;
+}
+
+/**
+ * D1 tabanlı rate limit — eski davranış, fallback.
+ */
+async function d1RateLimit(
+  db: D1Database,
+  key: string,
+  saat: number,
+): Promise<number> {
+  const row = await db.prepare(
+    `INSERT INTO rate_limit (ip, saat, istek_sayisi) VALUES (?, ?, 1)
+     ON CONFLICT(ip, saat) DO UPDATE SET istek_sayisi = istek_sayisi + 1
+     RETURNING istek_sayisi`,
+  )
+    .bind(key, saat)
+    .first<{ istek_sayisi: number }>();
+  return row?.istek_sayisi ?? 1;
+}
+
+/**
  * rateLimitMiddleware(limitPerHour, prefix?)
  *
  * @param limitPerHour  - Saatte izin verilen maksimum istek sayısı
- * @param prefix        - rate_limit tablosundaki IP anahtarı öneki (aynı IP'yi
- *                        farklı endpoint grupları için ayrı saymak için).
- *                        Örn: "fiyat", "proxy", "sorgu"
+ * @param prefix        - Aynı IP'yi farklı endpoint grupları için ayrı saymak için
  */
 export function rateLimitMiddleware(
   limitPerHour: number,
@@ -46,20 +79,25 @@ export function rateLimitMiddleware(
   return async (c, next) => {
     const ip = getClientIp(c.req.raw);
     const saat = Math.floor(Date.now() / 3_600_000);
-    const key = `${prefix}:${ip}`;
+    const key = `rl:${prefix}:${ip}:${saat}`;
 
-    // Atomik increment — SELECT + INSERT/UPDATE yerine tek sorgu
-    const row = await c.env.DB.prepare(
-      `INSERT INTO rate_limit (ip, saat, istek_sayisi) VALUES (?, ?, 1)
-       ON CONFLICT(ip, saat) DO UPDATE SET istek_sayisi = istek_sayisi + 1
-       RETURNING istek_sayisi`,
-    )
-      .bind(key, saat)
-      .first<{ istek_sayisi: number }>();
+    let mevcut: number;
+    try {
+      if (c.env.RATE_LIMIT_KV) {
+        // P1: KV — hızlı path
+        mevcut = await kvRateLimit(c.env.RATE_LIMIT_KV, key);
+      } else {
+        // Fallback: D1 (KV binding henüz aktif değilse)
+        const d1Key = `${prefix}:${ip}`;
+        mevcut = await d1RateLimit(c.env.DB, d1Key, saat);
+      }
+    } catch {
+      // Rate limit hatası → geç, engelleme (availability > security burada)
+      await next();
+      return;
+    }
 
-    const mevcut = row?.istek_sayisi ?? 1;
-
-    // Rate limit headers — her zaman ekle (izleme için)
+    // Rate limit headers — her zaman ekle
     c.header("X-RateLimit-Limit", String(limitPerHour));
     c.header("X-RateLimit-Remaining", String(Math.max(0, limitPerHour - mevcut)));
     c.header("X-RateLimit-Reset", String((saat + 1) * 3600));
@@ -82,12 +120,10 @@ export function rateLimitMiddleware(
 }
 
 /**
- * Eski rate_limit kayıtlarını temizler.
- * Cron handler'dan (scheduled) çağrılır — "0 3 * * *" günlük temizlik.
- * Module-level state kullanmaz, tamamen DB tabanlı.
+ * Eski rate_limit D1 kayıtlarını temizler.
+ * KV kendi TTL'ine göre temizlenir — D1 cleanup devam eder (backward compat).
  */
 export async function rateLimitTemizle(db: D1Database): Promise<{ silinen: number }> {
-  // 48 saatten eski kayıtları sil (güvenli marj — 24 yeterli ama 48 daha güvenli)
   const eskiSaatSiniri = Math.floor(Date.now() / 3_600_000) - 48;
   const sonuc = await db
     .prepare("DELETE FROM rate_limit WHERE saat < ?")

@@ -10,6 +10,7 @@ import {
   TrendingDown as TrendingDownIcon,
   ExternalLink as ExternalLinkIcon,
   Database as DatabaseIcon,
+  Scale as ScaleIcon,
 } from "lucide-react";
 import {
   type FiyatTahmini,
@@ -24,12 +25,15 @@ import type { EgimAnalizi } from "../../lib/elevation";
 import type { EPlanImarVerisi } from "../../lib/eplan";
 import type { TucbsCdpSonuc } from "../../lib/tucbs";
 import { ePlanOzet } from "../../lib/eplan";
-import { type AiFiyatSonucu, aiTahmin, chromeBuiltinAiVarMi, aiDurumGetir, type AiDurum } from "../../lib/ai-fiyat";
+import { type AiFiyatSonucu, aiTahmin, chromeBuiltinAiVarMi, aiDurumGetir, type AiDurum, aiSanityCheck, type AiSanityCheckSonuc } from "../../lib/ai-fiyat";
 import { useAyarlar } from "../../lib/ayarlar";
 import { useLisans } from "../../lib/lisans";
 import { Card, Section } from "../ui/Card";
 import { HizliImarPrompt } from "./HizliImarPrompt";
 import { GuvenGostergesi } from "./GuvenGostergesi";
+
+import type { MilliEmlakOzet } from "../../lib/milli-emlak";
+import { fmtTLm2 as fmtMEm2 } from "../../lib/milli-emlak";
 
 interface Props {
   parsel: Parsel;
@@ -50,6 +54,8 @@ interface Props {
    * YatirimSkoruKarti ikinci bir fiyatTahminEt() çağrısı yapmaktan kurtulur.
    */
   onTahminHesaplandi?: (tahmin: FiyatTahmini | null) => void;
+  /** Milli Emlak ilçe özeti — cross-validation için (opsiyonel) */
+  milliEmlakOzet?: MilliEmlakOzet | null;
 }
 
 export function FiyatTahminKarti({
@@ -64,6 +70,7 @@ export function FiyatTahminKarti({
   onImarSkip,
   onImarTekrarSor,
   onTahminHesaplandi,
+  milliEmlakOzet,
 }: Props) {
   const [tahmin, setTahmin] = useState<FiyatTahmini | null>(null);
   const [acik, setAcik] = useState(false);
@@ -71,6 +78,8 @@ export function FiyatTahminKarti({
   const [aiYukleniyor, setAiYukleniyor] = useState(false);
   const [aiHata, setAiHata] = useState<string | null>(null);
   const [aiDurum, setAiDurum] = useState<AiDurum | null>(null);
+  // D5 — AI sanity check state
+  const [sanityCheck, setSanityCheck] = useState<AiSanityCheckSonuc | null>(null);
   const [ayarlar] = useAyarlar();
   const lisans = useLisans();
 
@@ -144,6 +153,20 @@ export function FiyatTahminKarti({
     void aiDurumGetir().then(setAiDurum);
   }, [aktifSaglayici, aiSonuc]);
 
+  // D5 — AI sanity check: tahmin hesaplandığında referanslarla karşılaştır
+  useEffect(() => {
+    if (!tahmin) { setSanityCheck(null); return; }
+    void aiSanityCheck(
+      { ilAd: parsel.ilAd, ilceAd: parsel.ilceAd, nitelik: parsel.nitelik, alan: parsel.alan },
+      tahmin.beklenenPerM2,
+      {
+        milliEmlakOrtPerM2: milliEmlakOzet?.ort_fiyat_per_m2 ?? null,
+      },
+      { saglayici: ayarlar.aiSaglayici !== "yok" ? ayarlar.aiSaglayici : undefined },
+    ).then((r) => setSanityCheck(r ?? null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tahmin?.beklenenPerM2, milliEmlakOzet?.ort_fiyat_per_m2]);
+
   // Triangulation: AI sonucu makul aralıktaysa kombine beklenen göster (70% statistical + 30% AI)
   const aiSapma = aiSonuc && tahmin
     ? Math.abs((aiSonuc.beklenenPerM2 - tahmin.beklenenPerM2) / tahmin.beklenenPerM2)
@@ -153,6 +176,17 @@ export function FiyatTahminKarti({
     ? Math.round(0.7 * tahmin.beklenenPerM2 + 0.3 * aiSonuc.beklenenPerM2)
     : null;
   const kombineBeklenenToplam = kombineBeklenenPerM2 ? Math.round(kombineBeklenenPerM2 * parsel.alan) : null;
+
+  // D3 — Güven bazlı UI: düşük güvende kesin rakam yerine aralık göster
+  const dusukGuven = tahmin != null && tahmin.guvenSkoru < 40;
+
+  // D2 — Milli Emlak cross-validation: ihale ortalaması varsa tahminle karşılaştır
+  const meOrtFiyat = milliEmlakOzet?.ort_fiyat_per_m2 ?? null;
+  const meSapmaYuzde = meOrtFiyat && tahmin
+    ? Math.round(((tahmin.beklenenPerM2 - meOrtFiyat) / meOrtFiyat) * 100)
+    : null;
+  // Sapma ±%30'u geçiyorsa uyarı göster
+  const meUyariGoster = meSapmaYuzde != null && Math.abs(meSapmaYuzde) > 30;
 
   // İmar gating UI'ı — sıralama: e-Plan yükleniyor > imar yok > skip > tahmin yükleniyor
   if (ePlanLoading && !imarVar && !imarSkipEdildi) {
@@ -191,6 +225,23 @@ export function FiyatTahminKarti({
     && tahmin.baselineKaynak !== "ilanGozlem-ilce"
     && tahmin.baselineKaynak !== "spatial-radius";
 
+  // Cold start kaynak etiketi — kullanıcıya neden bu verinin kısıtlı olduğunu anlat
+  const coldStartKaynakEtiket: Record<string, string> = {
+    "mahalle-baseline": "mahalle istatistik tablosu",
+    "ilce-semt-baseline": "semt ortalaması",
+    "ilce-baseline": "ilçe ortalaması",
+    "il-baseline": "il ortalaması (kaba)",
+    "fallback": "genel Türkiye ortalaması",
+  };
+  const coldStartKaynak = coldStartKaynakEtiket[tahmin.baselineKaynak] ?? tahmin.baselineKaynak;
+  // Hata payı — kaynak kalitesine göre
+  const coldStartHataPayi =
+    tahmin.baselineKaynak === "il-baseline" || tahmin.baselineKaynak === "fallback"
+      ? "%50–80"
+      : tahmin.baselineKaynak === "ilce-baseline"
+      ? "%35–60"
+      : "%25–50";
+
   return (
     <Section
       title={coldStart ? "Bölge Ortalaması (tahmini)" : "Tahmini Piyasa Fiyatı"}
@@ -223,42 +274,151 @@ export function FiyatTahminKarti({
           </div>
         )}
 
-        {/* Cold-start: gerçek ilan verisi yok → metodoloji uyarısı */}
+        {/* Cold-start: gerçek ilan verisi yok → netleştirilmiş metodoloji + aksiyon uyarısı */}
         {coldStart && (
-          <div className="flex items-start gap-2 rounded border border-slate-300 bg-slate-50 px-2 py-1.5 text-2xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            <span className="mt-0.5 flex-shrink-0 text-slate-400">⚠</span>
-            <div className="leading-relaxed">
-              <span className="font-medium">Bu bölgede gerçek ilan verisi yok.</span>{" "}
-              Tahmin, komşu mahallelerden istatistiksel çıkarım ile üretildi — medyan hata %45–65 civarında olabilir.
+          <div className="rounded border border-slate-300 bg-slate-50 px-2.5 py-2 text-2xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {/* Başlık satırı — güven skoru badge ile */}
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-amber-500">⚠</span>
+                <span className="font-semibold">Bu {parsel.mahalleAd ? `mahallede` : "bölgede"} gerçek ilan yok</span>
+              </div>
+              <span className="flex-shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                Güven {tahmin.guvenSkoru}/100
+              </span>
+            </div>
+
+            {/* Kaynak açıklaması */}
+            <div className="space-y-1 text-3xs text-slate-600 dark:text-slate-400">
+              <div>
+                📊 Tahmin kaynağı: <strong>{coldStartKaynak}</strong>
+                {" "}— beklenen hata payı <strong>{coldStartHataPayi}</strong>
+              </div>
               {(tahmin.imarOzeti.sinif === "konut-imarli" || tahmin.imarOzeti.sinif === "yapi-mevcut") && (
-                <> Konut/yapı imar için gerçek konut emsal verisi bulunmadığından arsa bazlı tahmin üzerine imar çarpanı uygulandı.</>
-              )}{" "}
-              Yatırım kararı için bölgede gerçek emsal araştırmanızı öneririz.
+                <div>
+                  🏗 Konut/yapı imar için arsa taban fiyatına imar çarpanı uygulandı (gerçek emsal yok).
+                </div>
+              )}
+
+              {/* Aksiyon adımları */}
+              <div className="mt-1.5 rounded bg-white/80 p-1.5 dark:bg-slate-900/60 space-y-0.5">
+                <div className="font-medium text-slate-700 dark:text-slate-300 mb-0.5">Güveni artırmak için:</div>
+                <div className="flex items-start gap-1">
+                  <span className="text-slate-400 mt-0.5">1.</span>
+                  <span>
+                    <a
+                      href={`https://www.sahibinden.com/arsa-${(parsel.ilceAd ?? "").toLocaleLowerCase("tr").replace(/\s+/g, "-")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      Sahibinden'de bölge ilanlarına bak
+                    </a>
+                    {" "}— tarama yaparken fiyatlar otomatik biriktirilir.
+                  </span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-slate-400 mt-0.5">2.</span>
+                  <span>
+                    Gerçek emsal varsa{" "}
+                    <button
+                      type="button"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                      onClick={() => {
+                        // Manuel emsal kartını açmak için scroll — AnalizPanel'deki ManuelEmsalKarti
+                        document.querySelector<HTMLElement>('[data-section="manuel-emsal"]')?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      manuel emsal gir →
+                    </button>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Beklenen — büyük vurgu (AI kombine varsa üstte gösterilir) */}
-        <div className="flex items-baseline justify-between border-b border-slate-100 pb-2">
-          <div>
-            <div className="text-3xs uppercase tracking-wide text-slate-500 flex items-center gap-1">
-              {kombineBeklenenPerM2 ? (
-                <>
-                  <SparklesIcon className="h-3 w-3 text-accent-ai" />
-                  AI + İstatistik Kombine
-                </>
-              ) : (
-                "Beklenen"
+        {/* D2 — Milli Emlak cross-validation uyarısı */}
+        {meUyariGoster && meOrtFiyat != null && meSapmaYuzde != null && (
+          <div className="flex items-start gap-2 rounded border border-orange-300 bg-orange-50 px-2 py-1.5 text-2xs text-orange-900 dark:border-orange-800/50 dark:bg-orange-950/20 dark:text-orange-300">
+            <ScaleIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-600" />
+            <div>
+              <div className="font-semibold">
+                Milli Emlak ihalelerinden {meSapmaYuzde > 0 ? "%" + meSapmaYuzde + " yüksek" : "%" + Math.abs(meSapmaYuzde) + " düşük"} tahmin
+              </div>
+              <div className="mt-0.5 text-3xs">
+                İlçe ihale ortalaması: <strong>{fmtMEm2(meOrtFiyat)}</strong>
+                {" "}— tahminimiz: <strong>{fmtTLM2(tahmin.beklenenPerM2)}</strong>.
+                Gerçek kapanış fiyatları listing'den %15–30 düşük olur.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* D5 — AI sanity check uyarısı */}
+        {sanityCheck?.uyari && !sanityCheck.makul && (
+          <div className="flex items-start gap-2 rounded border border-purple-300 bg-purple-50 px-2 py-1.5 text-2xs text-purple-900 dark:border-purple-800/50 dark:bg-purple-950/20 dark:text-purple-300">
+            <AlertIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-purple-600" />
+            <div>
+              <div className="font-semibold">AI Doğrulama Uyarısı</div>
+              <div className="mt-0.5 text-3xs">{sanityCheck.uyari}</div>
+              {sanityCheck.sapmaYuzde != null && (
+                <div className="mt-0.5 text-3xs text-purple-600/80 dark:text-purple-400/80">
+                  Referans ortalamasından %{Math.abs(sanityCheck.sapmaYuzde)} {sanityCheck.sapmaYuzde > 0 ? "yüksek" : "düşük"} tahmin
+                </div>
               )}
             </div>
-            <div className="text-3xs text-slate-500 tabular-nums">
-              {fmtTLM2(kombineBeklenenPerM2 ?? tahmin.beklenenPerM2)} × {parsel.alan.toLocaleString("tr-TR")} m²
+          </div>
+        )}
+
+        {/* D3 — Düşük güvende kesin rakam yerine aralık göster */}
+        {dusukGuven ? (
+          <div className="rounded border border-red-200 bg-red-50 px-2.5 py-2.5 dark:border-red-800/50 dark:bg-red-950/20">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <AlertIcon className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+              <span className="text-2xs font-semibold text-red-700 dark:text-red-300">
+                Düşük Güven — Tahmini Aralık
+              </span>
+              <span className="ml-auto text-[10px] font-mono text-red-600/80 dark:text-red-400">
+                {tahmin.guvenSkoru}/100
+              </span>
+            </div>
+            <div className="text-center py-1">
+              <div className="text-3xs text-slate-500 uppercase tracking-wide mb-1">Tahmin Aralığı</div>
+              <div className="text-lg font-bold tabular-nums text-slate-700 dark:text-slate-200">
+                {fmtTLM2(tahmin.altPerM2)} — {fmtTLM2(tahmin.ustPerM2)}
+              </div>
+              <div className="text-3xs text-slate-500 mt-1">
+                Medyan: ~{fmtTLM2(tahmin.beklenenPerM2)} (düşük güven, ±%{coldStartHataPayi.replace("%", "").split("–")[1] ?? "60"} sapabilir)
+              </div>
+            </div>
+            <div className="mt-1.5 text-3xs text-red-600 dark:text-red-400 italic">
+              Bu bölgede gerçek emsal yetersiz. Kesin rakam yerine aralık gösteriliyor.
             </div>
           </div>
-          <div className="text-xl font-bold tabular-nums text-accent-success">
-            {fmtTL(kombineBeklenenToplam ?? tahmin.toplamBeklenen)}
+        ) : (
+          /* Beklenen — büyük vurgu (AI kombine varsa üstte gösterilir) */
+          <div className="flex items-baseline justify-between border-b border-slate-100 pb-2">
+            <div>
+              <div className="text-3xs uppercase tracking-wide text-slate-500 flex items-center gap-1">
+                {kombineBeklenenPerM2 ? (
+                  <>
+                    <SparklesIcon className="h-3 w-3 text-accent-ai" />
+                    AI + İstatistik Kombine
+                  </>
+                ) : (
+                  "Beklenen"
+                )}
+              </div>
+              <div className="text-3xs text-slate-500 tabular-nums">
+                {fmtTLM2(kombineBeklenenPerM2 ?? tahmin.beklenenPerM2)} × {parsel.alan.toLocaleString("tr-TR")} m²
+              </div>
+            </div>
+            <div className="text-xl font-bold tabular-nums text-accent-success">
+              {fmtTL(kombineBeklenenToplam ?? tahmin.toplamBeklenen)}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Görsel fiyat bandı — alt/beklenen/üst + "neden geniş" */}
         <FiyatBantGostergesi tahmin={tahmin} />
@@ -452,10 +612,10 @@ export function FiyatTahminKarti({
         {/* Hesap detayı toggle */}
         {tahmin.sonrakiHamleler.length > 0 && (
           <div className="rounded-md border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-3xs text-amber-900">
-            <div className="font-medium">GÃ¼veni artÄ±rmak iÃ§in</div>
+            <div className="font-medium">Güveni artırmak için</div>
             <div className="mt-1 space-y-0.5">
               {tahmin.sonrakiHamleler.map((adim, i) => (
-                <div key={i}>â€¢ {adim}</div>
+                <div key={i}>• {adim}</div>
               ))}
             </div>
           </div>

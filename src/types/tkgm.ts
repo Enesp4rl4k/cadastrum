@@ -43,6 +43,17 @@ export interface Parsel {
   geometri: ParselGeometry;
   merkezNokta: LatLng;
   koordinatlar: LatLng[];
+  /**
+   * Parseldeki malik (ortak) sayısı.
+   * TKGM API bazı parseller için döndürür. > 1 ise hisseli/paylı mülkiyet.
+   * null = API'den gelmedi veya bilinmiyor.
+   */
+  malikSayisi: number | null;
+  /**
+   * Pay bilgisi — TKGM'nin döndürdüğü formatta (örn. "1/2", "3/4").
+   * Hisseli parsellerde mevcut olabilir.
+   */
+  payBilgisi: string | null;
 }
 
 export interface Blok {
