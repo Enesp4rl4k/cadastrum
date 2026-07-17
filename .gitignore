@@ -6,6 +6,19 @@ dist/
 .env
 .env.local
 
+# Geçici / kirli dosyalar — repoya girmez
+eplan_cookie.txt
+tsc-errors.txt
+backend/api/tsc-errors.txt
+site/dist.zip
+"console.error(e.message"
+console.error(e.message
+.impeccable/
+.claude/
+
+# Secret içeren deploy scriptleri — gitignore'd
+DEPLOY-SITE-SECRET.bat
+
 # Ayrı repo: https://github.com/Enesp4rl4k/ev-scan
 ev-scan/
 

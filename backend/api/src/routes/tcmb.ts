@@ -300,8 +300,10 @@ tcmb.get("/debug/:il", async (c) => {
 
 /** Admin/cron: tüm illerin verisini yenile */
 tcmb.post("/refresh", async (c) => {
-  const auth = c.req.header("Authorization");
-  if (!auth || auth !== `Bearer ${c.env.SCRAPER_API_SECRET}`) {
+  // S3: timing-safe compare
+  const { bearerYetkilendir } = await import("../lib/security.js");
+  const yetki = await bearerYetkilendir(c.req.header("Authorization"), c.env.SCRAPER_API_SECRET);
+  if (!yetki) {
     return c.json({ hata: "Yetkisiz" }, 401);
   }
 

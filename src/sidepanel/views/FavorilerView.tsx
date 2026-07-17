@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type FavoriParsel } from "../../lib/db";
+import { etiketBul } from "../components/ParselNotDefteri";
 
 interface Props {
   onSelect: (favori: FavoriParsel) => void;
@@ -32,29 +33,45 @@ export function FavorilerView({ onSelect }: Props) {
   }
 
   return (
-    <div className="divide-y divide-slate-200 overflow-y-auto">
-      {favoriler.map((f) => (
-        <div key={f.id} className="p-3 hover:bg-slate-50">
+    <div className="divide-y divide-slate-200 overflow-y-auto dark:divide-slate-700">
+      {favoriler.map((f) => {
+        const etiket = etiketBul(f.etiket);
+        const notlar = f.notlar ?? (f.not ? [{ id: "legacy", metin: f.not, tarih: f.eklenmeTarihi }] : []);
+        const sonNot = notlar[notlar.length - 1];
+        return (
+        <div key={f.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
           <button
             type="button"
             onClick={() => onSelect(f)}
             className="block w-full text-left"
           >
-            <div className="text-sm font-medium text-tkgm-ink">
-              {f.adaNo}/{f.parselNo}
-              <span className="ml-2 text-xs font-normal text-tkgm-muted">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-sm font-medium text-tkgm-ink dark:text-slate-100">
+                {f.adaNo}/{f.parselNo}
+              </span>
+              <span className="text-xs font-normal text-tkgm-muted dark:text-slate-400">
                 {f.ilAd} · {f.ilceAd} · {f.mahalleAd}
               </span>
+              {etiket && (
+                <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${etiket.bg} ${etiket.text} ${etiket.border}`}>
+                  {etiket.label}
+                </span>
+              )}
+              {notlar.length > 0 && (
+                <span className="rounded-full bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 dark:text-slate-300">
+                  {notlar.length} not
+                </span>
+              )}
             </div>
-            <div className="mt-0.5 text-[11px] text-tkgm-muted">
+            <div className="mt-0.5 text-[11px] text-tkgm-muted dark:text-slate-400">
               {f.parsel.alan.toLocaleString("tr-TR")} m² · {f.parsel.nitelik}
             </div>
-            {f.not && (
-              <div className="mt-1 text-xs italic text-slate-600">
-                "{f.not}"
+            {sonNot && (
+              <div className="mt-1 text-[11px] italic text-slate-500 dark:text-slate-400 truncate">
+                "{sonNot.metin}"
               </div>
             )}
-            <div className="mt-1 text-[10px] text-tkgm-muted">
+            <div className="mt-1 text-[10px] text-tkgm-muted dark:text-slate-500">
               {new Date(f.eklenmeTarihi).toLocaleString("tr-TR")}
             </div>
           </button>
@@ -75,7 +92,8 @@ export function FavorilerView({ onSelect }: Props) {
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

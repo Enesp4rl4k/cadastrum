@@ -5,11 +5,16 @@ import {
   MapPin as MapPinIcon,
   FileText as FileIcon,
   GitMerge as MergeIcon,
+  Users as UsersIcon,
+  AlertTriangle as AlertTriangleIcon,
+  Clock as ClockIcon,
 } from "lucide-react";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
 import { AnalizPanel } from "./AnalizPanel";
 import { FiyatTrendiKarti } from "./FiyatTrendiKarti";
+import { ZamanMakinesiModal } from "./ZamanMakinesiModal";
+import { ParselNotDefteri } from "./ParselNotDefteri";
 import { MetricCard, Divider } from "../ui/Card";
 import { useToast } from "./Toast";
 import { KarsilastirmaButonu } from "./KarsilastirmaButonu";
@@ -25,6 +30,7 @@ export function ParselDetay({ parsel, onYakinPoiler, onKarsilastirTabAc }: Props
   const [not, setNot] = useState("");
   const [saved, setSaved] = useState(false);
   const [showNote, setShowNote] = useState(false);
+  const [zamanMakinesiAcik, setZamanMakinesiAcik] = useState(false);
   const { toast } = useToast();
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,6 +138,33 @@ export function ParselDetay({ parsel, onYakinPoiler, onKarsilastirTabAc }: Props
         )}
       </div>
 
+      {/* ── Hisseli/Paylı Tapu Uyarısı ── */}
+      {(parsel.malikSayisi != null && parsel.malikSayisi > 1) && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/25 px-2.5 py-2">
+          <AlertTriangleIcon className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xs font-semibold text-red-800 dark:text-red-300">
+                Hisseli / Paylı Tapu
+              </span>
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 dark:text-red-300">
+                <UsersIcon className="h-2.5 w-2.5" />
+                {parsel.malikSayisi} malik
+              </span>
+              {parsel.payBilgisi && (
+                <span className="rounded-full bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 text-[10px] font-mono text-red-700 dark:text-red-300">
+                  Pay: {parsel.payBilgisi}
+                </span>
+              )}
+            </div>
+            <div className="text-3xs text-red-700 dark:text-red-400 mt-0.5 leading-relaxed">
+              Birden fazla malik var — alım-satımda tüm ortakların onayı gerekir.
+              Piyasa değeri genelde <strong>%20–40 iskontolu</strong> kapanır.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Gittiği parseller uyarısı ── */}
       {parsel.gittigiParseller.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/25 px-2.5 py-2">
@@ -208,14 +241,38 @@ export function ParselDetay({ parsel, onYakinPoiler, onKarsilastirTabAc }: Props
 
       <Divider />
 
-      {/* Fiyat trendi */}
+      {/* Fiyat trendi + Zaman Makinesi */}
       {parsel.ilceAd && (
-        <FiyatTrendiKarti
+        <div>
+          <FiyatTrendiKarti
+            il={parsel.ilAd ?? ""}
+            ilce={parsel.ilceAd}
+            mahalle={parsel.mahalleAd ?? ""}
+          />
+          {/* Zaman Makinesi butonu */}
+          <button
+            type="button"
+            onClick={() => setZamanMakinesiAcik(true)}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-blue-200 bg-blue-50/60 py-1.5 text-[10px] font-medium text-blue-600 hover:bg-blue-100 hover:border-blue-300 transition dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-400"
+          >
+            <ClockIcon className="h-3 w-3" />
+            Fiyat Zaman Makinesi — Geçmiş &amp; Projeksiyon
+          </button>
+        </div>
+      )}
+
+      {/* Zaman Makinesi Modal */}
+      {zamanMakinesiAcik && parsel.ilceAd && (
+        <ZamanMakinesiModal
           il={parsel.ilAd ?? ""}
           ilce={parsel.ilceAd}
           mahalle={parsel.mahalleAd ?? ""}
+          onKapat={() => setZamanMakinesiAcik(false)}
         />
       )}
+
+      {/* N1 — Not Defteri */}
+      <ParselNotDefteri parsel={parsel} />
 
       {/* Ana analiz paneli */}
       <AnalizPanel parsel={parsel} onYakinPoiler={onYakinPoiler} />

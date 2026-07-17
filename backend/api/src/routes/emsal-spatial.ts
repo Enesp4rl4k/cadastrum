@@ -1,18 +1,16 @@
 /**
- * Spatial emsal endpoint — Faz 2 Sprint C.
+ * Spatial emsal endpoint — Faz 2 Sprint C + IDW AVM.
  *
- * GET  /v1/emsal/spatial?lat=&lng=&radius_km=&kategori=
- *      → Cloudflare D1 ilanlar tablosunda bbox prefilter + haversine sıralama,
- *        cross-user anonim havuz. Cache-Control: public, s-maxage=300 (CDN 5dk).
+ * GET  /v1/emsal/spatial?lat=&lng=&radius_km=&kategori=&mode=
+ *      → mode=weighted_median (default): exp(-d/D) weighted median
+ *      → mode=idw: Inverse Distance Weighting (p=2) + çarpan zinciri
+ *        (eğim, PGA, enflasyon yaş düzeltmesi, yol yakınlığı)
  *
  * POST /v1/emsal/gonder
  *      → Opt-in: extension'dan tek bir emsal (lat/lng quantize) gönderir.
- *        Mevcut /v1/ilan endpoint'iyle çakışmaz; gönder daha hafif (auth yok,
- *        sadece koordlu kayıt kabul eder, kişisel meta yok).
  *
  * POST /v1/emsal/:id/dogrula
- *      → Kullanıcı bir emsali "gerçekçi" işaretler. guven_skoru artar,
- *        ileride spatial motor ağırlığına etkir.
+ *      → Kullanıcı bir emsali "gerçekçi" işaretler. guven_skoru artar.
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
@@ -20,7 +18,7 @@ import type { Env } from "../index.js";
 export const emsalSpatialRoutes = new Hono<{ Bindings: Env }>();
 
 const VALID_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik"]);
-const MAX_RADIUS_KM = 15;
+const MAX_RADIUS_KM = 20;
 const MAX_RESULT = 500;
 
 interface IlanRow {
@@ -56,12 +54,91 @@ function turkiyeBboxIcinde(lat: number, lng: number): boolean {
   return lat > 35 && lat < 43 && lng > 25 && lng < 46;
 }
 
+// ── IDW + Çarpan Zinciri Yardımcıları ────────────────────────────────────────
+
+/**
+ * Inverse Distance Weighting (p=2).
+ * w_i = 1 / d_i^p   →  fiyat_idw = Σ(w_i × fiyat_i) / Σ(w_i)
+ * d=0 için exact match (o noktanın fiyatı direkt döner).
+ */
+function idwHesapla(
+  items: Array<{ fiyat: number; mesafeM: number }>,
+  p = 2,
+): number | null {
+  if (items.length === 0) return null;
+  const eps = 1; // metre — sıfır mesafe koruması
+  let sumW = 0, sumWF = 0;
+  for (const it of items) {
+    const d = Math.max(it.mesafeM, eps);
+    const w = 1 / Math.pow(d, p);
+    sumW += w;
+    sumWF += w * it.fiyat;
+  }
+  return sumW > 0 ? Math.round(sumWF / sumW) : null;
+}
+
+/**
+ * Enflasyon yaş düzeltmesi — TR TÜFE yaklaşımı.
+ * Aylık ~%3 endeks artışı (yıllık ~%40 enflasyon baz alınarak).
+ * 30 günden taze: düzeltme yok. Her 30 gün için ×1.03.
+ * Max 12 ay geriye (üzeri çok eski, havuzdan zaten atılmış).
+ */
+function enflasyonDuzeltCarpani(yakalanmaTarihi: number): number {
+  const gunFarki = (Date.now() - yakalanmaTarihi) / 86_400_000;
+  if (gunFarki <= 30) return 1.0;
+  const ayFarki = Math.min(Math.floor(gunFarki / 30), 12);
+  return Math.pow(1.03, ayFarki);
+}
+
+/**
+ * Eğim çarpanı — eğim yüzdesi bilinmiyorsa 1.0 (nötr).
+ * Değerler fiyat-tahmin.ts'deki egimCarpani ile tutarlı.
+ */
+function egimCarpaniIDW(egimYuzde: number | null): { carpan: number; not: string } {
+  if (egimYuzde === null) return { carpan: 1.0, not: "eğim bilinmiyor" };
+  if (egimYuzde < 2)  return { carpan: 1.05, not: `düz (${egimYuzde.toFixed(1)}%), +%5` };
+  if (egimYuzde < 5)  return { carpan: 1.0,  not: `hafif eğim (${egimYuzde.toFixed(1)}%)` };
+  if (egimYuzde < 15) return { carpan: 0.92, not: `orta eğim (${egimYuzde.toFixed(1)}%), -%8` };
+  if (egimYuzde < 30) return { carpan: 0.78, not: `dik (${egimYuzde.toFixed(1)}%), -%22` };
+  return { carpan: 0.55, not: `çok dik (${egimYuzde.toFixed(1)}%), -%45` };
+}
+
+/**
+ * PGA (Peak Ground Acceleration) deprem çarpanı.
+ * Değerler fiyat-tahmin.ts::pgaCarpani ile senkronize.
+ */
+function pgaCarpaniIDW(pga: number | null): { carpan: number; not: string } {
+  if (pga === null || pga <= 0) return { carpan: 1.0, not: "deprem verisi yok" };
+  if (pga < 0.1)  return { carpan: 1.04, not: `düşük sismik risk (PGA ${pga.toFixed(2)}g)` };
+  if (pga < 0.2)  return { carpan: 1.0,  not: `orta sismik risk (PGA ${pga.toFixed(2)}g)` };
+  if (pga < 0.3)  return { carpan: 0.97, not: `yüksek sismik risk (PGA ${pga.toFixed(2)}g), -%3` };
+  if (pga < 0.4)  return { carpan: 0.94, not: `çok yüksek sismik risk (PGA ${pga.toFixed(2)}g), -%6` };
+  return { carpan: 0.88, not: `kritik sismik bölge (PGA ${pga.toFixed(2)}g), -%12` };
+}
+
+/**
+ * Otoyol yakınlığı çarpanı.
+ * < 2km premium, > 20km iskonto.
+ */
+function yolCarpaniIDW(otoyolKm: number | null): { carpan: number; not: string } {
+  if (otoyolKm === null) return { carpan: 1.0, not: "yol mesafesi bilinmiyor" };
+  if (otoyolKm < 2)  return { carpan: 1.05, not: `otoyola yakın (${otoyolKm.toFixed(1)}km), +%5` };
+  if (otoyolKm < 10) return { carpan: 1.0,  not: `otoyola orta mesafe (${otoyolKm.toFixed(1)}km)` };
+  if (otoyolKm < 20) return { carpan: 0.97, not: `otoyola uzak (${otoyolKm.toFixed(1)}km), -%3` };
+  return { carpan: 0.95, not: `otoyoldan çok uzak (${otoyolKm.toFixed(1)}km), -%5` };
+}
+
 // ── GET /spatial ────────────────────────────────────────────────────────────
 emsalSpatialRoutes.get("/spatial", async (c) => {
   const lat = parseFloat(c.req.query("lat") ?? "");
   const lng = parseFloat(c.req.query("lng") ?? "");
   const radiusKm = parseFloat(c.req.query("radius_km") ?? "5");
   const kategori = c.req.query("kategori") ?? "arsa";
+  const mode = c.req.query("mode") ?? "weighted_median"; // "weighted_median" | "idw"
+  // IDW ek parametreler (opsiyonel — bilinmiyorsa null çarpan)
+  const egimYuzde = c.req.query("egim_yuzde") ? parseFloat(c.req.query("egim_yuzde")!) : null;
+  const pga       = c.req.query("pga")         ? parseFloat(c.req.query("pga")!)         : null;
+  const otoyolKm  = c.req.query("otoyol_km")   ? parseFloat(c.req.query("otoyol_km")!)   : null;
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || !turkiyeBboxIcinde(lat, lng)) {
     return c.json({ error: "Geçersiz lat/lng (Türkiye bbox dışı)" }, 400);
@@ -71,6 +148,9 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
   }
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
+  }
+  if (mode !== "weighted_median" && mode !== "idw") {
+    return c.json({ error: "mode: 'weighted_median' veya 'idw' olmalı" }, 400);
   }
 
   // Bbox prefilter — D1 index'i (kategori, lat, lng) kullanır
@@ -105,7 +185,7 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
     .sort((a, b) => a.mesafeM - b.mesafeM)
     .slice(0, MAX_RESULT);
 
-  // Halka dağılımı + weighted median (basit: w = exp(-d/D))
+  // Halka dağılımı
   const D = kategori === "konut" ? 2000 : kategori === "tarla" ? 8000 : 5000;
   const halka = { r0_1km: 0, r1_3km: 0, r3_5km: 0, r5_10km: 0 };
   for (const e of emsaller) {
@@ -114,11 +194,64 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
     else if (e.mesafeM <= 5000) halka.r3_5km++;
     else if (e.mesafeM <= 10_000) halka.r5_10km++;
   }
+
+  // ── Weighted Median (mevcut default) ──────────────────────────────────────
   const weighted = emsaller.map((e) => ({
     fiyat: e.fiyat_per_m2,
     weight: Math.exp(-e.mesafeM / D) * (e.guven_skoru ?? 0.5),
   }));
   const baseline = weightedMedian(weighted);
+
+  // ── IDW AVM modu ──────────────────────────────────────────────────────────
+  let idwSonuc: {
+    idwFiyat: number | null;
+    kalibreFiyat: number | null;
+    carpanZinciri: Array<{ ad: string; carpan: number; not: string }>;
+    guvenAraligi: { alt: number; ust: number } | null;
+  } | null = null;
+
+  if (mode === "idw" && emsaller.length > 0) {
+    // Enflasyon düzeltmeli IDW — her emsalin fiyatı güncele çekilir
+    const idwItems = emsaller.map((e) => ({
+      fiyat: Math.round(e.fiyat_per_m2 * enflasyonDuzeltCarpani(e.yakalanma_tarihi)),
+      mesafeM: e.mesafeM,
+    }));
+
+    const idwFiyat = idwHesapla(idwItems);
+
+    // Çarpan zinciri
+    const egimC = egimCarpaniIDW(egimYuzde);
+    const pgaC  = pgaCarpaniIDW(pga);
+    const yolC  = yolCarpaniIDW(otoyolKm);
+
+    const carpanZinciri = [
+      { ad: "IDW (p=2)", carpan: 1.0, not: `${emsaller.length} emsal, ${radiusKm}km yarıçap` },
+      { ad: "Enflasyon düzeltmesi", carpan: 1.0, not: "Aylık TÜFE yaklaşımıyla güncel değere taşındı" },
+      { ad: "Eğim", carpan: egimC.carpan, not: egimC.not },
+      { ad: "Deprem riski (PGA)", carpan: pgaC.carpan, not: pgaC.not },
+      { ad: "Yol/otoyol mesafesi", carpan: yolC.carpan, not: yolC.not },
+    ].filter(c => c.carpan !== 1.0 || c.ad === "IDW (p=2)" || c.ad === "Enflasyon düzeltmesi");
+
+    const totalCarpan = egimC.carpan * pgaC.carpan * yolC.carpan;
+    const kalibreFiyat = idwFiyat ? Math.round(idwFiyat * totalCarpan) : null;
+
+    // IQR tabanlı güven aralığı
+    let guvenAraligi: { alt: number; ust: number } | null = null;
+    if (kalibreFiyat && idwItems.length >= 4) {
+      const sirali = [...idwItems.map(i => i.fiyat)].sort((a, b) => a - b);
+      const q1idx = Math.floor(sirali.length * 0.25);
+      const q3idx = Math.floor(sirali.length * 0.75);
+      const q1 = sirali[q1idx] ?? sirali[0]!;
+      const q3 = sirali[q3idx] ?? sirali[sirali.length - 1]!;
+      const iqr = q3 - q1;
+      guvenAraligi = {
+        alt: Math.round((kalibreFiyat - iqr * 0.5) * totalCarpan),
+        ust: Math.round((kalibreFiyat + iqr * 0.5) * totalCarpan),
+      };
+    }
+
+    idwSonuc = { idwFiyat, kalibreFiyat, carpanZinciri, guvenAraligi };
+  }
 
   c.header("Cache-Control", "public, s-maxage=300"); // 5dk CDN cache
   return c.json({
@@ -128,6 +261,7 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
     adet: emsaller.length,
     D,
     radiusM,
+    ...(idwSonuc ? { idw: idwSonuc } : {}),
   });
 });
 

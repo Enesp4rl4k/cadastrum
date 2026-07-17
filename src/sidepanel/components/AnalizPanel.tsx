@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { RiskKarti } from "./RiskKarti";
+import { AnalizIlerlemeBar } from "./AnalizIlerlemeBar";
 import {
   Truck as TruckIcon,
   Mountain as MountainIcon,
@@ -22,6 +23,7 @@ import { FiyatTahminKarti } from "./FiyatTahminKarti";
 import { RiskUyariKarti } from "./RiskUyariKarti";
 import { RaporExportButonu } from "./RaporExportButonu";
 import { ManuelImarKarti } from "./ManuelImarKarti";
+import { KomsuParselKarti } from "./KomsuParselKarti";
 import { LikiditeKarti } from "./LikiditeKarti";
 import { ManuelEmsalKarti } from "./ManuelEmsalKarti";
 import { FiyatNetlestirKarti } from "./FiyatNetlestirKarti";
@@ -35,6 +37,14 @@ import { EmsalRadiusSlider } from "./EmsalRadiusSlider";
 import { YatirimSkoruKarti } from "./YatirimSkoruKarti";
 import { BildirimKurali } from "./BildirimKurali";
 import { DogalVeriKarti } from "./DogalVeriKarti";
+import { AltyapiMesafeKarti } from "./AltyapiMesafeKarti";
+import { MilliEmlakKarti } from "./MilliEmlakKarti";
+import { HavaFotoTimeline } from "./HavaFotoTimeline";
+import {
+  katmanlarOlustur,
+  type KatmanBilgi,
+  type KatmanDurum,
+} from "../../lib/analiz-orkestrator";
 import { BagimsizBolumKarti } from "./BagimsizBolumKarti";
 import { GunesEnerjisiKarti } from "./GunesEnerjisiKarti";
 import { TarimAnalizKarti } from "./TarimAnalizKarti";
@@ -70,6 +80,26 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
   const [imarDetayAcik, setImarDetayAcik] = useState(false);
   /** Kullanıcı "Bilmiyorum, devam et" dediyse fiyat TKGM nitelik fallback'iyle hesaplanır. Parsel başına sıfırlanır. */
   const [imarSkipEdildi, setImarSkipEdildi] = useState(false);
+
+  // Orkestrasyon state — tüm katmanların yüklenme durumu
+  const [katmanlar, setKatmanlar] = useState<KatmanBilgi[]>(() => katmanlarOlustur({
+    tkgm: "tamam", // Parsel zaten geldi
+  }));
+  const analizBaslangicRef = useRef<number>(Date.now());
+  const [gecenMs, setGecenMs] = useState(0);
+
+  // Katman durumunu güncelle
+  const katmanGuncelle = useCallback((id: string, durum: KatmanDurum) => {
+    setKatmanlar((prev) =>
+      prev.map((k) =>
+        k.id === id
+          ? { ...k, durum, sure: durum === "tamam" || durum === "hata"
+              ? Date.now() - analizBaslangicRef.current
+              : k.sure }
+          : k
+      )
+    );
+  }, []);
   const skorlar = tumSkorlariHesapla(analiz, cevre, egim);
   const autoAnalizKeyRef = useRef<string | null>(null);
   const abortCtrlRef = useRef<AbortController | null>(null);
@@ -90,6 +120,11 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
 
     setLoading(true);
     setError(null);
+
+    // Orkestrasyon: OSM + eğim yükleniyor
+    katmanGuncelle("osm", "yukleniyor");
+    katmanGuncelle("egim", "yukleniyor");
+
     try {
       const ring = parsel.koordinatlar;
       const k1 = ring[0] ?? parsel.merkezNokta;
@@ -106,14 +141,18 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       const hatalar: string[] = [];
       if (cevreRes.status === "fulfilled") {
         setCevre(cevreRes.value);
+        katmanGuncelle("osm", "tamam");
       } else {
+        katmanGuncelle("osm", "hata");
         hatalar.push(
           `Çevre (Overpass): ${cevreRes.reason instanceof Error ? cevreRes.reason.message : String(cevreRes.reason)}`,
         );
       }
       if (egimRes.status === "fulfilled") {
         setEgim(egimRes.value);
+        katmanGuncelle("egim", "tamam");
       } else {
+        katmanGuncelle("egim", "hata");
         hatalar.push(
           `Eğim (Open-Meteo): ${egimRes.reason instanceof Error ? egimRes.reason.message : String(egimRes.reason)}`,
         );
@@ -136,7 +175,7 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu, parsel.merkezNokta, parsel.koordinatlar]);
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu, parsel.merkezNokta, parsel.koordinatlar, katmanGuncelle]);
 
   // Yeni parsel gelince eski enrichment'ı sıfırla ve devam eden async işlemi iptal et
   useEffect(() => {
@@ -150,6 +189,10 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
     setAdres(null);
     setError(null);
     setHesaplananFiyat(null);
+    // Orkestrasyon sıfırla
+    analizBaslangicRef.current = Date.now();
+    setGecenMs(0);
+    setKatmanlar(katmanlarOlustur({ tkgm: "tamam" }));
     setImarSkipEdildi(false);
     setImarDetayAcik(false);
     autoAnalizKeyRef.current = null;
@@ -175,8 +218,63 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cevre, yakinlarHaritada]);
 
+  // e-Plan katman durumu
+  useEffect(() => {
+    if (ePlanLoading) {
+      katmanGuncelle("eplan", "yukleniyor");
+    } else if (ePlanVerisi) {
+      katmanGuncelle("eplan", "tamam");
+    } else {
+      katmanGuncelle("eplan", "hata");
+    }
+  }, [ePlanLoading, ePlanVerisi, katmanGuncelle]);
+
+  // Fiyat tahmini katman durumu — hesaplananFiyat set edilince tamamlandı
+  useEffect(() => {
+    if (hesaplananFiyat) {
+      katmanGuncelle("fiyat", "tamam");
+    }
+  }, [hesaplananFiyat, katmanGuncelle]);
+
+  // Deprem/risk katmanları — cevre geldiğinde "tamam" (DogalVeriKarti kendi yönetiyor ama
+  // orkestrator için yeterli sinyal: parsel koordinatları varsa "yükleniyor" say)
+  useEffect(() => {
+    if (parsel.merkezNokta.lat && parsel.merkezNokta.lng) {
+      katmanGuncelle("deprem", "yukleniyor");
+      katmanGuncelle("taskin", "yukleniyor");
+      katmanGuncelle("heyelan", "yukleniyor");
+      katmanGuncelle("milli-emlak", "yukleniyor");
+      // 5 saniye sonra fallback tamam — bu katmanlar kendi içlerinde yönetiliyor
+      const t = setTimeout(() => {
+        setKatmanlar((prev) =>
+          prev.map((k) =>
+            ["deprem", "taskin", "heyelan", "milli-emlak"].includes(k.id) && k.durum === "yukleniyor"
+              ? { ...k, durum: "tamam" as const }
+              : k
+          )
+        );
+      }, 5000);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);
+
+  // gecenMs timer — analiz süresini göster
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGecenMs(Date.now() - analizBaslangicRef.current);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="space-y-2.5 border-t border-slate-200 pt-2.5">
+      {/* Analiz orkestrasyon ilerleme çubuğu */}
+      <AnalizIlerlemeBar
+        katmanlar={katmanlar}
+        gecenMs={gecenMs}
+        gizleTamamlandiktan={3000}
+      />
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
           <BarChart3Icon className="h-4 w-4 text-slate-500" />
@@ -424,6 +522,9 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       {/* Doğal veri katmanı — AFAD deprem + iklim + toprak (Cadastrum içinde) */}
       <DogalVeriKarti parsel={parsel} />
 
+      {/* Altyapı mesafe katmanı — OSB, havalimanı, liman, nüfus yoğunluğu (statik, sıfır API) */}
+      <AltyapiMesafeKarti parsel={parsel} />
+
       {/* İmar & Üst Plan — e-Plan KAKS + TUCBS ÇDP birleşik kart */}
       {acikModuller.includes("cdp-tucbs") && (
         <CdpKarti
@@ -445,6 +546,9 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       {parsel.ilceKodu != null && (
         <LikiditeKarti ilceKodu={parsel.ilceKodu} ilceAd={parsel.ilceAd ?? ""} />
       )}
+
+      {/* Milli Emlak ihale fiyatları — gerçek devlet ihale kapanış fiyatları (listing değil) */}
+      <MilliEmlakKarti parsel={parsel} />
 
       {acikModuller.includes("fiyat-tahmin") && (
         <FiyatNetlestirKarti
@@ -475,8 +579,13 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         />
       )}
 
+      {/* W3 — Ada İçi Komşu Parsel Karşılaştırması */}
+      {parsel.mahalleKodu && parsel.adaNo && (
+        <KomsuParselKarti parsel={parsel} />
+      )}
+
       {/* PDF Rapor — tüm analizi yazdırılabilir tek dokümana topla */}
-      <RaporExportButonu parsel={parsel} cevre={cevre} egim={egim} ePlan={(birlesikImar as any) ?? ePlanVerisi ?? null} />
+      <RaporExportButonu parsel={parsel} cevre={cevre} egim={egim} ePlan={birlesikImar ?? ePlanVerisi ?? null} />
 
       {/* ── İMAR & MANUEL VERİ — collapsed grup ────────────────────── */}
       <DetayGrup
@@ -676,6 +785,11 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           baselineTlm2={hesaplananFiyat?.beklenenPerM2 ?? undefined}
         />
       </DetayGrup>
+
+      {/* ── W8 — HAVA FOTOĞRAFI TİMELINE ───────────────────────────────── */}
+      {parsel.koordinatlar && parsel.koordinatlar.length >= 3 && (
+        <HavaFotoTimeline parsel={parsel} />
+      )}
 
       {/* ── FİZİBİLİTE — bağımsız grup (yatırım hesabı odaklı) ─────────── */}
       <DetayGrup baslik="Fizibilite Hesaplayıcı" ikon="🧮" renk="slate">

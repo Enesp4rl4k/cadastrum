@@ -171,9 +171,11 @@ async function calculateBiasReport(db: D1Database): Promise<{
   };
 }
 
+// S1+S3: URL query param → Authorization header + timing-safe compare
 validationRoutes.get("/rapor", async (c) => {
-  const secret = c.req.query("secret");
-  if (secret !== c.env.SCRAPER_API_SECRET) {
+  const { bearerYetkilendir } = await import("../lib/security.js");
+  const yetki = await bearerYetkilendir(c.req.header("Authorization"), c.env.SCRAPER_API_SECRET);
+  if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const rapor = await calculateBiasReport(c.env.DB);

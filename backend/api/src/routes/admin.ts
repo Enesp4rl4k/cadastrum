@@ -231,41 +231,37 @@ admin.get("/ilan-stats", async (c) => {
 });
 
 // ── Operasyon KPI (doğruluk ve veri kalitesi) ──────────────────────
+// operasyon_kpi_v view'ı (migration 0015) kullanılır.
+// Eski yaklaşım: 5000 satır JS'e çekip sort — yeni: DB'de aggregate, sadece sayılar transfer edilir.
 admin.get("/operasyon-kpi", async (c) => {
   const gun = Math.min(Math.max(parseInt(c.req.query("gun") ?? "7"), 1), 30);
   const sinir = Date.now() - gun * 86_400_000;
 
-  const [hacim, eksikMahalle, eksikM2, satirlar] = await Promise.all([
-    c.env.DB.prepare(
-      "SELECT COUNT(*) as n FROM ilanlar WHERE yakalanma_tarihi >= ? AND aktif = 1",
-    ).bind(sinir).first<{ n: number }>(),
-    c.env.DB.prepare(
-      "SELECT COUNT(*) as n FROM ilanlar WHERE yakalanma_tarihi >= ? AND aktif = 1 AND mahalle_norm IS NULL",
-    ).bind(sinir).first<{ n: number }>(),
-    c.env.DB.prepare(
-      "SELECT COUNT(*) as n FROM ilanlar WHERE yakalanma_tarihi >= ? AND aktif = 1 AND (m2 IS NULL OR m2 <= 0)",
-    ).bind(sinir).first<{ n: number }>(),
-    c.env.DB.prepare(
-      `SELECT i.fiyat_per_m2 as fiyat_per_m2, m.medyan as medyan
-       FROM ilanlar i
-       JOIN mahalle_istatistik m
-         ON i.il_norm = m.il_norm
-        AND i.ilce_norm = m.ilce_norm
-        AND i.mahalle_norm = m.mahalle_norm
-        AND i.kategori = m.kategori
-       WHERE i.yakalanma_tarihi >= ?
-         AND i.aktif = 1
-         AND i.kategori = 'arsa'
-         AND i.mahalle_norm IS NOT NULL
-         AND i.fiyat_per_m2 > 0
-         AND m.medyan > 0
-       LIMIT 5000`,
-    ).bind(sinir).all<{ fiyat_per_m2: number; medyan: number }>(),
-  ]);
+  // Tek sorguda tüm aggregate'ler — view JOIN'i DB'de çözülür
+  const ozet = await c.env.DB.prepare(
+    `SELECT
+       COUNT(*)                                          AS toplam,
+       SUM(eksik_mahalle)                               AS eksik_mahalle,
+       SUM(eksik_m2)                                    AS eksik_m2,
+       COUNT(CASE WHEN norm_sapma IS NOT NULL THEN 1 END) AS referans_satir,
+       -- norm_sapma sıralı medyan için tüm değerleri çekiyoruz ama sadece float dizisi
+       GROUP_CONCAT(
+         CASE WHEN norm_sapma IS NOT NULL AND kategori = 'arsa'
+              THEN ROUND(norm_sapma, 6) END
+       )                                                AS sapmalar_csv
+     FROM operasyon_kpi_v
+     WHERE yakalanma_tarihi >= ?`,
+  ).bind(sinir).first<{
+    toplam: number;
+    eksik_mahalle: number;
+    eksik_m2: number;
+    referans_satir: number;
+    sapmalar_csv: string | null;
+  }>();
 
-  const toplam = hacim?.n ?? 0;
-  const eksikMahalleN = eksikMahalle?.n ?? 0;
-  const eksikM2N = eksikM2?.n ?? 0;
+  const toplam = ozet?.toplam ?? 0;
+  const eksikMahalleN = ozet?.eksik_mahalle ?? 0;
+  const eksikM2N = ozet?.eksik_m2 ?? 0;
 
   const mahalleEslesmeOrani = toplam > 0
     ? ((toplam - eksikMahalleN) / toplam) * 100
@@ -274,13 +270,19 @@ admin.get("/operasyon-kpi", async (c) => {
     ? ((eksikMahalleN + eksikM2N) / (toplam * 2)) * 100
     : 0;
 
-  const sapmalar = (satirlar.results ?? [])
-    .map((r) => Math.abs((r.fiyat_per_m2 - r.medyan) / r.medyan))
-    .filter((v) => Number.isFinite(v))
-    .sort((a, b) => a - b);
-  const medyanSapma = sapmalar.length > 0
-    ? sapmalar[Math.floor(sapmalar.length / 2)]! * 100
-    : null;
+  // GROUP_CONCAT sonucunu JS'de parse edip medyan hesapla
+  // Artık tüm objeleri değil sadece float string'lerini transfer ediyoruz (~10x daha az veri)
+  let medyanSapma: number | null = null;
+  if (ozet?.sapmalar_csv) {
+    const sapmalar = ozet.sapmalar_csv
+      .split(",")
+      .map(Number)
+      .filter((v) => Number.isFinite(v) && v >= 0)
+      .sort((a, b) => a - b);
+    if (sapmalar.length > 0) {
+      medyanSapma = (sapmalar[Math.floor(sapmalar.length / 2)]! * 100);
+    }
+  }
 
   const durum =
     mahalleEslesmeOrani >= 90 && (medyanSapma == null || medyanSapma <= 35) && veriEksikOrani <= 15
@@ -296,7 +298,7 @@ admin.get("/operasyon-kpi", async (c) => {
       mahalle_eslesme_orani: Math.round(mahalleEslesmeOrani * 10) / 10,
       fiyat_medyan_sapma_orani: medyanSapma == null ? null : Math.round(medyanSapma * 10) / 10,
       veri_eksik_orani: Math.round(veriEksikOrani * 10) / 10,
-      referans_satir: sapmalar.length,
+      referans_satir: ozet?.referans_satir ?? 0,
     },
     ham: {
       eksik_mahalle: eksikMahalleN,

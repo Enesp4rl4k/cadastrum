@@ -21,7 +21,7 @@
 
 import { db, type IlanGozlem } from "./db";
 import { haversineM } from "./analiz";
-import { outlierTemizle } from "./fiyat-correction";
+import { outlierTemizle, outlierTemizleBaglamsalAsimli } from "./fiyat-correction";
 import { fiyatPerM2TLOlarak, dovizliMi } from "./kur";
 
 export type SpatialKategori = "arsa" | "tarla" | "konut";
@@ -78,6 +78,8 @@ export interface SpatialEmsalOpts {
   semantikFiltreAcik?: boolean;
   /** Hisseli emsalleri ele (true) ya da düşük ağırlıkla tut (false, weight × 0.7) */
   hisseliEle?: boolean;
+  /** İl normalize adı — bağlamsal outlier filtresi için (opsiyonel) */
+  ilNorm?: string;
 }
 
 const GUN_MS = 86_400_000;
@@ -289,13 +291,19 @@ export async function radiusEmsalGetir(
   // Mesafe artan sırala
   emsaller.sort((a, b) => a.mesafeM - b.mesafeM);
 
-  // Outlier temizliği — IQR
+  // Outlier temizliği — bağlamsal (il+kategori mutlak sınır + IQR)
   const hamAdayAdet = emsaller.length;
   let baseline: number | null = null;
   let outlierAdet = 0;
   if (emsaller.length >= 4) {
     const fiyatlar = emsaller.map((e) => e.fiyatPerM2TL);
-    const out = outlierTemizle(fiyatlar);
+    let out: { temiz: number[]; cikarilan: number[] };
+    if (opts.ilNorm) {
+      const baglamsal = outlierTemizleBaglamsalAsimli(fiyatlar, opts.ilNorm, kategori);
+      out = { temiz: baglamsal.temiz, cikarilan: [...baglamsal.mutlakAtilanlar, ...baglamsal.iqrAtilanlar] };
+    } else {
+      out = outlierTemizle(fiyatlar);
+    }
     outlierAdet = out.cikarilan.length;
     const temizSet = new Set(out.temiz);
     const temiz =
@@ -332,11 +340,21 @@ export async function radiusEmsalGetir(
  *
  * Kriterleri sağlamayan sonuç spatial-radius olarak kullanılmamalı.
  */
+/**
+ * Spatial baseline yeterlilik kontrolü.
+ *
+ * Threshold kararları (D4 revizyon):
+ *   - emsaller.length < 2: tek bir ilan olsa bile spatial kullan — daha iyi
+ *     koordinat bilgisi + backend blend ile güvenilirliği artırılabilir.
+ *     Önceki eşik (5) kırsal tek-ilanlı mahalleleri tamamen kapsamdışı bırakıyordu.
+ *   - yakin >= 1: 3km içinde en az 1 ilan yeterli (önceki: 2).
+ *     Kırsalda komşu mahalleden 1 emsal dahi ortalamadan iyidir.
+ */
 export function spatialBaselineYeterliMi(sonuc: SpatialEmsalSonuc): boolean {
   if (sonuc.baseline == null || sonuc.baseline <= 0) return false;
-  if (sonuc.emsaller.length < 5) return false;
+  if (sonuc.emsaller.length < 2) return false;
   const yakin = sonuc.halkaDagilimi.r0_1km + sonuc.halkaDagilimi.r1_3km;
-  return yakin >= 2;
+  return yakin >= 1;
 }
 
 // ── IDW AVM — Extension tarafı ──────────────────────────────────────────────

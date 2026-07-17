@@ -108,6 +108,10 @@ function osmCacheKey(lat: number, lng: number): string {
  *
  * Dexie cache'lidir (7 gün) — aynı parsel için tekrar Overpass çağrısı yapma.
  */
+// P2: Toplam Overpass timeout — tüm mirror döngüsü için üst sınır (20 sn)
+// Tek mirror 12 sn, 3 mirror × 12 sn = 36 sn beklenebilir sorunu çözer.
+const OVERPASS_TOTAL_TIMEOUT_MS = 20_000;
+
 export async function cevreAnaliziGetir(
   lat: number,
   lng: number,
@@ -136,12 +140,20 @@ export async function cevreAnaliziGetir(
   let lastError: string = "";
   let data: OverpassResponse | null = null;
   let bosData: OverpassResponse | null = null; // tüm mirror'lar boşsa fallback
+
+  // P2: Toplam timeout signal — tüm mirror döngüsü için üst sınır
+  // Önceki: her mirror 12 sn × 3 = max 36 sn; şimdi: tüm mirrors birlikte max 20 sn
+  const toplamTimeout = AbortSignal.timeout(OVERPASS_TOTAL_TIMEOUT_MS);
+  const toplamSignal = signal ? AbortSignal.any([signal, toplamTimeout]) : toplamTimeout;
+
   for (const host of OVERPASS_HOSTS) {
+    // Toplam timeout dolmuşsa döngüyü durdur
+    if (toplamSignal.aborted) break;
     try {
-      // Per-mirror fail-fast timeout (12sn) — asılan/yavaş mirror'ı bekleme, sıradakine geç.
-      // Dış signal ile birleştir (kullanıcı iptal ederse yine durur).
-      const mirrorTimeout = AbortSignal.timeout(12_000);
-      const birlesikSignal = signal ? AbortSignal.any([signal, mirrorTimeout]) : mirrorTimeout;
+      // Per-mirror fail-fast timeout (8sn) — asılan/yavaş mirror'ı bekleme, sıradakine geç.
+      // Dış signal + toplam timeout ile birleştir.
+      const mirrorTimeout = AbortSignal.timeout(8_000);
+      const birlesikSignal = AbortSignal.any([toplamSignal, mirrorTimeout]);
       const result = await proxyFetch(host, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -185,10 +197,6 @@ export async function cevreAnaliziGetir(
       throw new Error(`Overpass servisleri yanıt vermiyor (${lastError})`);
     }
   }
-  console.log(
-    `[arsa-overpass] ✓ ${(data as { elements?: unknown[] }).elements?.length ?? 0} element bulundu (lat=${lat}, lng=${lng})`,
-  );
-
   const elements = (data as { elements: OverpassEl[] }).elements ?? [];
   const sonuc = classifyOverpass(elements, lat, lng);
   const zenginlestirilmis = statikLojistikZenginleştir(sonuc, lat, lng);

@@ -1,0 +1,625 @@
+---
+/**
+ * Scroll-scrubbed izometrik arsa dünyası.
+ * Sahte-izometrik SVG prizmalar (her zaman okunur 3B) + kamera dolly + yükselen kuleler.
+ */
+const steps = [
+  {
+    no: "01",
+    title: "İlanı yakala",
+    text: "Sahibinden veya Hepsiemlak’ta bir arsa açın. Konum, alan ve ilan fiyatı yan panele otomatik düşer.",
+    result: "İlan bilgisi alındı",
+    chip: { label: "İlan fiyatı", value: "425.000 ₺" },
+  },
+  {
+    no: "02",
+    title: "TKGM ile doğrula",
+    text: "Ada ve parsel numarasını resmi TKGM kaydıyla karşılaştırın. Alan veya nitelik uyuşmuyorsa hemen görün.",
+    result: "Resmi kayıt eşleşti",
+    chip: { label: "TKGM", value: "Ada 412 / Parsel 7" },
+  },
+  {
+    no: "03",
+    title: "İmar ve riski oku",
+    text: "e-Plan kullanım kararını, yapı koşullarını, deprem ve taşkın bilgisini aynı ekranda görün.",
+    result: "İmar durumu netleşti",
+    chip: { label: "Kullanım", value: "Tarla · kırsal" },
+  },
+  {
+    no: "04",
+    title: "Piyasa değerini ölç",
+    text: "Mahalle emsali ve güncel ilanlarla gerçekçi bir fiyat aralığı çıkarın — tek ‘kesin’ rakam değil.",
+    result: "Fiyat aralığı hazır",
+    chip: { label: "Tahmini değer", value: "294K – 478K ₺" },
+  },
+  {
+    no: "05",
+    title: "Kararı netleştir",
+    text: "Tüm bulguları tek özetle saklayın. Pazarlığa hangi veriyle girdiğinizi ve neyi doğrulamanız gerektiğini bilin.",
+    result: "Yatırım özeti tamam",
+    chip: { label: "Sonuç", value: "Fiyat makul" },
+  },
+];
+
+/** Izometrik hücre boyutu — stage’i dolduracak kadar büyük */
+const CW = 108;
+const CH = 54;
+
+/**
+ * Grid: col sağa-yukarı, row sola-yukarı.
+ * Yol sol-önden sağ-arkaya yayılır (c−r değişir → kuleler üst üste binmez).
+ */
+const GRID = [
+  // komşular — tarla dokusu (geniş alan, stage’i doldurur)
+  { c: -1, r: 0, kind: "n", h: 14 },
+  { c: 0, r: 0, kind: "n", h: 16 },
+  { c: 1, r: 0, kind: "n", h: 12 },
+  { c: 2, r: 0, kind: "n", h: 20 },
+  { c: 3, r: 0, kind: "n", h: 14 },
+  { c: 4, r: 0, kind: "n", h: 18 },
+  { c: 5, r: 0, kind: "n", h: 11 },
+  { c: 6, r: 0, kind: "n", h: 15 },
+  { c: 7, r: 0, kind: "n", h: 13 },
+  { c: -1, r: 1, kind: "n", h: 12 },
+  { c: 0, r: 1, kind: "n", h: 14 },
+  { c: 1, r: 1, kind: "n", h: 19 },
+  { c: 2, r: 1, kind: "n", h: 13 },
+  { c: 3, r: 1, kind: "n", h: 17 },
+  { c: 4, r: 1, kind: "path", h: 56, stage: 3 },
+  { c: 5, r: 1, kind: "n", h: 12 },
+  { c: 6, r: 1, kind: "path", h: 72, stage: 4 },
+  { c: 7, r: 1, kind: "n", h: 16 },
+  { c: -1, r: 2, kind: "n", h: 15 },
+  { c: 0, r: 2, kind: "n", h: 18 },
+  { c: 1, r: 2, kind: "n", h: 14 },
+  { c: 2, r: 2, kind: "path", h: 44, stage: 1 },
+  { c: 3, r: 2, kind: "path", h: 50, stage: 2 },
+  { c: 4, r: 2, kind: "n", h: 11 },
+  { c: 5, r: 2, kind: "n", h: 16 },
+  { c: 6, r: 2, kind: "n", h: 15 },
+  { c: 7, r: 2, kind: "n", h: 12 },
+  { c: -1, r: 3, kind: "n", h: 11 },
+  { c: 0, r: 3, kind: "path", h: 38, stage: 0 },
+  { c: 1, r: 3, kind: "n", h: 16 },
+  { c: 2, r: 3, kind: "n", h: 13 },
+  { c: 3, r: 3, kind: "n", h: 13 },
+  { c: 4, r: 3, kind: "n", h: 19 },
+  { c: 5, r: 3, kind: "n", h: 14 },
+  { c: 6, r: 3, kind: "n", h: 17 },
+  { c: 7, r: 3, kind: "n", h: 12 },
+  { c: 0, r: 4, kind: "n", h: 14 },
+  { c: 1, r: 4, kind: "n", h: 15 },
+  { c: 2, r: 4, kind: "n", h: 11 },
+  { c: 3, r: 4, kind: "n", h: 18 },
+  { c: 4, r: 4, kind: "n", h: 12 },
+  { c: 5, r: 4, kind: "n", h: 16 },
+  { c: 6, r: 4, kind: "n", h: 13 },
+];
+
+function iso(c: number, r: number) {
+  return {
+    x: (c - r) * (CW / 2),
+    y: (c + r) * (CH / 2),
+  };
+}
+
+/** İzometrik prizma path’leri: üst elmas + sol/sağ duvar */
+function prism(c: number, r: number, h: number) {
+  const { x, y } = iso(c, r);
+  const hw = CW / 2;
+  const hh = CH / 2;
+  // üst yüzey köşeleri (yukarı kaydırılmış)
+  const tN = `${x},${y - hh - h}`;
+  const tE = `${x + hw},${y - h}`;
+  const tS = `${x},${y + hh - h}`;
+  const tW = `${x - hw},${y - h}`;
+  // taban köşeleri
+  const bE = `${x + hw},${y}`;
+  const bS = `${x},${y + hh}`;
+  const bW = `${x - hw},${y}`;
+  return {
+    x,
+    y,
+    top: `${tN} ${tE} ${tS} ${tW}`,
+    left: `${tW} ${tS} ${bS} ${bW}`,
+    right: `${tE} ${tS} ${bS} ${bE}`,
+  };
+}
+
+const ROAD_PTS = [0, 1, 2, 3, 4].map((stage) => {
+  const cell = GRID.find((g) => g.stage === stage)!;
+  const { x, y } = iso(cell.c, cell.r);
+  return `${x},${y - cell.h - 8}`;
+});
+const ROAD = `M ${ROAD_PTS.join(" L ")}`;
+
+/** İçerik güvenli viewBox — kenarlardan kesilmez */
+const VIEW = { minX: -280, minY: -90, w: 600, h: 380 };
+---
+
+<section class="journey" id="yatirim-yolculugu" data-journey style="--track: 4.8;">
+  <div class="journey-track">
+    <div class="journey-sticky">
+      <div class="journey-frame">
+        <header class="journey-head">
+          <p>Bir arsa ilanından güvenli yatırım kararına</p>
+          <h2>Parselden karara giden yol.</h2>
+        </header>
+
+        <div class="journey-stage" data-world-root>
+          <svg
+            class="scene"
+            data-scene
+            viewBox={`${VIEW.minX} ${VIEW.minY} ${VIEW.w} ${VIEW.h}`}
+            preserveAspectRatio="xMidYMid meet"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="floorGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="rgb(201 168 106 / 0.12)" />
+                <stop offset="55%" stop-color="rgb(255 255 255 / 0)" />
+              </linearGradient>
+              <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="3" result="b" />
+                <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+
+            <!-- zemin ızgarası -->
+            <g class="floor" opacity="0.5">
+              {Array.from({ length: 9 }, (_, c) =>
+                Array.from({ length: 7 }, (_, r) => {
+                  const { x, y } = iso(c - 1, r);
+                  const hw = CW / 2;
+                  const hh = CH / 2;
+                  return (
+                    <polygon
+                      points={`${x},${y - hh} ${x + hw},${y} ${x},${y + hh} ${x - hw},${y}`}
+                      fill="none"
+                      stroke="rgb(255 255 255 / 0.09)"
+                      stroke-width="1"
+                    />
+                  );
+                })
+              )}
+              <ellipse cx="40" cy="140" rx="320" ry="140" fill="url(#floorGrad)" />
+            </g>
+
+            <!-- yol -->
+            <path class="road-base" d={ROAD} />
+            <path class="road-fill" data-road d={ROAD} />
+
+            <!-- parseller (arka → ön: r+c sıralı) -->
+            {[...GRID]
+              .sort((a, b) => a.c + a.r - (b.c + b.r))
+              .map((cell) => {
+                const p = prism(cell.c, cell.r, cell.h);
+                const isPath = cell.kind === "path";
+                const stage = cell.stage ?? -1;
+                return (
+                  <g
+                    class:list={["parcel", { "parcel-path": isPath, "parcel-n": !isPath }]}
+                    data-parcel={isPath ? stage : undefined}
+                    style={`transform-origin: ${p.x}px ${p.y}px;`}
+                  >
+                    <polygon class="p-left" points={p.left} />
+                    <polygon class="p-right" points={p.right} />
+                    <polygon class="p-top" points={p.top} />
+                    {isPath && (
+                      <circle class="p-dot" data-dot={stage} cx={p.x} cy={p.y - cell.h - 14} r="5" />
+                    )}
+                  </g>
+                );
+              })}
+
+            <!-- veri kuleleri -->
+            {steps.map((s, i) => {
+              const cell = GRID.find((g) => g.stage === i)!;
+              const { x, y } = iso(cell.c, cell.r);
+              const ty = y - cell.h - 72;
+              return (
+                <g class="tower" data-tower={i} transform={`translate(${x - 62}, ${ty})`}>
+                  <rect class="tower-body" x="0" y="0" width="124" height="46" rx="9" />
+                  <text class="tower-label" x="14" y="17">{s.chip.label}</text>
+                  <text class="tower-value" x="14" y="36">{s.chip.value}</text>
+                </g>
+              );
+            })}
+          </svg>
+
+          <div class="journey-copy">
+            <div class="copy-stack">
+              {steps.map((step, i) => (
+                <article class:list={["copy-panel", { "is-active": i === 0 }]} data-copy={i}>
+                  <span class="copy-no">{step.no}</span>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                  <span class="copy-result"><i></i>{step.result}</span>
+                </article>
+              ))}
+            </div>
+            <div class="copy-progress" aria-hidden="true">
+              {steps.map((_, i) => <span class:list={[{ "is-active": i === 0 }]}></span>)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function initJourneyWorld() {
+    document.querySelectorAll<HTMLElement>("[data-journey]").forEach((root) => {
+      if (root.dataset.ready === "true") return;
+      root.dataset.ready = "true";
+
+      const track = root.querySelector<HTMLElement>(".journey-track")!;
+      const scene = root.querySelector<SVGSVGElement>("[data-scene]")!;
+      const road = root.querySelector<SVGPathElement>("[data-road]");
+      const parcels = [...root.querySelectorAll<SVGGElement>("[data-parcel]")];
+      const towers = [...root.querySelectorAll<SVGGElement>("[data-tower]")];
+      const dots = [...root.querySelectorAll<SVGCircleElement>("[data-dot]")];
+      const copies = [...root.querySelectorAll<HTMLElement>("[data-copy]")];
+      const bars = [...root.querySelectorAll<HTMLElement>(".copy-progress span")];
+      const STAGES = 5;
+
+      const roadLen = road?.getTotalLength() ?? 0;
+      if (road && roadLen) {
+        road.style.strokeDasharray = `${roadLen}`;
+        road.style.strokeDashoffset = `${roadLen}`;
+      }
+
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const desktop = matchMedia("(min-width: 768px)").matches;
+
+      const paint = (p: number) => {
+        const clamped = Math.min(Math.max(p, 0), 1);
+        root.style.setProperty("--p", String(clamped));
+
+        // Kamera: yol boyunca pan (meet ile kenar güvenli)
+        const vbW = 600 - clamped * 60;
+        const vbH = 380 - clamped * 30;
+        const vbX = -280 + clamped * 140;
+        const vbY = -90 + clamped * 20;
+        scene.setAttribute("viewBox", `${vbX} ${vbY} ${vbW} ${vbH}`);
+
+        if (road && roadLen) {
+          road.style.strokeDashoffset = `${roadLen * (1 - clamped)}`;
+        }
+
+        const stage = Math.min(STAGES - 1, Math.floor(clamped * STAGES * 0.999));
+
+        parcels.forEach((el) => {
+          const s = Number(el.dataset.parcel);
+          el.classList.toggle("is-lit", s <= stage);
+          el.classList.toggle("is-current", s === stage);
+        });
+        towers.forEach((el, i) => el.classList.toggle("is-up", i <= stage));
+        dots.forEach((el, i) => el.classList.toggle("is-up", i <= stage));
+        copies.forEach((el, i) => el.classList.toggle("is-active", i === stage));
+        bars.forEach((el, i) => el.classList.toggle("is-active", i <= stage));
+      };
+
+      // debug / harici tetik
+      (root as HTMLElement & { __paint?: (n: number) => void }).__paint = paint;
+
+      if (!desktop || reduced) {
+        root.classList.add("is-static");
+        paint(1);
+        return;
+      }
+
+      let raf = 0;
+      const update = () => {
+        raf = 0;
+        const total = Math.max(1, track.offsetHeight - window.innerHeight);
+        const scrolled = -track.getBoundingClientRect().top / total;
+        paint(scrolled);
+      };
+      const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+      update();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll, { passive: true });
+
+      // imleç parallax — sahneye hafif eğim
+      const stageEl = root.querySelector<HTMLElement>("[data-world-root]")!;
+      let tiltRaf = 0;
+      stageEl.addEventListener("pointermove", (e) => {
+        if (tiltRaf) cancelAnimationFrame(tiltRaf);
+        tiltRaf = requestAnimationFrame(() => {
+          const rect = stageEl.getBoundingClientRect();
+          const x = (e.clientX - rect.left) / rect.width - 0.5;
+          const y = (e.clientY - rect.top) / rect.height - 0.5;
+          scene.style.transform = `perspective(900px) rotateX(${(y * -3).toFixed(2)}deg) rotateY(${(x * 4).toFixed(2)}deg)`;
+        });
+      }, { passive: true });
+      stageEl.addEventListener("pointerleave", () => {
+        scene.style.transform = "";
+      });
+    });
+  }
+
+  initJourneyWorld();
+  document.addEventListener("astro:page-load", initJourneyWorld);
+</script>
+
+<style>
+  .journey {
+    --p: 0;
+    background: #0c1424;
+    color: #f8fafc;
+  }
+
+  .journey-track { height: calc(var(--track, 4.8) * 100vh); }
+
+  /* Site header h-16 (4rem) — sticky onun altında başlar */
+  .journey-sticky {
+    --nav-h: 4rem;
+    position: sticky;
+    top: var(--nav-h);
+    height: calc(100dvh - var(--nav-h));
+    max-height: calc(100dvh - var(--nav-h));
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .journey-frame {
+    display: flex;
+    flex-direction: column;
+    width: min(90rem, calc(100% - 1.5rem));
+    margin-inline: auto;
+    padding-block: 0.75rem 1rem;
+    gap: 0.65rem;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .journey-head {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    max-width: 36rem;
+  }
+  .journey-head > p {
+    margin-bottom: 0.35rem;
+    color: #d8b878;
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+  .journey-head h2 {
+    color: #f8fafc;
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: clamp(1.45rem, 2.6vw, 2.2rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  .journey-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-radius: 1.15rem;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 90% 80% at 48% 52%, rgb(27 42 74 / 0.65), transparent 70%),
+      linear-gradient(165deg, #152238 0%, #0c1424 78%);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  }
+
+  .scene {
+    position: absolute;
+    inset: 0.5rem 0.5rem 7.5rem 0.5rem;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    transition: transform 80ms linear;
+    transform-origin: 50% 50%;
+  }
+
+  .road-base {
+    fill: none;
+    stroke: rgb(148 163 184 / 0.3);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 3 11;
+  }
+  .road-fill {
+    fill: none;
+    stroke: #c9a86a;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: url(#glow);
+  }
+
+  .parcel {
+    transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms;
+  }
+  .parcel-n { opacity: 0.55; }
+  .parcel-n .p-top { fill: #3a4a3a; }
+  .parcel-n .p-left { fill: #2a352a; }
+  .parcel-n .p-right { fill: #1f281f; }
+
+  /* henüz gelinmeyen durak — alçak, soluk */
+  .parcel-path { opacity: 0.4; }
+  .parcel-path .p-top { fill: #4a5a4a; transition: fill 400ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .parcel-path .p-left { fill: #354235; transition: fill 400ms; }
+  .parcel-path .p-right { fill: #2a332a; transition: fill 400ms; }
+
+  .parcel-path.is-lit {
+    opacity: 1;
+    filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.35));
+  }
+  .parcel-path.is-lit .p-top { fill: #1b2a4a; }
+  .parcel-path.is-lit .p-left { fill: #152238; }
+  .parcel-path.is-lit .p-right { fill: #0f1a2c; }
+
+  .parcel-path.is-current {
+    transform: translateY(-18px);
+    filter: drop-shadow(0 14px 16px rgb(201 168 106 / 0.45));
+  }
+  .parcel-path.is-current .p-top {
+    fill: #243556;
+    stroke: #c9a86a;
+    stroke-width: 2.5;
+  }
+  .parcel-path.is-current .p-left { fill: #1c2c48; }
+  .parcel-path.is-current .p-right { fill: #152238; }
+
+  .p-dot {
+    fill: #c9a86a;
+    opacity: 0;
+    transition: opacity 360ms, r 360ms;
+  }
+  .p-dot.is-up {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgb(201 168 106 / 0.7));
+  }
+
+  .tower {
+    opacity: 0;
+    transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+  .tower.is-up { opacity: 1; }
+  .tower-body {
+    fill: #1b2a4a;
+    stroke: rgb(201 168 106 / 0.35);
+    stroke-width: 1;
+  }
+  .tower[data-tower="2"] .tower-body { fill: #2f5248; }
+  .tower[data-tower="3"] .tower-body { fill: #8c5c30; }
+  .tower-label {
+    fill: #c9a86a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: Inter, system-ui, sans-serif;
+  }
+  .tower[data-tower="2"] .tower-label { fill: #b7d4c4; }
+  .tower[data-tower="3"] .tower-label { fill: #f0d9b0; }
+  .tower-value {
+    fill: #f8fafc;
+    font-size: 14px;
+    font-weight: 650;
+    font-family: Inter, system-ui, sans-serif;
+  }
+
+  .journey-copy {
+    position: absolute;
+    right: clamp(0.85rem, 2.5vw, 1.5rem);
+    bottom: clamp(0.85rem, 2.5vw, 1.5rem);
+    left: auto;
+    width: min(21rem, 42%);
+    max-height: calc(100% - 1.5rem);
+    z-index: 3;
+    padding: 0.95rem 1.05rem 0.85rem;
+    border-radius: 0.85rem;
+    background: rgb(247 247 245 / 0.97);
+    color: #172643;
+    box-shadow: 0 22px 48px -18px rgb(0 0 0 / 0.55);
+    overflow: hidden;
+  }
+
+  .copy-stack { position: relative; min-height: 8.2rem; }
+  .copy-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.32rem;
+    opacity: 0;
+    filter: blur(5px);
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: opacity 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 360ms, filter 360ms;
+  }
+  .copy-panel.is-active {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+    pointer-events: auto;
+  }
+  .copy-no { color: #8c5c30; font-size: 0.7rem; font-weight: 700; }
+  .copy-panel h3 {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: clamp(1.3rem, 2.1vw, 1.65rem);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .copy-panel p {
+    color: #566276;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  .copy-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 650;
+  }
+  .copy-result i {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: #34a071;
+    box-shadow: 0 0 0 3px rgb(52 160 113 / 0.18);
+  }
+
+  .copy-progress { display: flex; gap: 0.2rem; height: 0.22rem; margin-top: 0.85rem; }
+  .copy-progress span {
+    flex: 1;
+    border-radius: 999px;
+    background: #d6dae0;
+    transition: background-color 280ms;
+  }
+  .copy-progress span.is-active { background: #c9a86a; }
+
+  .journey.is-static .journey-track { height: auto; }
+  .journey.is-static .journey-sticky {
+    position: static;
+    height: auto;
+    max-height: none;
+    padding-block: clamp(3.5rem, 8vw, 5.5rem);
+  }
+  .journey.is-static .journey-frame { height: auto; }
+  .journey.is-static .journey-stage { min-height: min(28rem, 70vh); }
+
+  @media (max-width: 767px) {
+    .journey-track { height: auto; }
+    .journey-sticky {
+      position: static;
+      height: auto;
+      max-height: none;
+      padding-block: clamp(3.5rem, 8vw, 5.5rem);
+    }
+    .journey-frame { height: auto; }
+    .journey-stage { min-height: 24rem; }
+    .scene { inset: 0.35rem 0.35rem 9.5rem 0.35rem; }
+    .tower { display: none; }
+    .journey-copy {
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: 0.75rem;
+      width: auto;
+      max-height: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .parcel, .p-top, .p-left, .p-right, .p-dot, .tower, .copy-panel, .scene { transition: none; }
+  }
+</style>

@@ -373,14 +373,54 @@ fiyatRoutes.get("/trend/:il/:ilce/:mahalle", async (c) => {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
 
-  // Son 18 ay — zaman serisi tablosundan
-  const rows = await c.env.DB.prepare(
+  // Son 18 ay — mahalle seviyesi
+  let rows = await c.env.DB.prepare(
     `SELECT yil, ay, medyan, ilan_adet
      FROM mahalle_zaman_serisi
      WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ? AND kategori = ?
      ORDER BY yil ASC, ay ASC
      LIMIT 18`,
   ).bind(il, ilce, mahalle, kategori).all<ZamanNoktasi>();
+
+  let seviye: "mahalle" | "ilce" | "il" = "mahalle";
+
+  // W1c: Mahalle verisi yetersizse ilçe seviyesine fallback
+  if ((rows.results ?? []).length < 3 && ilce) {
+    const ilceRows = await c.env.DB.prepare(
+      `SELECT yil, ay,
+              ROUND(SUM(medyan * ilan_adet) / SUM(ilan_adet)) AS medyan,
+              SUM(ilan_adet) AS ilan_adet
+       FROM mahalle_zaman_serisi
+       WHERE il_norm = ? AND ilce_norm = ? AND kategori = ?
+       GROUP BY yil, ay
+       ORDER BY yil ASC, ay ASC
+       LIMIT 18`,
+    ).bind(il, ilce, kategori).all<ZamanNoktasi>();
+
+    if ((ilceRows.results ?? []).length >= 3) {
+      rows = ilceRows;
+      seviye = "ilce";
+    }
+  }
+
+  // İlçe verisi de yetersizse il seviyesine fallback
+  if ((rows.results ?? []).length < 3 && il) {
+    const ilRows = await c.env.DB.prepare(
+      `SELECT yil, ay,
+              ROUND(SUM(medyan * ilan_adet) / SUM(ilan_adet)) AS medyan,
+              SUM(ilan_adet) AS ilan_adet
+       FROM mahalle_zaman_serisi
+       WHERE il_norm = ? AND kategori = ?
+       GROUP BY yil, ay
+       ORDER BY yil ASC, ay ASC
+       LIMIT 18`,
+    ).bind(il, kategori).all<ZamanNoktasi>();
+
+    if ((ilRows.results ?? []).length >= 3) {
+      rows = ilRows;
+      seviye = "il";
+    }
+  }
 
   const gecmis = rows.results ?? [];
   if (gecmis.length === 0) {
@@ -438,5 +478,7 @@ fiyatRoutes.get("/trend/:il/:ilce/:mahalle", async (c) => {
     r2: Math.round(reg.r2 * 100) / 100,
     aylikEgimTlm2: Math.round(reg.egim),
     veriAyAdet: gecmis.length,
+    /** W1c: hangi seviyede veri bulundu — "mahalle" | "ilce" | "il" */
+    seviye,
   });
 });

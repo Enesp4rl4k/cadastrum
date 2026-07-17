@@ -13,6 +13,8 @@ import {
   ChevronDown as ChevronDownIcon,
   Trash2 as TrashIcon,
   FileSpreadsheet as FileSpreadsheetIcon,
+  Sparkles as SparklesIcon,
+  TrendingUp as TrendingUpIcon,
 } from "lucide-react";
 import {
   getParselByLatLng,
@@ -22,6 +24,7 @@ import {
 import { db } from "../../lib/db";
 import {
   type BulkResult,
+  type BulkFiyat,
   type CoordInput,
   downloadFile,
   parseCoordsText,
@@ -34,6 +37,7 @@ import type { Parsel } from "../../types/tkgm";
 const REQUEST_DELAY_MS = 250;
 
 type Status = "bekliyor" | "sorgulanıyor" | "tamam" | "hata" | "cache";
+type FiyatStatus = "yok" | "hesaplaniyor" | "tamam" | "hata";
 
 interface SatirDurumu {
   input: CoordInput;
@@ -42,6 +46,9 @@ interface SatirDurumu {
   hata: string | null;
   index: number;
   secili: boolean;
+  /** W5: fiyat zenginleştirme */
+  fiyat?: BulkFiyat | null;
+  fiyatStatus?: FiyatStatus;
 }
 
 type SiraAlan = "siraNo" | "ada" | "parsel" | "alan" | "nitelik" | "ilce";
@@ -63,7 +70,9 @@ export function TopluView() {
   const [seciliHepsi, setSeciliHepsi] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [favoriEklendi, setFavoriEklendi] = useState<number | null>(null);
+  const [fiyatZenginlestiriliyor, setFiyatZenginlestiriliyor] = useState(false);
   const cancelRef = useRef(false);
+  const fiyatCancelRef = useRef(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // İstatistikler
@@ -269,6 +278,52 @@ export function TopluView() {
     setTimeout(() => setFavoriEklendi(null), 3000);
   }
 
+  /** W5 — Tamamlanan parseller için arka planda fiyat tahmini çalıştır */
+  async function fiyatZenginlestir() {
+    const hedefler = satirlar.filter(
+      s => (s.status === "tamam" || s.status === "cache") && s.parsel && !s.fiyat
+    );
+    if (hedefler.length === 0) return;
+
+    fiyatCancelRef.current = false;
+    setFiyatZenginlestiriliyor(true);
+
+    const { fiyatTahminEt } = await import("../../lib/fiyat-tahmin");
+
+    for (const satir of hedefler) {
+      if (fiyatCancelRef.current) break;
+      if (!satir.parsel) continue;
+
+      setSatirlar(prev => prev.map(s =>
+        s.index === satir.index ? { ...s, fiyatStatus: "hesaplaniyor" } : s
+      ));
+
+      try {
+        const tahmin = await fiyatTahminEt(satir.parsel, null, null, null);
+        const bulkFiyat: BulkFiyat = {
+          beklenenPerM2: tahmin.beklenenPerM2 ?? null,
+          toplamTL: tahmin.beklenenPerM2 && satir.parsel.alan > 0
+            ? Math.round(tahmin.beklenenPerM2 * satir.parsel.alan)
+            : null,
+          guvenSkoru: tahmin.guvenSkoru ?? null,
+          kaynak: tahmin.baselineKaynak ?? null,
+        };
+        setSatirlar(prev => prev.map(s =>
+          s.index === satir.index ? { ...s, fiyat: bulkFiyat, fiyatStatus: "tamam" } : s
+        ));
+      } catch {
+        setSatirlar(prev => prev.map(s =>
+          s.index === satir.index ? { ...s, fiyatStatus: "hata" } : s
+        ));
+      }
+
+      // API yüküne saygı — fiyat tahminleri yerel ama DB sorguları var
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    setFiyatZenginlestiriliyor(false);
+  }
+
   function exportFile(fmt: "csv" | "geojson" | "kml") {
     const sonuc: BulkResult[] = satirlar
       .filter((s) => s.parsel || s.hata)
@@ -276,6 +331,7 @@ export function TopluView() {
         input: s.input,
         parsel: s.parsel,
         hata: s.hata,
+        fiyat: s.fiyat ?? null,
       }));
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     if (fmt === "csv") {
@@ -530,6 +586,12 @@ export function TopluView() {
               <ThSiralanabilir alan="alan" siraAlani={siraAlani} siraYonu={siraYonu} onTikla={siralamaDegistir}>Alan</ThSiralanabilir>
               <ThSiralanabilir alan="nitelik" siraAlani={siraAlani} siraYonu={siraYonu} onTikla={siralamaDegistir}>Nitelik</ThSiralanabilir>
               <ThSiralanabilir alan="ilce" siraAlani={siraAlani} siraYonu={siraYonu} onTikla={siralamaDegistir}>İlçe</ThSiralanabilir>
+              <th className="p-1.5 text-right whitespace-nowrap">
+                <span className="flex items-center justify-end gap-1">
+                  <TrendingUpIcon className="h-3 w-3 text-violet-500" />
+                  Fiyat/m²
+                </span>
+              </th>
               <th className="w-16 p-1.5 text-center">Durum</th>
             </tr>
           </thead>
@@ -543,7 +605,7 @@ export function TopluView() {
             ))}
             {gosterilenSatirlar.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-4 text-center text-2xs text-slate-500">
+                <td colSpan={10} className="p-4 text-center text-2xs text-slate-500">
                   Filtreyle eşleşen satır yok.
                 </td>
               </tr>
@@ -559,6 +621,13 @@ export function TopluView() {
             ✓ {favoriEklendi} parsel favorilere eklendi
           </div>
         )}
+        {/* W5 — Fiyat zenginleştirme durumu */}
+        {fiyatZenginlestiriliyor && (
+          <div className="mb-1.5 flex items-center gap-1.5 rounded-md bg-blue-50 dark:bg-blue-950/30 px-2 py-1 text-3xs text-blue-700 dark:text-blue-300">
+            <SparklesIcon className="h-3 w-3 animate-pulse" />
+            Fiyat tahminleri hesaplanıyor… ({satirlar.filter(s => s.fiyatStatus === "tamam").length}/{satirlar.filter(s => s.status === "tamam" || s.status === "cache").length})
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
@@ -569,6 +638,18 @@ export function TopluView() {
             <StarIcon className="h-3 w-3" />
             Seçili {istatistik.seciliSayi}'i favorile
           </button>
+          {/* W5 — Fiyat tahmini zenginleştir butonu */}
+          {istatistik.tamam > 0 && !fiyatZenginlestiriliyor && (
+            <button
+              type="button"
+              onClick={fiyatZenginlestir}
+              className="flex cursor-pointer items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-3xs font-medium text-white hover:bg-violet-700"
+              title="Tamamlanan parseller için fiyat tahmini hesapla ve CSV'ye ekle"
+            >
+              <SparklesIcon className="h-3 w-3" />
+              Fiyat Tahminleri Ekle
+            </button>
+          )}
           <div className="flex-1" />
           <button
             type="button"
@@ -709,6 +790,17 @@ function SatirRender({
       </td>
       <td className="p-1.5 truncate max-w-[100px]">{satir.parsel?.nitelik ?? "—"}</td>
       <td className="p-1.5 truncate max-w-[80px]">{satir.parsel?.ilceAd ?? "—"}</td>
+      <td className="p-1.5 text-right tabular-nums">
+        {satir.fiyatStatus === "hesaplaniyor" ? (
+          <div className="ml-auto h-2.5 w-2.5 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+        ) : satir.fiyat?.beklenenPerM2 != null ? (
+          <span className="font-medium text-violet-700 dark:text-violet-400">
+            {satir.fiyat.beklenenPerM2.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+          </span>
+        ) : satir.fiyatStatus === "hata" ? (
+          <span className="text-slate-400">—</span>
+        ) : null}
+      </td>
       <td className="p-1.5 text-center">
         <DurumIkonu status={satir.status} hata={satir.hata} />
       </td>

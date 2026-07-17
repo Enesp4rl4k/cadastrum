@@ -136,11 +136,9 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
     ctrlRef.current = ctrl;
     setLoading(true);
     setError(null);
-    console.log("[arsa-lab] sorgu →", { ilceKodu, ilceAd, analizTip, yil });
     tkgmAnalizGetir({ ilceKodu, analizTip, yil }, ctrl.signal)
       .then((data) => {
         if (ctrl.signal.aborted) return;
-        console.log("[arsa-lab] sorgu ←", data.length, "nokta");
         setNoktalar(data);
         applyHeatmap(mapRef.current, data, analizTip, { fitBounds: true });
         // İlk yüklemede haritayı bbox'a uçur (tüm ilçe)

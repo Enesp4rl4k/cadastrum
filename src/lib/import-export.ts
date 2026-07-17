@@ -65,10 +65,23 @@ export function parseCoordsText(text: string): {
   return { coords, errors };
 }
 
+export interface BulkFiyat {
+  /** Beklenen TL/m² (fiyat tahmini) */
+  beklenenPerM2: number | null;
+  /** Toplam tahmini değer (TL) */
+  toplamTL: number | null;
+  /** Güven skoru 0-100 */
+  guvenSkoru: number | null;
+  /** Tahmin kaynağı */
+  kaynak: string | null;
+}
+
 export interface BulkResult {
   input: CoordInput;
   parsel: Parsel | null;
   hata: string | null;
+  /** W5: fiyat tahmini sonucu (opsiyonel — zenginleştirme yapıldıysa dolu) */
+  fiyat?: BulkFiyat | null;
 }
 
 export function toCsv(results: BulkResult[]): string {
@@ -84,10 +97,16 @@ export function toCsv(results: BulkResult[]): string {
     "alan_m2",
     "nitelik",
     "pafta",
+    // W5: fiyat kolonları
+    "fiyat_per_m2",
+    "toplam_deger_tl",
+    "guven_skoru",
+    "tahmin_kaynagi",
     "hata",
   ];
   const rows = results.map((r) => {
     const p = r.parsel;
+    const f = r.fiyat;
     return [
       r.input.lat,
       r.input.lng,
@@ -100,6 +119,10 @@ export function toCsv(results: BulkResult[]): string {
       p?.alan ?? "",
       p?.nitelik ?? "",
       p?.pafta ?? "",
+      f?.beklenenPerM2 ?? "",
+      f?.toplamTL ?? "",
+      f?.guvenSkoru ?? "",
+      f?.kaynak ?? "",
       r.hata ?? "",
     ].map(csvCell);
   });
