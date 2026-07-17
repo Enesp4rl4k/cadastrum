@@ -94,8 +94,8 @@ export function semantikFiltre(kayit: IlanGozlem): number {
   // tr-locale lowercase + ascii fold (ı→i, ş→s, ü→u, ö→o, ç→c, ğ→g) — Türkçe
   // \b word boundary edge case'lerinden kaçınmak için substring search.
   const ham = `${kayit.baslik ?? ""} ${kayit.imarDurumu ?? ""}`.toLocaleLowerCase("tr");
-  const metin = ham.replace(/[çğıöşü]/g, (c) =>
-    ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c,
+  const metin = ham.replace(/[çğıöşüâîû]/g, (c) =>
+    ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c,
   );
 
   const elemKalipari = [
@@ -185,8 +185,9 @@ async function bboxPrefilter(
         k.lng >= minLng &&
         k.lng <= maxLng,
     );
-  } catch {
-    // Eski Dexie versiyonu veya index yoksa full-scan fallback
+  } catch (e) {
+    // Eski Dexie versiyonu veya index yoksa full-scan fallback — hatayı logla
+    console.debug("[arsa-spatial] bboxPrefilter compound index hatası, full-scan fallback:", e);
     const tum = await db.ilanGozlem.toArray();
     return tum.filter(
       (k) =>
@@ -336,4 +337,104 @@ export function spatialBaselineYeterliMi(sonuc: SpatialEmsalSonuc): boolean {
   if (sonuc.emsaller.length < 5) return false;
   const yakin = sonuc.halkaDagilimi.r0_1km + sonuc.halkaDagilimi.r1_3km;
   return yakin >= 2;
+}
+
+// ── IDW AVM — Extension tarafı ──────────────────────────────────────────────
+
+/**
+ * Yerel Dexie havuzunda IDW (Inverse Distance Weighting, p=2) hesapla.
+ *
+ * Backend /spatial?mode=idw ile aynı formül; extension çevrimdışı çalışırken
+ * veya ek doğrulama için kullanılır.
+ *
+ *   w_i = 1 / d_i^p,   fiyat = Σ(w_i × fiyat_i) / Σ(w_i)
+ */
+export function idwHesapla(
+  items: Array<{ fiyatPerM2TL: number; mesafeM: number }>,
+  p = 2,
+): number | null {
+  if (items.length === 0) return null;
+  const eps = 1; // metre — sıfır mesafe koruması
+  let sumW = 0, sumWF = 0;
+  for (const it of items) {
+    const d = Math.max(it.mesafeM, eps);
+    const w = 1 / Math.pow(d, p);
+    sumW += w;
+    sumWF += w * it.fiyatPerM2TL;
+  }
+  return sumW > 0 ? Math.round(sumWF / sumW) : null;
+}
+
+export interface IdwAvmSonuc {
+  /** Saf IDW (p=2), enflasyon düzeltmeli */
+  idwFiyat: number | null;
+  /** Çarpan zinciri uygulanmış kalibre fiyat */
+  kalibreFiyat: number | null;
+  /** Her çarpanın açıklaması */
+  carpanZinciri: Array<{ ad: string; carpan: number; not: string }>;
+  /** IQR tabanlı güven aralığı */
+  guvenAraligi: { alt: number; ust: number } | null;
+  /** Kullanılan emsal adedi */
+  emsalAdet: number;
+}
+
+/**
+ * Backend /v1/emsal/spatial?mode=idw çağrısı — IDW AVM sonucunu getirir.
+ * Opsiyonel parametreler: egim_yuzde, pga, otoyol_km (varsa çarpan zinciri aktif).
+ */
+export async function apiSpatialIdwGetir(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  kategori: SpatialKategori,
+  opts?: {
+    egimYuzde?: number | null;
+    pga?: number | null;
+    otoyolKm?: number | null;
+  },
+): Promise<IdwAvmSonuc | null> {
+  try {
+    const API_BASE =
+      typeof chrome !== "undefined"
+        ? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"
+        : "/v1";
+
+    const params = new URLSearchParams({
+      lat: lat.toString(),
+      lng: lng.toString(),
+      radius_km: radiusKm.toString(),
+      kategori,
+      mode: "idw",
+    });
+    if (opts?.egimYuzde != null) params.set("egim_yuzde", opts.egimYuzde.toString());
+    if (opts?.pga != null)        params.set("pga", opts.pga.toString());
+    if (opts?.otoyolKm != null)   params.set("otoyol_km", opts.otoyolKm.toString());
+
+    const res = await fetch(`${API_BASE}/emsal/spatial?${params}`, {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+
+    const data = await res.json() as {
+      idw?: {
+        idwFiyat: number | null;
+        kalibreFiyat: number | null;
+        carpanZinciri: Array<{ ad: string; carpan: number; not: string }>;
+        guvenAraligi: { alt: number; ust: number } | null;
+      };
+      adet: number;
+    };
+
+    if (!data.idw) return null;
+
+    return {
+      idwFiyat: data.idw.idwFiyat,
+      kalibreFiyat: data.idw.kalibreFiyat,
+      carpanZinciri: data.idw.carpanZinciri,
+      guvenAraligi: data.idw.guvenAraligi,
+      emsalAdet: data.adet,
+    };
+  } catch {
+    return null;
+  }
 }

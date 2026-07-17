@@ -10,7 +10,31 @@ import TopoBg from "../components/TopoBg.astro";
 
 import { CTA, LAUNCHED, CHROME_STORE_URL } from "../config/launch";
 import { HERO_SCRUB_VH } from "../config/hero";
+import { getIlce, fmtTLM2 } from "../lib/api";
 const cwsUrl = CHROME_STORE_URL;
+
+// Build-time API sorguları — gerçek veri veya fallback
+const SEHIR_SORGULAR = [
+  { il: "istanbul",  ilce: "besiktas",   label: "İstanbul",  ilceLabel: "Beşiktaş",  fallback: "—" },
+  { il: "ankara",    ilce: "cankaya",    label: "Ankara",    ilceLabel: "Çankaya",   fallback: "—" },
+  { il: "izmir",     ilce: "konak",      label: "İzmir",     ilceLabel: "Konak",     fallback: "—" },
+  { il: "antalya",   ilce: "muratpasa",  label: "Antalya",   ilceLabel: "Muratpaşa", fallback: "—" },
+  { il: "mugla",     ilce: "bodrum",     label: "Muğla",     ilceLabel: "Bodrum",    fallback: "—" },
+  { il: "bursa",     ilce: "nilufer",    label: "Bursa",     ilceLabel: "Nilüfer",   fallback: "—" },
+  { il: "balikesir", ilce: "bandirma",   label: "Balıkesir", ilceLabel: "Bandırma",  fallback: "—" },
+  { il: "kocaeli",   ilce: "gebze",      label: "Kocaeli",   ilceLabel: "Gebze",     fallback: "—" },
+];
+
+const sehirFiyatlari = await Promise.all(
+  SEHIR_SORGULAR.map(async (s) => {
+    const veri = await getIlce(s.il, s.ilce, "arsa");
+    return {
+      ...s,
+      fiyat: veri?.medyan ? fmtTLM2(veri.medyan) : s.fallback,
+      varVeri: !!veri?.medyan,
+    };
+  })
+);
 
 const features = [
   {
@@ -225,24 +249,19 @@ const features = [
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        {[
-          { il: "İstanbul", url: "/veri/istanbul", ilce: "Beşiktaş", fiyat: "87.000" },
-          { il: "Ankara", url: "/veri/ankara", ilce: "Çankaya", fiyat: "12.000" },
-          { il: "İzmir", url: "/veri/izmir", ilce: "Konak", fiyat: "18.000" },
-          { il: "Antalya", url: "/veri/antalya", ilce: "Muratpaşa", fiyat: "20.000" },
-          { il: "Muğla", url: "/veri/mugla", ilce: "Bodrum", fiyat: "45.000" },
-          { il: "Bursa", url: "/veri/bursa", ilce: "Nilüfer", fiyat: "9.000" },
-          { il: "Balıkesir", url: "/veri/balikesir", ilce: "Bandırma", fiyat: "3.500" },
-          { il: "Kocaeli", url: "/veri/kocaeli", ilce: "Gebze", fiyat: "8.000" },
-        ].map((c) => (
+        {sehirFiyatlari.map((c) => (
           <a
-            href={c.url}
+            href={`/veri/${c.il}`}
             class="group block p-4 bg-white border border-slate-200 rounded-xl hover:border-brand hover:shadow-md transition"
           >
-            <div class="text-xs text-slate-500 mb-1">{c.il}</div>
-            <div class="font-semibold text-ink mb-2">{c.ilce}</div>
-            <div class="text-2xl font-bold text-brand-700">{c.fiyat}</div>
-            <div class="text-xs text-slate-500 mt-1">TL/m² arsa</div>
+            <div class="text-xs text-slate-500 mb-1">{c.label}</div>
+            <div class="font-semibold text-ink mb-2">{c.ilceLabel}</div>
+            <div class={`text-2xl font-bold ${c.varVeri ? "text-brand-700" : "text-slate-400"}`}>
+              {c.varVeri ? c.fiyat.replace(" TL/m²", "") : "—"}
+            </div>
+            <div class="text-xs text-slate-500 mt-1">
+              {c.varVeri ? "TL/m² arsa (güncel)" : "veri bekleniyor"}
+            </div>
           </a>
         ))}
       </div>

@@ -1,0 +1,379 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="Türkiye Alım-Satım Yoğunluğu Haritası — TKGM Gerçek Veri | Cadastrum"
+  description="TKGM resmi verisinden Türkiye geneli alım-satım, ipotek ve tapu işlem yoğunluğu haritası. İlçe bazında parsel işlem dağılımı, yıllık karşılaştırma."
+  keywords={[
+    "TKGM alım satım haritası", "tapu işlem yoğunluğu", "Türkiye parsel analizi",
+    "ipotek yoğunluk haritası", "ilçe bazlı tapu", "gayrimenkul ısı haritası",
+  ]}
+>
+
+  <!-- ─── HERO ─────────────────────────────────────────────────────────── -->
+  <section class="relative overflow-hidden bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white py-10 md:py-14">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute -top-16 -right-16 w-80 h-80 rounded-full bg-champagne-500 opacity-10 blur-3xl"></div>
+      <div class="absolute -bottom-16 -left-16 w-80 h-80 rounded-full bg-accent-info opacity-10 blur-3xl"></div>
+    </div>
+
+    <div class="relative max-w-6xl mx-auto px-4">
+      <nav class="text-sm text-imperial-100 mb-5" aria-label="Breadcrumb">
+        <a href="/" class="hover:text-white transition">Cadastrum</a>
+        <span class="mx-2 opacity-40" aria-hidden="true">›</span>
+        <span class="text-white font-medium">Yoğunluk Haritası</span>
+      </nav>
+
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-champagne-200 text-xs font-medium mb-4">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true"></span>
+        TKGM Resmi Veri · Yıllık
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+        <div>
+          <h1 class="font-display text-3xl md:text-5xl font-bold leading-tight mb-3 text-white">
+            Türkiye Tapu<br/>
+            <span class="text-champagne-200">İşlem Yoğunluğu</span>
+          </h1>
+          <p class="text-imperial-100 text-base md:text-lg max-w-xl leading-relaxed">
+            TKGM'nin resmi parsel analiz verisinden üretilen alım-satım,
+            ipotek ve tapu işlem yoğunluk haritası.
+          </p>
+        </div>
+
+        <div class="flex gap-6 shrink-0">
+          <div class="text-center">
+            <div class="font-display text-3xl font-bold text-white" id="stat-il">81</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İl</div>
+          </div>
+          <div class="w-px bg-white/20" aria-hidden="true"></div>
+          <div class="text-center">
+            <div class="font-display text-3xl font-bold text-white" id="stat-ilce">957</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İlçe</div>
+          </div>
+          <div class="w-px bg-white/20" aria-hidden="true"></div>
+          <div class="text-center">
+            <div class="font-display text-3xl font-bold text-champagne-200" id="stat-aktif">—</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İşlem Noktası</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── KONTROL + HARİTA ──────────────────────────────────────────────── -->
+  <section class="bg-slate-900 min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+
+      <!-- Kontrol şeridi — analiz tipi + yıl -->
+      <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-3">
+
+        <!-- Analiz tipi legend (JS ile doldurulur) -->
+        <div
+          id="analiz-legend"
+          class="flex flex-wrap items-center gap-1 p-1 bg-slate-800 border border-slate-700 rounded-xl"
+          role="group"
+          aria-label="Analiz tipi seçimi"
+        >
+          <!-- JS tarafından doldurulur -->
+        </div>
+
+        <!-- Yıl seçici -->
+        <div class="flex items-center gap-2">
+          <label for="zaman-filtre" class="text-xs text-slate-400 font-medium whitespace-nowrap">Yıl:</label>
+          <select
+            id="zaman-filtre"
+            class="text-sm border border-slate-600 rounded-lg px-3 py-1.5 bg-slate-800 text-slate-200 focus:border-imperial focus:outline-none transition"
+          >
+            <!-- JS tarafından doldurulur -->
+          </select>
+        </div>
+      </div>
+
+      <!-- POI Katman Paneli -->
+      <div
+        id="poi-katman-panel"
+        class="flex flex-wrap items-center gap-2 mb-4"
+        role="group"
+        aria-label="Harita katmanları"
+      >
+        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider pr-1">Katmanlar:</span>
+
+        <!-- Otoyol & D-yolları -->
+        <button
+          data-katman="otoyol"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-red-400 hover:text-red-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-red-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" aria-hidden="true"></span>
+          🛣️ Otoyol & D-yol
+        </button>
+
+        <!-- Havalimanları -->
+        <button
+          data-katman="hava"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-sky-500 hover:text-sky-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-sky-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0" aria-hidden="true"></span>
+          ✈️ Havalimanları
+        </button>
+
+        <!-- OSB'ler -->
+        <button
+          data-katman="osb"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-amber-500 hover:text-amber-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-amber-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true"></span>
+          🏭 OSB'ler
+        </button>
+
+        <!-- Lojistik / Limanlar -->
+        <button
+          data-katman="lojistik"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-emerald-500 hover:text-emerald-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-emerald-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true"></span>
+          ⚓ Liman & Lojistik
+        </button>
+
+        <!-- TUCBS ÇDP İmar Planı -->
+        <button
+          data-katman="cdp-imar"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-violet-500 hover:text-violet-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-violet-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-violet-400 shrink-0" aria-hidden="true"></span>
+          🗺️ ÇDP İmar Planı
+        </button>
+
+        <!-- TMO Depoları -->
+        <button
+          data-katman="tmo"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-yellow-500 hover:text-yellow-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-yellow-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" aria-hidden="true"></span>
+          🌾 TMO Depoları
+        </button>
+
+        <!-- Serbest Bölgeler -->
+        <button
+          data-katman="stb"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-purple-500 hover:text-purple-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-purple-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0" aria-hidden="true"></span>
+          🏛️ Serbest Bölgeler
+        </button>
+
+        <!-- Büyük Barajlar -->
+        <button
+          data-katman="baraj"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-blue-400 hover:text-blue-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-blue-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0" aria-hidden="true"></span>
+          💧 Büyük Barajlar
+        </button>
+
+        <!-- Enerji Santralleri -->
+        <button
+          data-katman="enerji"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-orange-400 hover:text-orange-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-orange-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" aria-hidden="true"></span>
+          ⚡ Enerji Santralleri
+        </button>
+
+        <!-- Fiyat Choropleth -->
+        <button
+          id="fiyat-katman-btn"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-blue-500 hover:text-blue-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-blue-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0" aria-hidden="true"></span>
+          💰 TL/m² Fiyat
+        </button>
+
+        <!-- Likidite Choropleth -->
+        <button
+          id="likidite-katman-btn"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-cyan-500 hover:text-cyan-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-cyan-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0" aria-hidden="true"></span>
+          💧 Piyasa Likiditesi
+        </button>
+
+        <!-- Trend / Sıcaklık Choropleth -->
+        <button
+          id="trend-katman-btn"
+          aria-pressed="false"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-orange-500 hover:text-orange-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-orange-400"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" aria-hidden="true"></span>
+          🌡️ Fiyat Trendi
+        </button>
+
+        <!-- Fiyat kategori seçici (fiyat katmanı açıkken görünür) -->
+        <div id="fiyat-kategori-wrap" class="hidden items-center gap-1.5">
+          <span class="text-xs text-slate-500">Fiyat:</span>
+          <button data-fiyat-kategori="arsa"  class="fiyat-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-700 text-blue-300 font-semibold" aria-pressed="true">Arsa</button>
+          <button data-fiyat-kategori="tarla" class="fiyat-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-800 text-slate-400" aria-pressed="false">Tarla</button>
+        </div>
+
+        <!-- Likidite kategori seçici -->
+        <div id="likidite-kat-wrap" class="hidden items-center gap-1.5">
+          <span class="text-xs text-slate-500">Likidite:</span>
+          <button data-likidite-kat="arsa"  data-likidite-kategori="arsa"  class="likidite-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-700 text-cyan-300 font-semibold" aria-pressed="true">Arsa</button>
+          <button data-likidite-kat="tarla" data-likidite-kategori="tarla" class="likidite-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-800 text-slate-400" aria-pressed="false">Tarla</button>
+        </div>
+
+        <!-- Trend kategori seçici -->
+        <div id="trend-kat-wrap" class="hidden items-center gap-1.5">
+          <span class="text-xs text-slate-500">Trend:</span>
+          <button data-trend-kategori="arsa"  class="trend-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-700 text-orange-300 font-semibold" aria-pressed="true">Arsa</button>
+          <button data-trend-kategori="tarla" class="trend-kat-btn px-2 py-1 rounded text-xs border border-slate-600 bg-slate-800 text-slate-400" aria-pressed="false">Tarla</button>
+        </div>
+
+        <!-- CDP aktif plan adı + legend açıklaması -->
+        <div class="ml-auto flex items-center gap-3">
+          <span id="cdp-bilgi" class="text-xs text-violet-400 hidden sm:block"></span>
+          <span class="text-xs text-slate-600 hidden sm:block">Tıkla → katmanı aç/kapat</span>
+        </div>
+      </div>
+
+      <!-- Harita -->
+      <div
+        id="turkiye-harita"
+        class="w-full rounded-2xl border border-slate-700 overflow-hidden bg-slate-800"
+        style="height: 600px;"
+        aria-label="Türkiye tapu işlem yoğunluğu haritası"
+        role="application"
+      >
+        <div id="harita-yukleniyor" class="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+          <svg class="w-10 h-10 animate-spin text-imperial-200" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-sm font-medium">Harita yükleniyor…</span>
+        </div>
+      </div>
+
+      <!-- Fiyat legend (fiyat katmanı açıkken görünür) -->
+      <div id="fiyat-legend-wrap" class="hidden mt-2 flex flex-wrap items-center gap-2 p-2 bg-slate-800/80 rounded-lg border border-slate-700">
+        <span class="text-xs text-slate-400 font-medium mr-1">Arsa TL/m²:</span>
+        <div id="fiyat-legend" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- Trend legend (trend katmanı açıkken görünür) -->
+      <div id="trend-legend-wrap" class="hidden mt-2 flex flex-wrap items-center gap-3 p-2 bg-slate-800/80 rounded-lg border border-slate-700">
+        <span class="text-xs text-slate-400 font-medium mr-1">Fiyat Trendi (3 ay):</span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#dc2626] inline-block"></span>+15%↑ Çok Isınıyor
+        </span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#f97316] inline-block"></span>+5%↑ Isınıyor
+        </span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#94a3b8] inline-block"></span>Stabil
+        </span>
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+          <span class="w-3 h-3 rounded-full bg-[#22d3ee] inline-block"></span>-5%↓ Soğuyor
+        </span>
+        <span class="text-xs text-slate-500 ml-auto">Soluk daire = veri yok</span>
+      </div>
+
+      <!-- Alt bilgi -->
+      <div class="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+        <span>🖱️ Scroll ile zoom · Sürükle ile kaydır</span>
+        <span>🔍 Zoom yapınca bölge detayı artar</span>
+        <span id="harita-guncelleme">⏱ Yükleniyor…</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── METODOLOJI ────────────────────────────────────────────────────── -->
+  <section class="bg-white py-12 border-t border-slate-100">
+    <div class="max-w-6xl mx-auto px-4">
+      <h2 class="font-display text-2xl font-bold text-imperial-700 mb-6">Veri Kaynağı & Metodoloji</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-imperial-50 text-imperial-700 flex items-center justify-center mb-3 font-bold text-sm">1</div>
+          <h3 class="font-display font-semibold text-imperial-700 mb-2">TKGM Resmi API</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Tapu ve Kadastro Genel Müdürlüğü'nün kamuya açık parsel analiz servisi.
+            Alım-satım, ipotek dahil 5 işlem tipi — 2003'ten bugüne.
+          </p>
+        </div>
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center mb-3 font-bold text-sm">✈️</div>
+          <h3 class="font-display font-semibold text-sky-700 mb-2">DHMİ Havalimanları</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Devlet Hava Meydanları İşletmesi'nin kamuya açık listesinden
+            30 havalimanı — uluslararası ve iç hat ayrımıyla.
+          </p>
+        </div>
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-3 font-bold text-sm">🏭</div>
+          <h3 class="font-display font-semibold text-amber-700 mb-2">OSBÜK Veritabanı</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Organize Sanayi Bölgeleri Üst Kuruluşu'nun kamuya açık listesinden
+            35+ OSB — büyük, orta ve ihtisas ayrımıyla.
+          </p>
+        </div>
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 font-bold text-sm">⚓</div>
+          <h3 class="font-display font-semibold text-emerald-700 mb-2">Liman & Lojistik</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Türkiye'nin ana limanları ve lojistik merkezleri —
+            Mersin, İzmir, Samsun, Trabzon dahil 8 kritik nokta.
+          </p>
+        </div>
+
+        <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-3 font-bold text-sm">💰</div>
+          <h3 class="font-display font-semibold text-blue-700 mb-2">TL/m² Fiyat Haritası</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Sahibinden ve Emlakjet ilan medyanından üretilen il bazlı arsa/tarla TL/m²
+            değerleri. Veri yetersiz illerde AI baseline kullanılır (turuncu nokta).
+            İle tıkla — ilçe sıralaması ve /veri bağlantısı açılır.
+          </p>
+        </div>
+      </div>
+      <p class="mt-4 text-xs text-slate-400">
+        ⚠️ Tapu verileri TKGM'nin kamuya açık servisinden alınmaktadır. POI katmanları (havalimanı, OSB, liman) kamuya açık idari listelerden derlenmiştir. Yıllık güncelleme — anlık satış verisi değildir.
+      </p>
+    </div>
+  </section>
+
+</Base>
+
+<!-- ─── STİL ──────────────────────────────────────────────────────────────── -->
+<style>
+  /* MapLibre z-index düzeltmesi */
+  .maplibregl-map {
+    position: absolute;
+    inset: 0;
+  }
+  .maplibregl-ctrl-bottom-right,
+  .maplibregl-ctrl-bottom-left {
+    z-index: 5;
+  }
+  /* Legend aktif buton */
+  #analiz-legend [data-tip] {
+    transition: background 0.15s, color 0.15s;
+  }
+</style>
+
+<!-- ─── HARİTA JS ─────────────────────────────────────────────────────────── -->
+<script>
+  import { initHarita } from "../scripts/harita-init";
+  document.addEventListener("astro:page-load", () => initHarita());
+</script>

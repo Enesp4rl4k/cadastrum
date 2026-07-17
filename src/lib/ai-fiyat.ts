@@ -583,8 +583,8 @@ export async function aiTahmin(
         sureMs: 0,
       };
     }
-  } catch {
-    // Dexie hatası → cache yok say, devam
+  } catch (e) {
+    console.debug("[arsa-ai] aiFiyatCache okuma hatası — cache atlandı:", e);
   }
 
   const userPrompt = promptOlustur(parsel, cevre, egim, heuristic, ilan);

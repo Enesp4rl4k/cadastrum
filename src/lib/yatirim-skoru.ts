@@ -176,15 +176,43 @@ function imarPotansiyelBoyutu(ePlan: EPlanImarVerisi | null): YatirimBoyutu {
   return { ad: "İmar potansiyel", skor, agirlik: 0.15, aciklama };
 }
 
-/** Boyut 6 — Büyüme trendi (son 6 ay TL/m² değişimi). */
-function buyumeTrendi(fiyat: FiyatTahmini | null): YatirimBoyutu {
-  // Trend datası FiyatTahmini'nde doğrudan yok; bölge ortalaması artışını
-  // bilmiyoruz. TCMB KFE enflasyonu üzeri/altı kıyas için bilgi olmadan,
-  // mevcut emsal yaş dağılımından yumuşatma yapacağız.
+/**
+ * Boyut 6 — Büyüme trendi.
+ *
+ * Öncelik sırası:
+ *   1. trendYillikDegisim — backend OLS regresyonundan gerçek yıllık % değişim
+ *      (trendProjesyonGetir() → yillikDegisimYuzde).
+ *      TCMB enflasyonu (~%50 nominal) üzeri reel büyüme → yüksek skor.
+ *   2. Fallback: emsal tazelik oranı (eski davranış).
+ *
+ * @param trendYillikDegisim  Yıllık nominal % değişim (ör: 65.3 = %65.3 artış).
+ *                             null → fallback.
+ */
+function buyumeTrendi(
+  fiyat: FiyatTahmini | null,
+  trendYillikDegisim: number | null = null,
+): YatirimBoyutu {
+  // --- 1. Gerçek OLS trend verisi varsa kullan ---
+  if (trendYillikDegisim != null) {
+    // TCMB KFE baz enflasyonu ~%50 nominal → reel değişim = nominal - 50
+    const reelDegisim = trendYillikDegisim - 50;
+    // Reel +20% → 95, Reel 0% → 60, Reel -20% → 25
+    const skor = clamp(Math.round(60 + reelDegisim * 1.25), 5, 99);
+    const aciklama =
+      reelDegisim >= 15
+        ? `Güçlü reel büyüme (+%${reelDegisim.toFixed(0)} reel / %${trendYillikDegisim.toFixed(0)} nominal)`
+        : reelDegisim >= 0
+          ? `Pozitif reel büyüme (+%${reelDegisim.toFixed(0)} reel)`
+          : reelDegisim >= -15
+            ? `Hafif reel gerileme (%${reelDegisim.toFixed(0)} reel)`
+            : `Güçlü reel gerileme (%${reelDegisim.toFixed(0)} reel)`;
+    return { ad: "Büyüme trendi", skor, agirlik: 0.10, aciklama };
+  }
+
+  // --- 2. Fallback: emsal tazelik oranı ---
   if (!fiyat || !fiyat.tazelikOzeti || fiyat.tazelikOzeti.ortalamaYasGun == null) {
     return { ad: "Büyüme trendi", skor: 50, agirlik: 0.10, aciklama: "Trend verisi yetersiz" };
   }
-  // Taze ilan oranı yüksekse → aktif piyasa, büyüme sinyali güçlü
   const ozet = fiyat.tazelikOzeti;
   const tazeOran = ozet.tazeAdet > 0 ? ozet.son30Gun / ozet.tazeAdet : 0;
   const skor = clamp(Math.round(35 + tazeOran * 65), 10, 99);
@@ -213,12 +241,17 @@ function ozetOlustur(skor: number, boyutlar: YatirimBoyutu[]): string {
 
 /**
  * Ana giriş — tüm boyutları hesapla, weighted toplam üret.
+ *
+ * @param trendYillikDegisim  Backend OLS'den gelen gerçek yıllık % değişim.
+ *                             null → emsal tazelik fallback.
  */
 export function yatirimSkoruHesapla(args: {
   parsel: Parsel;
   fiyat: FiyatTahmini | null;
   cevre: CevreAnalizi | null;
   ePlan: EPlanImarVerisi | null;
+  /** Gerçek OLS trend — trendProjesyonGetir().yillikDegisimYuzde */
+  trendYillikDegisim?: number | null;
 }): YatirimSkoru {
   const boyutlar: YatirimBoyutu[] = [
     fiyatAvantajBoyutu(args.fiyat),
@@ -226,7 +259,7 @@ export function yatirimSkoruHesapla(args: {
     lojistikBoyutu(args.cevre),
     riskBoyutu(args.parsel),
     imarPotansiyelBoyutu(args.ePlan),
-    buyumeTrendi(args.fiyat),
+    buyumeTrendi(args.fiyat, args.trendYillikDegisim ?? null),
   ];
   const toplam = Math.round(
     boyutlar.reduce((s, b) => s + b.skor * b.agirlik, 0),

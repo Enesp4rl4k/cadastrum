@@ -3,122 +3,260 @@ export const prerender = true;
 import Base from "../layouts/Base.astro";
 ---
 
-<Base title="Parsel Sorgu — Cadastrum" description="Adres, koordinat veya konum girip parselin TL değerini, güven aralığını ve emsallerini öğrenin.">
-  <div class="max-w-3xl mx-auto px-4 py-8">
-    <h1 class="font-display text-3xl font-bold text-imperial-700 mb-2">Parsel Değer Sorgusu</h1>
-    <p class="text-slate-600 mb-6">
-      Adres, koordinat veya konum gir → parselin <strong>TL değer aralığı</strong>, emsal sayısı ve güven seviyesi.
-      Free tier 20 sorgu/saat.
-    </p>
+<!-- MapLibre GL JS — CDN, build'e girmiyor -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
 
-    <form id="sorgu-form" method="post" action="javascript:void(0)" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-      <!-- Adres geocoding (Nominatim) -->
-      <div>
-        <label class="block text-sm font-medium mb-1.5">Adres veya yer adı</label>
-        <div class="flex gap-2">
+<Base title="Parsel Sorgu — Cadastrum" description="Haritaya tıkla, parselin TL değer aralığını, emsal sayısını ve güven seviyesini anında gör.">
+
+  <!-- Page header -->
+  <div class="border-b border-slate-100 bg-white/80 backdrop-blur-sm">
+    <div class="container-prose py-5">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 class="font-display text-2xl md:text-3xl font-bold text-imperial-700 leading-tight">
+            Parsel Değer Sorgusu
+          </h1>
+          <p class="text-slate-500 text-sm mt-1">
+            Haritaya tıkla veya adres gir → anında <strong class="text-slate-700">TL değer aralığı</strong>, emsal ve güven skoru
+          </p>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          Free: 20 sorgu/saat
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Split layout: 2/3 harita + 1/3 panel -->
+  <div class="flex flex-col lg:flex-row" style="min-height: calc(100vh - 130px);">
+
+    <!-- ══════════════════════════════════════
+         SOL — MapLibre harita (2/3)
+    ══════════════════════════════════════ -->
+    <div class="relative lg:flex-[2] h-[55vw] lg:h-auto min-h-[340px]">
+      <div id="sorgu-harita" class="absolute inset-0 w-full h-full"></div>
+
+      <!-- Harita üstü overlay — adres arama -->
+      <div class="absolute top-3 left-3 right-14 z-10">
+        <div class="flex gap-2 shadow-lg">
           <input
             type="text"
             id="adres"
-            placeholder="Örn: Beykoz Kavacık veya İzmir Buca"
-            class="flex-1 px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-2 focus:ring-imperial/10 focus:outline-none"
+            placeholder="Adres veya yer adı ara… (örn: Beykoz Kavacık)"
+            class="flex-1 px-3 py-2.5 bg-white/95 backdrop-blur-sm border border-white/60 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-imperial/20 focus:border-imperial placeholder-slate-400 shadow-sm"
+            autocomplete="off"
           />
-          <button type="button" id="adres-btn" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">
+          <button type="button" id="adres-btn"
+            class="px-3 py-2.5 bg-white/95 backdrop-blur-sm border border-white/60 rounded-lg text-sm font-medium text-slate-700 hover:bg-white shadow-sm transition-colors whitespace-nowrap">
             Bul
           </button>
         </div>
-        <div id="adres-status" class="text-xs text-slate-500 mt-1"></div>
+        <div id="adres-status" class="text-xs mt-1.5 px-1"></div>
       </div>
 
-      <div class="grid grid-cols-3 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Enlem (lat)</label>
-          <input type="number" id="lat" step="0.0001" placeholder="41.0082" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Boylam (lng)</label>
-          <input type="number" id="lng" step="0.0001" placeholder="28.9784" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Parsel m²</label>
-          <input type="number" id="m2" min="1" step="1" placeholder="500" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-        </div>
+      <!-- Konum butonu -->
+      <button type="button" id="konum-btn"
+        class="absolute top-3 right-3 z-10 w-10 h-10 bg-white/95 backdrop-blur-sm border border-white/60 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-white hover:text-imperial transition-colors"
+        title="Bulunduğum konum">
+        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4zm0 4a2 2 0 100 4 2 2 0 000-4z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+
+      <!-- Harita ipucu — ilk açılışta görünür -->
+      <div id="harita-ipucu"
+        class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-imperial/90 text-white text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-sm pointer-events-none transition-opacity duration-500"
+        aria-hidden="true">
+        Haritaya tıkla → değeri hesapla
       </div>
 
-      <div>
-        <label class="block text-sm font-medium mb-1.5">Kategori</label>
-        <select id="kategori" class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm">
-          <option value="arsa">Arsa</option>
-          <option value="tarla">Tarla</option>
-          <option value="konut">Konut</option>
-        </select>
+      <!-- Koordinat göstergesi -->
+      <div id="koord-badge"
+        class="absolute bottom-4 left-3 z-10 bg-white/90 backdrop-blur-sm text-xs text-slate-600 px-2.5 py-1.5 rounded-md border border-white/60 shadow-sm font-mono hidden">
       </div>
+    </div>
 
-      <div class="flex gap-2">
-        <button type="button" id="konum-btn" class="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">
-          📍 Bulunduğum Konum
+    <!-- ══════════════════════════════════════
+         SAĞ — Form + Sonuç paneli (1/3)
+    ══════════════════════════════════════ -->
+    <div class="lg:flex-1 lg:max-w-sm xl:max-w-md border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/60 flex flex-col overflow-y-auto">
+
+      <!-- Form — kompakt, harita tıklaması ile senkron -->
+      <form id="sorgu-form" method="post" action="javascript:void(0)"
+        class="bg-white border-b border-slate-100 p-4 space-y-3">
+
+        <!-- Koordinat satırı — harita tıklaması otomatik doldurur -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Enlem</label>
+            <input type="number" id="lat" step="0.0001" placeholder="41.0082" required
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50 focus:bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Boylam</label>
+            <input type="number" id="lng" step="0.0001" placeholder="28.9784" required
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50 focus:bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
+          </div>
+        </div>
+
+        <!-- m² + Kategori yan yana -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Parsel m² <span class="text-slate-400">(opsiyonel)</span></label>
+            <input type="number" id="m2" min="1" step="1" placeholder="500"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Kategori</label>
+            <select id="kategori"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors bg-white">
+              <option value="arsa">Arsa</option>
+              <option value="tarla">Tarla</option>
+              <option value="konut">Konut</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-btn"
+          class="w-full px-4 py-2.5 bg-imperial text-white rounded-lg text-sm font-semibold
+                 hover:bg-imperial-700 disabled:opacity-50 disabled:cursor-not-allowed
+                 transition-all duration-200 flex items-center justify-center gap-2
+                 hover:-translate-y-px hover:shadow-lg hover:shadow-imperial/30
+                 active:translate-y-0 active:shadow-none">
+          <svg id="submit-icon" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+          </svg>
+          <span id="submit-label">Değer Hesapla</span>
         </button>
-        <button type="submit" id="submit-btn" class="flex-1 px-4 py-2.5 bg-imperial text-white hover:bg-imperial-700 rounded-lg text-sm font-semibold">
-          🔍 Değer Hesapla
-        </button>
-      </div>
     </form>
 
-    <div id="sonuc" class="mt-6 hidden"></div>
+      <!-- Sonuç paneli — skeleton → içerik -->
+      <div id="sonuc" class="flex-1 overflow-y-auto">
 
-    <!-- ─── İmar Fizibilite Hesabı ─── -->
-    <details id="fizibilite-panel" class="mt-6 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <summary class="cursor-pointer px-6 py-4 font-display text-lg font-semibold text-imperial-700 flex items-center justify-between list-none">
-        <span>🏗 İmar Fizibilite Hesabı</span>
-        <span class="text-slate-400 text-sm">müteahhit/geliştirici için ▾</span>
-      </summary>
-      <div class="px-6 pb-6 border-t border-slate-100 pt-4">
-        <p class="text-sm text-slate-500 mb-4">
-          Arsanın imar haklarıyla ne inşa edilebilir, kârlı mı? TAKS/KAKS değerlerini
-          imar durumundan veya belediyeden alıp girin.
-        </p>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Parsel m²</label>
-            <input type="number" id="f-m2" min="1" placeholder="500" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+        <!-- Boş state — ilk yüklemede görünür -->
+        <div id="sonuc-bos" class="flex flex-col items-center justify-center h-full py-16 px-6 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-imperial/8 flex items-center justify-center mb-4">
+            <svg class="h-8 w-8 text-imperial/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 20.25v-15m0 0L3.75 9.75M9 5.25l5.25 4.5M15 3.75v15m0 0l5.25-4.5M15 18.75l-5.25-4.5"/>
+            </svg>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">TAKS</label>
-            <input type="number" id="f-taks" step="0.05" placeholder="0.30" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+          <p class="text-sm font-medium text-slate-600 mb-1">Haritaya tıkla</p>
+          <p class="text-xs text-slate-400">veya koordinat girip "Değer Hesapla"</p>
+        </div>
+
+        <!-- Skeleton — yüklenirken görünür -->
+        <div id="sonuc-skeleton" class="hidden p-4 space-y-3">
+          <!-- Büyük değer kartı skeleton -->
+          <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+            <div class="skeleton h-3 w-24 rounded"></div>
+            <div class="skeleton h-8 w-40 rounded"></div>
+            <div class="skeleton h-3 w-32 rounded"></div>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">KAKS / Emsal</label>
-            <input type="number" id="f-kaks" step="0.05" placeholder="1.50" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+          <!-- 3 değer kutusu skeleton -->
+          <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-lg bg-white border border-slate-200 p-3 space-y-1.5">
+              <div class="skeleton h-2.5 w-12 rounded"></div>
+              <div class="skeleton h-5 w-16 rounded"></div>
+            </div>
+            <div class="rounded-lg bg-white border border-slate-200 p-3 space-y-1.5">
+              <div class="skeleton h-2.5 w-12 rounded"></div>
+              <div class="skeleton h-5 w-16 rounded"></div>
+            </div>
+            <div class="rounded-lg bg-white border border-slate-200 p-3 space-y-1.5">
+              <div class="skeleton h-2.5 w-12 rounded"></div>
+              <div class="skeleton h-5 w-16 rounded"></div>
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Arsa Değeri ₺</label>
-            <input type="number" id="f-arsa" placeholder="otomatik" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">İnşaat ₺/m²</label>
-            <input type="number" id="f-insaat" placeholder="18000" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Satış ₺/m²</label>
-            <input type="number" id="f-satis" placeholder="60000" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Ort. daire m²</label>
-            <input type="number" id="f-daire" placeholder="120" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-          </div>
-          <div class="flex items-end">
-            <button type="button" id="f-hesapla" class="w-full px-4 py-2 bg-imperial text-white rounded-lg text-sm font-semibold hover:bg-imperial-700">
-              Hesapla
-            </button>
+          <!-- Meta satırlar -->
+          <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+            <div class="skeleton h-2.5 w-48 rounded"></div>
+            <div class="skeleton h-2.5 w-36 rounded"></div>
+            <div class="skeleton h-2.5 w-40 rounded"></div>
           </div>
         </div>
-        <div id="f-sonuc" class="mt-4 hidden"></div>
-      </div>
-    </details>
 
-    <p class="text-xs text-slate-500 mt-8">
-      Extension'da TKGM parsel doğrulama, e-Plan imar durumu, deprem/iklim/toprak verileri ile zenginleştirilmiş analiz mevcut.
-      <a href="https://chromewebstore.google.com/" class="text-imperial underline">Chrome eklentisini yükle →</a>
-    </p>
+        <!-- Gerçek sonuç içeriği — JS ile doldurulur -->
+        <div id="sonuc-icerik" class="hidden p-4 space-y-3"></div>
+
+      </div>
+
+      <!-- Fizibilite accordion — panelin altı -->
+      <details id="fizibilite-panel"
+        class="border-t border-slate-200 bg-white">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-imperial-700 flex items-center justify-between list-none hover:bg-slate-50 transition-colors">
+          <span class="flex items-center gap-2">
+            <svg class="h-4 w-4 text-imperial/60" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 4h16v2H2V4zm2 4h12v2H4V8zm-2 4h16v2H2v-2zm2 4h12v2H4v-2z"/>
+            </svg>
+            İmar Fizibilite
+          </span>
+          <svg class="h-4 w-4 text-slate-400 fizibilite-chevron transition-transform duration-200" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </summary>
+        <div class="px-4 pb-4 pt-3 border-t border-slate-100 space-y-3">
+          <p class="text-xs text-slate-500">
+            TAKS/KAKS gir → inşa edilebilir alan, daire adedi, kârlılık.
+          </p>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Parsel m²</label>
+              <input type="number" id="f-m2" min="1" placeholder="500"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">TAKS</label>
+              <input type="number" id="f-taks" step="0.05" placeholder="0.30"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">KAKS</label>
+              <input type="number" id="f-kaks" step="0.05" placeholder="1.50"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Arsa ₺</label>
+              <input type="number" id="f-arsa" placeholder="otomatik"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">İnşaat ₺/m²</label>
+              <input type="number" id="f-insaat" placeholder="18000"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Satış ₺/m²</label>
+              <input type="number" id="f-satis" placeholder="60000"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+          </div>
+          <button type="button" id="f-hesapla"
+            class="w-full px-3 py-2 bg-imperial text-white rounded-lg text-sm font-semibold hover:bg-imperial-700 transition-colors">
+            Hesapla
+          </button>
+          <div id="f-sonuc" class="hidden"></div>
+        </div>
+      </details>
+
+    </div><!-- /sağ panel -->
+  </div><!-- /split layout -->
+
+  <!-- Extension CTA — alt banner -->
+  <div class="border-t border-slate-200 bg-slate-50">
+    <div class="container-prose py-4 flex items-center justify-between gap-4 flex-wrap">
+      <p class="text-xs text-slate-500">
+        TKGM parsel doğrulama, e-Plan imar, deprem/taşkın analizi →
+        <strong class="text-slate-700">Chrome eklentisinde</strong>
+      </p>
+      <a href="https://chromewebstore.google.com/"
+        class="btn-primary text-xs py-1.5 px-3 whitespace-nowrap">
+        Eklentiyi Yükle →
+      </a>
+    </div>
   </div>
 
   <script>
@@ -126,69 +264,141 @@ import Base from "../layouts/Base.astro";
     import { kullaniciAl, tokenAl } from "../lib/auth";
     import { fizibiliteHesapla, varsayilanInsaatMaliyeti } from "../lib/fizibilite";
 
+    // ── Helpers ──
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-    const form = $<HTMLFormElement>("sorgu-form");
-    const sonuc = $<HTMLDivElement>("sonuc");
-    const adresInput = $<HTMLInputElement>("adres");
-    const adresBtn = $<HTMLButtonElement>("adres-btn");
-    const adresStatus = $<HTMLDivElement>("adres-status");
-    const latInput = $<HTMLInputElement>("lat");
-    const lngInput = $<HTMLInputElement>("lng");
-    const m2Input = $<HTMLInputElement>("m2");
-    const kategoriInput = $<HTMLSelectElement>("kategori");
-    const konumBtn = $<HTMLButtonElement>("konum-btn");
-    const submitBtn = $<HTMLButtonElement>("submit-btn");
+    const fmt  = (n: number) => n.toLocaleString("tr-TR");
+    const fmtK = (n: number) => Math.abs(n) >= 1_000_000
+      ? (n / 1_000_000).toFixed(2) + " M ₺"
+      : fmt(Math.round(n)) + " ₺";
 
-    // ─── Adres geocoding (OpenStreetMap Nominatim, ücretsiz) ───
+    const form        = $<HTMLFormElement>("sorgu-form");
+    const latInput    = $<HTMLInputElement>("lat");
+    const lngInput    = $<HTMLInputElement>("lng");
+    const m2Input     = $<HTMLInputElement>("m2");
+    const kategoriInput = $<HTMLSelectElement>("kategori");
+    const submitBtn   = $<HTMLButtonElement>("submit-btn");
+    const submitLabel = $<HTMLSpanElement>("submit-label");
+    const adresInput  = $<HTMLInputElement>("adres");
+    const adresBtn    = $<HTMLButtonElement>("adres-btn");
+    const adresStatus = $<HTMLDivElement>("adres-status");
+    const konumBtn    = $<HTMLButtonElement>("konum-btn");
+    const haritaIpucu = $<HTMLDivElement>("harita-ipucu");
+    const koordBadge  = $<HTMLDivElement>("koord-badge");
+    const sonucBos    = $<HTMLDivElement>("sonuc-bos");
+    const sonucSkeleton = $<HTMLDivElement>("sonuc-skeleton");
+    const sonucIcerik = $<HTMLDivElement>("sonuc-icerik");
+
+    // ── State ──
+    let map: any = null;
+    let marker: any = null;
+    let currentLat = 0, currentLng = 0;
+
+    // ── MapLibre init ──
+    function initHarita() {
+      const ml = (window as any).maplibregl;
+      if (!ml || !document.getElementById("sorgu-harita")) return;
+
+      map = new ml.Map({
+        container: "sorgu-harita",
+        style: "https://tiles.openfreemap.org/styles/positron",
+        center: [35.2433, 38.9637], // Türkiye merkezi
+        zoom: 5.5,
+        attributionControl: false,
+      });
+
+      map.addControl(new ml.AttributionControl({ compact: true }), "bottom-right");
+      map.addControl(new ml.NavigationControl({ showCompass: false }), "bottom-right");
+
+      map.on("click", (e: any) => {
+        const { lng, lat } = e.lngLat;
+        setKoordinat(lat, lng, true);
+      });
+
+      map.on("load", () => {
+        // İpucunu gizle
+        haritaIpucu?.classList.add("opacity-0");
+        setTimeout(() => haritaIpucu?.classList.add("hidden"), 500);
+      });
+    }
+
+    function setKoordinat(lat: number, lng: number, autoSorgu = false) {
+      currentLat = lat;
+      currentLng = lng;
+      latInput.value = lat.toFixed(5);
+      lngInput.value = lng.toFixed(5);
+
+      // Badge güncelle
+      if (koordBadge) {
+        koordBadge.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        koordBadge.classList.remove("hidden");
+      }
+
+      // Marker koy/taşı
+      const ml = (window as any).maplibregl;
+      if (map && ml) {
+        if (marker) {
+          marker.setLngLat([lng, lat]);
+        } else {
+          marker = new ml.Marker({ color: "#1B2A4A" })
+            .setLngLat([lng, lat])
+            .addTo(map);
+        }
+        // Zoom in eğer çok uzaksa
+        if (map.getZoom() < 11) {
+          map.flyTo({ center: [lng, lat], zoom: 13, duration: 1200, essential: true });
+        } else {
+          map.easeTo({ center: [lng, lat], duration: 400 });
+        }
+      }
+
+      if (autoSorgu) setTimeout(() => form.requestSubmit(), 300);
+    }
+
+    // ── Geocoding ──
     async function geocode(q: string): Promise<{ lat: number; lng: number; display: string } | null> {
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tr&q=${encodeURIComponent(q)}`;
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       if (!res.ok) return null;
       const arr = await res.json();
       if (!Array.isArray(arr) || arr.length === 0) return null;
-      const r = arr[0];
-      return { lat: parseFloat(r.lat), lng: parseFloat(r.lon), display: r.display_name };
+      return { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon), display: arr[0].display_name };
     }
 
     adresBtn.addEventListener("click", async () => {
       const q = adresInput.value.trim();
       if (!q) return;
+      adresBtn.textContent = "…";
       adresStatus.textContent = "Aranıyor…";
+      adresStatus.className = "text-xs text-slate-400 mt-1.5 px-1";
       try {
         const r = await geocode(q);
         if (!r) {
-          adresStatus.textContent = "Bulunamadı. Yer adını daha geniş yazın.";
-          adresStatus.className = "text-xs text-amber-700 mt-1";
+          adresStatus.textContent = "Bulunamadı — daha geniş bir yer adı deneyin.";
+          adresStatus.className = "text-xs text-amber-700 mt-1.5 px-1";
           return;
         }
-        latInput.value = r.lat.toFixed(4);
-        lngInput.value = r.lng.toFixed(4);
-        adresStatus.textContent = `✓ ${r.display.slice(0, 80)}`;
-        adresStatus.className = "text-xs text-emerald-700 mt-1";
+        adresStatus.textContent = `✓ ${r.display.slice(0, 70)}`;
+        adresStatus.className = "text-xs text-emerald-700 mt-1.5 px-1";
+        setKoordinat(r.lat, r.lng, true);
       } catch {
-        adresStatus.textContent = "Geocoding hatası. Doğrudan koordinat girin.";
-        adresStatus.className = "text-xs text-red-700 mt-1";
+        adresStatus.textContent = "Geocoding hatası — koordinat girin.";
+        adresStatus.className = "text-xs text-red-700 mt-1.5 px-1";
+      } finally {
+        adresBtn.textContent = "Bul";
       }
     });
+    adresInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); adresBtn.click(); } });
 
-    adresInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); adresBtn.click(); }
-    });
-
-    // ─── Konum butonu ───
-    konumBtn.addEventListener("click", () => {
-      if (!navigator.geolocation) { alert("Tarayıcınız geolocation desteklemiyor."); return; }
-      konumBtn.textContent = "📍 Alınıyor…";
+    // ── Konum ──
+    konumBtn?.addEventListener("click", () => {
+      if (!navigator.geolocation) return;
+      konumBtn.classList.add("animate-pulse");
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          latInput.value = pos.coords.latitude.toFixed(4);
-          lngInput.value = pos.coords.longitude.toFixed(4);
-          konumBtn.textContent = "📍 Bulunduğum Konum";
+          konumBtn.classList.remove("animate-pulse");
+          setKoordinat(pos.coords.latitude, pos.coords.longitude, true);
         },
-        () => {
-          alert("Konum alınamadı.");
-          konumBtn.textContent = "📍 Bulunduğum Konum";
-        },
+        () => konumBtn.classList.remove("animate-pulse"),
       );
     });
 

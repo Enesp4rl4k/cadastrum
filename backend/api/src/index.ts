@@ -27,7 +27,7 @@ import { bildirimKontroluCalistir } from "./routes/bildirim-cron.js";
 import { crmRoutes } from "./routes/crm.js";
 import { publicApiRoutes } from "./routes/public-api.js";
 import { proxyRoutes } from "./routes/proxy.js";
-import { scraperRoutes, scraperRunBaslat } from "./routes/scraper.js";
+import { scraperRoutes, scraperRunBaslat, emlakjetCronBaslat } from "./routes/scraper.js";
 import { emailGonder } from "./routes/auth.js";
 import { istatistikRefresh } from "./routes/istatistik.js";
 import { validationRoutes } from "./routes/validation.js";
@@ -35,15 +35,25 @@ import { authRoutes } from "./routes/auth.js";
 import { hesapRoutes } from "./routes/hesap.js";
 import { lemonRoutes } from "./routes/lemon.js";
 import { aiFiyatRoutes } from "./routes/ai-fiyat.js";
+import { aiScorecardRoutes } from "./routes/ai-scorecard.js";
 import { adminRoutes } from "./routes/admin.js";
 import { newsletterRoutes } from "./routes/newsletter.js";
 import { tcmbRoutes } from "./routes/tcmb.js";
 import { raporRoutes } from "./routes/rapor.js";
 import { telemetriRoutes } from "./routes/telemetri.js";
+import { haritaRoutes } from "./routes/harita.js";
+import { rateLimitMiddleware, rateLimitTemizle } from "./lib/rate-limit.js";
 
 export interface Env {
   DB: D1Database;
+  /** TUCBS ÇDP tile kalıcı cache'i — write-through, TUCBS'e canlı bağımlılığı azaltır */
+  TUCBS_TILES: R2Bucket;
+  /** Scraper ingest auth — sadece /v1/ilan ve /v1/scraper için */
   SCRAPER_API_SECRET: string;
+  /** Baseline seed auth — sadece /v1/baseline/seed için (SCRAPER_API_SECRET'tan ayrı) */
+  SEED_SECRET: string;
+  /** İstatistik refresh auth — sadece /v1/istatistik/refresh için */
+  STATS_SECRET: string;
   JWT_SECRET: string;
   RESEND_API_KEY?: string;
   LEMON_WEBHOOK_SECRET?: string;
@@ -84,6 +94,39 @@ app.get("/v1/health", (c) => c.json({
   ts: Date.now(),
 }));
 
+// ── Public endpoint rate limitleri ───────────────────────────────────────────
+// Fiyat sorguları: saatte 120 istek/IP (CDN cache sayesinde çoğu buraya ulaşmaz)
+app.use("/v1/fiyat/*", rateLimitMiddleware(120, "fiyat"));
+
+// Proxy — alt route'lara göre farklı limit:
+//   tkgm-idari: harita sayfası tek yüklemede 81 il için ayrı istek atıyor (30 gün
+//     edge cache'li, ucuz) — cömert limit.
+//   tucbs/tile: harita gezinirken (pan/zoom) onlarca tile isteği atılıyor (7 gün
+//     edge cache'li) — cömert limit, aksi halde ÇDP katmanı 429 ile kırılıyordu.
+//   diğerleri (eplan, tucbs legend, tkgm-analiz): kullanıcı aksiyonu başına bir
+//     istek, düşük hacim — eski 60/saat korunuyor.
+app.use("/v1/proxy/tkgm-idari/*", rateLimitMiddleware(400, "proxy-idari"));
+app.use("/v1/proxy/tucbs/tile/*", rateLimitMiddleware(600, "proxy-tile"));
+app.use("/v1/proxy/eplan", rateLimitMiddleware(60, "proxy-eplan"));
+app.use("/v1/proxy/tucbs", rateLimitMiddleware(60, "proxy-tucbs"));
+app.use("/v1/proxy/tkgm-analiz", rateLimitMiddleware(60, "proxy-analiz"));
+
+// Emsal spatial: DB-ağır sorgu — saatte 60 istek/IP
+app.use("/v1/emsal/*", rateLimitMiddleware(60, "emsal"));
+
+// Sorgu: sorgu.ts içinde kendi rate limit'i var (20/saat) ama double-check için
+// burada daha yüksek tutuyoruz, sorgu.ts'nin kendi kontrolü daha sıkı davranacak
+app.use("/v1/sorgu/*", rateLimitMiddleware(100, "sorgu"));
+
+// Harita: GeoJSON ağır veri — saatte 30 istek/IP
+app.use("/v1/harita/*", rateLimitMiddleware(30, "harita"));
+
+// Newsletter kayıt: spam önleme — saatte 5 istek/IP
+app.use("/v1/newsletter/*", rateLimitMiddleware(5, "newsletter"));
+
+// Telemetri: saatte 200 istek/IP (extension her hata için çağırabilir)
+app.use("/v1/telemetri/*", rateLimitMiddleware(200, "telemetri"));
+
 // Fiyat sorgu endpoint'leri (public, cache-friendly)
 app.route("/v1/fiyat", fiyatRoutes);
 
@@ -108,6 +151,9 @@ app.route("/v1/api", publicApiRoutes);
 // CORS proxy — AFAD TDTH ve e-Plan extension'dan direkt çağrılamıyor (CORS)
 app.route("/v1/proxy", proxyRoutes);
 
+// Harita — TKGM analiz verisi D1'den (tek seferlik seed, site buradan okur)
+app.route("/v1/harita", haritaRoutes);
+
 // Otomatik scraper — aylık cron + admin manuel tetik
 app.route("/v1/scraper", scraperRoutes);
 
@@ -125,6 +171,8 @@ app.route("/v1/lemon", lemonRoutes);
 
 // AI fiyat proxy (Pro+ kullanıcı için Gemini 2.5 Flash + Groq fallback)
 app.route("/v1/ai-fiyat", aiFiyatRoutes);
+// AI Arazi Uygunluk Scorecard (5 boyut — tüm tier, kota paylaşımlı)
+app.route("/v1/ai-scorecard", aiScorecardRoutes);
 
 // Admin dashboard (JWT + admin=1 zorunlu)
 app.route("/v1/admin", adminRoutes);
@@ -146,7 +194,8 @@ app.route("/v1/telemetri", telemetriRoutes);
 // Cron / manuel istatistik yenileme
 app.get("/v1/istatistik/refresh", async (c) => {
   const secret = c.req.query("secret");
-  if (secret !== c.env.SCRAPER_API_SECRET) {
+  // STATS_SECRET kullanılır — SCRAPER_API_SECRET'tan bağımsız
+  if (!secret || secret !== c.env.STATS_SECRET) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const result = await istatistikRefresh(c.env.DB);
@@ -156,7 +205,8 @@ app.get("/v1/istatistik/refresh", async (c) => {
 // AI baseline seed — extension'ın yerel mahalle-baseline.ts'inin server kopyası
 app.post("/v1/baseline/seed", async (c) => {
   const auth = c.req.header("Authorization");
-  if (!auth || auth !== `Bearer ${c.env.SCRAPER_API_SECRET}`) {
+  // SEED_SECRET kullanılır — SCRAPER_API_SECRET'tan bağımsız
+  if (!auth || auth !== `Bearer ${c.env.SEED_SECRET}`) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const body = await c.req.json<{ rows: Array<{
@@ -187,6 +237,121 @@ app.post("/v1/baseline/seed", async (c) => {
   return c.json({ inserted, requested: body.rows.length });
 });
 
+/**
+ * POST /v1/ilan/batch-seed
+ * Emlakjet manuel scrape çıktısını (emlakjet-data-turkiye.sql içindeki ilanları)
+ * JSON chunk'lar halinde D1'a yükler.
+ *
+ * Neden gerekli:
+ *   wrangler d1 execute --file=emlakjet-data-turkiye.sql bazen timeout veya
+ *   boyut limitine takılıyor. Bu endpoint chunk'larla göndermeyi sağlar.
+ *
+ * Body: {
+ *   rows: Array<{
+ *     ilan_no: string;       // "ej_12345678"
+ *     il_norm: string;
+ *     ilce_norm: string;
+ *     mahalle_norm?: string | null;
+ *     fiyat_per_m2: number;
+ *     m2?: number | null;
+ *     kategori: string;      // "arsa" | "tarla"
+ *     lat?: number | null;
+ *     lng?: number | null;
+ *   }>;
+ * }
+ * Auth: Bearer SEED_SECRET
+ * Max rows per request: 500 (D1 batch limit için güvenli)
+ */
+const GECERLI_ILAN_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik"]);
+
+app.post("/v1/ilan/batch-seed", async (c) => {
+  const auth = c.req.header("Authorization");
+  if (!auth || auth !== `Bearer ${c.env.SEED_SECRET}`) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const body = await c.req.json<{
+    rows: Array<{
+      ilan_no: string;
+      il_norm: string;
+      ilce_norm: string;
+      mahalle_norm?: string | null;
+      fiyat_per_m2: number;
+      m2?: number | null;
+      kategori: string;
+      lat?: number | null;
+      lng?: number | null;
+    }>;
+  }>().catch(() => null);
+
+  if (!body?.rows || !Array.isArray(body.rows)) {
+    return c.json({ error: "Geçersiz body — rows dizisi gerekli" }, 400);
+  }
+  if (body.rows.length > 500) {
+    return c.json({ error: "Maksimum 500 satır/istek. Chunk'layarak gönderin." }, 400);
+  }
+
+  const ts = Date.now();
+  let inserted = 0;
+  let skipped = 0;
+  let hatali = 0;
+
+  for (const r of body.rows) {
+    // Zorunlu alan kontrolü
+    if (
+      !r.ilan_no || typeof r.ilan_no !== "string" || r.ilan_no.length > 50 ||
+      !r.il_norm || typeof r.il_norm !== "string" || r.il_norm.length > 50 ||
+      !r.ilce_norm || typeof r.ilce_norm !== "string" || r.ilce_norm.length > 50 ||
+      !r.kategori || !GECERLI_ILAN_KATEGORI.has(r.kategori) ||
+      typeof r.fiyat_per_m2 !== "number" || r.fiyat_per_m2 <= 0 || r.fiyat_per_m2 > 1_000_000_000
+    ) {
+      hatali++;
+      continue;
+    }
+
+    // Koordinat sınır kontrolü (Türkiye bbox)
+    const lat = r.lat ?? null;
+    const lng = r.lng ?? null;
+    if (lat !== null && (lat < 35 || lat > 43)) { hatali++; continue; }
+    if (lng !== null && (lng < 25 || lng > 46)) { hatali++; continue; }
+
+    try {
+      const result = await c.env.DB.prepare(
+        `INSERT OR IGNORE INTO ilanlar
+         (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
+          fiyat_per_m2, m2, kategori, para_birimi, yakalanma_tarihi,
+          lat, lng, koord_kaynagi, aktif)
+         VALUES ('emlakjet', ?, ?, ?, ?, ?, ?, ?, 'TL', ?, ?, ?, ?, 1)`,
+      ).bind(
+        r.ilan_no,
+        r.il_norm,
+        r.ilce_norm,
+        r.mahalle_norm ?? null,
+        r.fiyat_per_m2,
+        r.m2 ?? null,
+        r.kategori,
+        ts,
+        lat,
+        lng,
+        lat !== null ? "mahalle-merkez" : null,
+      ).run();
+      // INSERT OR IGNORE: changes=0 ise zaten vardı (skip)
+      if ((result.meta.changes ?? 0) > 0) inserted++;
+      else skipped++;
+    } catch {
+      hatali++;
+    }
+  }
+
+  return c.json({
+    ok: true,
+    requested: body.rows.length,
+    inserted,
+    skipped,
+    hatali,
+  });
+});
+
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 app.onError((err, c) => {
   console.error("[api error]", err);
@@ -198,17 +363,32 @@ export default {
   fetch: app.fetch,
 
   // Cron handler — wrangler.toml `crons` listesindeki her trigger'da çağrılır.
-  // Üç trigger var:
+  // Dört trigger:
   //   "0 3 * * *"   → istatistikRefresh (günde 1, mahalle istatistik agregasyonu)
   //   "0 * * * *"   → bildirimKontroluCalistir (saatlik, fiyat/emsal/eşik kontrolü)
   //   "0 2 1 * *"   → Sahibinden otomatik scraper (ayın 1'i 02:00 UTC)
+  //   "0 3 15 * *"  → Emlakjet otomatik scraper (ayın 15'i 03:00 UTC) [YENİ]
   // event.cron string'i ile ayırıyoruz.
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const cron = event.cron;
     if (cron === "0 3 * * *") {
-      ctx.waitUntil(
-        istatistikRefresh(env.DB).then((r) => console.log("[cron-daily] istatistik:", r)),
-      );
+      ctx.waitUntil((async () => {
+        // 1) İstatistik agregasyonu
+        const r = await istatistikRefresh(env.DB);
+        console.log("[cron-daily] istatistik:", r);
+
+        // 2) rate_limit tablosu temizliği (48 saatten eski satırlar)
+        const rl = await rateLimitTemizle(env.DB);
+        console.log("[cron-daily] rate_limit temizlendi:", rl);
+
+        // 3) giris_denemesi tablosu temizliği (24 saatten eski satırlar)
+        // auth.ts'deki module-level _lastCleanupHour kaldırıldı, bu cron üstlendi.
+        const dakikaSiniri = Math.floor(Date.now() / 60_000) - 60 * 24;
+        const gd = await env.DB.prepare(
+          "DELETE FROM giris_denemesi WHERE dakika < ?"
+        ).bind(dakikaSiniri).run().catch(() => ({ meta: { changes: 0 } }));
+        console.log("[cron-daily] giris_denemesi temizlendi:", gd.meta.changes, "satır");
+      })());
     } else if (cron === "0 * * * *") {
       ctx.waitUntil(
         bildirimKontroluCalistir(env).then((r) =>
@@ -258,6 +438,38 @@ export default {
         for (const a of adminler.results ?? []) {
           await emailGonder(env, a.email, konu, html, metin).catch(() => {});
         }
+      })());
+    } else if (cron === "0 3 15 * *") {
+      // Emlakjet aylık scraper — ayın 15'i 03:00 UTC
+      // Sahibinden'in aksine PerimeterX yok — Worker'dan direkt çalışır.
+      // Worker CPU 30s limiti: maxIlce=8, maxSayfa=3 → ~20-25s içinde tamamlar.
+      ctx.waitUntil((async () => {
+        // En eski taranan ilçeleri seç (veya hiç taranmamışları)
+        const ilceler = await env.DB.prepare(
+          `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
+           WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 8`,
+        ).all<{ il_norm: string; ilce_norm: string }>();
+
+        let hedefler = (ilceler.results ?? []).map((r) => ({
+          ilN: r.il_norm,
+          ilceN: r.ilce_norm,
+        }));
+
+        // İlk run — mahalle_baseline_ai'dan ilçe seç (geniş kapsam için)
+        if (hedefler.length === 0) {
+          const fb = await env.DB.prepare(
+            `SELECT DISTINCT il_norm, ilce_norm FROM mahalle_baseline_ai
+             ORDER BY RANDOM() LIMIT 8`,
+          ).all<{ il_norm: string; ilce_norm: string }>();
+          hedefler = (fb.results ?? []).map((r) => ({ ilN: r.il_norm, ilceN: r.ilce_norm }));
+        }
+
+        const r = await emlakjetCronBaslat(env.DB, hedefler, 8, 3, "cron-aylik");
+        console.log("[cron-emlakjet] run tamamlandı:", r);
+
+        // İstatistikleri hemen güncelle
+        const ist = await istatistikRefresh(env.DB);
+        console.log("[cron-emlakjet] istatistik refresh:", ist);
       })());
     } else {
       console.warn("[cron] beklenmeyen schedule:", cron);

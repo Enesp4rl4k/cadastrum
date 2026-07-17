@@ -2,100 +2,558 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tema initial — flash önle */
+/* =============================================================================
+ * Cadastrum Extension — Premium Design System
+ *
+ * Motion principles (impeccable + design-motion-principles):
+ *   • Physical weight: press → scale(0.96), lift → translateY(-2px)
+ *   • Spring physics: overshoot then settle (cubic-bezier(0.34,1.56,0.64,1))
+ *   • Purposeful: every animation communicates a state change
+ *   • Layered depth: surface → card → overlay → modal
+ *   • prefers-reduced-motion: all animations collapse to instant
+ * ============================================================================= */
+
+/* ── Easing tokens ── */
+:root {
+  --spring:       cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-soft:  cubic-bezier(0.25, 1.4,  0.5,  1);
+  --out-expo:     cubic-bezier(0.16, 1,    0.3,  1);
+  --out-quart:    cubic-bezier(0.25, 1,    0.5,  1);
+  --in-out:       cubic-bezier(0.4,  0,    0.2,  1);
+
+  /* Surface depth tokens — light */
+  --surface-0:    #f8fafc;   /* page bg */
+  --surface-1:    #ffffff;   /* card bg */
+  --surface-2:    #f1f5f9;   /* inset / input bg */
+  --surface-3:    #e2e8f0;   /* divider */
+
+  /* Glass morphism */
+  --glass-bg:     rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 4px 24px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255,255,255,0.4);
+
+  /* Glow tokens */
+  --glow-primary: 0 0 16px rgba(13, 110, 253, 0.22);
+  --glow-success: 0 0 16px rgba(5, 150, 105, 0.2);
+  --glow-ai:      0 0 20px rgba(124, 58, 237, 0.25);
+  --glow-ilan:    0 0 16px rgba(234, 88, 12, 0.22);
+
+  /* Elevation shadows */
+  --shadow-xs:  0 1px 2px rgba(15,23,42,0.04);
+  --shadow-sm:  0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-md:  0 4px 8px rgba(15,23,42,0.06), 0 2px 4px rgba(15,23,42,0.04);
+  --shadow-lg:  0 8px 24px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.04);
+  --shadow-xl:  0 16px 48px rgba(15,23,42,0.10), 0 4px 16px rgba(15,23,42,0.06);
+}
+
+/* ── Dark theme tokens ── */
 html.dark {
   color-scheme: dark;
-  background-color: #0f172a;
-}
 
-html.dark body {
-  color: #e2e8f0;
-}
+  --surface-0:    #060b18;
+  --surface-1:    #0f172a;
+  --surface-2:    #1e293b;
+  --surface-3:    #334155;
 
-/* MapLibre attribution dark mode */
+  --glass-bg:     rgba(15, 23, 42, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.05);
+
+  --glow-primary: 0 0 20px rgba(59, 130, 246, 0.3);
+  --glow-success: 0 0 20px rgba(16, 185, 129, 0.25);
+  --glow-ai:      0 0 24px rgba(167, 139, 250, 0.3);
+  --glow-ilan:    0 0 20px rgba(251, 146, 60, 0.28);
+
+  --shadow-xs:  0 1px 2px rgba(0,0,0,.2);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
+  --shadow-md:  0 4px 8px rgba(0,0,0,.32), 0 2px 4px rgba(0,0,0,.2);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.24);
+  --shadow-xl:  0 16px 48px rgba(0,0,0,.48), 0 4px 16px rgba(0,0,0,.28);
+
+  background-color: var(--surface-0);
+}
+html.dark body { color: #e2e8f0; }
+
+/* ── MapLibre dark mode ── */
 html.dark .maplibregl-ctrl-attrib {
   background: rgba(15, 23, 42, 0.8) !important;
   color: #cbd5e1 !important;
 }
-html.dark .maplibregl-ctrl-attrib a {
-  color: #94a3b8 !important;
+html.dark .maplibregl-ctrl-attrib a { color: #94a3b8 !important; }
+
+/* ── Root layout ── */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ----- GLOBAL DARK MODE RETROFIT ---------------------------------------
- * 30+ component'i tek tek düzeltmek yerine en yaygın Tailwind class'ları
- * için dark mode override. Spesifik dark: variant'ları bu kuralları ezer.
- * Bu sayede mevcut light-mode class'lar dark mode'da otomatik adapt olur.
- */
+/* =============================================================================
+ * DARK MODE — semantic overrides
+ * ============================================================================= */
 
-/* Backgrounds */
-html.dark .bg-white:not(.dark\:bg-white) { background-color: #1e293b; } /* slate-800 */
-html.dark .bg-slate-50:not([class*="dark:bg-"]) { background-color: #0f172a; } /* slate-900 */
-html.dark .bg-slate-100:not([class*="dark:bg-"]) { background-color: #1e293b; }
-html.dark .bg-slate-200:not([class*="dark:bg-"]) { background-color: #334155; } /* slate-700 */
+html.dark .bg-white:not(.dark\:bg-white)         { background-color: var(--surface-1); }
+html.dark .bg-slate-50:not([class*="dark:bg-"])  { background-color: var(--surface-0); }
+html.dark .bg-slate-100:not([class*="dark:bg-"]) { background-color: var(--surface-2); }
+html.dark .bg-slate-200:not([class*="dark:bg-"]) { background-color: var(--surface-3); }
 
-/* Borders */
-html.dark .border-slate-100:not([class*="dark:border-"]) { border-color: #334155; }
-html.dark .border-slate-200:not([class*="dark:border-"]) { border-color: #334155; }
-html.dark .border-slate-300:not([class*="dark:border-"]) { border-color: #475569; } /* slate-600 */
+html.dark .border-slate-100:not([class*="dark:border-"]) { border-color: rgba(51,65,85,.6); }
+html.dark .border-slate-200:not([class*="dark:border-"]) { border-color: rgba(51,65,85,.7); }
+html.dark .border-slate-300:not([class*="dark:border-"]) { border-color: rgba(71,85,105,.8); }
 
-/* Text — koyu tonlu metinleri açıklaştır */
 html.dark .text-slate-800:not([class*="dark:text-"]),
 html.dark .text-slate-900:not([class*="dark:text-"]),
-html.dark .text-tkgm-ink:not([class*="dark:text-"]) { color: #f1f5f9; } /* slate-100 */
-html.dark .text-slate-700:not([class*="dark:text-"]) { color: #e2e8f0; } /* slate-200 */
-html.dark .text-slate-600:not([class*="dark:text-"]) { color: #cbd5e1; } /* slate-300 */
+html.dark .text-tkgm-ink:not([class*="dark:text-"])   { color: #f1f5f9; }
+html.dark .text-slate-700:not([class*="dark:text-"])  { color: #e2e8f0; }
+html.dark .text-slate-600:not([class*="dark:text-"])  { color: #cbd5e1; }
 html.dark .text-slate-500:not([class*="dark:text-"]),
-html.dark .text-tkgm-muted:not([class*="dark:text-"]) { color: #94a3b8; } /* slate-400 */
-html.dark .text-slate-400:not([class*="dark:text-"]) { color: #64748b; } /* slate-500 */
+html.dark .text-tkgm-muted:not([class*="dark:text-"]) { color: #94a3b8; }
+html.dark .text-slate-400:not([class*="dark:text-"])  { color: #64748b; }
 
-/* Hafif yarı saydam slate katmanları (bg-slate-50/60 vb.) */
-html.dark [class*="bg-slate-50/"]:not([class*="dark:bg-"]) { background-color: rgba(30, 41, 59, 0.6); }
-html.dark [class*="bg-slate-100/"]:not([class*="dark:bg-"]) { background-color: rgba(51, 65, 85, 0.5); }
-
-/* Form elemanları */
 html.dark input:not([type="checkbox"]):not([type="radio"]):not([class*="dark:bg-"]),
 html.dark select:not([class*="dark:bg-"]),
 html.dark textarea:not([class*="dark:bg-"]) {
-  background-color: #1e293b;
+  background-color: var(--surface-2);
   color: #e2e8f0;
-  border-color: #475569;
+  border-color: var(--surface-3);
 }
 html.dark input::placeholder,
 html.dark textarea::placeholder { color: #64748b; }
 
-/* Card shadow — koyu modda glow yerine subtle border */
-html.dark .shadow-card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(51, 65, 85, 0.5); }
-html.dark .shadow-card-hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(71, 85, 105, 0.6); }
+html.dark .shadow-card       { box-shadow: var(--shadow-sm); }
+html.dark .shadow-card-hover { box-shadow: var(--shadow-md); }
 
-/* Renkli pastel arkaplanlar (red-50, emerald-50, amber-50, violet-50, orange-50, sky-50) */
-html.dark .bg-red-50:not([class*="dark:bg-"]) { background-color: rgba(127, 29, 29, 0.25); }
-html.dark .bg-emerald-50:not([class*="dark:bg-"]) { background-color: rgba(6, 78, 59, 0.25); }
-html.dark .bg-amber-50:not([class*="dark:bg-"]) { background-color: rgba(120, 53, 15, 0.25); }
+/* Semantic bg colors — dark */
+html.dark .bg-red-50:not([class*="dark:bg-"])      { background-color: rgba(127,29,29,.2); }
+html.dark .bg-emerald-50:not([class*="dark:bg-"])  { background-color: rgba(6,78,59,.2); }
+html.dark .bg-amber-50:not([class*="dark:bg-"])    { background-color: rgba(120,53,15,.2); }
 html.dark .bg-violet-50:not([class*="dark:bg-"]),
-html.dark [class*="bg-violet-50/"]:not([class*="dark:bg-"]) { background-color: rgba(76, 29, 149, 0.25); }
-html.dark .bg-orange-50:not([class*="dark:bg-"]) { background-color: rgba(124, 45, 18, 0.25); }
-html.dark .bg-sky-50:not([class*="dark:bg-"]) { background-color: rgba(12, 74, 110, 0.25); }
-html.dark .bg-blue-50:not([class*="dark:bg-"]) { background-color: rgba(30, 58, 138, 0.25); }
-html.dark .bg-green-50:not([class*="dark:bg-"]) { background-color: rgba(20, 83, 45, 0.25); }
+html.dark [class*="bg-violet-50/"]:not([class*="dark:bg-"]) { background-color: rgba(76,29,149,.2); }
+html.dark .bg-orange-50:not([class*="dark:bg-"])   { background-color: rgba(124,45,18,.2); }
+html.dark .bg-sky-50:not([class*="dark:bg-"])      { background-color: rgba(12,74,110,.2); }
+html.dark .bg-blue-50:not([class*="dark:bg-"])     { background-color: rgba(30,58,138,.2); }
+html.dark .bg-green-50:not([class*="dark:bg-"])    { background-color: rgba(20,83,45,.2); }
+html.dark .bg-rose-50:not([class*="dark:bg-"])     { background-color: rgba(136,19,55,.2); }
 
-/* Renkli border'lar */
-html.dark .border-red-200:not([class*="dark:border-"]) { border-color: rgba(127, 29, 29, 0.5); }
-html.dark .border-emerald-200:not([class*="dark:border-"]) { border-color: rgba(6, 78, 59, 0.5); }
-html.dark .border-amber-200:not([class*="dark:border-"]) { border-color: rgba(120, 53, 15, 0.5); }
-html.dark .border-violet-200:not([class*="dark:border-"]) { border-color: rgba(91, 33, 182, 0.5); }
+html.dark .border-red-200:not([class*="dark:border-"])     { border-color: rgba(127,29,29,.45); }
+html.dark .border-emerald-200:not([class*="dark:border-"]) { border-color: rgba(6,78,59,.45); }
+html.dark .border-amber-200:not([class*="dark:border-"])   { border-color: rgba(120,53,15,.45); }
+html.dark .border-violet-200:not([class*="dark:border-"])  { border-color: rgba(91,33,182,.45); }
 html.dark .border-orange-200:not([class*="dark:border-"]),
-html.dark .border-orange-300:not([class*="dark:border-"]) { border-color: rgba(154, 52, 18, 0.6); }
+html.dark .border-orange-300:not([class*="dark:border-"])  { border-color: rgba(154,52,18,.55); }
+html.dark .border-rose-200:not([class*="dark:border-"])    { border-color: rgba(136,19,55,.45); }
+html.dark .border-sky-200:not([class*="dark:border-"])     { border-color: rgba(12,74,110,.45); }
 
-/* hover:bg-slate-50, hover:bg-slate-100 — dark hover */
-html.dark .hover\:bg-slate-50:hover:not([class*="dark:hover:bg-"]) { background-color: #334155 !important; }
-html.dark .hover\:bg-slate-100:hover:not([class*="dark:hover:bg-"]) { background-color: #475569 !important; }
-html.dark .hover\:bg-orange-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(154, 52, 18, 0.4) !important; }
+html.dark .hover\:bg-slate-50:hover:not([class*="dark:hover:bg-"])  { background-color: var(--surface-2) !important; }
+html.dark .hover\:bg-slate-100:hover:not([class*="dark:hover:bg-"]) { background-color: var(--surface-3) !important; }
+html.dark .hover\:bg-orange-100:hover:not([class*="dark:hover:bg-"]){ background-color: rgba(154,52,18,.35) !important; }
 
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+/* =============================================================================
+ * GLASS MORPHISM — .glass class
+ * ============================================================================= */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* =============================================================================
+ * MICRO-INTERACTIONS — impeccable + design-motion-principles
+ * ============================================================================= */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* ── Focus ring ── */
+  :focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 4px;
+    transition: outline-offset 150ms var(--out-expo);
+  }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* ── Button: physical press ── */
+  button:not([disabled]),
+  [role="button"]:not([disabled]) {
+    transition:
+      transform       150ms var(--spring),
+      box-shadow      200ms var(--out-expo),
+      background-color 150ms var(--in-out),
+      opacity         150ms var(--in-out),
+      color           150ms var(--in-out);
+  }
+  button:not([disabled]):active,
+  [role="button"]:not([disabled]):active {
+    transform: scale(0.95);
+    transition-duration: 60ms;
+  }
+
+  /* ── Card lift (interactive) ── */
+  .card-lift {
+    transition:
+      transform    220ms var(--out-expo),
+      box-shadow   220ms var(--out-expo),
+      border-color 180ms var(--in-out);
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* ── Card interactive (subtle) ── */
+  .card-interactive {
+    transition:
+      transform    200ms var(--out-expo),
+      box-shadow   200ms var(--out-expo),
+      border-color 180ms var(--in-out);
+  }
+  .card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  html.dark .card-interactive:hover { box-shadow: var(--shadow-md); }
+
+  /* ── Glow on hover ── */
+  .glow-primary:hover { box-shadow: var(--shadow-md), var(--glow-primary); }
+  .glow-success:hover { box-shadow: var(--shadow-md), var(--glow-success); }
+  .glow-ai:hover      { box-shadow: var(--shadow-md), var(--glow-ai); }
+  .glow-ilan:hover    { box-shadow: var(--shadow-md), var(--glow-ilan); }
+
+  /* ── IlanKarti enter animation ── */
+  .ilan-karti-enter {
+    animation: ilan-enter 380ms var(--out-expo) forwards;
+  }
+  @keyframes ilan-enter {
+    from { opacity: 0; transform: translateY(-10px) scale(0.99); }
+    to   { opacity: 1; transform: translateY(0)     scale(1); }
+  }
+
+  /* ── Content fade-in ── */
+  .content-enter {
+    animation: content-enter 320ms var(--out-expo) forwards;
+  }
+  @keyframes content-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Skeleton shimmer ── */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: #e2e8f0;
+    border-radius: 4px;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255,255,255,0.6) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-sweep 1.6s ease-in-out infinite;
+  }
+  html.dark .skeleton { background: var(--surface-2); }
+  html.dark .skeleton::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255,255,255,0.07) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+  }
+  @keyframes skeleton-sweep {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  /* ── Status live dot ── */
+  .status-live {
+    position: relative;
+  }
+  .status-live::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.35;
+    animation: status-ring 2.2s var(--out-expo) infinite;
+  }
+  @keyframes status-ring {
+    0%   { transform: scale(1);   opacity: 0.35; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  /* ── Primary CTA button (TKGM doğrula) ── */
+  .btn-cta {
+    position: relative;
+    overflow: hidden;
+    transition:
+      transform    200ms var(--spring),
+      box-shadow   200ms var(--out-expo),
+      background-color 150ms var(--in-out);
+  }
+  .btn-cta:not([disabled]):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px -6px currentColor;
+  }
+  .btn-cta:not([disabled]):active {
+    transform: scale(0.97) translateY(0);
+    transition-duration: 60ms;
+  }
+  /* Shimmer sweep */
+  .btn-cta::after {
+    content: "";
+    position: absolute;
+    top: 0; left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+    transform: skewX(-20deg);
+    pointer-events: none;
+  }
+  .btn-cta:not([disabled]):hover::after {
+    animation: btn-shimmer 500ms var(--out-expo) forwards;
+  }
+  @keyframes btn-shimmer {
+    from { left: -120%; }
+    to   { left: 180%; }
+  }
+
+  /* Legacy alias */
+  .btn-tkgm-dogrula { @apply btn-cta; }
+
+  /* ── Field stagger reveal ── */
+  .field-reveal {
+    opacity: 0;
+    transform: translateX(-5px);
+    animation: field-reveal-in 320ms var(--out-expo) forwards;
+  }
+  .field-reveal:nth-child(1) { animation-delay:  40ms; }
+  .field-reveal:nth-child(2) { animation-delay:  80ms; }
+  .field-reveal:nth-child(3) { animation-delay: 120ms; }
+  .field-reveal:nth-child(4) { animation-delay: 160ms; }
+  .field-reveal:nth-child(5) { animation-delay: 200ms; }
+  .field-reveal:nth-child(6) { animation-delay: 240ms; }
+  .field-reveal:nth-child(7) { animation-delay: 280ms; }
+  .field-reveal:nth-child(8) { animation-delay: 320ms; }
+  @keyframes field-reveal-in {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── Tab icon bounce ── */
+  .tab-icon-active {
+    animation: icon-pop 280ms var(--spring) forwards;
+  }
+  @keyframes icon-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.28); }
+    100% { transform: scale(1.1); }
+  }
+
+  /* ── Tab active indicator slide ── */
+  .tab-indicator {
+    transition: left 280ms var(--spring), width 280ms var(--spring);
+  }
+
+  /* ── Success check draw ── */
+  .check-draw {
+    animation: check-in 320ms var(--spring) forwards;
+  }
+  @keyframes check-in {
+    from { transform: scale(0) rotate(-15deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0);      opacity: 1; }
+  }
+
+  /* ── Error shake ── */
+  .error-shake {
+    animation: error-shake 380ms var(--in-out) forwards;
+  }
+  @keyframes error-shake {
+    0%   { transform: translateX(0); }
+    15%  { transform: translateX(-5px); }
+    35%  { transform: translateX(5px); }
+    55%  { transform: translateX(-3px); }
+    75%  { transform: translateX(3px); }
+    100% { transform: translateX(0); }
+  }
+
+  /* ── Number count-up effect ── */
+  .num-update {
+    animation: num-flash 400ms var(--out-expo);
+  }
+  @keyframes num-flash {
+    0%   { color: #3b82f6; transform: scale(1.05); }
+    100% { color: inherit; transform: scale(1); }
+  }
+
+  /* ── Fade up (generic entrance) ── */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: fade-up-in 380ms var(--out-expo) forwards;
+  }
+  @keyframes fade-up-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Slide in from right (tab switch) ── */
+  .slide-in-right {
+    animation: slide-in-right 280ms var(--out-expo) forwards;
+  }
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── Spin smooth ── */
+  .spin-smooth { animation: spin-smooth 750ms linear infinite; }
+  @keyframes spin-smooth { to { transform: rotate(360deg); } }
+
+  /* ── Input focus glow ── */
+  select:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+    border-color: #3b82f6 !important;
+    transition: box-shadow 180ms var(--out-expo), border-color 150ms;
+  }
+
+  /* ── Tooltip fade ── */
+  [data-tooltip]:hover::after {
+    animation: tooltip-in 180ms var(--out-expo) forwards;
+  }
+  @keyframes tooltip-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+
+  /* ── Overflow menu open ── */
+  @keyframes overflow-menu-in {
+    from { opacity: 0; transform: scale(0.90) translateY(-8px); transform-origin: top right; }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+  }
+
+  /* ── Onboarding adım geçiş animasyonu ── */
+  @keyframes onboarding-content-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Reduced motion fallbacks */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .skeleton, .skeleton::after {
+    animation: none !important;
+    background: #e2e8f0;
+  }
+  html.dark .skeleton { background: var(--surface-2); }
+
+  @keyframes overflow-menu-in {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .toast-enter, .toast-exit { animation: none !important; opacity: 1; }
+
+  @keyframes toast-progress {
+    from { width: 100%; }
+    to   { width: 0%; }
+  }
+}
+
+/* ── Toast animations ── */
+@media (prefers-reduced-motion: no-preference) {
+  .toast-enter {
+    animation: toast-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0)     scale(1); }
+  }
+
+  .toast-exit {
+    animation: toast-out 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+  @keyframes toast-out {
+    from { opacity: 1; transform: translateY(0)   scale(1); }
+    to   { opacity: 0; transform: translateY(4px) scale(0.97); }
+  }
+
+  @keyframes toast-progress {
+    from { width: 100%; }
+    to   { width: 0%; }
+  }
+}
+
+/* =============================================================================
+ * UTILITY CLASSES
+ * ============================================================================= */
+
+/* Metric / stat display */
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
+}
+
+/* Accent left border shorthand */
+.accent-bar-info    { border-left: 3px solid #0284c7; }
+.accent-bar-success { border-left: 3px solid #059669; }
+.accent-bar-warning { border-left: 3px solid #d97706; }
+.accent-bar-danger  { border-left: 3px solid #dc2626; }
+.accent-bar-ai      { border-left: 3px solid #7c3aed; }
+.accent-bar-ilan    { border-left: 3px solid #ea580c; }
+
+/* Gradient text */
+.text-gradient-primary {
+  background: linear-gradient(135deg, #0d6efd, #0284c7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-ai {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-gold {
+  background: linear-gradient(135deg, #c9a86a, #d2b375);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle dot pattern bg */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle, rgba(15,23,42,0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+html.dark .bg-dot-pattern {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+}
+
+/* Thin separator */
+.separator {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--surface-3), transparent);
 }

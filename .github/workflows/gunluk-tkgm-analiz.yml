@@ -1,0 +1,76 @@
+name: Günlük TKGM Analiz Seed
+
+# tkgm-analiz-seed.mjs, TKGM tapu-işlem yoğunluğu verisini çeker ve SQL dosyasına
+# biriktirir (emlakjet-workflow ile aynı desen — CI hiçbir production credential
+# taşımaz). D1'e yükleme MANUEL (insan onayı):
+#   cd backend/api && npx wrangler d1 execute cadastrum-db --remote --file=../../scripts/tkgm-analiz-data-{tip}-{yil}.sql
+#
+# TKGM günlük istek limitine takılınca script exit code 2 ile duruyor —
+# bu beklenen bir durum, iş başarısız sayılmaz. İlerleme dosyası + biriken SQL
+# commit edilir, ertesi gün kaldığı ilçeden devam eder.
+#
+# Tetik:
+#   1. Otomatik: her gün 04:00 UTC
+#   2. Manuel: Actions → Run workflow (tip / yıl / il parametreleriyle)
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      tip:
+        description: "Analiz tipi (1=AlımSatım, 2=AnaTS, 3=AnaTSİpot, 4=BBSatış, 5=BBİpot)"
+        required: false
+        default: "1"
+      yil:
+        description: "Yıl (boş = geçen yıl)"
+        required: false
+      il:
+        description: "Tek il kodu (boş = tüm 81 il)"
+        required: false
+
+permissions:
+  contents: write  # ilerleme + SQL dosyasını repo'ya commit etmek için
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340  # GitHub Actions free 6h limitinin altında
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # NOT: tkgm-analiz-seed.mjs yalnız node built-in (fetch/fs) kullanır → npm install GEREKMEZ.
+
+      - name: TKGM analiz seed (limite kadar çalışır, exit 2 = beklenen durma)
+        id: seed
+        run: |
+          set +e
+          ARGS="--tip ${{ github.event.inputs.tip || '1' }}"
+          if [ -n "${{ github.event.inputs.yil }}" ]; then ARGS="$ARGS --yil ${{ github.event.inputs.yil }}"; fi
+          if [ -n "${{ github.event.inputs.il }}" ]; then ARGS="$ARGS --il ${{ github.event.inputs.il }}"; fi
+          node scripts/tkgm-analiz-seed.mjs $ARGS
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -eq 2 ]; then
+            echo "TKGM günlük limit — beklenen durma, yarın devam edecek."
+          elif [ "$EXIT_CODE" -ne 0 ]; then
+            exit $EXIT_CODE
+          fi
+
+      - name: İlerleme + SQL'i commit et
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/.analiz-seed-ilerleme-*.json scripts/tkgm-analiz-data-*.sql
+          if git diff --staged --quiet; then
+            echo "Değişiklik yok."
+          else
+            ADET=$(git diff --staged --numstat -- scripts/tkgm-analiz-data-*.sql | awk '{sum+=$1} END {print sum+0}')
+            git commit -m "data: günlük tkgm-analiz seed (~${ADET} yeni satır) [skip ci]"
+            git push
+          fi

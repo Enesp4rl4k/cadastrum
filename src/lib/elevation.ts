@@ -41,12 +41,17 @@ export async function egimAnaliziGetir(
   kose4: LatLng,
   signal?: AbortSignal,
 ): Promise<EgimAnalizi> {
+  // [0,0] koordinatlar (MultiPolygon / eksik veri) veya merkez ile aynı olan
+  // köşeleri filtrele — API'ye anlamsız tekrar nokta gönderme, eğim hesabı bozulur.
+  const gecerliKose = (p: LatLng): boolean =>
+    p.lat !== 0 && p.lng !== 0 && !(p.lat === merkez.lat && p.lng === merkez.lng);
+
+  const koseler = [kose1, kose2, kose3, kose4].filter(gecerliKose);
+
+  // Geçerli köşe yoksa sadece merkez yüksekliğini çek, eğim = 0
   const points: ElevPoint[] = [
     { lat: merkez.lat, lng: merkez.lng },
-    { lat: kose1.lat, lng: kose1.lng },
-    { lat: kose2.lat, lng: kose2.lng },
-    { lat: kose3.lat, lng: kose3.lng },
-    { lat: kose4.lat, lng: kose4.lng },
+    ...koseler.map((p) => ({ lat: p.lat, lng: p.lng })),
   ];
 
   const lats = points.map((p) => p.lat).join(",");

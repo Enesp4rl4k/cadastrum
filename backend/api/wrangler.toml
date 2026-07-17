@@ -12,15 +12,35 @@ binding = "DB"
 database_name = "cadastrum-db"
 database_id = "6d8b1c0c-6cb7-420c-92a2-0dabe5735ae9"
 
+# TUCBS ÇDP tile kalıcı cache'i — Cloudflare Worker IP'leri TUCBS tarafından
+# yavaşlatılıyor/engelleniyor (522 timeout), bu yüzden canlı isteğe güvenmek
+# yerine tile'lar bir kez seed edilip R2'den servis edilir (write-through cache).
+[[r2_buckets]]
+binding = "TUCBS_TILES"
+bucket_name = "cadastrum-tucbs-tiles"
+
 # Cron Triggers:
-#   "0 3 * * *"  — günde bir, istatistik refresh (mahalle_istatistik agregasyonu)
-#   "0 * * * *"  — saatlik, bildirim abonelik kontrolü (fiyat-degisimi/yeni-emsal)
-#   "0 2 1 * *"  — ayın 1'i 02:00 UTC, Sahibinden otomatik scraper run
+#   "0 3 * * *"   — günde bir, istatistik refresh + rate_limit/giris_denemesi cleanup
+#   "0 * * * *"   — saatlik, bildirim abonelik kontrolü (fiyat-degisimi/yeni-emsal)
+#   "0 2 1 * *"   — ayın 1'i  02:00 UTC, Sahibinden scraper (PerimeterX engeli beklenir, admin maili gider)
+#   "0 3 15 * *"  — ayın 15'i 03:00 UTC, Emlakjet scraper (bot bloğu yok — Worker'dan direkt çalışır)
 [triggers]
-crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *"]
+crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *", "0 3 15 * *"]
 
 [vars]
 ENVIRONMENT = "production"
 RATE_LIMIT_PER_HOUR = "100"
 
-# Secret: SCRAPER_API_SECRET — wrangler secret put SCRAPER_API_SECRET
+# Secrets — deploy öncesi tüm secret'ları set et:
+#
+#   wrangler secret put SCRAPER_API_SECRET   ← scraper ingest (/v1/ilan, /v1/scraper)
+#   wrangler secret put SEED_SECRET          ← baseline seed (/v1/baseline/seed)  [YENİ]
+#   wrangler secret put STATS_SECRET         ← istatistik refresh (/v1/istatistik/refresh)  [YENİ]
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put LEMON_WEBHOOK_SECRET
+#   wrangler secret put GEMINI_API_KEY
+#   wrangler secret put GROQ_API_KEY
+#
+# NOT: Her secret farklı ve rastgele olmalı.
+# Üretmek için: openssl rand -hex 32

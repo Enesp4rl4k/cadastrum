@@ -17,6 +17,7 @@ import {
   fmtTL,
   fmtTLM2,
 } from "../../lib/fiyat-tahmin";
+import { FiyatBantGostergesi } from "./FiyatBantGostergesi";
 import type { Parsel } from "../../types/tkgm";
 import type { CevreAnalizi } from "../../lib/osm";
 import type { EgimAnalizi } from "../../lib/elevation";
@@ -28,6 +29,7 @@ import { useAyarlar } from "../../lib/ayarlar";
 import { useLisans } from "../../lib/lisans";
 import { Card, Section } from "../ui/Card";
 import { HizliImarPrompt } from "./HizliImarPrompt";
+import { GuvenGostergesi } from "./GuvenGostergesi";
 
 interface Props {
   parsel: Parsel;
@@ -43,6 +45,11 @@ interface Props {
   onImarSkip: () => void;
   /** Skip sonrası warn banner'dan "İmar gir" — skip'i geri çevirir, prompt'u tekrar açar. */
   onImarTekrarSor: () => void;
+  /**
+   * Fiyat tahmini hesaplandığında parent'a bildir.
+   * YatirimSkoruKarti ikinci bir fiyatTahminEt() çağrısı yapmaktan kurtulur.
+   */
+  onTahminHesaplandi?: (tahmin: FiyatTahmini | null) => void;
 }
 
 export function FiyatTahminKarti({
@@ -56,6 +63,7 @@ export function FiyatTahminKarti({
   onImarKaydedildi,
   onImarSkip,
   onImarTekrarSor,
+  onTahminHesaplandi,
 }: Props) {
   const [tahmin, setTahmin] = useState<FiyatTahmini | null>(null);
   const [acik, setAcik] = useState(false);
@@ -83,6 +91,7 @@ export function FiyatTahminKarti({
     if (!hesaplanabilir) {
       // İmar yoksa eski tahmini temizle — yanıltıcı stale değer kalmasın
       setTahmin(null);
+      onTahminHesaplandi?.(null);
       setAiSonuc(null);
       setAiHata(null);
       return;
@@ -90,7 +99,10 @@ export function FiyatTahminKarti({
     // NOT: fiyatTahminEt(4 param) tucbs almıyor (TÜCBS imar threading fiyat-tahmin.ts'te
     // henüz tamamlanmadı). tucbs prop'u deps'te kalıyor; imar threading eklenince buraya geçilir.
     fiyatTahminEt(parsel, cevre, egim, ePlan).then((t) => {
-      if (!iptal) setTahmin(t);
+      if (!iptal) {
+        setTahmin(t);
+        onTahminHesaplandi?.(t);
+      }
     });
     setAiSonuc(null);
     setAiHata(null);
@@ -178,7 +190,6 @@ export function FiyatTahminKarti({
   const coldStart = tahmin.baselineKaynak !== "ilanGozlem-mahalle"
     && tahmin.baselineKaynak !== "ilanGozlem-ilce"
     && tahmin.baselineKaynak !== "spatial-radius";
-  const { guvenIcon, guvenLabel, guvenClass } = guvenStyle(tahmin.guven);
 
   return (
     <Section
@@ -186,9 +197,7 @@ export function FiyatTahminKarti({
       icon={<WalletIcon className="h-3.5 w-3.5" />}
       accent="success"
       subtitle={
-        <span className={`inline-flex items-center gap-0.5 ${guvenClass}`}>
-          {guvenIcon} {guvenLabel}
-        </span>
+        <GuvenGostergesi tahmin={tahmin} kompakt />
       }
       bare
     >
@@ -251,40 +260,16 @@ export function FiyatTahminKarti({
           </div>
         </div>
 
-        {/* Alt-Üst aralık */}
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-md bg-slate-50 px-2 py-1.5">
-            <div className="text-3xs uppercase tracking-wide text-slate-500">
-              Alt sınır
-            </div>
-            <div className="text-xs font-semibold tabular-nums text-slate-700">
-              {fmtTL(tahmin.toplamAlt)}
-            </div>
-            <div className="text-3xs text-slate-400 tabular-nums">
-              {fmtTLM2(tahmin.altPerM2)}
-            </div>
-          </div>
-          <div className="rounded-md bg-slate-50 px-2 py-1.5">
-            <div className="text-3xs uppercase tracking-wide text-slate-500">
-              Üst sınır
-            </div>
-            <div className="text-xs font-semibold tabular-nums text-slate-700">
-              {fmtTL(tahmin.toplamUst)}
-            </div>
-            <div className="text-3xs text-slate-400 tabular-nums">
-              {fmtTLM2(tahmin.ustPerM2)}
-            </div>
-          </div>
-        </div>
+        {/* Görsel fiyat bandı — alt/beklenen/üst + "neden geniş" */}
+        <FiyatBantGostergesi tahmin={tahmin} />
 
-        {/* Veri kaynağı + Sahibinden ara butonu */}
-        <div className="rounded-md border border-slate-200 bg-white/80 px-2 py-1.5 text-3xs dark:border-slate-700 dark:bg-slate-800/80">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-slate-700 dark:text-slate-100">Tahmin bandı</span>
-            <span className="font-mono text-slate-500 dark:text-slate-300">%{tahmin.aralikGenisligiYuzde}</span>
+        {/* m²/fiyat bilgi satırı */}
+        <div className="grid grid-cols-2 gap-2 text-center text-3xs text-slate-500">
+          <div>
+            <span className="font-medium">Alt </span>{fmtTLM2(tahmin.altPerM2)}
           </div>
-          <div className="mt-0.5 text-slate-500 dark:text-slate-300">
-            Daha düşük yüzde daha dar ve daha güvenli fiyat aralığı demek.
+          <div>
+            <span className="font-medium">Üst </span>{fmtTLM2(tahmin.ustPerM2)}
           </div>
         </div>
 
@@ -449,33 +434,19 @@ export function FiyatTahminKarti({
           )}
         </div>
 
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-3xs">
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="font-medium text-slate-700">Veri kalitesi</span>
-            <span className="font-mono text-slate-500">Skor {tahmin.guvenSkoru}/100</span>
+        {/* Güven göstergesi — insan dostu format (GuvenGostergesi component) */}
+        <div className="rounded-md border border-slate-200 bg-slate-50/80 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800/60">
+          <div className="mb-1 text-3xs font-medium text-slate-600 dark:text-slate-400">
+            Veri kalitesi
           </div>
-          <div className="mb-1.5 flex flex-wrap gap-1">
-            {tahmin.guvenKirilimi.slice(0, 6).map((kalem) => (
-              <span
-                key={`${kalem.etiket}-${kalem.puan}`}
-                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                  kalem.durum === "pozitif"
-                    ? "bg-emerald-100 text-emerald-800"
-                    : kalem.durum === "uyari"
-                      ? "bg-amber-100 text-amber-800"
-                      : "bg-slate-200 text-slate-700"
-                }`}
-              >
-                <span>{kalem.puan > 0 ? "+" : ""}{kalem.puan}</span>
-                <span>{kalem.etiket}</span>
-              </span>
-            ))}
-          </div>
-          <div className="space-y-0.5 text-slate-500">
-            {tahmin.veriKalitesiNotlari.slice(0, 4).map((not, i) => (
-              <div key={i}>• {not}</div>
-            ))}
-          </div>
+          <GuvenGostergesi tahmin={tahmin} />
+          {tahmin.veriKalitesiNotlari.length > 0 && (
+            <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+              {tahmin.veriKalitesiNotlari.slice(0, 3).map((not, i) => (
+                <div key={i}>• {not}</div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Hesap detayı toggle */}
@@ -692,7 +663,7 @@ function sahibindenAraUrl(parsel: Parsel): string {
   const slug = (s: string) =>
     s
       .toLocaleLowerCase("tr")
-      .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+      .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "");
   const il = parsel.ilAd ? slug(parsel.ilAd) : "";
@@ -874,22 +845,3 @@ function kisaltNizam(nizam: string): string {
   return nizam.split(/\s+/)[0]?.slice(0, 7) ?? nizam.slice(0, 7);
 }
 
-function guvenStyle(guven: FiyatTahmini["guven"]) {
-  if (guven === "yuksek")
-    return {
-      guvenIcon: "★★★",
-      guvenLabel: "yüksek güven",
-      guvenClass: "text-accent-success",
-    };
-  if (guven === "orta")
-    return {
-      guvenIcon: "★★",
-      guvenLabel: "orta güven",
-      guvenClass: "text-accent-warning",
-    };
-  return {
-    guvenIcon: "★",
-    guvenLabel: "düşük güven",
-    guvenClass: "text-slate-400",
-  };
-}

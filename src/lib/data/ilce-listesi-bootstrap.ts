@@ -1,5 +1,5 @@
 /**
- * Otomatik üretildi: 2026-05-15T07:12:42.907Z
+ * Otomatik üretildi: 2026-07-09T19:12:18.053Z
  * Kaynak: data/mahalleler.json
  *
  * !!! BU DOSYAYI ELLE DÜZENLEME !!!
@@ -141,7 +141,7 @@ export const BOOTSTRAP_ILCE_LISTESI: BootstrapIlce[] = [
     "il": "Adıyaman",
     "ilce": "Kâhta",
     "ilNorm": "adiyaman",
-    "ilceNorm": "k hta"
+    "ilceNorm": "kahta"
   },
   {
     "il": "Adıyaman",
@@ -429,7 +429,7 @@ export const BOOTSTRAP_ILCE_LISTESI: BootstrapIlce[] = [
     "il": "Ankara",
     "ilce": "Balâ",
     "ilNorm": "ankara",
-    "ilceNorm": "bal"
+    "ilceNorm": "bala"
   },
   {
     "il": "Ankara",
@@ -1970,67 +1970,67 @@ export const BOOTSTRAP_ILCE_LISTESI: BootstrapIlce[] = [
   {
     "il": "Elâzığ",
     "ilce": "Ağın",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "agin"
   },
   {
     "il": "Elâzığ",
     "ilce": "Alacakaya",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "alacakaya"
   },
   {
     "il": "Elâzığ",
     "ilce": "Arıcak",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "aricak"
   },
   {
     "il": "Elâzığ",
     "ilce": "Baskil",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "baskil"
   },
   {
     "il": "Elâzığ",
     "ilce": "Elâzığ Merkez",
-    "ilNorm": "el zig",
-    "ilceNorm": "el zig merkez"
+    "ilNorm": "elazig",
+    "ilceNorm": "elazig merkez"
   },
   {
     "il": "Elâzığ",
     "ilce": "Karakoçan",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "karakocan"
   },
   {
     "il": "Elâzığ",
     "ilce": "Keban",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "keban"
   },
   {
     "il": "Elâzığ",
     "ilce": "Kovancılar",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "kovancilar"
   },
   {
     "il": "Elâzığ",
     "ilce": "Maden",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "maden"
   },
   {
     "il": "Elâzığ",
     "ilce": "Palu",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "palu"
   },
   {
     "il": "Elâzığ",
     "ilce": "Sivrice",
-    "ilNorm": "el zig",
+    "ilNorm": "elazig",
     "ilceNorm": "sivrice"
   },
   {
@@ -2480,31 +2480,31 @@ export const BOOTSTRAP_ILCE_LISTESI: BootstrapIlce[] = [
   {
     "il": "Hakkâri",
     "ilce": "Çukurca",
-    "ilNorm": "hakk ri",
+    "ilNorm": "hakkari",
     "ilceNorm": "cukurca"
   },
   {
     "il": "Hakkâri",
     "ilce": "Derecik",
-    "ilNorm": "hakk ri",
+    "ilNorm": "hakkari",
     "ilceNorm": "derecik"
   },
   {
     "il": "Hakkâri",
     "ilce": "Hakkari Merkez",
-    "ilNorm": "hakk ri",
+    "ilNorm": "hakkari",
     "ilceNorm": "hakkari merkez"
   },
   {
     "il": "Hakkâri",
     "ilce": "Şemdinli",
-    "ilNorm": "hakk ri",
+    "ilNorm": "hakkari",
     "ilceNorm": "semdinli"
   },
   {
     "il": "Hakkâri",
     "ilce": "Yüksekova",
-    "ilNorm": "hakk ri",
+    "ilNorm": "hakkari",
     "ilceNorm": "yuksekova"
   },
   {
@@ -2833,15 +2833,15 @@ export const BOOTSTRAP_ILCE_LISTESI: BootstrapIlce[] = [
   },
   {
     "il": "İstanbul",
-    "ilce": "Kâğıthane",
-    "ilNorm": "istanbul",
-    "ilceNorm": "k githane"
-  },
-  {
-    "il": "İstanbul",
     "ilce": "Kadıköy",
     "ilNorm": "istanbul",
     "ilceNorm": "kadikoy"
+  },
+  {
+    "il": "İstanbul",
+    "ilce": "Kâğıthane",
+    "ilNorm": "istanbul",
+    "ilceNorm": "kagithane"
   },
   {
     "il": "İstanbul",

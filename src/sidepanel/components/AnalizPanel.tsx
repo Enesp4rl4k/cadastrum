@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { RiskKarti } from "./RiskKarti";
 import {
   Truck as TruckIcon,
@@ -27,6 +27,7 @@ import { ManuelEmsalKarti } from "./ManuelEmsalKarti";
 import { FiyatNetlestirKarti } from "./FiyatNetlestirKarti";
 import { DetayGrup } from "./DetayGrup";
 import { imarBirlestir } from "../../lib/manuel-veri";
+import { depremRiskiGetir } from "../../lib/data/deprem-zonlari";
 import { imarTahminEt } from "../../lib/imar-tahmin";
 import { useManuelVeri } from "../../lib/use-manuel-veri";
 import { EmsalMukayeseKarti } from "./EmsalMukayeseKarti";
@@ -34,6 +35,7 @@ import { EmsalRadiusSlider } from "./EmsalRadiusSlider";
 import { YatirimSkoruKarti } from "./YatirimSkoruKarti";
 import { BildirimKurali } from "./BildirimKurali";
 import { DogalVeriKarti } from "./DogalVeriKarti";
+import { BagimsizBolumKarti } from "./BagimsizBolumKarti";
 import { GunesEnerjisiKarti } from "./GunesEnerjisiKarti";
 import { TarimAnalizKarti } from "./TarimAnalizKarti";
 import { PaywallKilit } from "./PaywallKilit";
@@ -43,6 +45,7 @@ import { EPLAN_URL } from "../../lib/eplan";
 import { useEPlanVerisi } from "../../lib/use-eplan";
 import { useTucbsCdp } from "../../lib/use-tucbs";
 import { CdpKarti } from "./CdpKarti";
+import { ScorecardKarti } from "./ScorecardKarti";
 
 interface Props {
   parsel: Parsel;
@@ -57,6 +60,8 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
   const lisansBilgi = useLisans();
   const [cevre, setCevre] = useState<CevreAnalizi | null>(null);
   const [egim, setEgim] = useState<EgimAnalizi | null>(null);
+  // Fiyat tahmini — FiyatTahminKarti tarafından hesaplanır, YatirimSkoruKarti'na geçirilir
+  const [hesaplananFiyat, setHesaplananFiyat] = useState<import("../../lib/fiyat-tahmin").FiyatTahmini | null>(null);
   const [adres, setAdres] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,48 +72,24 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
   const [imarSkipEdildi, setImarSkipEdildi] = useState(false);
   const skorlar = tumSkorlariHesapla(analiz, cevre, egim);
   const autoAnalizKeyRef = useRef<string | null>(null);
+  const abortCtrlRef = useRef<AbortController | null>(null);
   const { veri: ePlanVerisi, loading: ePlanLoading } = useEPlanVerisi(parsel);
   const { veri: tucbsVerisi, loading: tucbsLoading } = useTucbsCdp(parsel);
   const { veri: manuelVeri, tetikle: manuelTetikle } = useManuelVeri(parsel);
   // Manuel + ePlan birleşik imar — manuel öncelikli alan bazında override eder
   const birlesikImar = imarBirlestir(ePlanVerisi, manuelVeri.imar);
 
-  // Yeni parsel gelince eski enrichment'ı sıfırla
-  useEffect(() => {
-    setCevre(null);
-    setEgim(null);
-    setAdres(null);
-    setError(null);
-    setImarSkipEdildi(false);
-    setImarDetayAcik(false);
-    autoAnalizKeyRef.current = null;
-    onYakinPoiler?.(null);
-  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (cevre && egim) return;
-    const analizKey = `${parsel.mahalleKodu ?? "x"}:${parsel.adaNo}:${parsel.parselNo}`;
-    if (autoAnalizKeyRef.current === analizKey) return;
-    autoAnalizKeyRef.current = analizKey;
-    void cevreyiAnalizEt();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu, cevre, egim, loading]);
-
-  // Cevre veya toggle değişince haritaya bildirim
-  useEffect(() => {
-    if (yakinlarHaritada && cevre) {
-      onYakinPoiler?.(cevre.enYakinlar.filter((p) => p.lat !== 0));
-    } else {
-      onYakinPoiler?.(null);
+  // cevreyiAnalizEt — useCallback burada (useEffect'lerden önce) tanımlanmalı
+  const cevreyiAnalizEt = useCallback(async () => {
+    // Önceki çağrı varsa iptal et
+    if (abortCtrlRef.current) {
+      abortCtrlRef.current.abort();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cevre, yakinlarHaritada]);
+    const ctrl = new AbortController();
+    abortCtrlRef.current = ctrl;
 
-  async function cevreyiAnalizEt() {
     setLoading(true);
     setError(null);
-    const ctrl = new AbortController();
     try {
       const ring = parsel.koordinatlar;
       const k1 = ring[0] ?? parsel.merkezNokta;
@@ -148,9 +129,51 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         setError(`Kısmi hata (diğer veriler geldi):\n${hatalar.join("\n")}`);
       }
     } finally {
-      setLoading(false);
+      // Sadece bu ctrl hâlâ geçerliyse loading'i kapat
+      if (abortCtrlRef.current === ctrl) {
+        setLoading(false);
+        abortCtrlRef.current = null;
+      }
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu, parsel.merkezNokta, parsel.koordinatlar]);
+
+  // Yeni parsel gelince eski enrichment'ı sıfırla ve devam eden async işlemi iptal et
+  useEffect(() => {
+    // Önceki parsel için devam eden Overpass/Open-Meteo/Nominatim isteklerini iptal et
+    if (abortCtrlRef.current) {
+      abortCtrlRef.current.abort();
+      abortCtrlRef.current = null;
+    }
+    setCevre(null);
+    setEgim(null);
+    setAdres(null);
+    setError(null);
+    setHesaplananFiyat(null);
+    setImarSkipEdildi(false);
+    setImarDetayAcik(false);
+    autoAnalizKeyRef.current = null;
+    onYakinPoiler?.(null);
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (cevre && egim) return;
+    const analizKey = `${parsel.mahalleKodu ?? "x"}:${parsel.adaNo}:${parsel.parselNo}`;
+    if (autoAnalizKeyRef.current === analizKey) return;
+    autoAnalizKeyRef.current = analizKey;
+    void cevreyiAnalizEt();
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu, cevre, egim, loading, cevreyiAnalizEt]);
+
+  // Cevre veya toggle değişince haritaya bildirim
+  useEffect(() => {
+    if (yakinlarHaritada && cevre) {
+      onYakinPoiler?.(cevre.enYakinlar.filter((p) => p.lat !== 0));
+    } else {
+      onYakinPoiler?.(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cevre, yakinlarHaritada]);
 
   return (
     <div className="space-y-2.5 border-t border-slate-200 pt-2.5">
@@ -401,9 +424,14 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       {/* Doğal veri katmanı — AFAD deprem + iklim + toprak (Cadastrum içinde) */}
       <DogalVeriKarti parsel={parsel} />
 
-      {/* TUCBS Çevre Düzeni Planı — üst plan arazi kullanımı */}
+      {/* İmar & Üst Plan — e-Plan KAKS + TUCBS ÇDP birleşik kart */}
       {acikModuller.includes("cdp-tucbs") && (
-        <CdpKarti veri={tucbsVerisi} loading={tucbsLoading} />
+        <CdpKarti
+          veri={tucbsVerisi}
+          loading={tucbsLoading}
+          ePlan={birlesikImar ?? ePlanVerisi}
+          ePlanLoading={ePlanLoading}
+        />
       )}
 
       {/* Risk taraması — fiyat tahmin kartından ÖNCE: yatırım öncesi kritik */}
@@ -443,6 +471,7 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           }}
           onImarSkip={() => setImarSkipEdildi(true)}
           onImarTekrarSor={() => setImarSkipEdildi(false)}
+          onTahminHesaplandi={setHesaplananFiyat}
         />
       )}
 
@@ -558,13 +587,21 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         {acikModuller.includes("fiyat-tahmin") && <EmsalMukayeseKarti parsel={parsel} />}
         {acikModuller.includes("fiyat-tahmin") && <EmsalRadiusSlider parsel={parsel} />}
         {acikModuller.includes("fiyat-tahmin") && (
-          <YatirimSkoruKarti parsel={parsel} cevre={cevre} ePlan={birlesikImar ?? ePlanVerisi} />
+          <YatirimSkoruKarti
+            parsel={parsel}
+            fiyat={hesaplananFiyat}
+            cevre={cevre}
+            ePlan={birlesikImar ?? ePlanVerisi}
+          />
         )}
         {acikModuller.includes("fiyat-tahmin") && <BildirimKurali parsel={parsel} />}
 
         {parsel.ilceKodu != null && (
           <TkgmAnaliz ilceKodu={parsel.ilceKodu} ilceAd={parsel.ilceAd} />
         )}
+
+        {/* Bağımsız bölüm (kat mülkiyeti) — apartman/bina nitelikli parsellerde otomatik */}
+        <BagimsizBolumKarti parsel={parsel} />
 
         <Section title="🌍 Doğal Risk Değerlendirmesi">
           <RiskKarti ilAd={parsel.ilAd} />
@@ -602,6 +639,43 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
             ))}
         </DetayGrup>
       )}
+
+      {/* ── AI SCORECARD — 5 boyutlu uygunluk analizi ───────────────────── */}
+      <DetayGrup baslik="AI Arazi Scorecard" ikon="🤖" renk="violet">
+        <ScorecardKarti
+          parsel={parsel}
+          egim={egim}
+          depremPga={depremRiskiGetir(
+            (parsel.ilAd ?? "")
+              .toLowerCase()
+              .replace(/[ğ]/g, "g").replace(/[ü]/g, "u").replace(/[ş]/g, "s")
+              .replace(/[ı]/g, "i").replace(/[ö]/g, "o").replace(/[ç]/g, "c")
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+              .replace(/\s+/g, "-")
+          )?.pga ?? null}
+          taskinRisk={null}
+          otoyolKm={cevre?.enYakinlar.find(p => p.tip === "motorway" || p.tip === "trunk")
+            ? cevre.enYakinlar.find(p => p.tip === "motorway" || p.tip === "trunk")!.mesafeM / 1000
+            : undefined}
+          osbKm={cevre?.enYakinlar.find(p => p.tip === "osb")
+            ? cevre.enYakinlar.find(p => p.tip === "osb")!.mesafeM / 1000
+            : undefined}
+          havalimanKm={cevre?.enYakinlar.find(p => p.tip === "airport")
+            ? cevre.enYakinlar.find(p => p.tip === "airport")!.mesafeM / 1000
+            : undefined}
+          limanKm={cevre?.enYakinlar.find(p => p.tip === "port")
+            ? cevre.enYakinlar.find(p => p.tip === "port")!.mesafeM / 1000
+            : undefined}
+          serbestBolgeKm={cevre?.enYakinlar.find(p => p.tip === "serbest-bolge")
+            ? cevre.enYakinlar.find(p => p.tip === "serbest-bolge")!.mesafeM / 1000
+            : undefined}
+          lisansliDepoKm={cevre?.enYakinlar.find(p => p.tip === "lisansli-depo")
+            ? cevre.enYakinlar.find(p => p.tip === "lisansli-depo")!.mesafeM / 1000
+            : undefined}
+          elektrikHattiM={cevre?.altyapi.elektrikHattiM ?? undefined}
+          baselineTlm2={hesaplananFiyat?.beklenenPerM2 ?? undefined}
+        />
+      </DetayGrup>
 
       {/* ── FİZİBİLİTE — bağımsız grup (yatırım hesabı odaklı) ─────────── */}
       <DetayGrup baslik="Fizibilite Hesaplayıcı" ikon="🧮" renk="slate">

@@ -111,7 +111,7 @@ const BELEDIYELER: Record<string, Partial<BelediyeBilgi>> = {
 function normalize(s: string): string {
   return s
     .toLocaleLowerCase("tr")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .trim();
 }
 

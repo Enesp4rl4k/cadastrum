@@ -68,8 +68,8 @@ interface KullaniciRow {
   email_dogrulandi?: number;
   dogrulama_kod?: string | null;
   dogrulama_son?: number | null;
-  sifre_sifirlama_token?: string | null;
-  sifre_sifirlama_son?: number | null;
+  sifre_sifirla_token?: string | null;
+  sifre_sifirla_son?: number | null;
 }
 
 function kullaniciDispatch(row: KullaniciRow) {
@@ -325,15 +325,33 @@ auth.post("/dogrula", async (c) => {
 });
 
 // ── Şifre sıfırlama: link gönder ────────────────────────────────
+// Ayrı rate-limit bucket — giriş denemeleriyle karışmasın.
+// IP başına dakikada 3 sıfırlama isteği yeterli.
+async function sifreSifirlaRateLimit(env: Env, ip: string): Promise<boolean> {
+  const dakika = Math.floor(Date.now() / 60000);
+  const row = await env.DB.prepare(
+    "SELECT sayi FROM giris_denemesi WHERE ip = ? AND dakika = ?"
+  ).bind(`reset:${ip}`, dakika).first<{ sayi: number }>();
+  const mevcut = row?.sayi ?? 0;
+  if (mevcut >= 3) return false;
+  await env.DB.prepare(
+    `INSERT INTO giris_denemesi (ip, dakika, sayi) VALUES (?, ?, 1)
+     ON CONFLICT(ip, dakika) DO UPDATE SET sayi = sayi + 1`
+  ).bind(`reset:${ip}`, dakika).run();
+  return true;
+}
+
 auth.post("/sifre-sifirla", async (c) => {
   const ip = clientIp(c);
-  const izinli = await rateLimitKontrol(c.env, ip);
+  const izinli = await sifreSifirlaRateLimit(c.env, ip);
   if (!izinli) return c.json({ hata: "Çok fazla deneme. Bir dakika bekleyin." }, 429);
 
   const body = await c.req.json<{ email?: string }>().catch(() => null);
   if (!body?.email) return c.json({ hata: "Email gerekli" }, 400);
 
   const email = body.email.trim().toLowerCase();
+  if (!emailGecerli(email)) return c.json({ hata: "Geçersiz email" }, 400);
+
   const row = await c.env.DB.prepare(
     "SELECT id, email, ad FROM kullanicilar WHERE email = ?"
   ).bind(email).first<{ id: number; email: string; ad: string | null }>();
@@ -344,12 +362,21 @@ auth.post("/sifre-sifirla", async (c) => {
   const sifirlamaToken = rastgeleHex(32);
   const son = Date.now() + 60 * 60 * 1000; // 1 saat
   await c.env.DB.prepare(
-    "UPDATE kullanicilar SET sifre_sifirlama_token = ?, sifre_sifirlama_son = ? WHERE id = ?"
+    "UPDATE kullanicilar SET sifre_sifirla_token = ?, sifre_sifirla_son = ? WHERE id = ?"
   ).bind(sifirlamaToken, son, row.id).run();
 
   const sifirlamaUrl = `https://cadastrum.com.tr/sifre-yenile?token=${sifirlamaToken}`;
   const tmpl3 = sifreSifirlamaTemplate(row.ad, sifirlamaUrl);
-  await emailGonder(c.env, row.email, "Cadastrum şifre sıfırlama", tmpl3.html, tmpl3.metin);
+  const emailGitti = await emailGonder(c.env, row.email, "Cadastrum şifre sıfırlama", tmpl3.html, tmpl3.metin);
+
+  if (!emailGitti) {
+    // Token'ı temizle — yarım kalan token DB'de kalmasın
+    await c.env.DB.prepare(
+      "UPDATE kullanicilar SET sifre_sifirla_token = NULL, sifre_sifirla_son = NULL WHERE id = ?"
+    ).bind(row.id).run();
+    console.error("[sifre-sifirla] email gönderilemedi, alici:", row.email);
+    return c.json({ hata: "Email gönderilemedi. Lütfen birkaç dakika sonra tekrar deneyin." }, 500);
+  }
 
   return c.json({ gonderildi: true });
 });
@@ -362,11 +389,11 @@ auth.post("/sifre-yenile", async (c) => {
   if (body.yeniSifre.length > 128) return c.json({ hata: "Şifre çok uzun" }, 400);
 
   const row = await c.env.DB.prepare(
-    "SELECT id, sifre_sifirlama_son FROM kullanicilar WHERE sifre_sifirlama_token = ?"
-  ).bind(body.token).first<{ id: number; sifre_sifirlama_son: number | null }>();
+    "SELECT id, sifre_sifirla_son FROM kullanicilar WHERE sifre_sifirla_token = ?"
+  ).bind(body.token).first<{ id: number; sifre_sifirla_son: number | null }>();
 
   if (!row) return c.json({ hata: "Geçersiz veya süresi dolmuş bağlantı" }, 400);
-  if (!row.sifre_sifirlama_son || row.sifre_sifirlama_son < Date.now()) {
+  if (!row.sifre_sifirla_son || row.sifre_sifirla_son < Date.now()) {
     return c.json({ hata: "Bağlantı süresi dolmuş" }, 400);
   }
 
@@ -374,7 +401,7 @@ auth.post("/sifre-yenile", async (c) => {
   const yeniHash = await sifreHash(body.yeniSifre, yeniSalt);
   await c.env.DB.prepare(
     `UPDATE kullanicilar SET pw_hash = ?, pw_salt = ?,
-       sifre_sifirlama_token = NULL, sifre_sifirlama_son = NULL
+       sifre_sifirla_token = NULL, sifre_sifirla_son = NULL
      WHERE id = ?`
   ).bind(yeniHash, yeniSalt, row.id).run();
 

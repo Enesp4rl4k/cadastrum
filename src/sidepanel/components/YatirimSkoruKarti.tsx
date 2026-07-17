@@ -1,7 +1,12 @@
 /**
- * Yatırım Skoru Kartı — Faz 3 Sprint E.
+ * Yatırım Skoru Kartı — Faz 3 Sprint E + Sprint G güncelleme.
  *
  * 1-100 gauge + 6 boyut breakdown + ROI/IRR/Cap Rate KPI'ları.
+ *
+ * Değişiklikler (Sprint G):
+ *   - fiyat prop dışarıdan alınır (AnalizPanel'deki FiyatTahminKarti ile senkronize)
+ *   - buyumeTrendi boyutu artık trendProjesyonGetir() gerçek OLS verisiyle besleniyor
+ *   - IRR hesabında sabit %30 yerine gerçek trend yillikDegisimYuzde kullanılıyor
  *
  * Pro tier kapalı (yatırım analizi premium feature).
  */
@@ -9,7 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp as TrendingUpIcon } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
-import { fiyatTahminEt, type FiyatTahmini } from "../../lib/fiyat-tahmin";
+import type { FiyatTahmini } from "../../lib/fiyat-tahmin";
 import type { CevreAnalizi } from "../../lib/osm";
 import type { EPlanImarVerisi } from "../../lib/eplan";
 import {
@@ -18,12 +23,18 @@ import {
 } from "../../lib/yatirim-skoru";
 import { kiraTahminiHesapla } from "../../lib/kira-getirisi";
 import { roiHesapla } from "../../lib/yatirim-roi";
+import { trendProjesyonGetir } from "../../lib/fiyat-trendi";
 import { Section } from "../ui/Card";
 import { useLisans } from "../../lib/lisans";
 import { PaywallKilit } from "./PaywallKilit";
 
 interface Props {
   parsel: Parsel;
+  /**
+   * Dışarıdan geçirilen fiyat tahmini (FiyatTahminKarti'nın hesapladığı).
+   * null → henüz hesaplanmadı, undefined → parent bu prop'u geçmedi.
+   */
+  fiyat?: FiyatTahmini | null;
   cevre: CevreAnalizi | null;
   ePlan: EPlanImarVerisi | null;
 }
@@ -45,37 +56,60 @@ function seviyeRenk(seviye: YatirimSkoru["seviye"]): {
   }
 }
 
-export function YatirimSkoruKarti({ parsel, cevre, ePlan }: Props) {
+export function YatirimSkoruKarti({ parsel, fiyat: fiyatProp, cevre, ePlan }: Props) {
   const lisans = useLisans();
   const acik = lisans.can("ai-fiyat"); // Yatırım analizi Bireysel Pro+
 
-  // Kendi fiyat tahminini hesapla — FiyatTahminKarti parent'a yaymıyor
-  const [fiyat, setFiyat] = useState<FiyatTahmini | null>(null);
+  // Gerçek OLS trend verisi — async fetch
+  const [trendYillikDegisim, setTrendYillikDegisim] = useState<number | null>(null);
+
   useEffect(() => {
     if (!acik) return;
+    if (!parsel.ilAd || !parsel.ilceAd || !parsel.mahalleAd) return;
+
     let iptal = false;
-    fiyatTahminEt(parsel, cevre, null, ePlan)
-      .then((f) => { if (!iptal) setFiyat(f); })
-      .catch(() => {});
+    trendProjesyonGetir(
+      parsel.ilAd,
+      parsel.ilceAd,
+      parsel.mahalleAd,
+      // Tarla/arsa tipine göre kategori
+      /tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(parsel.nitelik) ? "tarla" : "arsa",
+    )
+      .then((sonuc) => {
+        if (!iptal && sonuc) setTrendYillikDegisim(sonuc.yillikDegisimYuzde);
+      })
+      .catch(() => {}); // sessizce başarısız ol
+
     return () => { iptal = true; };
-  }, [parsel, cevre, ePlan, acik]);
+  }, [parsel.ilAd, parsel.ilceAd, parsel.mahalleAd, parsel.nitelik, acik]);
 
   const skor = useMemo<YatirimSkoru>(
-    () => yatirimSkoruHesapla({ parsel, fiyat, cevre, ePlan }),
-    [parsel, fiyat, cevre, ePlan],
+    () => yatirimSkoruHesapla({
+      parsel,
+      fiyat: fiyatProp ?? null,
+      cevre,
+      ePlan,
+      trendYillikDegisim,
+    }),
+    [parsel, fiyatProp, cevre, ePlan, trendYillikDegisim],
   );
 
   const kira = useMemo(() => kiraTahminiHesapla(parsel), [parsel]);
-  const fiyatTutari = fiyat?.beklenenPerM2 != null && parsel.alan > 0
-    ? fiyat.beklenenPerM2 * parsel.alan
+  const fiyatTutari = fiyatProp?.beklenenPerM2 != null && parsel.alan > 0
+    ? fiyatProp.beklenenPerM2 * parsel.alan
     : null;
+
   const roi = useMemo(() => {
     if (fiyatTutari == null || fiyatTutari <= 0) return null;
     return roiHesapla({
       fiyat: fiyatTutari,
       yillikKira: kira?.yillikKira ?? null,
+      // Gerçek trend varsa kullan, yoksa TCMB KFE varsayılan ~%30
+      yillikDegerArtisYuzdesi: trendYillikDegisim != null
+        ? Math.max(5, trendYillikDegisim) // en az %5 (negatif trendde floor)
+        : 30,
     });
-  }, [fiyatTutari, kira]);
+  }, [fiyatTutari, kira, trendYillikDegisim]);
 
   if (!acik) {
     return (
@@ -113,6 +147,12 @@ export function YatirimSkoruKarti({ parsel, cevre, ePlan }: Props) {
                 {skor.toplam}
                 <span className="text-base font-normal opacity-60">/100</span>
               </div>
+              {/* Trend badge */}
+              {trendYillikDegisim != null && (
+                <div className="mt-1 text-2xs text-slate-600 dark:text-slate-400">
+                  {trendYillikDegisim > 0 ? "📈" : "📉"} Yıllık {trendYillikDegisim > 0 ? "+" : ""}{trendYillikDegisim.toFixed(0)}% (nominal)
+                </div>
+              )}
             </div>
             <div className="text-right text-2xs text-slate-600 max-w-[180px]">
               {skor.ozet}
@@ -146,7 +186,11 @@ export function YatirimSkoruKarti({ parsel, cevre, ePlan }: Props) {
         {roi != null && (kira || roi.irr10y != null) && (
           <div className="rounded border border-slate-200 bg-slate-50 dark:bg-slate-900 dark:border-slate-700 p-2 space-y-1">
             <div className="text-2xs font-semibold text-slate-700 dark:text-slate-300">
-              📊 Getiri Analizi {kira ? `(kira: ₺${kira.aylikKira.toLocaleString("tr-TR")}/ay)` : ""}
+              📊 Getiri Analizi
+              {kira ? ` (kira: ₺${kira.aylikKira.toLocaleString("tr-TR")}/ay)` : ""}
+              {trendYillikDegisim != null
+                ? ` · değer artışı %${Math.max(5, trendYillikDegisim).toFixed(0)}/yıl`
+                : " · değer artışı %30/yıl (varsayılan)"}
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               {roi.brutKiraGetirisi != null && (
@@ -161,7 +205,7 @@ export function YatirimSkoruKarti({ parsel, cevre, ePlan }: Props) {
             </div>
             {roi.brutKiraGetirisi == null && (
               <p className="text-3xs italic text-slate-500">
-                Kira tahmini sadece konut için yapılır. IRR varsayılan %30/yıl değer artışı.
+                Kira tahmini sadece konut için yapılır. IRR {trendYillikDegisim != null ? `%${Math.max(5, trendYillikDegisim).toFixed(0)} trend` : "%30 varsayılan"} değer artışıyla hesaplandı.
               </p>
             )}
           </div>

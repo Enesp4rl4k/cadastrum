@@ -177,16 +177,53 @@ proxyRoutes.get("/tucbs", async (c) => {
 });
 
 // WMS GetMap tile — MapLibre {bbox-epsg-3857} placeholder'ı client'ta doldurulur
-proxyRoutes.get("/tucbs/tile", async (c) => {
-  const wms = c.req.query("wms");
-  const bbox = c.req.query("bbox");
+/** Standart XYZ tile → EPSG:3857 bbox (Web Mercator tam daire: ±20037508.342789244m) */
+function xyzToBbox3857(z: number, x: number, y: number): string {
+  const WORLD = 20037508.342789244;
+  const tileSize = (WORLD * 2) / 2 ** z;
+  const minX = -WORLD + x * tileSize;
+  const maxX = minX + tileSize;
+  const maxY = WORLD - y * tileSize;
+  const minY = maxY - tileSize;
+  return `${minX},${minY},${maxX},${maxY}`;
+}
+
+// TUCBS'in kendi sunucusu Cloudflare Worker IP aralığını yavaşlatıyor/engelliyor
+// (canlı istekler 522/timeout ile sonuçlanıyor). Bu yüzden tile'lar R2'de
+// write-through cache'leniyor: önce R2'ye bak, yoksa TUCBS'ten çek + R2'ye yaz.
+// z/x/y standart slippy-map şeması — hem R2 anahtarı hem MapLibre tile source'u
+// için tutarlı (bkz. site/src/scripts/harita-init.ts).
+proxyRoutes.get("/tucbs/tile/:wms/:z/:x/:y", async (c) => {
+  const wms = c.req.param("wms");
+  const z = Number(c.req.param("z"));
+  const x = Number(c.req.param("x"));
+  const y = Number(c.req.param("y").replace(/\.png$/, ""));
+
   if (!wms || !TUCBS_WMS_SLUGS.has(wms)) {
     return c.json({ error: "Geçersiz wms slug" }, 400);
   }
-  if (!bbox || !/^-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(bbox)) {
-    return c.json({ error: "bbox zorunlu (EPSG:3857 minX,minY,maxX,maxY)" }, 400);
+  if (!Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y) || z < 0 || z > 20) {
+    return c.json({ error: "Geçersiz z/x/y" }, 400);
   }
 
+  const r2Key = `${wms}/${z}/${x}/${y}.png`;
+
+  // 1) R2'den dene
+  const cached = await c.env.TUCBS_TILES.get(r2Key);
+  if (cached) {
+    return new Response(cached.body, {
+      status: 200,
+      headers: {
+        "Content-Type": cached.httpMetadata?.contentType ?? "image/png",
+        "Cache-Control": "public, max-age=2592000, immutable",
+        "Access-Control-Allow-Origin": "*",
+        "X-Tile-Cache": "r2-hit",
+      },
+    });
+  }
+
+  // 2) R2'de yok — TUCBS'ten canlı çek (yavaş/engelli olabilir, bu yüzden kısa timeout)
+  const bbox = xyzToBbox3857(z, x, y);
   const params = new URLSearchParams({
     SERVICE: "WMS",
     VERSION: "1.3.0",
@@ -205,17 +242,145 @@ proxyRoutes.get("/tucbs/tile", async (c) => {
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)" },
-      cf: { cacheTtl: 86_400 * 7, cacheEverything: true } as never,
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       return c.json({ error: `TUCBS tile ${res.status}` }, 502);
     }
     const buf = await res.arrayBuffer();
+
+    // 3) Write-through — bir daha kimse bu tile için TUCBS'e gitmesin
+    c.executionCtx.waitUntil(
+      c.env.TUCBS_TILES.put(r2Key, buf, {
+        httpMetadata: { contentType: res.headers.get("Content-Type") ?? "image/png" },
+      }),
+    );
+
     return new Response(buf, {
       status: 200,
       headers: {
         "Content-Type": res.headers.get("Content-Type") ?? "image/png",
-        "Cache-Control": "public, max-age=604800",
+        "Cache-Control": "public, max-age=2592000, immutable",
+        "Access-Control-Allow-Origin": "*",
+        "X-Tile-Cache": "miss-fetched",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
+// ── TKGM İdari Yapı (il/ilçe listesi) ────────────────────────────────────────
+// cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/idariYapi/ilceListe/{ilKodu}
+// Harita sayfasında ilçe kodlarını çekmek için — CORS engeli var, proxy gerekli.
+
+const TKGM_API_BASE = "https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api";
+const VALID_IDARI_TIP = new Set(["ilListe", "ilceListe", "mahalleListe"]);
+
+proxyRoutes.get("/tkgm-idari/:tip/:kod?", async (c) => {
+  const tip = c.req.param("tip");
+  const kod = c.req.param("kod");
+
+  if (!VALID_IDARI_TIP.has(tip)) {
+    return c.json({ error: "Geçersiz idari tip (ilListe | ilceListe | mahalleListe)" }, 400);
+  }
+
+  // ilListe kod gerektirmez; ilceListe ve mahalleListe gerektirir
+  if (tip !== "ilListe") {
+    if (!kod || !/^\d{1,6}$/.test(kod)) {
+      return c.json({ error: "Geçerli sayısal kod gerekli" }, 400);
+    }
+  }
+
+  const path = kod ? `${tip}/${kod}` : tip;
+  const url = `${TKGM_API_BASE}/idariYapi/${path}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
+        Origin: "https://parselsorgu.tkgm.gov.tr",
+        Referer: "https://parselsorgu.tkgm.gov.tr/",
+      },
+      cf: { cacheTtl: 86_400 * 30, cacheEverything: true } as never,
+    });
+    if (!res.ok) {
+      return c.json({ error: `TKGM idari HTTP ${res.status}` }, 502);
+    }
+    const text = await res.text();
+    return new Response(text, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=2592000", // 30 gün — idari yapı nadiren değişir
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
+// ── TKGM Analiz (alım-satım yoğunluğu) ───────────────────────────────────────
+// cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz?AnalizTip=1&Yil=2025&IlceId=XXX
+// Extension'daki LabView heatmap verisi — site haritasında da kullanmak için proxy.
+// Auth gerektirmiyor ama browser'dan CORS engeli var; Worker IP'sinden çözülür.
+
+const TKGM_ANALIZ_BASE = "https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz";
+const VALID_ANALIZ_TIP = new Set([1, 2, 3, 4, 5]);
+const ANALIZ_YIL_MIN = 2003;
+const ANALIZ_YIL_MAX = new Date().getFullYear();
+
+proxyRoutes.get("/tkgm-analiz", async (c) => {
+  const analizTipRaw = c.req.query("analizTip");
+  const yilRaw = c.req.query("yil");
+  const ilceKoduRaw = c.req.query("ilceKodu");
+
+  if (!analizTipRaw || !yilRaw || !ilceKoduRaw) {
+    return c.json({ error: "analizTip, yil, ilceKodu zorunlu" }, 400);
+  }
+
+  const analizTip = Number(analizTipRaw);
+  const yil = Number(yilRaw);
+  const ilceKodu = Number(ilceKoduRaw);
+
+  if (!VALID_ANALIZ_TIP.has(analizTip)) {
+    return c.json({ error: "analizTip 1–5 arasında olmalı" }, 400);
+  }
+  if (!Number.isInteger(yil) || yil < ANALIZ_YIL_MIN || yil > ANALIZ_YIL_MAX) {
+    return c.json({ error: `yil ${ANALIZ_YIL_MIN}–${ANALIZ_YIL_MAX} arasında olmalı` }, 400);
+  }
+  if (!Number.isInteger(ilceKodu) || ilceKodu <= 0 || ilceKodu > 99999) {
+    return c.json({ error: "ilceKodu geçersiz" }, 400);
+  }
+
+  const url = `${TKGM_ANALIZ_BASE}?AnalizTip=${analizTip}&Yil=${yil}&IlceId=${ilceKodu}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
+        // TKGM analiz endpoint'i parselsorgu.tkgm.gov.tr'den çağrılıyor
+        Origin: "https://parselsorgu.tkgm.gov.tr",
+        Referer: "https://parselsorgu.tkgm.gov.tr/",
+      },
+      // Cloudflare Cache: analiz verisi yıllık — 7 gün TTL yeterli
+      cf: { cacheTtl: 86_400 * 7, cacheEverything: true } as never,
+    });
+
+    if (!res.ok) {
+      return c.json({ error: `TKGM analiz HTTP ${res.status}` }, 502);
+    }
+
+    const text = await res.text();
+    return new Response(text, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        // 7 günlük public cache — CDN kenarında tutulur, backend'e istek gelmez
+        "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
         "Access-Control-Allow-Origin": "*",
       },
     });
@@ -227,5 +392,5 @@ proxyRoutes.get("/tucbs/tile", async (c) => {
 // ── Sağlık ────────────────────────────────────────────────────────────────────
 
 proxyRoutes.get("/health", (c) =>
-  c.json({ ok: true, services: ["eplan", "tucbs"] }),
+  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz"] }),
 );

@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ÇIKTI = `${__dirname}/../src/lib/data/otoyollar.ts`;
+const GEOJSON_ÇIKTI = `${__dirname}/../site/public/geo/otoyollar.geojson`;
 
 // Global Overpass mirror'ları — osm.ch sadece İsviçre/Avrupa, Türkiye için uygun değil
 const OVERPASS_HOSTS = [
@@ -28,21 +29,23 @@ const OVERPASS_HOSTS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 
-// Sadece motorway (O-1, O-2, TEM, ...) statik bundle'a giriyor.
-// Trunk (D-yolları, 37k+ segment) live Overpass 30km query'den geliyor —
-// statik trunk bundle'ı 3+ MB şişirir, service worker startup için ağır.
-// Motorway-only: ~12k nokta, ~780 KB ham, ~140 KB gzip — uygun boyut.
+// Motorway (O-1, O-2, TEM, ...) + Trunk (D-yolları) birlikte alınıyor.
+// Trunk için 5km aralık — 37k+ segment ama seyrek örnekleme ile ~8-10K nokta
+// Toplam tahmini: ~20K nokta, ~1.3MB ham, ~200KB gzip — kabul edilebilir
 const TR_BBOX = "35.8,25.7,42.1,44.8";
 const QUERY = `
-[out:json][timeout:120];
+[out:json][timeout:180];
 (
   way["highway"="motorway"](${TR_BBOX});
+  way["highway"="trunk"](${TR_BBOX});
 );
 out geom;
 `.trim();
 
-// 1 km örnekleme — motorway-only, sayı az, hassasiyet önemli
-const ÖRNEK_ARALIK_M = 1000;
+// Tip bazlı örnekleme aralığı
+const ÖRNEK_ARALIK_MOTORWAY_M = 1000;  // Otoyollar — 1km hassasiyet
+const ÖRNEK_ARALIK_TRUNK_M = 5000;     // D-yolları — 5km (daha az nokta)
+const ÖRNEK_ARALIK_M = 1000;           // Default (geriye dönük uyum)
 const R_DUNYA = 6371000;
 
 function toRad(d) { return (d * Math.PI) / 180; }
@@ -131,7 +134,9 @@ async function main() {
     if (!tip) continue;
     const ad = el.tags?.ref ?? el.tags?.name ?? (tip === "motorway" ? "Otoyol" : "Devlet yolu");
 
-    const samples = poliliniÖrnekle(el.geometry, ÖRNEK_ARALIK_M);
+    // Tip bazlı örnekleme aralığı: otoyollar 1km, trunk 5km
+    const aralik = tip === "motorway" ? ÖRNEK_ARALIK_MOTORWAY_M : ÖRNEK_ARALIK_TRUNK_M;
+    const samples = poliliniÖrnekle(el.geometry, aralik);
     for (const [lat, lng] of samples) {
       noktalar.push({ tip, ad, lat: +lat.toFixed(5), lng: +lng.toFixed(5) });
     }
@@ -158,7 +163,7 @@ async function main() {
   const ts = `/** Türkiye otoyol + trunk yol örnekli noktalar.
  *  Kaynak: OpenStreetMap (ODbL) — extract-otoyollar.mjs ile üretildi.
  *  Üretim tarihi: ${new Date().toISOString().slice(0, 10)}
- *  Toplam ${noktalar.length} nokta (her ~${ÖRNEK_ARALIK_M}m'de bir).
+ *  Toplam ${noktalar.length} nokta (motorway ~${ÖRNEK_ARALIK_MOTORWAY_M}m, trunk ~${ÖRNEK_ARALIK_TRUNK_M}m aralık).
  *  Spatial grid: ${HUCRE_BOY}° hücreler (${Object.keys(grid).length} hücre).
  */
 export type OtoyolNoktasi = { tip: "motorway" | "trunk"; ad: string; lat: number; lng: number };
@@ -174,6 +179,20 @@ export const OTOYOL_GRID: Readonly<Record<string, ReadonlyArray<number>>> = ${JS
   mkdirSync(dirname(ÇIKTI), { recursive: true });
   writeFileSync(ÇIKTI, ts, "utf8");
   process.stderr.write(`[arsa-otoyol] ✓ ${ÇIKTI} yazıldı (${(ts.length / 1024).toFixed(1)} KB)\n`);
+
+  // Site haritası için GeoJSON çıktısı (LineString formatı yerine Point — daha hafif)
+  const geojsonFeatures = noktalar.map((n) => ({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [n.lng, n.lat] },
+    properties: { tip: n.tip, ad: n.ad },
+  }));
+  const geojson = JSON.stringify({
+    type: "FeatureCollection",
+    features: geojsonFeatures,
+  });
+  mkdirSync(dirname(GEOJSON_ÇIKTI), { recursive: true });
+  writeFileSync(GEOJSON_ÇIKTI, geojson, "utf8");
+  process.stderr.write(`[arsa-otoyol] ✓ ${GEOJSON_ÇIKTI} yazıldı (${(geojson.length / 1024).toFixed(1)} KB)\n`);
 }
 
 main().catch((e) => {

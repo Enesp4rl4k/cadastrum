@@ -1,15 +1,19 @@
 /**
  * Otomatik scraper endpoint'leri.
  *
- *   GET  /v1/scraper/run-log         → son scraper run'ları (admin)
- *   POST /v1/scraper/manuel-tetik    → manuel tetik (admin, JWT bearer)
- *   GET  /v1/scraper/ilce-durum      → ilçe bazlı son tarama tarihleri
+ *   GET  /v1/scraper/run-log              → son scraper run'ları (admin)
+ *   POST /v1/scraper/manuel-tetik         → Sahibinden manuel tetik (admin)
+ *   GET  /v1/scraper/ilce-durum           → ilçe bazlı son tarama tarihleri
+ *   POST /v1/scraper/emlakjet-tetik       → Emlakjet manuel tetik (admin) [YENİ]
+ *   GET  /v1/scraper/emlakjet-kapsam      → Emlakjet kapsama istatistikleri [YENİ]
  *
  * Cron: ayın 1'i 02:00 UTC — index.ts scheduled() içinde.
+ *       15'i 03:00 UTC — Emlakjet aylık run [YENİ]
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { jwtMiddleware } from "./hesap.js";
+import { emlakjetRunBaslat } from "../lib/emlakjet-scraper.js";
 
 export const scraperRoutes = new Hono<{ Bindings: Env }>();
 
@@ -163,3 +167,132 @@ export async function scraperRunBaslat(
     hata: sonuc.toplamHata,
   };
 }
+
+// ── Emlakjet manuel tetik ─────────────────────────────────────────────────────
+// POST /v1/scraper/emlakjet-tetik
+// Body: { ilNorm?, ilceNorm?, sayi?, maxSayfa? }
+// Admin JWT zorunlu. Worker 30s CPU — sayi küçük tut (default 5 ilçe).
+scraperRoutes.post("/emlakjet-tetik", async (c) => {
+  if (!adminMi(c)) return c.json({ hata: "Admin gerekli" }, 403);
+
+  interface EjBody {
+    ilNorm?: string;
+    ilceNorm?: string;
+    sayi?: number;
+    maxSayfa?: number;
+  }
+  const body = await c.req.json<EjBody>().catch(() => ({} as EjBody));
+  const maxSayfa = Math.min(Math.max(body.maxSayfa ?? 3, 1), 6);
+
+  // Tek ilçe testi
+  if (body.ilNorm && body.ilceNorm) {
+    const sonuc = await emlakjetRunBaslat(
+      c.env.DB,
+      [{ ilN: body.ilNorm, ilceN: body.ilceNorm }],
+      1,
+      maxSayfa,
+      "manuel-admin",
+    );
+    return c.json({ ok: true, ...sonuc });
+  }
+
+  // Çoklu ilçe — en eski tarananları seç
+  const sayi = Math.min(Math.max(body.sayi ?? 5, 1), 15);
+  const ilceler = await c.env.DB.prepare(
+    `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
+     WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
+  ).bind(sayi).all<{ il_norm: string; ilce_norm: string }>();
+
+  let hedefler = (ilceler.results ?? []).map((r) => ({
+    ilN: r.il_norm,
+    ilceN: r.ilce_norm,
+  }));
+
+  // İlk run — mahalle_baseline_ai'dan ilçe çek (veri olan ilçeler)
+  if (hedefler.length === 0) {
+    const fb = await c.env.DB.prepare(
+      `SELECT DISTINCT il_norm, ilce_norm FROM mahalle_baseline_ai LIMIT ?`,
+    ).bind(sayi).all<{ il_norm: string; ilce_norm: string }>();
+    hedefler = (fb.results ?? []).map((r) => ({ ilN: r.il_norm, ilceN: r.ilce_norm }));
+  }
+
+  // Son fallback — büyük şehir taşra ilçeleri
+  if (hedefler.length === 0) {
+    hedefler = [
+      { ilN: "konya", ilceN: "meram" },
+      { ilN: "ankara", ilceN: "polatli" },
+      { ilN: "bursa", ilceN: "inegol" },
+      { ilN: "izmir", ilceN: "tire" },
+      { ilN: "antalya", ilceN: "manavgat" },
+    ].slice(0, sayi);
+  }
+
+  const sonuc = await emlakjetRunBaslat(
+    c.env.DB,
+    hedefler,
+    sayi,
+    maxSayfa,
+    "manuel-admin",
+  );
+  return c.json({ ok: true, hedef_sayi: hedefler.length, ...sonuc });
+});
+
+// ── Emlakjet kapsama istatistikleri ──────────────────────────────────────────
+// GET /v1/scraper/emlakjet-kapsam
+// Emlakjet kaynaklı ilan sayısı, kapsanan mahalle/ilçe/il sayıları.
+scraperRoutes.get("/emlakjet-kapsam", async (c) => {
+  if (!adminMi(c)) return c.json({ hata: "Admin gerekli" }, 403);
+
+  const [toplamIlan, ilceSayisi, mahalleSayisi, ilSayisi, enYeniTarih, enEskiTarih] = await Promise.all([
+    c.env.DB.prepare(
+      "SELECT COUNT(*) as n FROM ilanlar WHERE kaynak = 'emlakjet' AND aktif = 1",
+    ).first<{ n: number }>(),
+    c.env.DB.prepare(
+      "SELECT COUNT(DISTINCT ilce_norm) as n FROM ilanlar WHERE kaynak = 'emlakjet' AND aktif = 1",
+    ).first<{ n: number }>(),
+    c.env.DB.prepare(
+      "SELECT COUNT(DISTINCT mahalle_norm) as n FROM ilanlar WHERE kaynak = 'emlakjet' AND aktif = 1 AND mahalle_norm IS NOT NULL",
+    ).first<{ n: number }>(),
+    c.env.DB.prepare(
+      "SELECT COUNT(DISTINCT il_norm) as n FROM ilanlar WHERE kaynak = 'emlakjet' AND aktif = 1",
+    ).first<{ n: number }>(),
+    c.env.DB.prepare(
+      "SELECT MAX(yakalanma_tarihi) as t FROM ilanlar WHERE kaynak = 'emlakjet'",
+    ).first<{ t: number | null }>(),
+    c.env.DB.prepare(
+      "SELECT MIN(yakalanma_tarihi) as t FROM ilanlar WHERE kaynak = 'emlakjet'",
+    ).first<{ t: number | null }>(),
+  ]);
+
+  // Kategori dağılımı
+  const kategori = await c.env.DB.prepare(
+    "SELECT kategori, COUNT(*) as n FROM ilanlar WHERE kaynak = 'emlakjet' AND aktif = 1 GROUP BY kategori",
+  ).all<{ kategori: string; n: number }>();
+
+  // Son run'lar
+  const sonRunlar = await c.env.DB.prepare(
+    `SELECT id, baslangic, bitis, islened_ilce, toplam_insert, durum
+     FROM scraper_run WHERE tetik LIKE 'emlakjet%' ORDER BY baslangic DESC LIMIT 10`,
+  ).all().catch(() => ({ results: [] as any[] }));
+
+  return c.json({
+    ilan: {
+      toplam: toplamIlan?.n ?? 0,
+      il_sayisi: ilSayisi?.n ?? 0,
+      ilce_sayisi: ilceSayisi?.n ?? 0,
+      mahalle_sayisi: mahalleSayisi?.n ?? 0,
+      en_yeni: enYeniTarih?.t ?? null,
+      en_eski: enEskiTarih?.t ?? null,
+      kategori: kategori.results ?? [],
+    },
+    hedef: {
+      toplam_ilce: 973,
+      kaplanan_ilce: ilceSayisi?.n ?? 0,
+      kaplama_yuzde: Math.round(((ilceSayisi?.n ?? 0) / 973) * 1000) / 10,
+    },
+    son_runlar: sonRunlar.results ?? [],
+  });
+});
+
+// Emlakjet run fonksiyonunu dışa aktar (cron için)
+export { emlakjetRunBaslat as emlakjetCronBaslat };

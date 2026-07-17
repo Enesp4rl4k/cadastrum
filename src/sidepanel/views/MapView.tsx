@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
-import { Flame as FlameIcon, Layers as LayersIcon } from "lucide-react";
+import { Flame as FlameIcon, Layers as LayersIcon, Mountain as MountainIcon, Thermometer as ThermometerIcon } from "lucide-react";
 import { getParselByLatLng } from "../../lib/tkgm-api";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
@@ -27,13 +27,24 @@ import {
 } from "./heatmap-layer";
 import { applyCdpWms, removeCdpWms } from "./cdp-wms-layer";
 import { tucbsWmsEndpointGetir } from "../../lib/data/tucbs-wms-endpoints";
+import {
+  terrainEkle,
+  terrainKaldir,
+  egimHaritasiHesapla,
+  egimHaritasiUygula,
+  egimHaritasiKaldir,
+  type EgimKategori,
+  EGIM_RENKLERI,
+} from "./terrain-egim-layer";
 
 interface MapViewProps {
   flyTo?: { lat: number; lng: number; parsel?: Parsel } | null;
   onConsumed?: () => void;
+  /** Karşılaştır butonuna tıklandığında karşılaştırma tabına geç */
+  onTabDegistir?: (tab: string) => void;
 }
 
-export function MapView({ flyTo, onConsumed }: MapViewProps) {
+export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const parselRef = useRef<Parsel | null>(null);
@@ -52,6 +63,11 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
   const [heatmapMenuAcik, setHeatmapMenuAcik] = useState(false);
   const [cdpAcik, setCdpAcik] = useState(false);
   const cdpSlugRef = useRef<string | null>(null);
+  // Terrain + Eğim state'leri
+  const [terrainAcik, setTerrainAcik] = useState(false);
+  const [egimAcik, setEgimAcik] = useState(false);
+  const [egimYukleniyor, setEgimYukleniyor] = useState(false);
+  const [egimSonuc, setEgimSonuc] = useState<{ kategori: EgimKategori; ortEgim: number; maxEgim: number } | null>(null);
   parselRef.current = parsel;
 
   const cdpEndpoint = useMemo(
@@ -252,6 +268,57 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
           bolgeAd={cdpEndpoint?.bolgeAd ?? null}
           onToggle={() => setCdpAcik((v) => !v)}
         />
+        <Terrain3DKontrol
+          terrainAcik={terrainAcik}
+          egimAcik={egimAcik}
+          egimYukleniyor={egimYukleniyor}
+          egimSonuc={egimSonuc}
+          parselSecili={!!parsel}
+          onTerrainToggle={() => {
+            const map = mapRef.current;
+            if (!map) return;
+            const yeni = !terrainAcik;
+            setTerrainAcik(yeni);
+            if (yeni) {
+              terrainEkle(map);
+            } else {
+              terrainKaldir(map);
+              // Terrain kapanınca pitch'i sıfırla
+              map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
+            }
+          }}
+          onEgimToggle={async () => {
+            const map = mapRef.current;
+            if (!map || !parsel) return;
+            const yeni = !egimAcik;
+            setEgimAcik(yeni);
+            if (!yeni) {
+              egimHaritasiKaldir(map);
+              setEgimSonuc(null);
+              return;
+            }
+            // Parsel bbox'ı hesapla
+            const coords = parsel.koordinatlar;
+            if (!coords.length) return;
+            const lats = coords.map(c => c.lat);
+            const lngs = coords.map(c => c.lng);
+            const minLat = Math.min(...lats);
+            const maxLat = Math.max(...lats);
+            const minLng = Math.min(...lngs);
+            const maxLng = Math.max(...lngs);
+            setEgimYukleniyor(true);
+            try {
+              const sonuc = await egimHaritasiHesapla(minLat, maxLat, minLng, maxLng);
+              egimHaritasiUygula(map, sonuc.geojson);
+              setEgimSonuc({ kategori: sonuc.kategori, ortEgim: sonuc.ortEgim, maxEgim: sonuc.maxEgim });
+            } catch (e) {
+              console.warn("[terrain] eğim hesaplama hatası:", e);
+              setEgimAcik(false);
+            } finally {
+              setEgimYukleniyor(false);
+            }
+          }}
+        />
         {loading && (
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-1 text-xs text-white">
             Sorgulanıyor…
@@ -278,6 +345,7 @@ export function MapView({ flyTo, onConsumed }: MapViewProps) {
                 drawYakinPoiler(mapRef.current, parsel.merkezNokta, poiler);
               }
             }}
+            onKarsilastirTabAc={onTabDegistir ? () => onTabDegistir("karsilastirma") : undefined}
           />
         )}
       </div>
@@ -628,6 +696,99 @@ function drawParsel(map: MapLibreMap, parsel: Parsel) {
       paint: { "line-color": "#0d6efd", "line-width": 2 },
     });
   }
+}
+
+/** 3D Terrain + Eğim ısı haritası toggle kontrol */
+function Terrain3DKontrol({
+  terrainAcik,
+  egimAcik,
+  egimYukleniyor,
+  egimSonuc,
+  parselSecili,
+  onTerrainToggle,
+  onEgimToggle,
+}: {
+  terrainAcik: boolean;
+  egimAcik: boolean;
+  egimYukleniyor: boolean;
+  egimSonuc: { kategori: EgimKategori; ortEgim: number; maxEgim: number } | null;
+  parselSecili: boolean;
+  onTerrainToggle: () => void;
+  onEgimToggle: () => Promise<void>;
+}) {
+  const egimRenk = egimSonuc ? EGIM_RENKLERI[egimSonuc.kategori] : undefined;
+
+  return (
+    <div className="absolute right-3 top-[8.5rem] z-10 flex flex-col items-end gap-1">
+      {/* 3D Terrain toggle */}
+      <button
+        type="button"
+        onClick={onTerrainToggle}
+        title={terrainAcik ? "3D görünümü kapat" : "3D terrain aç (2D/3D)"}
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors ${
+          terrainAcik
+            ? "border-transparent bg-indigo-600 text-white"
+            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        }`}
+        aria-label="3D Terrain toggle"
+        aria-pressed={terrainAcik}
+      >
+        <MountainIcon className="h-4 w-4" />
+      </button>
+
+      {/* Eğim ısı haritası toggle — sadece parsel seçiliyken aktif */}
+      <button
+        type="button"
+        onClick={() => { void onEgimToggle(); }}
+        disabled={!parselSecili}
+        title={
+          !parselSecili
+            ? "Önce haritada bir parsel seç"
+            : egimAcik
+              ? "Eğim haritasını kapat"
+              : "Eğim ısı haritasını göster"
+        }
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          egimAcik
+            ? "border-transparent text-white"
+            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        }`}
+        style={egimAcik && egimRenk ? { backgroundColor: egimRenk } : undefined}
+        aria-label="Eğim haritası toggle"
+        aria-pressed={egimAcik}
+      >
+        <ThermometerIcon className={`h-4 w-4 ${egimYukleniyor ? "animate-pulse" : ""}`} />
+      </button>
+
+      {/* Eğim özet badge — açıkken göster */}
+      {egimAcik && egimSonuc && (
+        <div
+          className="rounded border border-slate-200 bg-white/90 px-1.5 py-0.5 text-[9px] font-medium shadow-sm dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-200"
+          title={`Ortalama eğim: %${egimSonuc.ortEgim} · Max: %${egimSonuc.maxEgim}`}
+        >
+          <span style={{ color: egimRenk }}>⬛</span>{" "}
+          %{egimSonuc.ortEgim} ort · %{egimSonuc.maxEgim} max
+        </div>
+      )}
+
+      {/* Eğim renk açıklaması — açıkken göster */}
+      {egimAcik && (
+        <div className="rounded border border-slate-200 bg-white/90 p-1 text-[8px] shadow-sm dark:border-slate-700 dark:bg-slate-800/90">
+          {(["duz", "hafif", "orta", "dik"] as EgimKategori[]).map((k) => (
+            <div key={k} className="flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-sm"
+                style={{ backgroundColor: EGIM_RENKLERI[k] }}
+              />
+              <span className="text-slate-600 dark:text-slate-400">
+                {k === "duz" ? "Düz (<2%)" : k === "hafif" ? "Hafif (2-5%)" : k === "orta" ? "Orta (5-15%)" : "Dik (>15%)"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**

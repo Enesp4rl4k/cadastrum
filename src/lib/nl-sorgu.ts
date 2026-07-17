@@ -40,8 +40,8 @@ export interface NlSorgu {
 }
 
 const TR_LOWER = (s: string) =>
-  s.toLocaleLowerCase("tr").replace(/[çğıöşü]/g, (c) =>
-    ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c,
+  s.toLocaleLowerCase("tr").replace(/[çğıöşüâîû]/g, (c) =>
+    ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c,
   );
 
 /**

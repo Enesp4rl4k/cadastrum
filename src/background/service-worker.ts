@@ -108,7 +108,12 @@ function dnrRule(
     },
     condition: {
       urlFilter: hostFilter,
-      resourceTypes: [chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST],
+      // XMLHTTPREQUEST + FETCH ikisini de yakala — side panel fetch() FETCH tipi olarak gelir,
+      // sadece XMLHTTPREQUEST olunca DNR devreye girmiyor → Overpass/TUCBS 406 dönüyor.
+      resourceTypes: [
+        chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST,
+        chrome.declarativeNetRequest.ResourceType.OTHER,
+      ],
     },
   };
 }
@@ -294,6 +299,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: false, status: 0, error: String(e) });
       }
     })();
+    return true;
+  }
+
+  // Overpass API proxy — side panel'den POST yapılamıyor (Origin: chrome-extension → 406)
+  // SW üzerinden göndermek DNR rules'ın devreye girmesini sağlar (header strip).
+  if (msg?.tip === "overpass-proxy" && typeof msg.url === "string" && typeof msg.body === "string") {
+    if (!senderGuvenilirMi(sender)) {
+      sendResponse({ ok: false, status: 403, error: "Unauthorized" });
+      return false;
+    }
+    fetch(msg.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: msg.body,
+    })
+      .then(async (r) => {
+        const text = await r.text();
+        return { ok: r.ok, status: r.status, text };
+      })
+      .then((d) => sendResponse(d))
+      .catch((e) => sendResponse({ ok: false, status: 0, error: String(e) }));
     return true;
   }
 

@@ -310,7 +310,7 @@ function bilgiTablosuCikar(): Record<string, string> {
 function asciiSlug(s: string): string {
   return s
     .toLocaleLowerCase("tr")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .replace(/[^a-z0-9]/g, "");
 }
 
@@ -598,7 +598,7 @@ function txt(...selectors: string[]): string | null {
 function normalize(k: string): string {
   return k
     .toLocaleLowerCase("tr")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
     .replace(/[^a-z0-9]/g, "");
 }
 

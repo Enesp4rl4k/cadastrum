@@ -27,6 +27,7 @@ import { getMahalleMerkez } from "../../lib/data/mahalle-merkezleri";
 import { useAyarlar } from "../../lib/ayarlar";
 import { Card } from "../ui/Card";
 import { IlanFiyatKarsilastirma } from "./IlanFiyatKarsilastirma";
+import { useToast } from "./Toast";
 
 interface Props {
   acikParsel?: Parsel | null;
@@ -67,10 +68,13 @@ export function IlanKarti(props: Props) {
 }
 
 function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
+  const { toast } = useToast();
   const [ilan, setIlan] = useState<IlanBilgisi | null>(null);
   const [dogrulaniyor, setDogrulaniyor] = useState(false);
   const [dogrulamaHatasi, setDogrulamaHatasi] = useState<string | null>(null);
   const [dogrulamaAdimi, setDogrulamaAdimi] = useState<string | null>(null);
+  /** 0-3 arası ilerleme adımı — progress bar için */
+  const [dogrulamaAdimNo, setDogrulamaAdimNo] = useState(0);
   const [mahallelerDropdown, setMahallelerDropdown] = useState<Mahalle[]>([]);
   const [secilenMahalleKodu, setSecilenMahalleKodu] = useState<number | null>(null);
   /** İl+ilçe için TKGM mahalle listesi ön-yüklemesi — doğrulama 3 API turu yerine 0–1 tur */
@@ -88,6 +92,9 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   const [duzeltIl, setDuzeltIl] = useState("");
   const [duzeltIlce, setDuzeltIlce] = useState("");
   const [duzeltMahalle, setDuzeltMahalle] = useState("");
+  /** Manuel düzeltilen ada/parsel no — açıklamada farklı no varsa kullanıcı buradan girer */
+  const [duzeltAda, setDuzeltAda] = useState("");
+  const [duzeltParsel, setDuzeltParsel] = useState("");
   const [ayarlar] = useAyarlar();
 
   // İlan değişince storage'dan yükle + dinle.
@@ -183,7 +190,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
     if (!ilan || !ayarlar.ilanGozlemiKaydet) return;
     const fiyatPerM2 =
       ilan.fiyat != null && ilan.m2 != null && ilan.m2 > 0
-        ? ilan.fiyat / ilan.m2
+        ? Math.round(ilan.fiyat / ilan.m2)  // tam sayıya yuvarla — liste ile tutarlılık
         : null;
 
     // Faz 2 — koord fallback zinciri: DOM scrape → mahalle merkez tablo → null
@@ -261,20 +268,22 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   const aciklamaAdaParsel = ilan?.aciklamadaAdaParsel[0];
   const adaCandidate = ilan?.adaNo ?? aciklamaAdaParsel?.ada ?? null;
   const parselCandidate = ilan?.parselNo ?? aciklamaAdaParsel?.parsel ?? null;
+  // Ada olmadan sadece parsel no varsa — TKGM ada=0 ile dene
+  const adaCandidateEff = adaCandidate ?? (parselCandidate != null ? 0 : null);
 
-  // Otomatik doğrulama — ilan ada/parsel içeriyorsa, mahalle de doluysa
+  // Otomatik doğrulama — ilan parsel içeriyorsa, mahalle de doluysa
   // ve henüz açık parsel yoksa, kullanıcı tıklamak zorunda kalmadan TKGM'den çekelim.
   const otoDogrulamaTetiklenmisRef = useRef<string | null>(null);
   useEffect(() => {
     if (!ilan) return;
     if (acikParsel) return; // zaten parsel açık, atla
-    if (adaCandidate == null || parselCandidate == null) return;
+    if (adaCandidateEff == null || parselCandidate == null) return;
     if (!ilan.il || !ilan.ilce) return;
     // Mahalle null ise dropdown ile manuel seçim gerekiyor — oto tetikleme
     if (!ilan.mahalle && !secilenMahalleKodu) return;
     if (dogrulaniyor || dogrulamaHatasi) return;
 
-    const ilanKey = `${ilan.ilanNo ?? ""}/${adaCandidate}/${parselCandidate}`;
+    const ilanKey = `${ilan.ilanNo ?? ""}/${adaCandidateEff}/${parselCandidate}`;
     if (otoDogrulamaTetiklenmisRef.current === ilanKey) return;
     otoDogrulamaTetiklenmisRef.current = ilanKey;
 
@@ -311,14 +320,43 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       ? ilan.m2 / acikParsel.alan
       : null;
 
-  if (!ilan) return null;
+  if (!ilan) {
+    return (
+      <div className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-400 dark:text-slate-500 fade-up">
+        <div className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-800">
+          <RadioIcon className="h-3.5 w-3.5" />
+        </div>
+        <span>
+          <a
+            href="https://www.sahibinden.com/satilik-arsa"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-500 dark:text-slate-400 hover:text-tkgm-primary transition"
+          >
+            Sahibinden
+          </a>
+          {" "}veya{" "}
+          <a
+            href="https://www.hepsiemlak.com/arsa-satilik"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-500 dark:text-slate-400 hover:text-tkgm-primary transition"
+          >
+            Hepsiemlak
+          </a>
+          {" "}ilanı açınca analiz başlar.
+        </span>
+      </div>
+    );
+  }
   // Kullanıcı bu ilan için paneli kapattıysa gizle (yeni ilan gelince sıfırlanır)
   if (kapatilanIlanNo && kapatilanIlanNo === (ilan.ilanNo ?? ilan.url)) return null;
 
   async function dogrula() {
-    if (!ilan || adaCandidate == null || parselCandidate == null) return;
+    if (!ilan || adaCandidateEff == null || parselCandidate == null) return;
     setDogrulamaHatasi(null);
     setDogrulaniyor(true);
+    setDogrulamaAdimNo(0);
 
     let mahalleKodu = acikParsel?.mahalleKodu ?? secilenMahalleKodu ?? null;
 
@@ -326,6 +364,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       // 1) Mahalle kodu — alias → isim → URL → API → koordinat → öneri
       if (mahalleKodu == null && ilan.il && ilan.ilce) {
         setDogrulamaAdimi("Mahalle kodu çözülüyor…");
+        setDogrulamaAdimNo(1);
         const coz = await mahalleKoduCoz({
           ilAd: ilan.il,
           ilceAd: ilan.ilce,
@@ -357,15 +396,17 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
 
       // 2) Parsel sorgusu
       setDogrulamaAdimi("Parsel TKGM'den çekiliyor…");
+      setDogrulamaAdimNo(2);
       const parsel = await getParselByCodes(
         mahalleKodu,
-        adaCandidate,
+        adaCandidateEff,
         parselCandidate,
       );
 
       // 3) Otomatik favori (ayar açıksa)
       if (ayarlar.otomatikFavori) {
         setDogrulamaAdimi("Favorilere ekleniyor…");
+        setDogrulamaAdimNo(3);
         const fiyatPerM2 =
           ilan.fiyat != null && ilan.m2 != null && ilan.m2 > 0
             ? Math.round(ilan.fiyat / ilan.m2)
@@ -404,8 +445,17 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       }
 
       onParselDogrula?.(parsel);
+      // Başarı toast — parsel haritada açılacak
+      toast.success(
+        `${parsel.ilAd ? parsel.ilAd + " · " : ""}Ada ${parsel.adaNo} / Parsel ${parsel.parselNo} doğrulandı`
+      );
     } catch (e) {
-      setDogrulamaHatasi(e instanceof Error ? e.message : String(e));
+      const mesaj = e instanceof Error ? e.message : String(e);
+      setDogrulamaHatasi(mesaj);
+      // Hata toast — "limit doldu" gibi önemli mesajlar için
+      if (/limit|günlük|403|503|sunucu/i.test(mesaj)) {
+        toast.error(mesaj, 6000);
+      }
     } finally {
       setDogrulaniyor(false);
       setDogrulamaAdimi(null);
@@ -422,11 +472,12 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   if (
     ilanFiyatPerM2 != null &&
     bolgeOrtalama &&
-    bolgeOrtalama.ortPerM2 > 0 &&
+    bolgeOrtalama.medyanPerM2 > 0 &&
     bolgeOrtalama.adet >= 3
   ) {
+    // Medyan bazlı karşılaştırma — ortalama'dan daha robust (aykırı değerlere dayanıklı)
     firsatYuzdesi = Math.round(
-      ((bolgeOrtalama.ortPerM2 - ilanFiyatPerM2) / bolgeOrtalama.ortPerM2) * 100,
+      ((bolgeOrtalama.medyanPerM2 - ilanFiyatPerM2) / bolgeOrtalama.medyanPerM2) * 100,
     );
     if (firsatYuzdesi >= 15) firsatRengi = "text-emerald-700";
     else if (firsatYuzdesi <= -15) firsatRengi = "text-red-700";
@@ -434,58 +485,102 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   }
 
   return (
-    <Card accent="ilan" className="text-2xs">
-      <header className="flex items-center justify-between gap-2 px-3 pt-2 pb-1">
+    <Card accent="ilan" variant="elevated" className="text-2xs ilan-karti-enter overflow-hidden">
+      {/* ── Hero header — gradient strip ── */}
+      <header
+        className="relative flex items-center justify-between gap-2 px-3 pt-2.5 pb-2"
+        style={{
+          background: "linear-gradient(135deg, rgba(234,88,12,0.06) 0%, rgba(249,115,22,0.03) 100%)",
+          borderBottom: "1px solid rgba(234,88,12,0.1)",
+        }}
+      >
         <span className="flex items-center gap-1.5 font-semibold text-accent-ilan">
-          <RadioIcon className="h-3.5 w-3.5" />
-          {ilan.kaynak === "hepsiemlak" ? "Hepsiemlak" : "Sahibinden"} ilanı tespit edildi
+          <span className="relative flex h-2 w-2 flex-shrink-0">
+            <span className="status-live absolute inline-flex h-full w-full rounded-full bg-accent-ilan opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-ilan" />
+          </span>
+          {ilan.kaynak === "hepsiemlak" ? "Hepsiemlak" : "Sahibinden"}
         </span>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <a
             href={ilan.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-0.5 text-3xs text-accent-ilan hover:underline"
+            className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-3xs text-accent-ilan hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors"
           >
-            ilana git
-            <ExternalLinkIcon className="h-3 w-3" />
+            İlana git
+            <ExternalLinkIcon className="h-2.5 w-2.5 ml-0.5" />
           </a>
           <button
             type="button"
             onClick={() => setKapatilanIlanNo(ilan.ilanNo ?? ilan.url)}
-            title="Paneli kapat (yeni ilan tespit edilince tekrar açılır)"
-            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+            title="Paneli kapat"
+            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
             aria-label="Paneli kapat"
           >
             <XIcon className="h-3.5 w-3.5" />
           </button>
         </div>
       </header>
-      <div className="space-y-2 px-3 pb-2.5">
-        <div className="hidden">{/* placeholder marker for future inserts */}</div>
-      {ilan.baslik && (
-        <div className="mb-1 line-clamp-2 font-medium text-tkgm-ink">
-          {ilan.baslik}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-        {ilan.fiyatStr && <KV k="Fiyat" v={ilan.fiyatStr} />}
-        {ilan.m2 != null && (
-          <KV k="Alan" v={`${ilan.m2.toLocaleString("tr-TR")} m²`} esler={m2Esler ?? undefined} />
+
+      <div className="space-y-2 px-3 pb-2.5 pt-2">
+        {/* Başlık */}
+        {ilan.baslik && (
+          <div className="line-clamp-2 text-xs font-medium text-slate-800 dark:text-slate-100 leading-snug field-reveal">
+            {ilan.baslik}
+          </div>
         )}
-        {ilan.il && <KV k="İl" v={ilan.il} />}
-        {ilan.ilce && <KV k="İlçe" v={ilan.ilce} />}
-        {ilan.mahalle && <KV k="Mahalle" v={ilan.mahalle} />}
+
+        {/* Fiyat hero — büyük gösterim */}
+        {(ilan.fiyatStr || ilan.m2 != null) && (
+          <div className="flex items-end justify-between gap-2 rounded-xl border border-orange-100 dark:border-orange-900/30 bg-orange-50/60 dark:bg-orange-950/20 px-2.5 py-2 field-reveal">
+            <div>
+              {ilan.fiyatStr && (
+                <div className="text-base font-bold text-accent-ilan leading-none metric-value">
+                  {ilan.fiyatStr}
+                </div>
+              )}
+              {ilanFiyatPerM2 != null && (
+                <div className="text-2xs text-orange-700 dark:text-orange-400 mt-0.5 metric-value">
+                  {ilanFiyatPerM2.toLocaleString("tr-TR")} TL/m²
+                </div>
+              )}
+            </div>
+            {ilan.m2 != null && (
+              <div className="text-right">
+                <div className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-none metric-value">
+                  {ilan.m2.toLocaleString("tr-TR")}
+                  <span className="text-2xs font-normal text-slate-400 ml-0.5">m²</span>
+                </div>
+                {m2Esler === false && (
+                  <div className="text-3xs text-amber-600 mt-0.5">⚠ alan uyuşmuyor</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        {/* Fiyat/m² artık hero'da — KV'den çıkarıldı */}
+        {ilan.m2 == null && ilan.fiyatStr && <KV k="Fiyat" v={ilan.fiyatStr} className="field-reveal" />}
+        {ilan.m2 != null && ilan.fiyatStr == null && (
+          <KV k="Alan" v={`${ilan.m2.toLocaleString("tr-TR")} m²`} esler={m2Esler ?? undefined} className="field-reveal" />
+        )}
+        {ilan.il && <KV k="İl" v={ilan.il} className="field-reveal" />}
+        {ilan.ilce && <KV k="İlçe" v={ilan.ilce} className="field-reveal" />}
+        {ilan.mahalle && <KV k="Mahalle" v={ilan.mahalle} className="field-reveal" />}
         {(ilan.il || ilan.ilce || ilan.mahalle) && !yerDuzeltModu && (
           <div className="col-span-2 text-right">
             <button
               type="button"
               onClick={() => {
-                setYerDuzeltModu(true);
-                setDuzeltIl(ilan.il ?? "");
-                setDuzeltIlce(ilan.ilce ?? "");
-                setDuzeltMahalle(ilan.mahalle ?? "");
-              }}
+                  setYerDuzeltModu(true);
+                  setDuzeltIl(ilan.il ?? "");
+                  setDuzeltIlce(ilan.ilce ?? "");
+                  setDuzeltMahalle(ilan.mahalle ?? "");
+                  setDuzeltAda(ilan.adaNo != null ? String(ilan.adaNo) : "");
+                  setDuzeltParsel(ilan.parselNo != null ? String(ilan.parselNo) : "");
+                }}
               className="text-3xs italic text-slate-500 hover:text-accent-ilan underline"
             >
               Yer yanlış mı? Düzelt →
@@ -509,7 +604,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
               onChange={(e) => setDuzeltIlce(e.target.value)}
               className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
             />
-            {/* Mahalle: il+ilçe biliniyorsa dropdown, değilse text input */}
+            {/* Mahalle: il+ilçe biliniyorsa dropdown (TKGM listesi), değilse text input */}
             {duzeltIl && duzeltIlce && mahallelerDropdown.length > 0 ? (
               <select
                 value={duzeltMahalle}
@@ -523,6 +618,18 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
                   </option>
                 ))}
               </select>
+            ) : duzeltIl && duzeltIlce ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  placeholder="Mahalle (yükleniyor…)"
+                  value={duzeltMahalle}
+                  onChange={(e) => setDuzeltMahalle(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
+                  readOnly
+                />
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-orange-300 border-t-orange-600 flex-shrink-0" />
+              </div>
             ) : (
               <input
                 type="text"
@@ -532,17 +639,46 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
                 className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
               />
             )}
+            {/* Ada / Parsel No — açıklamada farklı bilgi varsa veya ada eksikse */}
+            <div className="grid grid-cols-2 gap-1">
+              <label className="flex flex-col gap-0.5">
+                <span className="text-3xs text-slate-500">Ada No <span className="text-slate-400">(opsiyonel)</span></span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="örn: 116"
+                  value={duzeltAda}
+                  onChange={(e) => setDuzeltAda(e.target.value)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-3xs text-slate-500">Parsel No</span>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="örn: 977"
+                  value={duzeltParsel}
+                  onChange={(e) => setDuzeltParsel(e.target.value)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
+                />
+              </label>
+            </div>
             <div className="flex gap-1">
               <button
                 type="button"
                 onClick={() => {
                   if (!ilan) return;
+                  const adaDuzelt = duzeltAda.trim() ? Number(duzeltAda.trim()) : undefined;
+                  const parselDuzelt = duzeltParsel.trim() ? Number(duzeltParsel.trim()) : undefined;
                   // İlan'ı override et
                   const yeniIlan: IlanBilgisi = {
                     ...ilan,
                     il: duzeltIl.trim() || ilan.il,
                     ilce: duzeltIlce.trim() || ilan.ilce,
                     mahalle: duzeltMahalle.trim() || ilan.mahalle,
+                    ...(adaDuzelt != null && !isNaN(adaDuzelt) ? { adaNo: adaDuzelt } : {}),
+                    ...(parselDuzelt != null && !isNaN(parselDuzelt) ? { parselNo: parselDuzelt } : {}),
                     manuelDuzeltildi: true,
                   };
                   setIlan(yeniIlan);
@@ -565,58 +701,95 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
               </button>
             </div>
             <div className="text-3xs italic text-slate-500">
-              Düzeltme TKGM sorgusunu yeniden başlatır + bulut emsal verisini doğru mahalleden çeker.
+              Mahalle TKGM'den seçilir. Ada boş bırakılırsa sadece parsel no ile sorgulanır.
             </div>
           </div>
         )}
         {adaCandidate != null && (
-          <KV k="Ada" v={String(adaCandidate)} esler={adaEsler ?? undefined} />
+          <KV k="Ada" v={String(adaCandidate)} esler={adaEsler ?? undefined} className="field-reveal" />
         )}
         {parselCandidate != null && (
-          <KV k="Parsel" v={String(parselCandidate)} esler={parselEsler ?? undefined} />
+          <KV k="Parsel" v={String(parselCandidate)} esler={parselEsler ?? undefined} className="field-reveal" />
         )}
         {ilanFiyatPerM2 != null && (
-          <KV k="TL/m²" v={ilanFiyatPerM2.toLocaleString("tr-TR")} />
+          <KV k="TL/m²" v={ilanFiyatPerM2.toLocaleString("tr-TR")} className="field-reveal" />
         )}
       </div>
 
-      {/* Bölge ortalaması — lokal Fırsat puanı */}
+      {/* Bölge ortalaması — lokal birikim, medyan + tazelik göstergesi */}
       {bolgeOrtalama && bolgeOrtalama.adet >= 2 && (
         <div className="rounded-md border border-slate-200 bg-slate-50/60 p-2">
-          <div className="mb-1 flex items-center gap-1 text-3xs font-semibold uppercase tracking-wide text-slate-600">
-            <TargetIcon className="h-3 w-3" />
-            Bölge ortalaması (lokal birikim)
+          <div className="mb-1.5 flex items-center justify-between gap-1">
+            <span className="flex items-center gap-1 text-3xs font-semibold uppercase tracking-wide text-slate-600">
+              <TargetIcon className="h-3 w-3" />
+              {bolgeOrtalama.aralik} ortalaması
+            </span>
+            {/* Tazelik badge */}
+            <span
+              className={`text-[9px] font-medium tabular-nums ${
+                bolgeOrtalama.ortYasGun <= 30
+                  ? "text-emerald-600"
+                  : bolgeOrtalama.ortYasGun <= 60
+                    ? "text-amber-600"
+                    : "text-slate-400"
+              }`}
+              title={`Ortalama ilan yaşı: ${bolgeOrtalama.ortYasGun} gün`}
+            >
+              {bolgeOrtalama.ortYasGun <= 30 ? "🟢" : bolgeOrtalama.ortYasGun <= 60 ? "🟡" : "⚪"}
+              {" "}{bolgeOrtalama.son30GunAdet > 0 ? `${bolgeOrtalama.son30GunAdet} son 30g` : `~${bolgeOrtalama.ortYasGun}g`}
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-x-3 text-3xs">
-            <div className="flex justify-between">
-              <span className="text-slate-500">
-                {bolgeOrtalama.aralik} · n={bolgeOrtalama.adet}
-              </span>
-              <span className="font-medium tabular-nums text-slate-700">
-                {bolgeOrtalama.ortPerM2.toLocaleString("tr-TR")} TL/m²
-              </span>
-            </div>
-            {firsatYuzdesi != null && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Fark</span>
-                <span className={`flex items-center gap-0.5 font-bold tabular-nums ${firsatRengi}`}>
-                  {firsatYuzdesi > 0 ? (
-                    <TrendingDownIcon className="h-3 w-3" />
-                  ) : (
-                    <TrendingUpIcon className="h-3 w-3" />
-                  )}
-                  %{Math.abs(firsatYuzdesi)}
-                </span>
+
+          {/* Medyan + ortalama + kayıt sayısı */}
+          <div className="mb-1 grid grid-cols-3 gap-1 text-center">
+            <div className="rounded bg-white/70 px-1 py-1">
+              <div className="text-[9px] uppercase tracking-wide text-slate-400">Medyan</div>
+              <div className="text-2xs font-bold tabular-nums text-slate-700">
+                {bolgeOrtalama.medyanPerM2.toLocaleString("tr-TR")}
               </div>
-            )}
+              <div className="text-[9px] text-slate-400">TL/m²</div>
+            </div>
+            <div className="rounded bg-white/70 px-1 py-1">
+              <div className="text-[9px] uppercase tracking-wide text-slate-400">Ort.</div>
+              <div className="text-2xs font-bold tabular-nums text-slate-700">
+                {bolgeOrtalama.ortPerM2.toLocaleString("tr-TR")}
+              </div>
+              <div className="text-[9px] text-slate-400">TL/m²</div>
+            </div>
+            <div className="rounded bg-white/70 px-1 py-1">
+              <div className="text-[9px] uppercase tracking-wide text-slate-400">Kayıt</div>
+              <div className="text-2xs font-bold tabular-nums text-slate-700">
+                {bolgeOrtalama.adet}
+              </div>
+              <div className="text-[9px] text-slate-400">ilan</div>
+            </div>
           </div>
+
+          {/* Fırsat / pahalı fark satırı */}
           {firsatYuzdesi != null && (
-            <div className={`mt-1 text-3xs italic ${firsatRengi}`}>
-              {firsatYuzdesi >= 15
-                ? "Bölge ortalamasının altında — fırsat olabilir."
+            <div className={`flex items-center justify-between rounded px-1.5 py-1 text-3xs ${
+              firsatYuzdesi >= 15
+                ? "bg-emerald-50 text-emerald-700"
                 : firsatYuzdesi <= -15
-                  ? "Bölge ortalamasının üstünde — pahalı."
-                  : "Bölge ortalamasıyla uyumlu."}
+                  ? "bg-red-50 text-red-700"
+                  : "bg-amber-50 text-amber-700"
+            }`}>
+              <span className="flex items-center gap-0.5">
+                {firsatYuzdesi > 0 ? (
+                  <TrendingDownIcon className="h-3 w-3" />
+                ) : (
+                  <TrendingUpIcon className="h-3 w-3" />
+                )}
+                <span className="font-bold tabular-nums">%{Math.abs(firsatYuzdesi)}</span>
+                <span className="ml-0.5">
+                  {firsatYuzdesi >= 15
+                    ? "— fırsat olabilir"
+                    : firsatYuzdesi <= -15
+                      ? "— pahalı"
+                      : "— makul"}
+                </span>
+              </span>
+              <span className="text-[9px] italic opacity-70">medyana göre</span>
             </div>
           )}
         </div>
@@ -697,21 +870,52 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
               </select>
             </div>
           )}
-          <button
-            type="button"
-            onClick={dogrula}
-            disabled={
-              dogrulaniyor ||
-              ((!ilan.mahalle || mahalleSecimGerekli) &&
+          {dogrulaniyor ? (
+            /* Progressive loading — 3 adımlı görsel feedback */
+            <div className="space-y-1.5">
+              {/* Adım metni */}
+              <div className="flex items-center gap-1.5 text-3xs text-slate-600 dark:text-slate-300">
+                <svg className="spin-smooth h-3 w-3 flex-shrink-0 text-accent-ilan" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                </svg>
+                <span>{dogrulamaAdimi ?? "TKGM'de sorgulanıyor…"}</span>
+              </div>
+              {/* 3 segmentli progress bar */}
+              <div className="flex gap-1" role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={dogrulamaAdimNo}>
+                {[1, 2, 3].map((adim) => (
+                  <div
+                    key={adim}
+                    className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                      adim <= dogrulamaAdimNo
+                        ? "bg-accent-ilan"
+                        : adim === dogrulamaAdimNo + 1
+                          ? "bg-accent-ilan/30 animate-pulse"
+                          : "bg-slate-200 dark:bg-slate-700"
+                    }`}
+                  />
+                ))}
+              </div>
+              {/* Adım etiketleri */}
+              <div className="flex justify-between text-[9px] text-slate-400">
+                <span className={dogrulamaAdimNo >= 1 ? "text-accent-ilan font-medium" : ""}>Mahalle</span>
+                <span className={dogrulamaAdimNo >= 2 ? "text-accent-ilan font-medium" : ""}>TKGM</span>
+                <span className={dogrulamaAdimNo >= 3 ? "text-accent-ilan font-medium" : ""}>Tamamla</span>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={dogrula}
+              disabled={
+                (!ilan.mahalle || mahalleSecimGerekli) &&
                 !secilenMahalleKodu &&
-                mahallelerDropdown.length > 0)
-            }
-            className="w-full cursor-pointer rounded-md bg-accent-ilan px-2 py-1.5 text-2xs font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {dogrulaniyor
-              ? (dogrulamaAdimi ?? "TKGM'de sorgulanıyor…")
-              : "TKGM'de doğrula"}
-          </button>
+                mahallelerDropdown.length > 0
+              }
+              className="btn-tkgm-dogrula w-full cursor-pointer rounded-md bg-accent-ilan px-2 py-1.5 text-2xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              TKGM&apos;de doğrula
+            </button>
+          )}
           {dogrulamaHatasi && (
             <div className="text-3xs text-accent-danger">{dogrulamaHatasi}</div>
           )}
@@ -751,56 +955,92 @@ function KarsilastirmaSatir({
 }
 
 interface BolgeOrt {
-  aralik: string; // "Bu mahallede" / "Bu ilçede"
+  aralik: string; // "Mahalle" / "İlçe"
   ortPerM2: number;
+  medyanPerM2: number;
   adet: number;
+  /** Son 30 gün içindeki ilan sayısı — tazelik göstergesi */
+  son30GunAdet: number;
+  /** Ortalama ilan yaşı (gün) */
+  ortYasGun: number;
 }
 
+/**
+ * Bölge ortalaması — v14 compound index ile hızlı sorgu.
+ *
+ * Önce mahalle bazlı [ilceNorm+mahalleNorm] sorgular.
+ * Mahalle'de yeterli kayıt yoksa ilçe seviyesine düşer.
+ * Full scan YOKTUR — index'li where().equals() kullanılır.
+ */
 function useBolgeOrtalama(ilan: IlanBilgisi | null): BolgeOrt | null {
-  const sorguMahalle = ilan?.mahalle ?? null;
-  const sorguIlce = ilan?.ilce ?? null;
-  const sorguMahalleNorm = sorguMahalle ? normalizeYerAdi(sorguMahalle) : null;
-  const sorguIlceNorm = sorguIlce ? normalizeYerAdi(sorguIlce) : null;
+  const sorguMahalleNorm = ilan?.mahalle ? normalizeYerAdi(ilan.mahalle) : null;
+  const sorguIlceNorm = ilan?.ilce ? normalizeYerAdi(ilan.ilce) : null;
 
+  // Mahalle seviyesi — [ilceNorm+mahalleNorm] compound index (v14)
   const mahalleKayitlar = useLiveQuery(
     async () => {
-      if (!sorguMahalleNorm) return [];
-      const tumKayitlar = await db.ilanGozlem.toArray();
-      return tumKayitlar.filter((k) => {
-        const mahalleNorm = k.mahalleNorm ?? (k.mahalleAd ? normalizeYerAdi(k.mahalleAd) : null);
-        return mahalleNorm === sorguMahalleNorm;
-      });
+      if (!sorguIlceNorm || !sorguMahalleNorm) return [];
+      return db.ilanGozlem
+        .where("[ilceNorm+mahalleNorm]")
+        .equals([sorguIlceNorm, sorguMahalleNorm])
+        .toArray();
     },
-    [sorguMahalleNorm],
+    [sorguIlceNorm, sorguMahalleNorm],
+    [],
   );
 
+  // İlçe seviyesi — [ilceNorm+zaman] index, tüm zamanlar
   const ilceKayitlar = useLiveQuery(
     async () => {
       if (!sorguIlceNorm) return [];
-      const tumKayitlar = await db.ilanGozlem.toArray();
-      return tumKayitlar.filter((k) => {
-        const ilceNorm = k.ilceNorm ?? (k.ilceAd ? normalizeYerAdi(k.ilceAd) : null);
-        return ilceNorm === sorguIlceNorm;
-      });
+      return db.ilanGozlem
+        .where("[ilceNorm+zaman]")
+        .between([sorguIlceNorm, 0], [sorguIlceNorm, Date.now()])
+        .toArray();
     },
     [sorguIlceNorm],
+    [],
   );
 
   return useMemo(() => {
-    const aday = (mahalleKayitlar?.length ?? 0) >= 2 ? mahalleKayitlar : ilceKayitlar;
-    const arali =
-      (mahalleKayitlar?.length ?? 0) >= 2 ? "Mahalle" : "İlçe";
-    const fiyatlilar = (aday ?? []).filter(
+    const mahalleGecerli = (mahalleKayitlar ?? []).filter(
       (k) => k.fiyatPerM2 != null && k.fiyatPerM2 > 0 && k.paraBirimi === "TL",
     );
+    const ilceGecerli = (ilceKayitlar ?? []).filter(
+      (k) => k.fiyatPerM2 != null && k.fiyatPerM2 > 0 && k.paraBirimi === "TL",
+    );
+
+    // Mahalle'de ≥2 kayıt varsa mahalle, yoksa ilçe
+    const fiyatlilar = mahalleGecerli.length >= 2 ? mahalleGecerli : ilceGecerli;
+    const seviye = mahalleGecerli.length >= 2 ? "Mahalle" : "İlçe";
+
     if (fiyatlilar.length === 0) return null;
-    const ort =
-      fiyatlilar.reduce((s, k) => s + (k.fiyatPerM2 ?? 0), 0) /
-      fiyatlilar.length;
+
+    const fiyatlar = fiyatlilar.map((k) => k.fiyatPerM2!).sort((a, b) => a - b);
+    const orta = Math.floor(fiyatlar.length / 2);
+    const medyan =
+      fiyatlar.length % 2 === 0
+        ? Math.round(((fiyatlar[orta - 1] ?? 0) + (fiyatlar[orta] ?? 0)) / 2)
+        : Math.round(fiyatlar[orta] ?? 0);
+    const ort = Math.round(
+      fiyatlar.reduce((s, v) => s + v, 0) / fiyatlar.length,
+    );
+
+    const simdi = Date.now();
+    const son30gunEsik = simdi - 30 * 24 * 60 * 60 * 1000;
+    const son30GunAdet = fiyatlilar.filter((k) => (k.zaman ?? 0) >= son30gunEsik).length;
+    const ortYasGun = Math.round(
+      fiyatlilar.reduce((s, k) => s + (simdi - (k.zaman ?? simdi)) / 86400000, 0) /
+        fiyatlilar.length,
+    );
+
     return {
-      aralik: arali,
-      ortPerM2: Math.round(ort),
+      aralik: seviye,
+      ortPerM2: ort,
+      medyanPerM2: medyan,
       adet: fiyatlilar.length,
+      son30GunAdet,
+      ortYasGun,
     };
   }, [mahalleKayitlar, ilceKayitlar]);
 }
@@ -809,15 +1049,17 @@ function KV({
   k,
   v,
   esler,
+  className,
 }: {
   k: string;
   v: string;
   esler?: boolean;
+  className?: string;
 }) {
   const renk =
     esler === true ? "text-emerald-700" : esler === false ? "text-red-700" : "text-tkgm-ink";
   return (
-    <div className="flex justify-between gap-2 text-[11px]">
+    <div className={`flex justify-between gap-2 text-[11px] ${className ?? ""}`}>
       <span className="text-tkgm-muted">{k}</span>
       <span className={`font-medium ${renk}`}>{v}</span>
     </div>
