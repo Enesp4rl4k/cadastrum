@@ -1,0 +1,189 @@
+src/sidepanel/components/YatirimSkoruKarti.tsx
+  h_2675fe4e526316 30,228-239
+src/sidepanel/components/MilliEmlakKarti.tsx
+  h_2675fe4e526316 1-231
+src/sidepanel/components/KomsuParselKarti.tsx
+  h_2675fe4e526316 1-308
+src/sidepanel/components/FiyatTahminKarti.tsx
+  h_2675fe4e526316 13,28,35-37,57-58,73,81-82,156-168,180-189,228-244,277,279-296,298-300,302-336,341-344,346-353,356-368,371-384,386-393,395-396,399-417,419,421,615,618
+  s_c38c98d20083fb::t_4f375ea14b6bff 169,190,301,345,354-355,385,394,418
+src/sidepanel/components/ParselDetay.tsx
+  h_2675fe4e526316 8-10,16-17,33,141-166,244,246-266,270,274-275
+src/lib/tkgm-api.ts
+  h_2675fe4e526316 376-383,404-405
+src/lib/osm.ts
+  h_2675fe4e526316 111-114,143-148,150-151,153-156
+src/sidepanel/components/DogalVeriKarti.tsx
+  h_2675fe4e526316 14-15,44,46,48-54,73-117,164-169,171-172,258-260,262-264,266-274,281-286,289,292-312,314,504-537,539-564
+src/sidepanel/components/AnalizPanel.tsx
+  h_2675fe4e526316 1,3,26,40-47,83-102,123-127,144,146,153,155,178,192-195,221-268,272-277,525-526,550-551,582-584,588,789-792
+src/lib/ai-fiyat.ts
+  h_2675fe4e526316 656-762
+src/sidepanel/views/TopluView.tsx
+  h_2675fe4e526316 16-17,27,40,49-51,73,75,281-326,334,589-594,608,624-628,641-652,793-803
+src/lib/fiyat-correction.ts
+  h_2675fe4e526316 8,16-122
+src/sidepanel/components/ZamanMakinesiModal.tsx
+  h_2675fe4e526316 1-494
+site/src/components/InvestorJourney.astro
+  s_4fcb157bbede63::t_c5cf757d5c71ed 380-382,387
+  s_4fcb157bbede63::t_6c1e89ce389b99 376-377
+  s_4fcb157bbede63::t_f5956c33e3ebd4 4,47,83,98-135,140,150-153,155-168,171,173-174,176-178,180-181,183-184,186-218,220,225-228,258,260-262,264,285,292-296,299,301,304-306,316-317,325,334,338,354,416,422,425-429,432,434-435,437,440,443-444,446-449,461-463,465,469,471-472,477-478,480,482,484,489,492-501,504,506-511,514,545,587,623
+  s_4fcb157bbede63::t_a085572c078162 148
+  s_4fcb157bbede63::t_0c25e1fcee6488 1,6-8,13-15,20-22,27-29,34-36,41-42,138-139,229,246-251,254-256,275,302-303,311-312,339-342,345-348,351,367-368,390,392-393,395,401,513,531-532,535-539,541,544,559,590,600,620-622,624-625
+  s_4fcb157bbede63::t_084997ae5159df 613-617,619
+  s_4fcb157bbede63::t_6acf2dae1cb1b0 68,70,74-76,78,82,84
+  s_4fcb157bbede63::t_822cdecd0e0546 2,5,52,143,230-234,237-244,252,263,273-274,286,297-298,300,310,313-315,318-324,326-333,335-337,343-344,349,364-365,369-371,373,468,473,476,479,481,483,485,487-488,490-491,503,505,515-518,524,526,528,534,543,546-547,549-551,554,560-567,569,571,573-579,583-586,588-589,591-593,596-597,601-604,607-608,612
+  s_4fcb157bbede63::t_536840c2efba24 48-51,55-61,64-67,69,73,77,79,85-88,91-95
+  s_4fcb157bbede63::t_c1b71c26f9e7d1 169-170,172,179,185
+  s_4fcb157bbede63::t_e6cd622c8221ae 594-595,598-599,605-606,609-611,618
+  s_4fcb157bbede63::t_1a6a757336d9c8 9-12,16-19,23-26,30-33,37-40
+  s_4fcb157bbede63::t_83b2a34dec3b08 280-284
+  s_4fcb157bbede63::t_4ed04efe67920a 555,557-558
+  s_4fcb157bbede63::t_c89aacf4085a70 396,398-399
+  s_4fcb157bbede63::t_f2be848d7f4eb7 53-54,62-63,71-72,80-81,89-90,96
+  s_4fcb157bbede63::t_8e58a899e1f3e6 221-224
+  s_4fcb157bbede63::t_5f7b96c2792c01 44-46
+  s_4fcb157bbede63::t_bf369b07dda384 356,358,360-362,366,372,374-375,378-379,383-386,389,391,397,400,402-413,418-420,423
+  s_4fcb157bbede63::t_f381bcd28cd351 43,97,141-142,235-236,245,253,257,265-266,276-277,291,307-309,352-353,355,357,359,363,388,394,424,542,548,552,568,572,580-581
+  s_4fcb157bbede63::t_fe24a8c87783f0 3,175,182,259,267-272,278-279,287-290,350,414-415,417,421,430-431,433,436,438-439,441-442,445,450,456,464,486,527,529,540,553,556,570,582
+  s_4fcb157bbede63::t_7c52c2b5b2bcfe 451-455,457-460,466-467,470,474-475
+  s_4fcb157bbede63::t_97b39690a3a2d4 519-520,522-523,525,530,533
+  s_4fcb157bbede63::t_d11f1368d3b9a5 144-147,149,154
+  s_4fcb157bbede63::t_d1e10e101486f6 136-137
+  s_4fcb157bbede63::t_af7bd54ef23c42 502,512,521
+  s_4fcb157bbede63::t_9d42e6f0daf27d 219
+backend/api/wrangler.toml
+  h_2675fe4e526316 22-28,54-57
+backend/api/src/lib/rate-limit.ts
+  h_2675fe4e526316 2,4-5,7-9,11-16,30-48,52-59,63-68,73,82,84-98,100,123-124
+src/sidepanel/components/HavaFotoTimeline.tsx
+  h_2675fe4e526316 1-332
+site/wrangler.toml
+  h_2675fe4e526316 1-2
+src/lib/taskin-koord.ts
+  h_2675fe4e526316 1-143
+src/lib/import-export.ts
+  h_2675fe4e526316 68-78,83-84,100-104,109,122-125
+src/sidepanel/components/ParselNotDefteri.tsx
+  h_2675fe4e526316 1-372
+vite.config.ts
+  h_2675fe4e526316 17,24-26,29
+src/sidepanel/components/ManuelEmsalKarti.tsx
+  h_2675fe4e526316 155
+scripts/milli-emlak-scraper.mjs
+  h_2675fe4e526316 1-264
+backend/api/src/index.ts
+  h_2675fe4e526316 40,47,53-54,74,77-78,96-102,174-179,216-223,229,232,234-238,297-299,301
+  s_24becf542a459b::t_3ee11e7987d242 103,180,300
+src/background/scheduler.ts
+  h_2675fe4e526316 11,20-23,49-55,68-69,133-230,233-234
+src/sidepanel/views/FavorilerView.tsx
+  h_2675fe4e526316 3,36-42,48-49,51-52,55-64,66,69-71,74,95-96
+backend/api/src/routes/fiyat.ts
+  h_2675fe4e526316 376-377,385-423,481-482
+site/src/pages/index.astro
+  s_4fcb157bbede63::t_add1b3adaeadf3 101-107,111-113,122,129,133,135,142-155
+  s_4fcb157bbede63::t_058e9a6528c802 12
+  s_4fcb157bbede63::t_30ba6ca3b66e12 563-724
+  s_4fcb157bbede63::t_f7e79cecee3c01 7,168
+  s_4fcb157bbede63::t_383010d83d561e 6,114,117-118,121,123-128,130-132,134,136-141,156,159-161
+  s_4fcb157bbede63::t_6d937d985bbd97 744,770-771,774-776
+  s_4fcb157bbede63::t_05d2112a8c237b 116
+  s_4fcb157bbede63::t_6d7a9dd14640bf 158
+  s_4fcb157bbede63::t_959db48f4e0b04 157
+  s_4fcb157bbede63::t_9e76c265b825f1 169
+  s_4fcb157bbede63::t_d24b7cd6c1b5be 725
+src/lib/rapor-html.ts
+  h_2675fe4e526316 409-428,436
+.gitignore
+  h_2675fe4e526316 9-18
+src/lib/db.ts
+  h_2675fe4e526316 4-14,23-27,168-175,248,446-448,450-470,484-497
+manifest.config.ts
+  h_2675fe4e526316 27,61-62
+backend/api/src/lib/security.ts
+  h_2675fe4e526316 1-51
+src/sidepanel/components/AnalizIlerlemeBar.tsx
+  h_2675fe4e526316 1-122
+src/sidepanel/components/AlSatKararMotoru.tsx
+  h_2675fe4e526316 1-239
+src/sidepanel/components/AltyapiMesafeKarti.tsx
+  h_2675fe4e526316 1-304
+src/lib/fiyat-tahmin.ts
+  h_2675fe4e526316 43,974-980
+backend/api/src/routes/emsal-spatial.ts
+  h_2675fe4e526316 2,4-7,21,57-130,137-141,152-154,188,197-198,205-254,264
+backend/api/src/routes/telemetri.ts
+  h_2675fe4e526316 54,56-58
+backend/api/src/routes/validation.ts
+  h_2675fe4e526316 174,176-178
+backend/api/src/routes/scraper.ts
+  h_2675fe4e526316 22-30
+src/lib/milli-emlak.ts
+  h_2675fe4e526316 1-212
+src/sidepanel/components/BagimsizBolumKarti.tsx
+  h_2675fe4e526316 172,179-180
+DEPLOY-SITE.bat
+  h_2675fe4e526316 3,10
+src/types/tkgm.ts
+  h_2675fe4e526316 46-56
+backend/api/src/db/0019_milli_emlak.sql
+  h_2675fe4e526316 1-44
+src/sidepanel/views/KarsilastirmaView.tsx
+  h_2675fe4e526316 12,15,22,281-399,408-422,424-453,470-480,486-487
+src/lib/spatial-emsal.ts
+  h_2675fe4e526316 24,81-82,294,300-304,306,343-351,355,357
+  s_c38c98d20083fb::t_69baf898840b8e 305,352
+backend/api/src/routes/milli-emlak.ts
+  h_2675fe4e526316 1-219
+backend/api/src/routes/ilan.ts
+  h_2675fe4e526316 146-149
+backend/api/src/routes/tcmb.ts
+  h_2675fe4e526316 303-306
+src/lib/analiz-orkestrator.ts
+  h_2675fe4e526316 1-75
+src/sidepanel/components/IhaleAlarmKarti.tsx
+  h_2675fe4e526316 1-380
+src/lib/heyelan.ts
+  h_2675fe4e526316 1-194
+site/package.json
+  s_c38c98d20083fb::t_6db270cbffe852 24-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2730598f3ba19078fb0a054458f1dc4f960d8a91",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_24becf542a459b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98098a72-9a45-4418-beeb-30f44149c074",
+        "model": "unknown"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_4fcb157bbede63": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "2060962d-5c39-4faa-878e-13e94c247bbb",
+        "model": "grok-4.5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_c38c98d20083fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7423e138-64b8-4408-8f8a-b6ed77e438fd",
+        "model": "unknown"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
