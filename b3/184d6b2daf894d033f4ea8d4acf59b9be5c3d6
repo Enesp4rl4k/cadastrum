@@ -1,0 +1,507 @@
+site/src/layouts/Base.astro
+  s_9d892a1d05261b::t_aa812e9b10b91e 141
+  s_9d892a1d05261b::t_939a79f254d5e5 118-119,127-128,134,150-151,164,166-173,177-183
+  s_9d892a1d05261b::t_c83143e8a2e120 174-176
+  s_9d892a1d05261b::t_cd9ea36d894350 211-212
+  s_9d892a1d05261b::t_69a1818b9a2c78 84,89,97-100
+site/src/lib/tucbs-slug.ts
+  s_4fcb157bbede63::t_a246d2c4eefe6e 1-80
+site/src/pages/sitemap.xml.ts
+  s_9d892a1d05261b::t_00c7fb2fa6c92b 117-118
+  h_2675fe4e526316 56,58,60-62,68-70,72,74-75,77-95
+  s_9d892a1d05261b::t_acc430d40300b2 4-5
+  s_9d892a1d05261b::t_080ddddc900800 63-66,76
+  s_9d892a1d05261b::t_aa3cc1c2a3b330 67
+src/lib/use-eplan.ts
+  s_4fcb157bbede63::t_8c0a52ae3cf917 10-13,18-19,24-25,28-34,36-50,60-64,74
+src/rapor/RaporView.tsx
+  s_4fcb157bbede63::t_4fe63c9df56efb 381-385
+site/src/pages/kat-karsiligi.astro
+  s_9d892a1d05261b::t_c09addc6368786 1-73
+src/sidepanel/components/GelisimTrendiKarti.tsx
+  s_9d892a1d05261b::t_5c10d69cbc60cc 1-48,50-116,118,120-121,123-137
+  s_9d892a1d05261b::t_dd565ef31c5fec 49
+  s_9d892a1d05261b::t_5255ed781250e1 117,119,122
+backend/api/src/routes/proxy.ts
+  s_9d892a1d05261b::t_3b46070d803208 7
+  s_9d892a1d05261b::t_f49d427e7a1038 393-456,460
+ODEME-SISTEMI-AKTIF.md
+  h_2675fe4e526316 1-174
+site/scripts/smoke-hesaplayici.ts
+  s_4fcb157bbede63::t_3e8f746ea387f6 2,7
+  s_4fcb157bbede63::t_fbbd1d27130e86 57-87,93-94
+  s_4fcb157bbede63::t_dc31a41c341fe4 1,3-6,8-56,88-92,95
+test/tkgm-alan.spec.ts
+  s_9d892a1d05261b::t_aa1197c63dd4e7 18-28
+mcp/src/client.ts
+  s_9d892a1d05261b::t_a1eab6234c2de2 1-167
+site/src/pages/mesafeli-satis.astro
+  h_2675fe4e526316 13-18,22-24,110
+src/sidepanel/components/RaporExportButonu.tsx
+  s_4fcb157bbede63::t_81392102c256e0 34-35,50,57-62,64-94,97-107,114,142-160,168,179,181-183,192,213
+  s_4fcb157bbede63::t_7ad1da23c4b373 2
+  h_2675fe4e526316 28-29,33,43-44,139-141,161-167,169-178,180,184-185
+site/src/components/InvestorJourney.astro
+  s_4fcb157bbede63::t_07bf7f7c6f637c 38-40
+  h_2675fe4e526316 372-373,375,521-522,524-525,604-609,618-620,630
+site/src/pages/sss.astro
+  s_9d892a1d05261b::t_f00ee31730e11c 100-110,113-122
+  s_9d892a1d05261b::t_1960bce1a6e212 66-81
+  s_9d892a1d05261b::t_7f40857fa46dbe 65
+site/src/pages/fiyat.astro
+  s_9d892a1d05261b::t_ef3747cb1bceac 124
+site/public/_headers
+  s_9d892a1d05261b::t_04eb3d908dc3d8 18-32,44-47
+  s_9d892a1d05261b::t_12554b683929df 33-35
+  s_9d892a1d05261b::t_6a254f1fdeadc5 48
+site/src/lib/kat-karsiligi.ts
+  s_4fcb157bbede63::t_77915a446a8128 1-83
+site/src/pages/ai-arsa-analiz.astro
+  s_9d892a1d05261b::t_5c18e4265206da 1-93
+src/sidepanel/components/AbonelikYonetimi.tsx
+  h_2675fe4e526316 5,55-79,81,129,168-169,179-211,219,221-222
+site/src/lib/fizibilite.ts
+  s_4fcb157bbede63::t_240ed21eee7efa 80-188
+site/src/pages/tkgm-parsel-sorgu.astro
+  s_9d892a1d05261b::t_7cdd69c66da74b 1-72
+src/lib/tucbs.ts
+  s_4fcb157bbede63::t_c66154a9ecb3bb 147-156
+site/package.json
+  s_4fcb157bbede63::t_b2f96805986e99 14
+  s_4fcb157bbede63::t_bbf2abb245825f 15-16
+backend/api/src/routes/imar-degisim.ts
+  h_2675fe4e526316 1-109
+src/lib/db.ts
+  s_4fcb157bbede63::t_7159e2de4dc021 517-542
+  s_4fcb157bbede63::t_839f2bef42d8ef 30,34-35
+  s_4fcb157bbede63::t_52bfefc43fcfbd 28-29,31-33,36-37,42-47
+  s_4fcb157bbede63::t_240e5fb6ceffbf 48-49
+src/sidepanel/components/ImarDegisimSinyalKarti.tsx
+  h_2675fe4e526316 1-308
+site/src/pages/tarla-yatirimi.astro
+  s_9d892a1d05261b::t_68f194f7b4068e 1-75
+src/sidepanel/components/AraziAvciKarti.tsx
+  h_2675fe4e526316 1-267
+src/sidepanel/components/Onboarding.tsx
+  s_4fcb157bbede63::t_03e7aace0a1a39 111
+DEPLOY-SITE.bat
+  h_2675fe4e526316 20
+manifest.config.ts
+  s_4fcb157bbede63::t_144442747ef3b1 46-47
+  s_4fcb157bbede63::t_5154c671400b14 48-49
+backend/api/test/arazi-avci.spec.ts
+  h_2675fe4e526316 1-133
+backend/api/src/lib/rate-limit.ts
+  h_2675fe4e526316 40-47
+src/sidepanel/components/BildirimKurali.tsx
+  h_2675fe4e526316 30-31,41-66
+site/src/pages/logo-secim.astro
+  h_2675fe4e526316 2-3,9-11,13-15
+src/sidepanel/components/AnalizPanel.tsx
+  s_4fcb157bbede63::t_cbacebcdaf3ce3 25
+  s_4fcb157bbede63::t_5b8c2a62c92395 112
+  s_4fcb157bbede63::t_9799ea62fa3885 639-640
+  s_4fcb157bbede63::t_9071d51c8f865c 118-154
+  s_4fcb157bbede63::t_a0599f86fb5e05 630
+  s_4fcb157bbede63::t_76200699b24f2a 2,54-55
+  s_4fcb157bbede63::t_2dfd89258ebf19 392-396,398-401
+  s_9d892a1d05261b::t_e065a3272f0f8e 46
+  s_9d892a1d05261b::t_0a035f13b2a7a5 40
+  s_4fcb157bbede63::t_c42cd51e654c77 397
+  s_4fcb157bbede63::t_238713e4993715 588-593
+  s_9d892a1d05261b::t_ce15e1e040fda6 644,646-659
+  s_4fcb157bbede63::t_1e2315b6248cc1 645,660-661
+  s_9d892a1d05261b::t_2f12e37aef6055 861,863-866
+site/src/pages/index.astro
+  s_9d892a1d05261b::t_385ccb6a14eb58 143
+  s_9d892a1d05261b::t_4e98dcddcffb8d 131-132
+  s_4fcb157bbede63::t_d387b852548b1b 62
+  s_4fcb157bbede63::t_34d7a1bb6c6e7c 67-68
+  s_9d892a1d05261b::t_6430fb305436e1 81-82,84-87
+  s_9d892a1d05261b::t_e80bdc2ea1b971 80,83,88-94
+site/src/pages/rapor.astro
+  h_2675fe4e526316 6
+src/sidepanel/views/BolgeView.tsx
+  s_4fcb157bbede63::t_c2f5e0854b0f3d 828-830
+  s_4fcb157bbede63::t_8044e096e9837d 101-104
+  s_4fcb157bbede63::t_ed624b1eddea95 647,651,658,663,666,670,677,682
+  s_4fcb157bbede63::t_f676916c868c0e 401-419
+  s_4fcb157bbede63::t_e8d3d7444cb2e2 1211-1259
+  s_4fcb157bbede63::t_371702d569a8b2 38
+site/src/pages/musteriler.astro
+  h_2675fe4e526316 6
+backend/api/src/routes/ai-danisman.ts
+  h_2675fe4e526316 1-369
+site/public/llms.txt
+  s_9d892a1d05261b::t_1c634254329b43 1-2,5,7,9,14-15,17-18,20,23,25,31-33,35-39
+  s_9d892a1d05261b::t_94f2aa9404ba19 3-4,6,8,10-13,16,19,21-22,24,26-30,34,40-42
+src/sidepanel/components/AIDanismanKarti.tsx
+  h_2675fe4e526316 1-311
+site/src/lib/yatirim-skoru.ts
+  s_4fcb157bbede63::t_a949ec979d467c 1-185
+site/src/pages/arsa-yatirimi.astro
+  s_9d892a1d05261b::t_3f933b584af50c 1-80
+src/sidepanel/components/DijitalIkizKarti.tsx
+  h_2675fe4e526316 1-253
+src/sidepanel/components/YatirimSkoruKarti.tsx
+  s_4fcb157bbede63::t_248d25f2587a5a 11
+  s_4fcb157bbede63::t_e014fdf0873141 80,83,96,102,108,111,178-221,223
+site/src/pages/veri-katalogu.astro
+  s_4fcb157bbede63::t_18a987a36596c4 1-69,72-97
+  s_4fcb157bbede63::t_de2e170f2c30f6 70-71
+site/src/components/Footer.astro
+  h_2675fe4e526316 70-71,87
+  s_9d892a1d05261b::t_172b17c44ac017 54-58
+  s_4fcb157bbede63::t_5ffcacaf63ebf2 68-69
+  s_9d892a1d05261b::t_95fe51fc0e0024 53
+mcp/README.md
+  s_9d892a1d05261b::t_185682ac5d176c 1-55
+src/sidepanel/components/AIDanismanGecmis.tsx
+  h_2675fe4e526316 1-133
+src/sidepanel/components/DijitalIkizZaman.tsx
+  h_2675fe4e526316 1-308
+backend/api/src/routes/harita.ts
+  s_4fcb157bbede63::t_d88c7c34f7b980 123-134,136-141,144-221
+  s_4fcb157bbede63::t_a3c59e5783366b 2,4-5,7-8,10-11,13-14
+  s_4fcb157bbede63::t_6275f6971ebd07 372,374,381-409,413-426,433-442,446-448,450-457,459
+  s_4fcb157bbede63::t_454c3ca143493d 135,142-143
+ROADMAP.md
+  h_2675fe4e526316 6,10,14-21,25,27-32,36,38-43,47,49-54,58,60-114,118-150,159,170,176
+  s_9d892a1d05261b::t_815a970ee37b9c 1,3-4,12-13
+src/sidepanel/views/FavorilerView.tsx
+  s_4fcb157bbede63::t_d2860207553991 3,10-14,28-31,38-43,45,50-51,59-63,66,76-106,116,118-120,122,130,138-154,157,160-163,165-166,168,170-174,176,178,182,270-274
+  s_4fcb157bbede63::t_b3bf5583b28005 1,6-9,15-16,22-23,25-27,32,44,46-49,52-58,67-75,107,128-129,131-137,155-156,175,177,179-181,183-236,247-269,275-289
+  s_4fcb157bbede63::t_31f7de89672222 237-246
+src/lib/belediye-wms-tiles.ts
+  s_4fcb157bbede63::t_11595a42c2b93b 1,5-6,9-11,14,16-17,20-22,24-26,35-37,53,55-59,65-67,78-95,114-116
+  s_4fcb157bbede63::t_b1e0d4882ca48f 2-4,7-8,12-13,15,18-19,23,27-34,38-52,54,60-64,68-77,96-113
+site/src/scripts/harita-init.ts
+  s_4fcb157bbede63::t_fec5dac8d7e0ac 752,760-803,1634
+  s_4fcb157bbede63::t_fcd7aeaab83eac 399,406,412,414-415,431-436,438-441,448,450,452-453,455-456,459,461,497-501
+  s_4fcb157bbede63::t_dbe1d055737dc6 337,339-343
+  s_4fcb157bbede63::t_dc9fb57ad773dc 1625,1633
+  s_4fcb157bbede63::t_d7b627f66e2310 1841,1847,1855-1856,1866-1867,1881
+  s_4fcb157bbede63::t_c9f6105550e5b2 470-472,475,480-484,487,511-526,529,534-537,554-555
+  s_4fcb157bbede63::t_1c5a859fe4ecb6 541-546
+  s_4fcb157bbede63::t_1cef09eb1a8675 486,488
+  s_4fcb157bbede63::t_4bd2d90a48a979 948,950-960,962-963,965-986,988-993
+  s_4fcb157bbede63::t_041b522928936a 235,238,240
+  s_4fcb157bbede63::t_63a12331c22053 1062
+  s_4fcb157bbede63::t_2038c4d6a0e37d 1767-1771
+  s_4fcb157bbede63::t_1f22197fa35697 19-21
+  s_4fcb157bbede63::t_606edd451ceedc 354,363,370-373
+  s_4fcb157bbede63::t_89deb402269aad 114
+  s_4fcb157bbede63::t_84f81c8564866c 327-329,335,358-362,364-366,374-379,381-388
+  s_4fcb157bbede63::t_8e14da61ac1a82 7
+  s_4fcb157bbede63::t_2f9f837d8f4228 262,264
+  s_4fcb157bbede63::t_4c3f71e17abe6d 923-925
+  s_4fcb157bbede63::t_677e3287e0ea51 1755-1756,1760,1778
+  s_4fcb157bbede63::t_d39d49c3c814cf 408-410
+  s_4fcb157bbede63::t_3a07a7324f4542 1484-1499
+  s_4fcb157bbede63::t_2f8f57516f70cc 1636-1691
+  s_4fcb157bbede63::t_3c3a30ba9289a4 485
+  s_4fcb157bbede63::t_be56a7e9f51a5c 804
+  s_4fcb157bbede63::t_00f7d0bd6fd113 1635
+site/src/pages/veri/[il].astro
+  s_4fcb157bbede63::t_c0685b0adf9289 4,44
+  s_9d892a1d05261b::t_741e6dbe98c26b 228-253
+  s_9d892a1d05261b::t_dd4d97166cc060 24-33,38-41,46-47,54-55,58-60
+  s_4fcb157bbede63::t_63d28df2287243 342-475,502,529
+  s_4fcb157bbede63::t_0ac72a9856ad9a 123-146
+  s_4fcb157bbede63::t_2fe4034f7e4d5a 319-331
+  s_9d892a1d05261b::t_7655de69f32567 93-94
+  s_4fcb157bbede63::t_7c0f623e5c3ae3 530
+mcp/package.json
+  s_9d892a1d05261b::t_5c1095b4989bd2 1,3,11,20-21,23-24,28-29
+  s_9d892a1d05261b::t_b995855dd07ade 2,4-10,12-19,22,25-27
+src/sidepanel/components/TekBakisOzeti.tsx
+  s_4fcb157bbede63::t_7b34fec9bd4e10 2-3,12-13,19-20,23,30,42-57,63,70-80,113-125,127-130,157,159-183
+  s_4fcb157bbede63::t_9e18f5233c0f83 209
+  s_4fcb157bbede63::t_7e9e3e4e89a6aa 1,4-5,7-11,14-18,21-22,24-29,31-41,58-62,64-69,81-112,126,131-156,158,184-208,210-232
+  s_4fcb157bbede63::t_b5befbb669aae3 6
+src/lib/eplan-api.ts
+  s_4fcb157bbede63::t_a8c84b0f105832 221-235,240,247-251,258,276-280,296-300,304-306,312,323-327,371,376-382,386-393,397-401,403-408
+src/sidepanel/App.tsx
+  s_4fcb157bbede63::t_13f45c9b352a03 55
+src/sidepanel/views/MapView.tsx
+  s_4fcb157bbede63::t_9f4af8b1f9e51b 77,96-97
+  s_4fcb157bbede63::t_ad7c064abb602d 74-76,78-79,87-90,98-99,102-105,663
+  s_4fcb157bbede63::t_906787527b8f3f 100-101
+  s_4fcb157bbede63::t_e6b8723335e195 531-532,539-540,571,573-592,604,608,613,630-633,647,649-661
+  s_4fcb157bbede63::t_8f775a6901ffdf 269-275,292-295,311
+  s_4fcb157bbede63::t_98cc344a7c347f 988
+  s_4fcb157bbede63::t_98bcdf9b23d666 1078,1089,1101,1104,1106-1112
+  s_4fcb157bbede63::t_965c11b3ff2953 972,981,993-1001
+  s_4fcb157bbede63::t_fe1bb9d0f6dc77 393,398-400,402
+  s_4fcb157bbede63::t_d652ca7c5c5e91 3,28,34,36-37
+  s_4fcb157bbede63::t_5aee6febaa13a0 530,538,556-559,572,593-597,605-607,609-612,614-629,634-646,648
+  s_4fcb157bbede63::t_a79b0b51957152 212,216,218-238,245-268,276-291,296-310
+  s_4fcb157bbede63::t_1a83ccea77d38a 157-159,161
+  s_4fcb157bbede63::t_eb76ab05564228 378,380-383,394-395,401,404-439,446,448
+  s_4fcb157bbede63::t_fa4baf4cace739 29-33
+  s_4fcb157bbede63::t_58f876aa2acc7f 106
+  s_4fcb157bbede63::t_5248c52515e4ea 403
+  s_4fcb157bbede63::t_b89369e5ae2056 662
+  s_4fcb157bbede63::t_6dd6dd0890ff5a 664-665
+src/lib/lisans.ts
+  h_2675fe4e526316 185-221,288,292,298-299,303-310,314,333
+  s_4fcb157bbede63::t_f64133f9007e15 87-88,94
+src/lib/gelisim-trendi.ts
+  s_9d892a1d05261b::t_114e86881d9f93 167-169
+  s_9d892a1d05261b::t_561af8f5e3bfcd 1-166,170-239
+GELISTIRME-PLANI.md
+  s_9d892a1d05261b::t_2122ca39f7f048 87-97
+src/lib/gelecek-deger-skoru.ts
+  s_9d892a1d05261b::t_ad330c523c9059 1-263
+backend/api/test/proxy.spec.ts
+  s_9d892a1d05261b::t_ca4955e1040e57 41-52
+src/sidepanel/components/FiyatTahminKarti.tsx
+  s_4fcb157bbede63::t_9fbe9e36563bb0 118-119
+  s_4fcb157bbede63::t_396b499fe3860c 436-495
+  s_4fcb157bbede63::t_a88178a7141b3f 506-510,521-522
+  s_4fcb157bbede63::t_3d4347f3e830de 47-48
+  s_4fcb157bbede63::t_209c05adbe43ef 218
+  s_4fcb157bbede63::t_6561b9e06888ad 519
+  s_4fcb157bbede63::t_34420338eb05b2 75
+  s_4fcb157bbede63::t_3abcb839a9ac68 37,62-65,82-83
+src/background/scheduler.ts
+  s_4fcb157bbede63::t_34cc2231bc9587 14,17-18,123,128
+  s_4fcb157bbede63::t_58861c81bcb31e 8-11,15-16,22,32-33,47-48,51,120-121,125-127,130-132,134
+src/lib/fiyat-tahmin.ts
+  s_4fcb157bbede63::t_bcd1a511ac8b31 564-589
+  s_4fcb157bbede63::t_d3d17e2e4be556 1732
+  s_4fcb157bbede63::t_732116f7c3143d 13
+  s_4fcb157bbede63::t_f5953568285887 1627
+  s_4fcb157bbede63::t_85e0350db3767f 1795-1801
+  s_4fcb157bbede63::t_90c524069201b1 1934-1938
+  s_4fcb157bbede63::t_fba80c919b0405 1820,1822
+site/src/data/blog-yazilar.ts
+  s_9d892a1d05261b::t_cea85e58b82055 345-346,460-511
+  h_2675fe4e526316 512-767
+  s_9d892a1d05261b::t_1f9a5edf22398b 347-459
+test/imar-degisim.spec.ts
+  h_2675fe4e526316 1-106
+site/src/pages/404.astro
+  h_2675fe4e526316 1-82
+src/sidepanel/views/KarsilastirmaView.tsx
+  s_4fcb157bbede63::t_ea3a930360608a 79-83
+backend/api/src/index.ts
+  s_9d892a1d05261b::t_f0c697648548e4 131-132
+  h_2675fe4e526316 46-49,226-237,453-458
+  s_4fcb157bbede63::t_f60c6f780fc71e 145-147
+  s_4fcb157bbede63::t_9b83652eb200a8 141-144
+site/README.md
+  s_9d892a1d05261b::t_a9dc64e30829aa 43-46,49-51
+src/sidepanel/components/CdpKarti.tsx
+  s_4fcb157bbede63::t_301af0d5811e76 130
+  s_4fcb157bbede63::t_52e2a0ca69c4c5 210,242-248,255,259-275
+  s_4fcb157bbede63::t_e4318ca0aedacc 19,33-34
+  s_4fcb157bbede63::t_f8fa6935b40747 361-363
+  s_c8c2a2a45b01b9::t_a920722797f95a 276
+src/sidepanel/components/GelecekDegerKarti.tsx
+  s_9d892a1d05261b::t_3ba8ea069b2b4d 106
+  s_9d892a1d05261b::t_80f6051d0063b5 1-105,107-215
+src/sidepanel/components/ParselDetay.tsx
+  s_9d892a1d05261b::t_9fd88e0f814f87 118
+  s_9d892a1d05261b::t_70da3f6fb4a972 75,77,79-81
+backend/api/wrangler.toml
+  s_4fcb157bbede63::t_c4cab9b5cae0a1 27
+backend/api/src/db/0022_ai_sohbet.sql
+  h_2675fe4e526316 1-12
+package.json
+  s_9d892a1d05261b::t_a558791e2a27e0 21-23
+  s_4fcb157bbede63::t_dfb20bd38c03ef 3-4
+src/sidepanel/components/TrendGrafik.tsx
+  h_2675fe4e526316 1-271
+backend/api/test/ai-danisman.spec.ts
+  h_2675fe4e526316 1-132
+src/sidepanel/components/TrendKarsilastirma.tsx
+  h_2675fe4e526316 1-240
+site/src/pages/kullanim-kosullari.astro
+  h_2675fe4e526316 2-4,7-18
+backend/api/src/routes/sorgu.ts
+  s_4fcb157bbede63::t_1a79877c960292 24-34,38-101
+  s_4fcb157bbede63::t_008cd560377592 468-479,507
+  s_4fcb157bbede63::t_1d4b3b4587c250 162-172,174,178,181,184-189,203-207,210-211,215-221,230,232-248,250-261,277-279,281-380,383,385-396,402-431,436-438,442-466,486-491,494-496,499,503-504,506
+  s_4fcb157bbede63::t_d8fffeccd40ac5 175-176
+  s_4fcb157bbede63::t_84a05c15be13d4 16
+  s_4fcb157bbede63::t_21be6861563f21 173
+  s_4fcb157bbede63::t_27a87652d89f39 209,213,231,249,263-276
+  s_4fcb157bbede63::t_2cc2fbe002bdad 262
+  s_4fcb157bbede63::t_2022bc418da9bc 280
+mcp/mcp.example.json
+  s_9d892a1d05261b::t_d1d821d4e33d19 1-12
+site/src/pages/ornek.astro
+  s_4fcb157bbede63::t_b6b2cf7aefe4eb 1-8,10-139
+  h_2675fe4e526316 9
+backend/api/src/routes/arazi-avci-cron.ts
+  h_2675fe4e526316 1-273
+test/gelisim-trendi.spec.ts
+  s_9d892a1d05261b::t_153c6845d7301d 1-36
+backend/api/src/db/0021_arazi_avci.sql
+  h_2675fe4e526316 1-39
+backend/api/src/lib/imar-degisim-sinyal.ts
+  h_2675fe4e526316 1-211
+site/scripts/verify-prod.ts
+  s_4fcb157bbede63::t_96899b31a513a5 125
+  s_4fcb157bbede63::t_49b5005a00df8e 1-104,124,126,129-133,136-164
+  s_4fcb157bbede63::t_a875f3f1a257a2 105-123,127-128,134-135
+site/src/pages/imar-sorgu.astro
+  s_9d892a1d05261b::t_698a9379a2c943 1-74
+backend/api/src/db/0020_kullanicilar_tam.sql
+  h_2675fe4e526316 1-56
+site/src/pages/musteri.astro
+  h_2675fe4e526316 9
+site/src/components/SeoLanding.astro
+  s_9d892a1d05261b::t_b71e891f185847 1-172
+site/src/pages/harita.astro
+  s_4fcb157bbede63::t_2ca4844f9809e1 369,371-372
+  s_4fcb157bbede63::t_c1b1aa92c28179 409-416
+  s_4fcb157bbede63::t_948059733115ca 424-438,440-441,443-447
+  h_2675fe4e526316 15-34,72,75,439,442
+  s_4fcb157bbede63::t_53aa20b862bd0b 64-71,73-74,76-77
+  s_4fcb157bbede63::t_fc9d388365cdcf 188-204
+  s_4fcb157bbede63::t_9d0af912b8628e 299
+  s_4fcb157bbede63::t_f2f97a306c9d34 3
+  s_4fcb157bbede63::t_d632729b4cce2a 327-333
+  s_4fcb157bbede63::t_0961320a2c7543 419
+src/sidepanel/components/HizliImarPrompt.tsx
+  s_4fcb157bbede63::t_3d6abf2a44adc0 23-24,27
+  s_4fcb157bbede63::t_4e9e8ace834455 55-56
+site/src/pages/arsa-talep.astro
+  h_2675fe4e526316 2-3,6-17
+  s_4fcb157bbede63::t_e4de2d915c50cd 1,4-5
+site/public/_redirects
+  s_9d892a1d05261b::t_a8a5953379f940 4-7
+mcp/src/index.ts
+  s_9d892a1d05261b::t_972a97ef0044ba 1-195
+backend/api/src/db/0023_perf_index.sql
+  h_2675fe4e526316 1-17
+site/public/robots.txt
+  s_9d892a1d05261b::t_4abdbf9f702787 22-23
+  s_9d892a1d05261b::t_9dec8214e04b03 3,12-15,18-21,24-40
+site/src/components/Header.astro
+  h_2675fe4e526316 4-6,10,12
+  s_c38c98d20083fb::t_e368696298a8ec 8,11
+src/lib/imar-degisim-sinyal.ts
+  h_2675fe4e526316 1-147
+site/src/pages/sorgu.astro
+  s_4fcb157bbede63::t_9b699685f0f5b2 43,63-66
+  s_4fcb157bbede63::t_31f427ef07aaa0 68,121,318-324,326
+  s_4fcb157bbede63::t_3be0e232d48099 486-493,495,522-523,531-532,538-541,707-763
+  s_4fcb157bbede63::t_683b2cf07774b8 265
+  s_9d892a1d05261b::t_c5e7168ba38cbb 1211-1248,1252-1275
+  s_4fcb157bbede63::t_9f39b8ea841872 177
+  s_4fcb157bbede63::t_47f55166201111 494
+  s_4fcb157bbede63::t_887494fe52dc6f 542-596,681-706
+  s_9d892a1d05261b::t_8beb22face544a 1249-1251
+  s_4fcb157bbede63::t_d23655e943b893 166-173,176,178-180,183-186,190-203,205,207,212,214,217-221,224-252
+  s_4fcb157bbede63::t_2beb8c462fdf4f 384-465,473,475,477
+  s_4fcb157bbede63::t_89648f55b2121a 1155-1159,1166
+  s_4fcb157bbede63::t_dd81fd9c623e3a 1076-1077,1081
+  s_9d892a1d05261b::t_c99573f642c18f 10-26
+  s_4fcb157bbede63::t_23fb63120fcbff 1490-1496,1505,1508-1521,1523-1528
+  s_4fcb157bbede63::t_63876ec3a70b9f 496
+  s_4fcb157bbede63::t_273cb5d2dd5349 206,208-209,213,215-216
+  s_4fcb157bbede63::t_176b837b657dfd 910
+  s_4fcb157bbede63::t_b11d34c0fa5620 969-977,983-1001,1005-1012,1014-1015,1024,1027-1028,1036,1054,1058-1072,1074,1078-1079,1082-1084,1093-1100,1102,1104-1105,1107-1110,1113-1115,1120-1121,1123,1126-1128,1134-1136,1146,1149,1172-1175,1178-1186,1196-1197,1201,1205-1207
+  s_4fcb157bbede63::t_fdfcbc03dad6af 824-837,844
+  s_9d892a1d05261b::t_fb9b3f5eac933a 1198-1200
+  s_4fcb157bbede63::t_1d7a7099f1c35b 138-161,163-165
+  s_9d892a1d05261b::t_b0a13fff96e94d 49,52
+  s_4fcb157bbede63::t_1c23473688e2d3 1150-1151
+  s_4fcb157bbede63::t_f77fd8b4b5f01c 1497-1504,1506-1507
+  s_4fcb157bbede63::t_cfbbdcd7aec6a9 1154,1160-1165,1167,1170
+  s_4fcb157bbede63::t_0e4035a535be15 516-521,537,764-801,803-804,806,809-823,838-843,845
+  s_4fcb157bbede63::t_eaf0ea46ca7d4e 67,1073,1364-1483
+  h_2675fe4e526316 28-42,162
+  s_4fcb157bbede63::t_2ca807108ec2a8 4
+  s_4fcb157bbede63::t_2944000c0fd24e 597-680
+  s_9d892a1d05261b::t_6e090c5ee7e830 1145
+  s_9d892a1d05261b::t_a298f32e842f5c 497-502
+  s_4fcb157bbede63::t_b8a32e39d4c0cf 1187-1195
+  s_4fcb157bbede63::t_2c3a9a9266af14 802,805,807-808
+  s_4fcb157bbede63::t_48a8787adcb960 278-279
+  s_4fcb157bbede63::t_0a35779bb4ec21 978-979
+  s_4fcb157bbede63::t_79b9f91b49427d 118-120
+  s_4fcb157bbede63::t_af6cb4c2652b45 122
+  s_4fcb157bbede63::t_901caec853121a 1075
+  s_4fcb157bbede63::t_04fe6a642133ba 1171
+src/lib/tkgm-api.ts
+  s_9d892a1d05261b::t_9c8710baeabfa4 299,301,313-321,323-332,336
+  s_9d892a1d05261b::t_dad060288e34c4 449-450
+site/src/pages/veri/detay.astro
+  s_9d892a1d05261b::t_a27814f0c79bec 6-10
+src/lib/degisim-radari.ts
+  s_4fcb157bbede63::t_9d8afbc85733b7 2-19,25,27-35,43,50-73,76-79,85-96,142-145
+  s_4fcb157bbede63::t_f4b6126afba675 1,20-24,26,36-42,44-49,74-75,80-84,97-141
+  s_4fcb157bbede63::t_297bcde2101f01 146-264
+src/lib/rapor-html.ts
+  s_4fcb157bbede63::t_c70320c7b5eee4 170
+mcp/tsconfig.json
+  s_9d892a1d05261b::t_728e927d203b7c 1-15
+backend/api/src/routes/arazi-avci.ts
+  h_2675fe4e526316 1-322
+src/sidepanel/views/belediye-wms-layer.ts
+  s_4fcb157bbede63::t_e80b756bd2f9e3 1-9,11-69
+  s_4fcb157bbede63::t_0a10a3ebed7e8c 10
+test/gelecek-deger-skoru.spec.ts
+  h_2675fe4e526316 1-139
+site/src/lib/belediye-wms.ts
+  s_4fcb157bbede63::t_41796f4eecb2e7 1-52
+backend/api/src/lib/gelecek-deger-skoru.ts
+  s_9d892a1d05261b::t_35033bd243e1dd 1-263
+backend/api/src/lib/yatirim-skoru.ts
+  s_4fcb157bbede63::t_4169ea3f2ff9de 1-185
+mcp/package-lock.json
+  s_9d892a1d05261b::t_88139fb1688d5d 1-1735
+site/src/lib/gelecek-deger-skoru.ts
+  s_9d892a1d05261b::t_4cf9a1361fac61 1-263
+site/src/lib/gelisim-trendi.ts
+  s_9d892a1d05261b::t_929d0283961c6b 1-239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b3184d6b2daf894d033f4ea8d4acf59b9be5c3d6",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_4fcb157bbede63": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "2060962d-5c39-4faa-878e-13e94c247bbb",
+        "model": "grok-4.5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_9d892a1d05261b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "3e7150ca-51e9-46f7-874b-500274b9687a",
+        "model": "grok-4.5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_c38c98d20083fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7423e138-64b8-4408-8f8a-b6ed77e438fd",
+        "model": "unknown"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    },
+    "s_c8c2a2a45b01b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5d6f8ca-f0ac-4027-8892-bcf311a5390f",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
