@@ -2,6 +2,7 @@ import {
   Crown as CrownIcon,
   Check as CheckIcon,
   Clock as ClockIcon,
+  ExternalLink as ExternalLinkIcon,
 } from "lucide-react";
 import { useLisans, type Tier, TIER_BILGI } from "../../lib/lisans";
 
@@ -51,8 +52,33 @@ const FEATURES_PER_TIER: Record<Tier, string[]> = {
   ],
 };
 
+const SITE_URL = "https://cadastrum.com.tr";
+
+/** Tier → fiyat sayfası anchor veya doğrudan LemonSqueezy checkout */
+function yukseltUrl(tier: Tier): string {
+  switch (tier) {
+    case "bireysel-pro":
+      // /fiyat sayfası LemonSqueezy overlay'i açar (PUBLIC_LEMON_PRO_VARIANT)
+      return `${SITE_URL}/fiyat?plan=pro&source=extension`;
+    case "kurumsal-standart":
+      return `${SITE_URL}/fiyat?plan=pro_plus&source=extension`;
+    case "kurumsal-pro":
+      return `${SITE_URL}/fiyat?plan=kurumsal&source=extension`;
+    default:
+      return `${SITE_URL}/fiyat?source=extension`;
+  }
+}
+
+function sitdeAc(url: string) {
+  if (typeof chrome !== "undefined" && chrome?.tabs) {
+    chrome.tabs.create({ url });
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
 export function AbonelikYonetimi({ onClose }: Props) {
-  const { lisans, tieriDegistir, trialBaslat } = useLisans();
+  const { lisans, trialBaslat } = useLisans();
 
   return (
     <div className="space-y-2">
@@ -100,6 +126,7 @@ export function AbonelikYonetimi({ onClose }: Props) {
         {SIRA.map((t) => {
           const aktif = lisans.tier === t;
           const ucretsiz = t === "free";
+          const kurumsal = t === "kurumsal-pro";
           return (
             <div
               key={t}
@@ -138,7 +165,8 @@ export function AbonelikYonetimi({ onClose }: Props) {
               </ul>
               {!aktif && (
                 <div className="flex gap-1">
-                  {!ucretsiz && (
+                  {/* 7 gün trial — sadece bireysel-pro için */}
+                  {t === "bireysel-pro" && (
                     <button
                       type="button"
                       onClick={() => trialBaslat(t)}
@@ -148,21 +176,39 @@ export function AbonelikYonetimi({ onClose }: Props) {
                       7 gün dene
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => tieriDegistir(t)}
-                    className={`flex-1 cursor-pointer rounded px-2 py-0.5 text-3xs font-medium ${
-                      ucretsiz
-                        ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                        : "bg-tkgm-primary text-white hover:bg-blue-700"
-                    }`}
-                  >
-                    {ucretsiz
-                      ? "Free'ye dön"
-                      : t.startsWith("kurumsal")
-                        ? "Satış ile iletişim"
-                        : "Şimdi yükselt"}
-                  </button>
+
+                  {ucretsiz ? (
+                    /* Free'ye dön — mevcut plan zaten Free değilse göster */
+                    lisans.tier !== "free" && (
+                      <button
+                        type="button"
+                        onClick={() => sitdeAc(`${SITE_URL}/hesap`)}
+                        className="flex-1 cursor-pointer rounded border border-slate-300 bg-white px-2 py-0.5 text-3xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Hesabı yönet
+                      </button>
+                    )
+                  ) : kurumsal ? (
+                    /* Kurumsal Pro — satış iletişim */
+                    <button
+                      type="button"
+                      onClick={() => sitdeAc(`${SITE_URL}/fiyat?plan=kurumsal&source=extension`)}
+                      className="flex-1 cursor-pointer rounded bg-slate-700 px-2 py-0.5 text-3xs font-medium text-white hover:bg-slate-800 flex items-center justify-center gap-1"
+                    >
+                      <ExternalLinkIcon className="h-2.5 w-2.5" />
+                      Satış ile iletişim
+                    </button>
+                  ) : (
+                    /* Pro / Pro+ — LemonSqueezy checkout (site üzerinden) */
+                    <button
+                      type="button"
+                      onClick={() => sitdeAc(yukseltUrl(t))}
+                      className="flex-1 cursor-pointer rounded bg-tkgm-primary px-2 py-0.5 text-3xs font-medium text-white hover:bg-blue-700 flex items-center justify-center gap-1"
+                    >
+                      <ExternalLinkIcon className="h-2.5 w-2.5" />
+                      Şimdi yükselt
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -170,10 +216,10 @@ export function AbonelikYonetimi({ onClose }: Props) {
         })}
       </div>
 
+      {/* İndirim kodu banner */}
       <div className="rounded-md border border-amber-200 bg-amber-50/60 p-2 text-3xs text-amber-800">
-        ⚠ <strong>v0.1 mock akış:</strong> Ödeme entegrasyonu (iyzico + Stripe)
-        sonraki sprint'te. Şu an "Şimdi yükselt" lokal tier değiştirir,
-        gerçek tahsilat yok. Test için kullan.
+        🎁 İlk 100 üyeye <strong>%40 indirim</strong> — kod:{" "}
+        <code className="rounded bg-amber-100 px-1 font-mono font-bold">ERKEN100</code>
       </div>
     </div>
   );

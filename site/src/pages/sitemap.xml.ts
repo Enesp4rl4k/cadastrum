@@ -1,12 +1,8 @@
 /**
  * Sitemap.xml — Cadastrum site için Google indexleme.
  *
- * İçerik:
- * - Statik sayfalar (anasayfa, fiyat, sss, gizlilik, kullanım şartları, /veri)
- * - 81 il sayfası (/veri/{il})
- * - Top 1000 popüler mahalle (AI-research veya yüksek güvenli KNN)
- *
- * Astro endpoint: GET /sitemap.xml → application/xml
+ * İçerik: statik SEO landings + blog + 81 il (/veri/{il}).
+ * Mahalle URL'leri bilinçli olarak yok (soft-404 indeks kirliliği).
  */
 import type { APIRoute } from "astro";
 import { BLOG_YAZILAR } from "../data/blog-yazilar.ts";
@@ -33,60 +29,6 @@ const ILLER_NORM = [
   "zonguldak",
 ];
 
-// Top mahalleler — AI-tarama gelene kadar manuel curated liste (büyük şehir popüler).
-// İleride: build script mahalle-baseline-final.json'dan AI-research kaynaklı top 1000'i çıkartır.
-// Format: il__ilce__mahalle (URL'de tire ile değil boşluksuz)
-const TOP_MAHALLELER = [
-  // İstanbul
-  "istanbul__besiktas__bebek", "istanbul__besiktas__etiler", "istanbul__besiktas__levent",
-  "istanbul__besiktas__arnavutkoy", "istanbul__besiktas__ortakoy",
-  "istanbul__sariyer__tarabya", "istanbul__sariyer__yenikoy", "istanbul__sariyer__istinye",
-  "istanbul__sariyer__buyukdere", "istanbul__sariyer__zekeriyakoy",
-  "istanbul__sisli__nisantasi", "istanbul__sisli__tesvikiye", "istanbul__sisli__mecidiyekoy",
-  "istanbul__kadikoy__moda", "istanbul__kadikoy__caddebostan", "istanbul__kadikoy__fenerbahce",
-  "istanbul__kadikoy__goztepe", "istanbul__kadikoy__suadiye",
-  "istanbul__atasehir__icerenkoy", "istanbul__atasehir__acibadem",
-  "istanbul__beykoz__anadoluhisari", "istanbul__beykoz__kandilli", "istanbul__beykoz__cubuklu",
-  "istanbul__uskudar__kuzguncuk", "istanbul__uskudar__beylerbeyi",
-  "istanbul__bakirkoy__atakoy", "istanbul__bakirkoy__yesilkoy", "istanbul__bakirkoy__florya",
-  "istanbul__zeytinburnu__kazlicesme", "istanbul__fatih__sultanahmet", "istanbul__fatih__balat",
-  "istanbul__beyoglu__galata", "istanbul__beyoglu__cihangir", "istanbul__beyoglu__karakoy",
-  "istanbul__sile__sahilkoy",
-  // Ankara
-  "ankara__cankaya__cukurambar", "ankara__cankaya__gaziosmanpasa", "ankara__cankaya__kavaklidere",
-  "ankara__cankaya__bahcelievler", "ankara__cankaya__ayranci",
-  "ankara__yenimahalle__batikent", "ankara__yenimahalle__demetevler",
-  "ankara__golbasi__incek",
-  // İzmir
-  "izmir__konak__alsancak", "izmir__karsiyaka__bostanli", "izmir__cesme__alacati",
-  "izmir__cesme__ilica", "izmir__urla__kalabak", "izmir__seferihisar__sigacik",
-  "izmir__foca__kucuk-foca",
-  // Antalya
-  "antalya__muratpasa__lara", "antalya__konyaalti__hurma",
-  "antalya__alanya__mahmutlar", "antalya__alanya__oba", "antalya__alanya__tosmur",
-  "antalya__manavgat__side", "antalya__kemer__cirali", "antalya__kas__kalkan",
-  "antalya__belek__belek-merkez",
-  // Muğla
-  "mugla__bodrum__yalikavak", "mugla__bodrum__turgutreis", "mugla__bodrum__gumusluk",
-  "mugla__bodrum__bitez", "mugla__bodrum__turkbuku",
-  "mugla__fethiye__calis", "mugla__fethiye__oludeniz", "mugla__fethiye__hisaronu",
-  "mugla__marmaris__icmeler", "mugla__datca__merkez",
-  // Bursa
-  "bursa__nilufer__gorukle", "bursa__nilufer__odunluk", "bursa__mudanya__guzelyali",
-  "bursa__osmangazi__cekirge",
-  // Balıkesir
-  "balikesir__bandirma__yali", "balikesir__bandirma__edincik",
-  "balikesir__edremit__akcay", "balikesir__ayvalik__cunda",
-  "balikesir__erdek__merkez", "balikesir__gomec__merkez",
-  // Aydın
-  "aydin__kusadasi__kadinlar-denizi", "aydin__didim__altinkum",
-  // Diğer önemliler
-  "tekirdag__corlu__merkez", "kocaeli__izmit__merkez", "kocaeli__gebze__merkez",
-  "yalova__cinarcik__merkez", "yalova__armutlu__merkez",
-  "trabzon__ortahisar__akcaabat", "samsun__atakum__merkez",
-  "denizli__pamukkale__pamukkale-merkez", "konya__selcuklu__merkez",
-];
-
 interface UrlEntry {
   loc: string;
   changefreq: "daily" | "weekly" | "monthly";
@@ -111,15 +53,46 @@ ${xmlEntries}
 export const GET: APIRoute = () => {
   const entries: UrlEntry[] = [];
 
-  // Statik sayfalar
+  // ── Ana & ürün sayfaları ─────────────────────────────────────────────────
   entries.push({ loc: `${SITE}/`, changefreq: "weekly", priority: 1.0, lastmod: TODAY });
-  entries.push({ loc: `${SITE}/fiyat`, changefreq: "monthly", priority: 0.8, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/sorgu`, changefreq: "weekly", priority: 0.95, lastmod: TODAY });
   entries.push({ loc: `${SITE}/harita`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
-  entries.push({ loc: `${SITE}/sss`, changefreq: "monthly", priority: 0.5, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/fiyat`, changefreq: "monthly", priority: 0.85, lastmod: TODAY });
+
+  // ── Yüksek niyetli SEO landings ──────────────────────────────────────────
+  entries.push({ loc: `${SITE}/arsa-yatirimi`, changefreq: "weekly", priority: 0.95, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/tarla-yatirimi`, changefreq: "weekly", priority: 0.95, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/imar-sorgu`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/tkgm-parsel-sorgu`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/ai-arsa-analiz`, changefreq: "weekly", priority: 0.95, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/kat-karsiligi`, changefreq: "weekly", priority: 0.85, lastmod: TODAY });
+
+  // ── İçerik & destek sayfaları ────────────────────────────────────────────
+  entries.push({ loc: `${SITE}/veri`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/veri-katalogu`, changefreq: "monthly", priority: 0.75, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/blog`, changefreq: "weekly", priority: 0.8, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/sss`, changefreq: "monthly", priority: 0.55, lastmod: TODAY });
+  // arsa-talep → /sorgu redirect, sitemap'ten çıkarıldı
+  entries.push({ loc: `${SITE}/iletisim`, changefreq: "monthly", priority: 0.4, lastmod: TODAY });
+  // api-docs footer'da linklenir, düşük öncelik
+  entries.push({ loc: `${SITE}/api-docs`, changefreq: "monthly", priority: 0.35, lastmod: TODAY });
+
+  // ── Yasal (indeksle ama düşük priority) ──────────────────────────────────
   entries.push({ loc: `${SITE}/gizlilik`, changefreq: "monthly", priority: 0.3 });
   entries.push({ loc: `${SITE}/kullanim-sartlari`, changefreq: "monthly", priority: 0.3 });
-  entries.push({ loc: `${SITE}/veri`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
-  entries.push({ loc: `${SITE}/blog`, changefreq: "weekly", priority: 0.8, lastmod: TODAY });
+  entries.push({ loc: `${SITE}/iade-iptal`, changefreq: "monthly", priority: 0.3 });
+  entries.push({ loc: `${SITE}/mesafeli-satis`, changefreq: "monthly", priority: 0.3 });
+
+  // ── SITEMAP'TEN ÇIKARILANLAR (noindex veya private) ──────────────────────
+  // logo-secim         → redirect to /
+  // ornek              → demo sayfası, noindex
+  // musteri/musteriler → auth korumalı, private
+  // admin/             → auth korumalı, private
+  // hesap/             → auth korumalı, private
+  // dogrulama/cikis    → auth flow, private
+  // giris/kayit        → auth, low SEO value
+  // kullanim-kosullari → tekrar eden T&C, /kullanim-sartlari tercih edildi
+  // rapor              → dinamik hash sayfası, noindex
 
   // Blog yazıları
   for (const yazi of BLOG_YAZILAR) {
@@ -141,17 +114,8 @@ export const GET: APIRoute = () => {
     });
   }
 
-  // Top mahalleler (popüler 100+, dinamik AI sonrası genişler)
-  for (const key of TOP_MAHALLELER) {
-    const parts = key.split("__");
-    if (parts.length !== 3) continue;
-    entries.push({
-      loc: `${SITE}/veri/${parts[0]}/${parts[1]}/${parts[2]}`,
-      changefreq: "weekly",
-      priority: 0.6,
-      lastmod: TODAY,
-    });
-  }
+  // Mahalle URL'leri sitemap'te YOK — unique prerender HTML yokken soft-404 / indeks kirliliği üretiyordu.
+  // Statik mahalle sayfaları gelene kadar sadece /veri/{il} indeksletilir.
 
   return new Response(buildUrlSet(entries), {
     headers: {

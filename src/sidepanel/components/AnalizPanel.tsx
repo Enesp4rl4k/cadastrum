@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { RiskKarti } from "./RiskKarti";
 import { AnalizIlerlemeBar } from "./AnalizIlerlemeBar";
 import {
@@ -21,6 +22,7 @@ import { TkgmAnaliz } from "./TkgmAnaliz";
 import { BelediyeImar } from "./BelediyeImar";
 import { FiyatTahminKarti } from "./FiyatTahminKarti";
 import { RiskUyariKarti } from "./RiskUyariKarti";
+import { TekBakisOzeti } from "./TekBakisOzeti";
 import { RaporExportButonu } from "./RaporExportButonu";
 import { ManuelImarKarti } from "./ManuelImarKarti";
 import { KomsuParselKarti } from "./KomsuParselKarti";
@@ -35,11 +37,13 @@ import { useManuelVeri } from "../../lib/use-manuel-veri";
 import { EmsalMukayeseKarti } from "./EmsalMukayeseKarti";
 import { EmsalRadiusSlider } from "./EmsalRadiusSlider";
 import { YatirimSkoruKarti } from "./YatirimSkoruKarti";
+import { GelecekDegerKarti } from "./GelecekDegerKarti";
 import { BildirimKurali } from "./BildirimKurali";
 import { DogalVeriKarti } from "./DogalVeriKarti";
 import { AltyapiMesafeKarti } from "./AltyapiMesafeKarti";
 import { MilliEmlakKarti } from "./MilliEmlakKarti";
 import { HavaFotoTimeline } from "./HavaFotoTimeline";
+import { GelisimTrendiKarti } from "./GelisimTrendiKarti";
 import {
   katmanlarOlustur,
   type KatmanBilgi,
@@ -47,6 +51,8 @@ import {
 } from "../../lib/analiz-orkestrator";
 import { BagimsizBolumKarti } from "./BagimsizBolumKarti";
 import { GunesEnerjisiKarti } from "./GunesEnerjisiKarti";
+import { db } from "../../lib/db";
+import { favoriFiyatSnapshotYaz, fiyatSnapshotDeltaYuzde } from "../../lib/degisim-radari";
 import { TarimAnalizKarti } from "./TarimAnalizKarti";
 import { PaywallKilit } from "./PaywallKilit";
 import { useLisans } from "../../lib/lisans";
@@ -103,11 +109,48 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
   const skorlar = tumSkorlariHesapla(analiz, cevre, egim);
   const autoAnalizKeyRef = useRef<string | null>(null);
   const abortCtrlRef = useRef<AbortController | null>(null);
-  const { veri: ePlanVerisi, loading: ePlanLoading } = useEPlanVerisi(parsel);
+  const { veri: ePlanVerisi, loading: ePlanLoading, durum: ePlanDurum, mesaj: ePlanMesaj } = useEPlanVerisi(parsel);
   const { veri: tucbsVerisi, loading: tucbsLoading } = useTucbsCdp(parsel);
   const { veri: manuelVeri, tetikle: manuelTetikle } = useManuelVeri(parsel);
   // Manuel + ePlan birleşik imar — manuel öncelikli alan bazında override eder
   const birlesikImar = imarBirlestir(ePlanVerisi, manuelVeri.imar);
+
+  // Favori eşleşmesi — fiyat snapshot / delta için
+  const eslesenFavori = useLiveQuery(
+    () =>
+      db.favoriler
+        .where("[adaNo+parselNo]")
+        .equals([parsel.adaNo, parsel.parselNo])
+        .toArray()
+        .then((adaylar) => {
+          if (adaylar.length === 0) return undefined;
+          const mk = parsel.mahalleKodu;
+          const filtre =
+            mk != null && mk > 0
+              ? adaylar.filter((f) => f.mahalleKodu === mk)
+              : adaylar;
+          const liste = filtre.length > 0 ? filtre : adaylar;
+          return liste.sort((a, b) => b.eklenmeTarihi - a.eklenmeTarihi)[0];
+        }),
+    [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu],
+  );
+
+  // İlk fiyat hesabında snapshot yoksa baseline yaz
+  useEffect(() => {
+    if (!hesaplananFiyat || !eslesenFavori?.id) return;
+    if (eslesenFavori.fiyatSnapshot) return;
+    void favoriFiyatSnapshotYaz(eslesenFavori.id, {
+      beklenenPerM2: hesaplananFiyat.beklenenPerM2,
+      altPerM2: hesaplananFiyat.altPerM2,
+      ustPerM2: hesaplananFiyat.ustPerM2,
+      ts: Date.now(),
+    });
+  }, [hesaplananFiyat, eslesenFavori?.id, eslesenFavori?.fiyatSnapshot]);
+
+  const fiyatDeltaYuzde =
+    hesaplananFiyat && eslesenFavori?.fiyatSnapshot
+      ? fiyatSnapshotDeltaYuzde(eslesenFavori.fiyatSnapshot, hesaplananFiyat.beklenenPerM2)
+      : null;
 
   // cevreyiAnalizEt — useCallback burada (useEffect'lerden önce) tanımlanmalı
   const cevreyiAnalizEt = useCallback(async () => {
@@ -346,6 +389,16 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         />
       </div>
 
+      <TekBakisOzeti
+        parsel={parsel}
+        ePlan={birlesikImar ?? ePlanVerisi}
+        tucbs={tucbsVerisi}
+        fiyat={hesaplananFiyat}
+        cevre={cevre}
+        ePlanLoading={ePlanLoading}
+        fiyatLoading={ePlanLoading && !hesaplananFiyat}
+      />
+
       {error && (
         <div className="rounded border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
           {error}
@@ -532,6 +585,12 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           loading={tucbsLoading}
           ePlan={birlesikImar ?? ePlanVerisi}
           ePlanLoading={ePlanLoading}
+          ePlanMesaj={ePlanMesaj}
+          ePlanDurum={ePlanDurum}
+          ilAd={parsel.ilAd}
+          mahalleKodu={parsel.mahalleKodu}
+          adaNo={parsel.adaNo}
+          parselNo={parsel.parselNo}
         />
       )}
 
@@ -568,6 +627,7 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           ePlan={birlesikImar ?? ePlanVerisi}
           tucbs={tucbsVerisi}
           ePlanLoading={ePlanLoading}
+          ePlanMesaj={ePlanMesaj}
           imarSkipEdildi={imarSkipEdildi}
           onImarKaydedildi={() => {
             manuelTetikle();
@@ -576,7 +636,27 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           onImarSkip={() => setImarSkipEdildi(true)}
           onImarTekrarSor={() => setImarSkipEdildi(false)}
           onTahminHesaplandi={setHesaplananFiyat}
+          fiyatSnapshot={eslesenFavori?.fiyatSnapshot ?? null}
+          fiyatDeltaYuzde={fiyatDeltaYuzde}
         />
+      )}
+
+      {/* Yatırım skoru + AI gelecek değer — fiyat kartının hemen altında */}
+      {acikModuller.includes("fiyat-tahmin") && (
+        <>
+          <YatirimSkoruKarti
+            parsel={parsel}
+            fiyat={hesaplananFiyat}
+            cevre={cevre}
+            ePlan={birlesikImar ?? ePlanVerisi}
+          />
+          <GelecekDegerKarti
+            parsel={parsel}
+            fiyat={hesaplananFiyat}
+            cevre={cevre}
+            ePlan={birlesikImar ?? ePlanVerisi}
+          />
+        </>
       )}
 
       {/* W3 — Ada İçi Komşu Parsel Karşılaştırması */}
@@ -695,14 +775,6 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
 
         {acikModuller.includes("fiyat-tahmin") && <EmsalMukayeseKarti parsel={parsel} />}
         {acikModuller.includes("fiyat-tahmin") && <EmsalRadiusSlider parsel={parsel} />}
-        {acikModuller.includes("fiyat-tahmin") && (
-          <YatirimSkoruKarti
-            parsel={parsel}
-            fiyat={hesaplananFiyat}
-            cevre={cevre}
-            ePlan={birlesikImar ?? ePlanVerisi}
-          />
-        )}
         {acikModuller.includes("fiyat-tahmin") && <BildirimKurali parsel={parsel} />}
 
         {parsel.ilceKodu != null && (
@@ -786,9 +858,12 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         />
       </DetayGrup>
 
-      {/* ── W8 — HAVA FOTOĞRAFI TİMELINE ───────────────────────────────── */}
+      {/* ── W8 — HAVA FOTOĞRAFI TİMELINE + GELİŞİM TRENDİ ─────────────── */}
       {parsel.koordinatlar && parsel.koordinatlar.length >= 3 && (
-        <HavaFotoTimeline parsel={parsel} />
+        <>
+          <GelisimTrendiKarti parsel={parsel} />
+          <HavaFotoTimeline parsel={parsel} />
+        </>
       )}
 
       {/* ── FİZİBİLİTE — bağımsız grup (yatırım hesabı odaklı) ─────────── */}

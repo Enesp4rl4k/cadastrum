@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "cadastrum-arsa": {
+      "command": "node",
+      "args": ["C:/Users/parlak/Downloads/arsa-tkgm-extension/mcp/dist/index.js"],
+      "env": {
+        "CADASTRUM_API_KEY": "cdrm_YOUR_TOKEN_HERE",
+        "CADASTRUM_API_BASE": "https://cadastrum-api.cadastrum-tr.workers.dev"
+      }
+    }
+  }
+}

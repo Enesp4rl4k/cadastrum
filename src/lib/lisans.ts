@@ -84,12 +84,14 @@ const YETENEK_TIER_GEREKLI: Record<Yetenek, Tier> = {
   "profesyonel-pdf": "kurumsal-standart",
   "coklu-parsel-karsilastirma": "kurumsal-standart",
   "risk-skor": "kurumsal-standart",
-  "manuel-imar": "kurumsal-standart",
+  // Manuel imar — e-Plan boş/429'da fiyat motorunun çalışması için tüm tier'larda serbest
+  "manuel-imar": "free",
 
   // Kurumsal Pro
   "tapu-sicil": "kurumsal-pro",
   "comp-set-advanced": "kurumsal-pro",
   "api-access": "kurumsal-pro",
+  // 3D terrain — MapView'da enforce edilir
   "uc-d-gorselleştirme": "kurumsal-pro",
 };
 
@@ -180,8 +182,43 @@ function hasChromeStorage(): boolean {
 
 export async function lisansGetir(): Promise<LisansBilgisi> {
   if (!hasChromeStorage()) return { ...DEFAULT_LISANS };
-  const d = await chrome.storage.local.get(STORAGE_KEY);
-  const kayit = d[STORAGE_KEY] as LisansBilgisi | undefined;
+
+  // Önce backend'den gelen gerçek kullanıcı tier'ını kontrol et
+  // (auth-koprusu.ts tarafından cadastrum_kullanici olarak saklanan)
+  const stored = await chrome.storage.local.get([STORAGE_KEY, "cadastrum_kullanici", "cadastrum_token"]);
+
+  // Backend JWT'den gelen tier varsa onu kullan (LemonSqueezy güncellemelerini yakala)
+  const kullanici = stored["cadastrum_kullanici"] as {
+    tier?: string; tierBitis?: number | null; email?: string
+  } | undefined;
+
+  if (kullanici?.tier && kullanici.tier !== "free") {
+    // Backend'deki gerçek tier bilgisini Tier enum'a map et
+    const backendTierMap: Record<string, Tier> = {
+      "pro": "bireysel-pro",
+      "pro_plus": "kurumsal-standart",
+      "kurumsal": "kurumsal-pro",
+      "bireysel-pro": "bireysel-pro",
+      "kurumsal-standart": "kurumsal-standart",
+      "kurumsal-pro": "kurumsal-pro",
+    };
+    const mappedTier = backendTierMap[kullanici.tier] ?? "free";
+    const bitis = kullanici.tierBitis ?? null;
+    // Abonelik bitmişse free'ye düş
+    if (bitis && Date.now() > bitis) {
+      return { ...DEFAULT_LISANS, email: kullanici.email ?? null };
+    }
+    return {
+      tier: mappedTier,
+      email: kullanici.email ?? null,
+      baslangic: null,
+      bitis,
+      trial: false,
+    };
+  }
+
+  // Backend bilgisi yoksa yerel mock lisans'a bak (trial vb.)
+  const kayit = stored[STORAGE_KEY] as LisansBilgisi | undefined;
   if (!kayit) return { ...DEFAULT_LISANS };
   // Bitiş geçmişse free'ye düş
   if (kayit.bitis && Date.now() > kayit.bitis) {
@@ -248,21 +285,33 @@ export function useLisans(): UseLisansSonuc {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   useEffect(() => {
+    // İlk yüklemede lisans + admin durumunu çek
     lisansGetir().then(setLisans);
     isAdminGetir().then(setIsAdmin);
     if (!hasChromeStorage()) return;
+
     const dinleyici = (
       changes: Record<string, chrome.storage.StorageChange>,
       area: string,
     ) => {
       if (area !== "local") return;
+
+      // Yerel mock lisans değişti
       if (changes[STORAGE_KEY]?.newValue) {
         setLisans(changes[STORAGE_KEY].newValue as LisansBilgisi);
       }
+
+      // Backend'den gelen kullanıcı bilgisi değişti (auth-koprusu.ts tarafından yazılır)
+      // LemonSqueezy webhook → backend tier güncellemesi → auth-koprusu push → burası tetiklenir
+      if (changes["cadastrum_kullanici"]) {
+        lisansGetir().then(setLisans);
+      }
+
+      // Token değişti — admin cache temizle + tier yenile
       if (changes["cadastrum_token"]) {
-        // Token değişti — cache temizle, yeniden oku
         adminCacheTemizle();
         isAdminGetir().then(setIsAdmin);
+        lisansGetir().then(setLisans);
       }
     };
     chrome.storage.onChanged.addListener(dinleyici);
@@ -281,6 +330,7 @@ export function useLisans(): UseLisansSonuc {
     yukseltGerekli: (yetenek) =>
       isAdmin || yetenekVarMi(lisans.tier, yetenek) ? null : gerekliTier(yetenek),
     tieriDegistir: async (tier) => {
+      // Sadece lokal mock (trial vs) — gerçek upgrade fiyat sayfasından
       await lisansYaz({ tier, trial: false });
     },
     trialBaslat: async (tier) => {

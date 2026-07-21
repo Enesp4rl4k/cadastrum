@@ -1,14 +1,15 @@
 ---
 import Logo from "./Logo.astro";
 
+// Nav sadeleştirildi — 6 madde, net hiyerarşi
+// Çıkarılanlar: Hesaplayıcılar (sorgu içinde), Arsa talebi (redirect),
+//               Kaynaklar (footer), Örnek (noindex), API (footer'da)
 const navItems = [
-  { href: "/#ozellikler", label: "Özellikler" },
-  { href: "/sorgu", label: "Sorgu" },
-  { href: "/veri", label: "Veri" },
+  { href: "/sorgu",  label: "Sorgu" },
   { href: "/harita", label: "Harita" },
-  { href: "/fiyat", label: "Fiyat" },
-  { href: "/blog", label: "Blog" },
-  { href: "/api-docs", label: "API" },
+  { href: "/veri",   label: "Veri" },
+  { href: "/fiyat",  label: "Fiyat" },
+  { href: "/blog",   label: "Blog" },
 ];
 ---
 

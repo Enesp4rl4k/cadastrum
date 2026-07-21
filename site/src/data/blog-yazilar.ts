@@ -344,4 +344,427 @@ CV: %5.2 (kaynaklar arası tutarlı)</code></pre>
 </div>
 `,
   },
+
+  // ── 4. Arsa yatırımı nasıl yapılır ───────────────────────────
+  {
+    slug: "arsa-yatirimi-nasil-yapilir-2026",
+    baslik: "Arsa Yatırımı Nasıl Yapılır? 2026 Kontrol Listesi",
+    aciklama: "Arsa yatırımı adım adım: TKGM parsel doğrulama, e-Plan imar (emsal/TAKS), mahalle TL/m² ve likidite. Bireysel ve kurumsal yatırımcı checklist'i.",
+    kategori: "rehber",
+    yayinTarihi: "2026-07-18",
+    okumaSuresi: 9,
+    yazar: "Cadastrum",
+    keywords: [
+      "arsa yatırımı",
+      "arsa yatırım nasıl yapılır",
+      "yatırımlık arsa",
+      "arsa almadan önce",
+      "imarlı arsa",
+      "arsa TL/m²",
+    ],
+    icerik: `
+<p class="lead">Arsa yatırımı, konut alımından daha fazla <strong>resmi veri</strong> ister. Bu rehber; bireysel ve kurumsal yatırımcıların ilan açmadan önce uygulayabileceği net bir kontrol listesi sunar. Araç olarak <a href="/arsa-yatirimi">Cadastrum arsa yatırımı</a> sayfası ve Chrome eklentisi kullanılır.</p>
+
+<h2>1. Hedefi netleştirin</h2>
+<p>Kısa vadeli geliştirme (kat karşılığı / inşaat) ile uzun vadeli arazi tutma aynı ürün değildir. Hedef, hangi illerde ve hangi imar tipinde arayacağınızı belirler.</p>
+<ul>
+  <li><strong>Geliştirme:</strong> imar (emsal/TAKS) ve yol erişimi şart</li>
+  <li><strong>Portföy / tutma:</strong> likidite ve vergi/masraf senaryosu önemli</li>
+  <li><strong>Kurumsal:</strong> ölçeklenebilir tarama + raporlama gerekir</li>
+</ul>
+
+<h2>2. TKGM parsel doğrulama</h2>
+<p>İlandaki ada-parsel, alan ve nitelik TKGM ile uyuşmalı. Uyuşmazlık varsa fiyat tartışmasına girmeden önce satıcıdan düzeltme isteyin. Detay: <a href="/tkgm-parsel-sorgu">TKGM parsel sorgu</a>.</p>
+
+<h2>3. e-Plan imar özeti</h2>
+<p>Emsal, TAKS, Hmax ve kullanım türü yapı hakkını belirler. İmar belirsizse m² fiyatı spekülasyondur. Rehber: <a href="/imar-sorgu">imar sorgu</a> ve <a href="/blog/e-plan-imar-nasil-okunur-taks-emsal-2026">e-Plan okuma</a>.</p>
+
+<h2>4. Mahalle TL/m² bandı</h2>
+<p>Asking (ilan) fiyatı ile gerçek işlem arasında %12–20 fark sık görülür. Cadastrum mahalle medyanı ve güven aralığı verir — tek sayıya kilitlemeyin. Veri: <a href="/veri">/veri</a>.</p>
+
+<h2>5. Likidite ve risk</h2>
+<p>Bölgede alım-satım yoğunluğu düşükse çıkış süresi uzar. Deprem / taşkın katmanları portföy riskini değiştirir. Harita: <a href="/harita">TKGM yoğunluk haritası</a>.</p>
+
+<h2>6. Kat karşılığı düşünüyorsanız</h2>
+<p>Önce emsal ve alan netleşmeden oran konuşulmaz. Hesaplayıcı: <a href="/kat-karsiligi">kat karşılığı</a> ve <a href="/sorgu#hesaplayicilar">/sorgu</a>.</p>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>Arsa yatırımı için en kritik tek kontrol nedir?</h3>
+<p>TKGM + imar birlikte. Biri olmadan diğeri yanıltıcıdır.</p>
+<h3>Kurumsal yatırımcı ne ekler?</h3>
+<p>Toplu tarama, PDF rapor ve API. Cadastrum Pro+/Kurumsal bu ölçeğe bakar.</p>
+
+<div class="cta-box">
+  <h3>Arsa yatırımını hızlandırın</h3>
+  <p>İlan üzerinde TKGM, imar ve TL/m² — Cadastrum Chrome eklentisi.</p>
+  <p><a href="/arsa-yatirimi" class="btn-primary">Arsa yatırımı sayfası →</a></p>
+</div>
+`,
+  },
+
+  // ── 5. Tarla yatırımı rehberi ────────────────────────────────
+  {
+    slug: "tarla-yatirimi-rehberi-2026",
+    baslik: "Tarla Yatırımı Rehberi 2026 — Nitellik, İmar, Fiyat",
+    aciklama: "Yatırımlık tarla alırken TKGM niteliği, imar/tarım kısıtı ve m² fiyatı nasıl okunur? Tarla vs arsa farkı ve Cadastrum ile kontrol listesi.",
+    kategori: "rehber",
+    yayinTarihi: "2026-07-18",
+    okumaSuresi: 8,
+    yazar: "Cadastrum",
+    keywords: [
+      "tarla yatırımı",
+      "yatırımlık tarla",
+      "tarım arazisi alımı",
+      "tarla fiyat",
+      "tarla imar",
+      "tarla arsa farkı",
+    ],
+    icerik: `
+<p class="lead">Tarla yatırımı; düşük m² fiyatı yüzünden cazip görünür ama <strong>nitellik ve kısıt</strong> yanlış okunursa pahalı bir hataya dönüşür. Bu rehber, yatırımlık tarla arayan bireysel ve kurumsal alıcılar içindir. Özet sayfa: <a href="/tarla-yatirimi">tarla yatırımı</a>.</p>
+
+<h2>Tarla ile arsa arasındaki fark</h2>
+<p>TKGM niteliği “tarla / bağ / zeytinlik” iken ilan “arsa” diyebilir. Yapı hakkı e-Plan ve belediye planına bağlıdır; tarım arazisinde yapı hayaliyle alım en yaygın hatadır. Karşılaştırma: <a href="/arsa-yatirimi">arsa yatırımı</a>.</p>
+
+<h2>Kontrol listesi</h2>
+<ol>
+  <li><strong>TKGM niteliği ve alan</strong> — <a href="/tkgm-parsel-sorgu">parsel sorgu</a></li>
+  <li><strong>İmar / plan durumu</strong> — <a href="/imar-sorgu">imar sorgu</a></li>
+  <li><strong>Bölge TL/m²</strong> — <a href="/veri">mahalle verisi</a></li>
+  <li><strong>Likidite</strong> — <a href="/harita">yoğunluk haritası</a></li>
+  <li><strong>Hisseli mülkiyet</strong> — Web Tapu / hukuki teyit</li>
+</ol>
+
+<h2>Fiyatı nasıl okumalı?</h2>
+<p>Tarla m² fiyatları ilçeden mahalleye sert değişir. Asking fiyatı medyanın çok üzerindeyse ya imar beklentisi fiyatlanmıştır ya da piyasa dışıdır. Cadastrum bandı + güven aralığı sunar.</p>
+
+<h2>Ne zaman tarla alınır?</h2>
+<ul>
+  <li>Uzun vadeli arazi / dönüşüm senaryosu ve risk iştahı varsa</li>
+  <li>Yol, sulama, eğim gibi fiziki faktörler netse</li>
+  <li>Çıkış (satış) süresini bilançoya yazabiliyorsanız</li>
+</ul>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>Tarlaya ev yapılır mı?</h3>
+<p>Genelde hayır veya çok kısıtlı. İmar ve ruhsat olmadan yapı risklidir; e-Plan + belediye teyidi şart.</p>
+<h3>Tarla yatırımı kısa vadede kârlı mı?</h3>
+<p>Nadiren. Likidite düşük bölgelerde süre uzar; spekülatif imar hikâyelerine karşı resmi veri kullanın.</p>
+
+<div class="cta-box">
+  <h3>Tarla ilanını doğrula</h3>
+  <p>Nitelik, imar ve m² bandı — Cadastrum ile ilan üzerinde.</p>
+  <p><a href="/tarla-yatirimi" class="btn-primary">Tarla yatırımı →</a></p>
+</div>
+`,
+  },
+
+  // ── 6. AI ile arsa/tarla nasıl seçilir ───────────────────────
+  {
+    slug: "ai-ile-arsa-tarla-nasil-secilir-2026",
+    baslik: "AI ile Arsa ve Tarla Nasıl Seçilir? 2026 Pratik Rehber",
+    aciklama: "Yapay zeka / analiz aracı arayan yatırımcılar için: TKGM + imar + AI fiyat bandıyla arsa ve tarla seçim akışı. Cadastrum checklist.",
+    kategori: "rehber",
+    yayinTarihi: "2026-07-20",
+    okumaSuresi: 8,
+    yazar: "Cadastrum",
+    keywords: [
+      "AI ile arsa seçimi",
+      "yapay zeka arsa",
+      "arsa analiz aracı",
+      "tarla seçim tool",
+      "AI gayrimenkul yatırım",
+      "arsa yatırım asistanı",
+    ],
+    icerik: `
+<p class="lead">“Yapay zeka ile arsa bul” araması yapan çoğu kişi aslında <strong>hızlı ve dürüst bir karar aracı</strong> arıyor. Bu rehber; AI’yı TKGM ve imar olmadan kullanmanın riskini anlatır, Cadastrum akışını adım adım verir. Ürün sayfası: <a href="/ai-arsa-analiz">AI arsa analiz aracı</a>.</p>
+
+<h2>AI tek başına yetmez</h2>
+<p>Sadece ChatGPT’ye “Bodrum’da tarla alayım mı?” yazmak spekülasyondur. Doğru araç sırası:</p>
+<ol>
+  <li><strong>Resmi parsel</strong> — <a href="/tkgm-parsel-sorgu">TKGM</a></li>
+  <li><strong>Yapı hakkı</strong> — <a href="/imar-sorgu">e-Plan imar</a></li>
+  <li><strong>Piyasa bandı</strong> — mahalle emsal + <a href="/blog/ai-ile-arsa-fiyat-tahmini-nasil-calisir">AI tahmin</a></li>
+  <li><strong>Likidite / risk</strong> — <a href="/harita">yoğunluk haritası</a></li>
+</ol>
+
+<h2>60 saniyelik seçim akışı</h2>
+<p>Chrome’a Cadastrum’u ekleyin. Sahibinden veya Hepsiemlak’ta ilanı açın. Yan panelde dört satırı okuyun: parsel, imar, TL/m², risk. Uyuşmazlık varsa ilanı eleyin — AI yorumundan önce.</p>
+
+<h2>Arsa mı tarla mı?</h2>
+<p>Hedef kısa vadeli geliştirme ise imarlı <a href="/arsa-yatirimi">arsa</a>; uzun vadeli arazi ise <a href="/tarla-yatirimi">tarla</a> — ama nitellik ve plan kısıtı net olmalı. AI fiyat bandı her iki nitelikte de çalışır; girdiler farklıdır.</p>
+
+<h2>Kurumsal kullanım</h2>
+<p>Ofisler Pro+/API ile aynı motoru toplu tarar. “Tool arıyorum” diyen kurumsal alıcı için kritik: raporlanabilir çıktı ve kaynak şeffaflığı.</p>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>En iyi AI arsa aracı hangisi?</h3>
+<p>Resmi veriye bağlı, güven aralığı veren ve Chrome/web’de kullanılabilen araçları tercih edin. Cadastrum bu üçünü birleştirir.</p>
+<h3>Ücretsiz deneyebilir miyim?</h3>
+<p>Evet — Free plan ve <a href="/sorgu">web sorgu</a> ile başlayın.</p>
+
+<div class="cta-box">
+  <h3>AI analiz aracını dene</h3>
+  <p>Parsel + imar + AI TL/m² — tek bakışta.</p>
+  <p><a href="/ai-arsa-analiz" class="btn-primary">AI arsa analiz →</a></p>
+</div>
+`,
+  },
+
+  // ── 7. İstanbul Arsa Fiyatları 2026 ──────────────────────────
+  {
+    slug: "istanbul-arsa-fiyatlari-2026",
+    baslik: "İstanbul Arsa Fiyatları 2026 — İlçe Bazlı Analiz",
+    aciklama: "İstanbul'da arsa fiyatları 2026 yılında ilçe bazında nasıl? Beykoz, Silivri, Çatalca, Şile, Tuzla karşılaştırması. Cadastrum mahalle verisi.",
+    kategori: "analiz",
+    yayinTarihi: "2026-07-21",
+    okumaSuresi: 9,
+    yazar: "Cadastrum",
+    keywords: [
+      "İstanbul arsa fiyatları 2026", "İstanbul arsa m2 fiyatı",
+      "Beykoz arsa fiyatı", "Silivri arsa", "Şile arsa fiyatı",
+      "Çatalca arsa", "Tuzla arsa", "İstanbul yatırım ilçeleri",
+    ],
+    icerik: `
+<p class="lead">İstanbul'da arsa fiyatları ilçeden ilçeye 3–10 kat arasında değişiyor. Bu analizde Avrupa ve Anadolu yakasındaki ilçeleri karşılaştırıyor, hangi bölgenin neden yükseldiğini veri odaklı açıklıyoruz.</p>
+
+<h2>İstanbul'da Arsa Fiyatını Belirleyen 4 Faktör</h2>
+<ul>
+  <li><strong>İmar durumu:</strong> Konut imarı olan arsa, aynı mahallede sıfır imarlıya göre 3–5× daha değerli.</li>
+  <li><strong>Altyapı mesafesi:</strong> Metro/metrobüs hattına 2 km içinde olması fiyatı %30–60 artırıyor.</li>
+  <li><strong>OSB ve sanayi yakınlığı:</strong> Tuzla, Gebze koridorunda sanayi/lojistik talebi yüksek.</li>
+  <li><strong>İstanbul sınırına yakınlık:</strong> Belediye sınırı içinde olmak tek başına %20–40 prim sağlıyor.</li>
+</ul>
+
+<h2>Anadolu Yakası — İlçe Karşılaştırması</h2>
+
+<h3>Beykoz</h3>
+<p>Orman ve doğal sit alanı yoğunluğu nedeniyle yapılaşma kısıtlı. Korunan bölge dışındaki imarlı arsalar 25.000–60.000 TL/m² bandında. Uzun vadeli baskı yüksek ama imar riski taşıyor.</p>
+
+<h3>Şile</h3>
+<p>E-80 bağlantısı ve sahil konumu avantajlı. Boş arsa 8.000–20.000 TL/m²; imarlı sahil yakını 30.000 TL/m²'yi geçiyor. Yatırım aktivitesi son 2 yılda %40 arttı.</p>
+
+<h3>Tuzla</h3>
+<p>Sanayi/lojistik bölgesi. Konut imarı sınırlı, ticari/sanayi imarı yüksek değerli. 15.000–35.000 TL/m² bandı; OSB yakını parsellerde 50.000 TL/m²'yi geçiyor.</p>
+
+<h3>Pendik / Kartal</h3>
+<p>Yoğun konut dönüşümü. Boş arsa bulmak giderek zorlaşıyor; bulunanda 40.000–80.000 TL/m² seviyesi var.</p>
+
+<h2>Avrupa Yakası — İlçe Karşılaştırması</h2>
+
+<h3>Silivri</h3>
+<p>Trakya'ya geçiş noktası. Tarla/bahçe stoku hâlâ mevcut: 3.000–8.000 TL/m². İmarlı arsa 12.000–25.000 TL/m². Lojistik koridoru etkisiyle son 3 yılda en hızlı değerlenen ilçelerden biri.</p>
+
+<h3>Çatalca</h3>
+<p>Boş tarla stoğu geniş, fiyatlar Silivri'den düşük: 2.000–6.000 TL/m². Altyapı yatırımı yavaş ama büyük arazi pozisyonu için cazip.</p>
+
+<h3>Büyükçekmece / Beylikdüzü</h3>
+<p>Sahil hattı yoğun imar altında. Yeni boş arsa neredeyse kalmadı; mevcut stok 50.000–120.000 TL/m².</p>
+
+<h2>Fiyat Doğrulama — Nasıl Yapılır?</h2>
+<p>İlan fiyatı piyasa değeriyle aynı değildir. Kadastrum ile karşılaştırın: <a href="/sorgu">web sorgu</a> veya eklenti üzerinden mahalle medyanını görün. Emsal fiyatı 3 yıldan eski ise güvenmek riskli.</p>
+
+<div class="cta-box">
+  <h3>İstanbul ilçe verisi</h3>
+  <p>39 ilçenin mahalle bazlı TL/m² verisi Cadastrum'da.</p>
+  <p><a href="/veri/istanbul" class="btn-primary">İstanbul verisine bak →</a></p>
+</div>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>İstanbul'da en ucuz arsa hangi ilçede?</h3>
+<p>2026 itibarıyla Çatalca ve Silivri en düşük fiyatlı ilçeler. Ancak "ucuz" ile "değerlenecek" aynı şey değil — altyapı projeksiyonuna bakın.</p>
+<h3>İstanbul arsa almak için en iyi zaman ne?</h3>
+<p>Arsa yatırımı zamanlama değil lokasyon ve imar ağırlıklı bir karar. Fiyat bandını doğru okumak, "ne zaman" sorusundan daha önemli.</p>
+`,
+  },
+
+  // ── 8. Ankara Arsa Fiyatları 2026 ─────────────────────────────
+  {
+    slug: "ankara-arsa-fiyatlari-2026",
+    baslik: "Ankara Arsa Fiyatları 2026 — İlçe ve Mahalle Analizi",
+    aciklama: "Ankara'da arsa ve tarla fiyatları 2026: Çankaya, Etimesgut, Sincan, Kazan, Polatlı karşılaştırması. Cadastrum mahalle bazlı TL/m² verisi.",
+    kategori: "analiz",
+    yayinTarihi: "2026-07-21",
+    okumaSuresi: 8,
+    yazar: "Cadastrum",
+    keywords: [
+      "Ankara arsa fiyatları 2026", "Ankara arsa m2 fiyatı",
+      "Kazan arsa", "Polatlı arsa", "Sincan arsa fiyatı",
+      "Etimesgut arsa", "Ankara yatırım ilçeleri",
+    ],
+    icerik: `
+<p class="lead">Ankara arsa piyasası İstanbul'dan farklı dinamiklerle hareket ediyor: devlet kurumu yatırımları, OSB genişlemesi ve kuzey gelişim aksı belirleyici. Bu analizde 2026 verisiyle ilçe karşılaştırması yapıyoruz.</p>
+
+<h2>Ankara'da Arsa Değerini Belirleyen Faktörler</h2>
+<ul>
+  <li><strong>Kuzey gelişim aksı:</strong> Çayyolu–Törekent–İncek koridoru son 5 yılın en hızlı büyüyeni.</li>
+  <li><strong>OSB ve Teknokent yakınlığı:</strong> Ostim, İvedik, Sincan OSB çevresinde sanayi imarı yüksek değerli.</li>
+  <li><strong>Devlet yatırım kararları:</strong> Ankara'da büyük kamu projeleri ani fiyat sıçraması yaratabilir.</li>
+  <li><strong>Konut açığı:</strong> Ankara nüfusu büyürken konut arzı yetersiz — özellikle batı ilçelerinde baskı var.</li>
+</ul>
+
+<h2>Merkezi İlçeler</h2>
+
+<h3>Çankaya</h3>
+<p>Yüksek değerli konut bölgesi. Boş imarlı arsa son derece nadir, mevcut stok 25.000–70.000 TL/m².</p>
+
+<h3>Etimesgut</h3>
+<p>Hızlı büyüyen konut ilçesi. Boş arsa stoğu azalıyor: 12.000–30.000 TL/m². Metro hattı tamamlanınca ek değer bekleniyor.</p>
+
+<h2>Gelişim İlçeleri</h2>
+
+<h3>Kazan</h3>
+<p>Ankara'nın kuzeyinde sanayi ve lojistik geçiş noktası. Tarla stoğu geniş: 3.000–8.000 TL/m². Organize sanayi büyümesiyle talep artıyor.</p>
+
+<h3>Polatlı</h3>
+<p>Tarım arazisi yoğun, TL/m² en düşük ilçelerden biri: 1.500–4.000 TL/m². Ankara–İstanbul hızlı tren güzergahında yer alması uzun vadeli potansiyel sunuyor.</p>
+
+<h3>Sincan</h3>
+<p>Sanayi ağırlıklı: 8.000–18.000 TL/m². OSB yakını parseller daha yüksek. Konut talebi sınırlı.</p>
+
+<h2>Ankara Arsa Veri Kaynakları</h2>
+<p>Mahalle bazlı fiyatlar için <a href="/veri/ankara">Ankara veri sayfası</a> ve <a href="/sorgu">sorgu aracı</a> kullanın. İmar durumu için e-Plan zorunlu.</p>
+
+<div class="cta-box">
+  <h3>Ankara mahalle verisine eriş</h3>
+  <p><a href="/veri/ankara" class="btn-primary">Ankara arsa fiyatları →</a></p>
+</div>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>Ankara'da en çok değerlenen ilçe hangisi?</h3>
+<p>Son 3 yılda Etimesgut ve Sincan koridoru. Orta vadede Kazan ve Polatlı potansiyel taşıyor.</p>
+<h3>Ankara'da tarla alınır mı?</h3>
+<p>Polatlı ve Kazan'da tarla stoğu var. Tarla yatırımı uzun vade (5–10 yıl) gerektiriyor; imar beklentisi olmadan alınmamalı.</p>
+`,
+  },
+
+  // ── 9. Deprem Bölgesinde Arsa ──────────────────────────────────
+  {
+    slug: "deprem-bolgesinde-arsa-alinir-mi-2026",
+    baslik: "Deprem Bölgesinde Arsa Alınır mı? Risk Değerlendirme Rehberi 2026",
+    aciklama: "Türkiye'nin deprem haritasında Z1–Z5 zonlar nedir? Deprem riski yüksek bölgede arsa alırken nelere dikkat etmeli? AFAD PGA değeri nasıl yorumlanır?",
+    kategori: "rehber",
+    yayinTarihi: "2026-07-21",
+    okumaSuresi: 10,
+    yazar: "Cadastrum",
+    keywords: [
+      "deprem bölgesinde arsa", "deprem riski arsa yatırımı",
+      "AFAD deprem haritası arsa", "PGA değeri nedir",
+      "deprem zonu arsa değeri", "Z1 deprem bölgesi arsa",
+      "Hatay arsa", "Kahramanmaraş arsa yatırımı",
+    ],
+    icerik: `
+<p class="lead">Türkiye'nin %95'i deprem tehlike haritasında yer alıyor. Bu, "deprem riski var mı?" sorusunu anlamsız kılıyor — asıl soru "ne kadar risk, ne kadar fiyat iskontosuna yansımış?" olmalı.</p>
+
+<h2>AFAD Deprem Tehlike Haritası Nasıl Okunur?</h2>
+<p>Türkiye Deprem Tehlike Haritası (TDTH 2018), koordinat bazlı PGA (Peak Ground Acceleration) değerleri sunar. PGA g cinsinden ifade edilir:</p>
+
+<ul>
+  <li><strong>PGA < 0.10g:</strong> Düşük tehlike (iç Anadolu'nun bazı bölgeleri)</li>
+  <li><strong>PGA 0.10–0.20g:</strong> Orta tehlike</li>
+  <li><strong>PGA 0.20–0.40g:</strong> Yüksek tehlike (İstanbul, İzmir, Bursa)</li>
+  <li><strong>PGA > 0.40g:</strong> Çok yüksek tehlike (Hatay, Kahramanmaraş, Erzincan)</li>
+</ul>
+
+<h2>Deprem Riski Arsa Fiyatını Nasıl Etkiler?</h2>
+<p>Piyasa her zaman riski tam olarak fiyatlamaz. 2023 Kahramanmaraş depremi sonrası bazı gözlemler:</p>
+<ul>
+  <li>Z1 bölgelerde arsa fiyatları kısa vadede %20–40 düştü.</li>
+  <li>Yeniden yapılanma sürecinde talep arttı, fiyatlar kısmen toparlandı.</li>
+  <li>Kurumsal alıcılar risk iskontosu uyguluyor; bireysel alıcılar çoğu zaman uygulamıyor.</li>
+</ul>
+
+<h2>Deprem Bölgesinde Arsa Alırken Kontrol Listesi</h2>
+<ol>
+  <li><strong>PGA değerini öğren:</strong> AFAD TDTH veya Cadastrum'da koordinat bazlı deprem riski görün.</li>
+  <li><strong>Zemin etüdü sorgula:</strong> Fay hattına mesafe, likefaksiyon riski, dolgu zemin sorunu.</li>
+  <li><strong>İmar kısıtı kontrol et:</strong> Fay tampon bölgesinde yapılaşma yasaklı olabilir.</li>
+  <li><strong>Sigorta maliyeti hesapla:</strong> Yüksek riskli bölgelerde DASK primleri ve yapı sigortası daha yüksek.</li>
+  <li><strong>Emsal fiyatı karşılaştır:</strong> Aynı m² için düşük riskli alternatif varsa iskonto yeterli mi?</li>
+</ol>
+
+<h2>Risk Skontosunun Makul Olduğu Durumlar</h2>
+<p>Deprem riski yüksek bölgede arsa almak anlamsız değil — önemli olan doğru fiyatla almak:</p>
+<ul>
+  <li>Fiyat aynı büyüklükte düşük riskli parsele göre %30+ daha ucuzsa iskonto çekici olabilir.</li>
+  <li>Bölgede devlet yeniden yapılanma teşviki varsa (afet bölgesi ilan edilmiş) ek fırsat doğabilir.</li>
+  <li>Tarımsal kullanım için deprem riski konut riskinden farklı değerlendirilmeli.</li>
+</ul>
+
+<h2>Cadastrum ile Deprem Riski Analizi</h2>
+<p>Eklenti üzerinden her parsel için AFAD TDTH PGA değeri otomatik hesaplanır. Deprem zonu, fiyat motorunda çarpan olarak kullanılır — yüksek riskli bölgede fiyat bandı buna göre düzeltilir.</p>
+
+<div class="cta-box">
+  <h3>Parselin deprem riskini öğren</h3>
+  <p>AFAD TDTH verisiyle koordinat bazlı PGA analizi.</p>
+  <p><a href="/sorgu" class="btn-primary">Deprem riski sorgula →</a></p>
+</div>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>Hatay'da arsa alınır mı 2026?</h3>
+<p>Teknik olarak alınabilir. Ancak PGA > 0.40g, yeniden yapılanma sürecinde belirsizlik ve yüksek sigorta maliyeti göz önünde tutulmalı. Risk toleransınıza ve fiyata göre karar verin.</p>
+<h3>Deprem riski olan bölgede tarla alınır mı?</h3>
+<p>Tarımsal kullanım için deprem riski genelde ikincil faktör. Zemin tipi (çatlak, fay) tarım verimliliğini etkileyebilir ama yapı güvenliği kadar kritik değil.</p>
+`,
+  },
+
+  // ── 10. Hisseli Arsa Riskleri ──────────────────────────────────
+  {
+    slug: "hisseli-arsa-riskleri-2026",
+    baslik: "Hisseli Arsa Riskleri 2026 — Alırken Dikkat Edilmesi Gerekenler",
+    aciklama: "Hisseli arsa nedir, riskleri neler? Önalım hakkı, paydaş anlaşmazlığı, izale-i şuyu davası. Hisseli arsa alırken Cadastrum ile nasıl kontrol yapılır?",
+    kategori: "rehber",
+    yayinTarihi: "2026-07-21",
+    okumaSuresi: 9,
+    yazar: "Cadastrum",
+    keywords: [
+      "hisseli arsa riskleri", "hisseli tapu sorunları",
+      "izale-i şuyu nedir", "şuyulandırma davası",
+      "önalım hakkı arsa", "hisseli arsa satışı",
+      "ortak arsa nasıl satılır",
+    ],
+    icerik: `
+<p class="lead">Türkiye'deki arsa ilanlarının önemli bir bölümü hisseli tapulu parsellerdir. Düşük fiyatı cazip görünse de hisseli arsa, dikkatli incelenmediğinde ciddi hukuki ve finansal riskler taşıyor.</p>
+
+<h2>Hisseli Arsa Nedir?</h2>
+<p>Bir parselin birden fazla kişi adına tescilli olduğu tapu şeklidir. Her ortak parselin belirli bir payına (örn. 1/4) sahiptir; ancak bu pay, fiziksel olarak belirli bir köşeye işaret etmez — tüm parselde paylı mülkiyet söz konusudur.</p>
+
+<h2>Başlıca Riskler</h2>
+
+<h3>1. Önalım Hakkı (Şüf'a)</h3>
+<p>Diğer paydaşların, parseldeki herhangi bir hisseyi satın alma önceliği vardır. Siz hisseyi alıp tapu devri yaptıktan sonra diğer paydaş <strong>3 ay içinde aynı fiyatla sizin yerinize geçebilir</strong> — yani paranızı alırsınız ama parsellerden çıkarılırsınız.</p>
+
+<h3>2. İzale-i Şuyu Davası</h3>
+<p>Herhangi bir paydaş ortaklığın giderilmesi (izale-i şuyu) davası açabilir. Dava kazanılırsa parsel <strong>cebri satışa</strong> çıkar — genellikle piyasa değerinin altında. Birden fazla paydaş varsa bu risk sürekli mevcut.</p>
+
+<h3>3. Yapılaşma Engeli</h3>
+<p>Parsele yapı yapabilmek için <strong>tüm paydaşların rızası</strong> gereklidir. Bir paydaş uyuşmazlık çıkarırsa inşaat mümkün olmaz.</p>
+
+<h3>4. Parçalanmış Kullanım</h3>
+<p>Hissenize karşılık gelen fiziksel alanı belirlemeniz (ifraz) için yine tüm paydaş onayı veya mahkeme kararı gerekir.</p>
+
+<h2>Hisseli Arsa Alırken Kontrol Listesi</h2>
+<ol>
+  <li>TKGM'den veya <a href="/sorgu">Cadastrum</a>'dan tapu bilgisini doğrula — paydaş sayısı ve pay oranları.</li>
+  <li>Diğer paydaşlardan önalım hakkı feragati yazılı al (noter onaylı).</li>
+  <li>İzale-i şuyu davası açık olup olmadığını UYAP üzerinden sorgula.</li>
+  <li>Parselin imar durumunu e-Plan'dan kontrol et — hisseli arsa çoğu zaman kentsel dönüşüm kapsamında.</li>
+  <li>Fiyatı benzer imarlı, tam mülkiyetli parselle karşılaştır — hisse iskontosu gerçekçi mi?</li>
+</ol>
+
+<h2>Ne Zaman Mantıklı Olabilir?</h2>
+<p>Tüm paydaşlarla aynı anda satın alma yapabilecekseniz (tüm hisseleri birleştirecekseniz), hisseli parseller büyük fırsat sunabilir. Parseli "toparlayabilme" kapasitesi olmadan tek hisse almak riskli.</p>
+
+<div class="cta-box">
+  <h3>Parsel bilgisini doğrula</h3>
+  <p>TKGM verisiyle tapu, pay ve imar kontrolü.</p>
+  <p><a href="/sorgu" class="btn-primary">Parseli sorgula →</a></p>
+</div>
+
+<h2>Sıkça Sorulanlar</h2>
+<h3>Hisseli arsa satın aldım, diğer paydaş ne yapabilir?</h3>
+<p>3 ay içinde şüf'a (önalım) hakkını kullanabilir. Kullanmazsa siz paydaş olursunuz. Ancak herhangi bir zamanda izale-i şuyu davası açabilir.</p>
+<h3>Hisseli arsa ucuz neden?</h3>
+<p>Hukuki karmaşıklık, likidite düşüklüğü ve potansiyel dava riski fiyatı aşağı çekiyor. İskonto gerçek — ama risk de gerçek.</p>
+`,
+  },
 ];

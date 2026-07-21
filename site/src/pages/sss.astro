@@ -63,6 +63,23 @@ const kategoriler = [
     ],
   },
   {
+    baslik: "Arsa & tarla yatırımı",
+    sorular: [
+      {
+        q: "Cadastrum arsa yatırımı için nasıl kullanılır?",
+        a: "Sahibinden veya Hepsiemlak’ta arsa ilanı açın; eklenti TKGM parsel, e-Plan imar ve mahalle TL/m² bandını yan panelde gösterir. Detaylı rehber: /arsa-yatirimi.",
+      },
+      {
+        q: "Tarla yatırımı ile arsa yatırımı aynı mıdır?",
+        a: "Hayır. Tarla niteliği ve imar kısıtları farklıdır. Önce TKGM niteliğini, sonra e-Plan’ı kontrol edin. Rehber: /tarla-yatirimi.",
+      },
+      {
+        q: "Kurumsal yatırımcılar için uygun mu?",
+        a: "Evet. Pro+ ve Kurumsal planlarda toplu analiz, markalı PDF ve API vardır. Ofis ekipleri /sorgu ve harita ile bölge tarayabilir.",
+      },
+    ],
+  },
+  {
     baslik: "Teknik",
     sorular: [
       {
@@ -80,9 +97,29 @@ const kategoriler = [
     ],
   },
 ];
+
+const tumSorular = kategoriler.flatMap((k) => k.sorular);
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: tumSorular.map((s) => ({
+    "@type": "Question",
+    name: s.q,
+    acceptedAnswer: { "@type": "Answer", text: s.a },
+  })),
+};
 ---
 
-<Base title="Sıkça Sorulanlar — Cadastrum">
+<Base
+  title="Sıkça Sorulanlar — Arsa Yatırımı, TKGM, İmar | Cadastrum"
+  description="Cadastrum SSS: TKGM parsel sorgu, e-Plan imar, arsa/tarla fiyat tahmini, gizlilik ve abonelik. Arsa yatırımı karar desteği hakkında sık sorulanlar."
+  keywords={["Cadastrum SSS", "TKGM soru cevap", "arsa yatırım SSS", "e-Plan SSS"]}
+  breadcrumb={[
+    { ad: "Ana Sayfa", url: "/" },
+    { ad: "SSS", url: "/sss" },
+  ]}
+>
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   <section class="border-b border-slate-100 bg-slate-50">
     <div class="container-prose py-16 md:py-20 text-center">
       <h1 class="font-display text-4xl md:text-5xl font-bold text-ink tracking-tight">

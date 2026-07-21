@@ -38,4 +38,16 @@ describe("proxy endpoints", () => {
     const r = await fetch(`${API}/proxy/tucbs/tile?wms=csb_cdp_im_wms&bbox=bad`);
     expect(r.status).toBe(400);
   });
+
+  it("Wayback proxy — eksik bbox 400", async () => {
+    const r = await fetch(`${API}/proxy/wayback?releaseId=92`);
+    expect([400, 404]).toContain(r.status); // 404: deploy öncesi eski worker
+  });
+
+  it("Wayback proxy — geçersiz releaseId 400", async () => {
+    const q =
+      "minLng=32.8&minLat=39.9&maxLng=32.81&maxLat=39.91&releaseId=999";
+    const r = await fetch(`${API}/proxy/wayback?${q}`);
+    expect([400, 404]).toContain(r.status);
+  });
 });

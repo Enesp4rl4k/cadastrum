@@ -59,13 +59,13 @@ const features = [
   {
     label: "Harita",
     title: "TKGM yoğunluk katmanı",
-    desc: "İlçe genelinde alım-satım, ipotek, haciz yoğunluğu. Harita üzerinde renk kodlu likidite okunur.",
+    desc: "İlçe genelinde alım-satım ve ipotek yoğunluğu. Harita üzerinde renk kodlu likidite okunur.",
     accent: "bg-accent-danger/10 text-accent-danger",
   },
   {
     label: "Tahmin",
-    title: "Çoklu kaynak fiyat tahmini",
-    desc: "Mahalle baseline, banka değerleme ve TCMB endeksini birlikte değerlendirir. Tek noktadan ağırlıklı sonuç çıkar.",
+    title: "Fiyat bandı + yatırım skoru",
+    desc: "Mahalle emsali, güven skoru ve 0–100 yatırım skorunu birlikte gösterir. Tek rakam değil; açıklanabilir karar sinyali.",
     accent: "bg-accent-ai/10 text-accent-ai",
   },
   {
@@ -77,7 +77,21 @@ const features = [
 ];
 ---
 
-<Base>
+<Base
+  title="Cadastrum — AI Arsa & Tarla Analiz Aracı | TKGM, İmar, Fiyat"
+  description="Yapay zeka ile arsa ve tarla seçimi: TKGM parsel doğrulama, e-Plan imar, mahalle TL/m² ve AI fiyat tahmini. Yatırımcılar için Chrome eklentisi + web araç."
+  keywords={[
+    "AI arsa analiz",
+    "arsa yatırım aracı",
+    "yapay zeka arsa fiyat",
+    "tarla seçim aracı",
+    "arsa yatırımı",
+    "tarla yatırımı",
+    "TKGM parsel sorgu",
+    "imar sorgu",
+    "Cadastrum",
+  ]}
+>
   <section
     class="hero-scrub"
     data-hero-scrub
@@ -114,8 +128,8 @@ const features = [
             </h1>
 
             <p class="hero-lede">
-              Sahibinden ve Hepsiemlak ilanlarını TKGM kaydıyla eşleştirir, e-Plan imar durumunu çeker,
-              mahalle emsalinden gerçekçi bir fiyat aralığı çıkarır. Hepsi yan panelde, ilan açıkken.
+              AI destekli arsa ve tarla analiz aracı: Sahibinden/Hepsiemlak ilanlarını TKGM ile eşleştirir,
+              e-Plan imarı çeker, mahalle emsali + yapay zeka ile TL/m² bandı üretir — yan panelde, ilan açıkken.
             </p>
 
             {LAUNCHED ? (
@@ -126,7 +140,7 @@ const features = [
                   </svg>
                   Chrome'a ekle, ücretsiz
                 </a>
-                <a href="/sorgu" class="hero-secondary-link">Örnek sorguyu incele <span aria-hidden="true">→</span></a>
+                <a href="/ai-arsa-analiz" class="hero-secondary-link">AI analiz aracını gör <span aria-hidden="true">→</span></a>
               </div>
             ) : (
               <>

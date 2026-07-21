@@ -81,10 +81,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
 
     <!-- OpenGraph -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Cadastrum" />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={new URL(ogImage, Astro.site)} />
+    <meta property="og:image:alt" content="Cadastrum — TKGM parsel, e-Plan imar, arsa fiyat analizi" />
     <meta property="og:locale" content="tr_TR" />
 
     <!-- Twitter -->
@@ -92,6 +94,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />
+    <meta name="twitter:image:alt" content="Cadastrum — arsa ve tarla yatırım analiz aracı" />
+
+    <!-- AI / LLM keşif -->
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="LLMs.txt" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -109,7 +115,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
           "@type": "SoftwareApplication",
           "@id": "https://cadastrum.com.tr/#extension",
           "name": "Cadastrum",
-          "description": "TKGM resmi parsel verisi, e-Plan imar, 65.000 mahalle bazlı emsal fiyat ve AI fiyat tahmini Chrome eklentisi",
+          "alternateName": ["Cadastrum Arsa Analiz", "Cadastrum Parsel Zekâ"],
+          "description": "Türkiye arsa ve tarla yatırımı için TKGM parsel sorgu, e-Plan imar, 65.000 mahalle emsal fiyat ve AI fiyat tahmini Chrome eklentisi",
           "applicationCategory": "BusinessApplication",
           "applicationSubCategory": "Real Estate",
           "operatingSystem": "Chrome",
@@ -117,19 +124,21 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
           "downloadUrl": "https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej",
           "offers": [
             { "@type": "Offer", "name": "Free Plan", "price": "0", "priceCurrency": "TRY" },
-            { "@type": "Offer", "name": "Pro Plan", "price": "499", "priceCurrency": "TRY", "billingPeriod": "P1M" },
-            { "@type": "Offer", "name": "Pro+ Plan", "price": "999", "priceCurrency": "TRY", "billingPeriod": "P1M" },
+            { "@type": "Offer", "name": "Pro Plan", "price": "499", "priceCurrency": "TRY", "priceValidUntil": "2027-12-31" },
+            { "@type": "Offer", "name": "Pro+ Plan", "price": "999", "priceCurrency": "TRY", "priceValidUntil": "2027-12-31" },
           ],
           "featureList": [
             "TKGM resmi parsel sorgu",
             "e-Plan imar durumu",
             "Mahalle bazlı emsal fiyat",
+            "Arsa ve tarla yatırım analizi",
             "AI fiyat tahmini (Gemini 2.5 Flash)",
             "AFAD deprem zonu",
             "Çevre Bakanlığı taşkın haritası",
             "Sahibinden ve Hepsiemlak entegrasyonu",
             "PDF rapor üretimi",
           ],
+          "keywords": "AI arsa analiz, arsa yatırım aracı, tarla seçim aracı, yapay zeka arsa fiyat, TKGM parsel sorgu, imar sorgu, kat karşılığı",
           "publisher": { "@id": "https://cadastrum.com.tr/#organization" },
           "inLanguage": "tr-TR",
         },
@@ -138,7 +147,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
           "@id": "https://cadastrum.com.tr/#website",
           "url": "https://cadastrum.com.tr",
           "name": "Cadastrum",
-          "description": "Türkiye gayrimenkul ve parsel zekâ platformu",
+          "alternateName": "Cadastrum Arsa Tarla Yatırım Analizi",
+          "description": "Türkiye arsa ve tarla yatırımı için parsel zekâ platformu — TKGM, e-Plan, emsal fiyat",
           "inLanguage": "tr-TR",
           "publisher": { "@id": "https://cadastrum.com.tr/#organization" },
           "potentialAction": {
@@ -151,8 +161,26 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
           "@type": "Organization",
           "@id": "https://cadastrum.com.tr/#organization",
           "name": "Cadastrum",
+          "legalName": "Cadastrum",
           "url": "https://cadastrum.com.tr",
-          "logo": "https://cadastrum.com.tr/favicon.svg",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://cadastrum.com.tr/favicon.svg",
+          },
+          "description": "Arsa ve tarla yatırımcıları için TKGM parsel, e-Plan imar ve mahalle fiyat analiz aracı",
+          "foundingDate": "2025",
+          "areaServed": { "@type": "Country", "name": "Turkey" },
+          "knowsAbout": [
+            "AI arsa analiz",
+            "arsa yatırım aracı",
+            "yapay zeka gayrimenkul",
+            "arsa yatırımı",
+            "tarla yatırımı",
+            "TKGM parsel sorgu",
+            "e-Plan imar",
+            "kat karşılığı",
+            "gayrimenkul fiyat tahmini",
+          ],
           "sameAs": ["https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej"],
           "contactPoint": {
             "@type": "ContactPoint",
@@ -180,23 +208,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
 
     <!-- Astro 5 View Transitions: sayfa geçişleri akıcı olsun -->
     <ClientRouter />
-
-    <!--
-      Path-based router fallback — Cloudflare Pages _redirects çalışmadığında
-      /veri/{il}/{ilce} ve /veri/{il}/{ilce}/{mahalle} path'leri detay sayfasına yönlendirilir.
-      Önce HEAD tag çalışır → location.replace anasayfa render etmeden detay'a gider.
-    -->
-    <script is:inline>
-      (function () {
-        var p = location.pathname.replace(/\/+$/, "");
-        var parts = p.split("/").filter(Boolean);
-        if (parts[0] === "veri" && parts.length >= 3) {
-          var qs = location.search ? location.search + "&" : "?";
-          var detayUrl = "/veri/detay/" + qs + "p=" + parts.slice(1).join("/");
-          location.replace(detayUrl);
-        }
-      })();
-    </script>
+    <!-- Mahalle/ilçe path'leri: public/_redirects → /veri/detay (pretty URL korunur, noindex).
+         JS location.replace kaldırıldı — soft-404 + robots-disallow detay URL'sine sürüklemeyi önler. -->
   </head>
   <body class="min-h-screen flex flex-col">
     <Header />

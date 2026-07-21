@@ -34,6 +34,7 @@ import { GuvenGostergesi } from "./GuvenGostergesi";
 
 import type { MilliEmlakOzet } from "../../lib/milli-emlak";
 import { fmtTLm2 as fmtMEm2 } from "../../lib/milli-emlak";
+import type { FavoriFiyatSnapshot } from "../../lib/db";
 
 interface Props {
   parsel: Parsel;
@@ -43,6 +44,8 @@ interface Props {
   tucbs?: TucbsCdpSonuc | null;
   /** e-Plan sorgu hâlâ yapılıyor mu? — yapılıyorsa imar promptu gösterme, bekle. */
   ePlanLoading: boolean;
+  /** e-Plan otomatik sorgu sonucu mesajı (429 / boş / ağ) */
+  ePlanMesaj?: string | null;
   /** Kullanıcı "Bilmiyorum, devam et" dediyse fiyatı TKGM nitelik fallback'iyle hesapla. */
   imarSkipEdildi: boolean;
   onImarKaydedildi: () => void;
@@ -56,6 +59,10 @@ interface Props {
   onTahminHesaplandi?: (tahmin: FiyatTahmini | null) => void;
   /** Milli Emlak ilçe özeti — cross-validation için (opsiyonel) */
   milliEmlakOzet?: MilliEmlakOzet | null;
+  /** Favori fiyat baseline — izlemeye alındığından beri delta */
+  fiyatSnapshot?: FavoriFiyatSnapshot | null;
+  /** Snapshot vs güncel beklenen yüzde fark (null = yok) */
+  fiyatDeltaYuzde?: number | null;
 }
 
 export function FiyatTahminKarti({
@@ -65,12 +72,15 @@ export function FiyatTahminKarti({
   ePlan,
   tucbs,
   ePlanLoading,
+  ePlanMesaj,
   imarSkipEdildi,
   onImarKaydedildi,
   onImarSkip,
   onImarTekrarSor,
   onTahminHesaplandi,
   milliEmlakOzet,
+  fiyatSnapshot,
+  fiyatDeltaYuzde,
 }: Props) {
   const [tahmin, setTahmin] = useState<FiyatTahmini | null>(null);
   const [acik, setAcik] = useState(false);
@@ -105,9 +115,8 @@ export function FiyatTahminKarti({
       setAiHata(null);
       return;
     }
-    // NOT: fiyatTahminEt(4 param) tucbs almıyor (TÜCBS imar threading fiyat-tahmin.ts'te
-    // henüz tamamlanmadı). tucbs prop'u deps'te kalıyor; imar threading eklenince buraya geçilir.
-    fiyatTahminEt(parsel, cevre, egim, ePlan).then((t) => {
+    // NOT: fiyatTahminEt artık tucbs (ÇDP) sinyalini de alır — bileşenlerde şeffaf.
+    fiyatTahminEt(parsel, cevre, egim, ePlan, tucbs ?? null).then((t) => {
       if (!iptal) {
         setTahmin(t);
         onTahminHesaplandi?.(t);
@@ -206,6 +215,7 @@ export function FiyatTahminKarti({
         parsel={parsel}
         onKaydedildi={onImarKaydedildi}
         onSkip={onImarSkip}
+        ePlanMesaj={ePlanMesaj}
       />
     );
   }
@@ -423,6 +433,66 @@ export function FiyatTahminKarti({
         {/* Görsel fiyat bandı — alt/beklenen/üst + "neden geniş" */}
         <FiyatBantGostergesi tahmin={tahmin} />
 
+        {/* İzleme fiyat delta — favori snapshot varsa */}
+        {fiyatSnapshot && fiyatDeltaYuzde != null && Math.abs(fiyatDeltaYuzde) >= 0.5 && (
+          <div
+            className={`rounded-md border px-2 py-1.5 text-3xs ${
+              fiyatDeltaYuzde > 0
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+            }`}
+          >
+            <span className="font-semibold">İzleme:</span>{" "}
+            favoriye alındığından beri beklenen{" "}
+            <span className="font-mono font-bold">
+              {fiyatDeltaYuzde > 0 ? "+" : ""}
+              {fiyatDeltaYuzde}%
+            </span>
+            {" "}({fmtTLM2(fiyatSnapshot.beklenenPerM2)} → {fmtTLM2(tahmin.beklenenPerM2)})
+          </div>
+        )}
+
+        {/* Kanıtlı fiyat — neden bu band? */}
+        <div className="rounded-md border border-imperial/15 bg-gradient-to-br from-white to-slate-50 p-2 dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-imperial-600 dark:text-champagne-400">
+            Neden bu band?
+          </div>
+          {tahmin.guvenAciklama && (
+            <p className="mb-1.5 text-3xs italic text-slate-500 dark:text-slate-400">
+              {tahmin.guvenAciklama}
+            </p>
+          )}
+          <div className="space-y-1">
+            {tahmin.bilesenler.slice(0, 3).map((b, i) => (
+              <div
+                key={i}
+                className="flex items-baseline justify-between gap-2 text-3xs"
+              >
+                <span className="min-w-0 truncate text-slate-700 dark:text-slate-300" title={b.not || b.ad}>
+                  {b.ad}
+                </span>
+                <span className="shrink-0 font-mono font-semibold tabular-nums text-imperial-700 dark:text-champagne-300">
+                  {i === 0 ? fmtTLM2(Math.round(b.carpan)) : `× ${b.carpan.toFixed(2)}`}
+                </span>
+              </div>
+            ))}
+          </div>
+          {tahmin.emsalListesi.length > 0 && (
+            <div className="mt-1.5 border-t border-slate-100 pt-1.5 dark:border-slate-700">
+              <div className="mb-0.5 text-[10px] font-medium text-slate-500">En yakın emsal</div>
+              {tahmin.emsalListesi.slice(0, 3).map((e, i) => (
+                <div
+                  key={i}
+                  className="flex items-baseline justify-between gap-2 text-3xs text-slate-600 dark:text-slate-400"
+                >
+                  <span>{Math.round(e.benzerlik * 100)}% benzer</span>
+                  <span className="font-mono tabular-nums">{fmtTLM2(e.fiyatPerM2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* m²/fiyat bilgi satırı */}
         <div className="grid grid-cols-2 gap-2 text-center text-3xs text-slate-500">
           <div>
@@ -433,12 +503,11 @@ export function FiyatTahminKarti({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <p className="flex-1 text-3xs italic text-slate-500">{tahmin.guvenAciklama}</p>
-          {(tahmin.baselineKaynak === "il-baseline"
-            || tahmin.baselineKaynak === "fallback"
-            || tahmin.baselineKaynak === "ilce-baseline"
-            || tahmin.baselineKaynak === "ilce-semt-baseline") && (
+        {(tahmin.baselineKaynak === "il-baseline"
+          || tahmin.baselineKaynak === "fallback"
+          || tahmin.baselineKaynak === "ilce-baseline"
+          || tahmin.baselineKaynak === "ilce-semt-baseline") && (
+          <div className="flex items-center justify-end gap-2">
             <a
               href={sahibindenAraUrl(parsel)}
               target="_blank"
@@ -447,10 +516,10 @@ export function FiyatTahminKarti({
               title="Bu sayfada gezinirken fiyatlar otomatik biriktirilir"
             >
               <ExternalLinkIcon className="h-3 w-3" />
-              Sahibinden'de Ara
+              Sahibinden&apos;de Ara
             </a>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Kaç ilanGozlem verisi var + tazelik */}
         {tahmin.baselineKaynak === "spatial-radius" && (

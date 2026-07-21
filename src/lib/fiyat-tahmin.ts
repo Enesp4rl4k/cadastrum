@@ -10,6 +10,7 @@ import type { Parsel } from "../types/tkgm";
 import type { CevreAnalizi } from "./osm";
 import type { EgimAnalizi } from "./elevation";
 import type { EPlanImarVerisi } from "./eplan";
+import type { TucbsCdpSonuc } from "./tucbs";
 import { db, type IlanGozlem } from "./db";
 import { manuelVeriOku, type ManuelEmsal } from "./manuel-veri";
 
@@ -557,6 +558,32 @@ function imarCarpani(
     case "belirsiz":
     default:
       return { carpan: 1.0, not: imar.not };
+  }
+}
+
+/**
+ * TUCBS ÇDP üst plan sinyali — e-Plan yokken/yanında şeffaf ince ayar.
+ * Agresif değil: e-Plan varsa zaten ana sinyal orada.
+ */
+function tucbsCdpCarpani(
+  tucbs: TucbsCdpSonuc | null | undefined,
+): { carpan: number; not: string } | null {
+  if (!tucbs || tucbs.kapsam !== "tam" || !tucbs.araziKullanimi) return null;
+  const { kategori, metin, renkEtiket } = tucbs.araziKullanimi;
+  const etiket = renkEtiket || metin;
+  switch (kategori) {
+    case "konut-gelisme":
+      return { carpan: 1.06, not: `ÇDP üst plan: ${etiket} · yerleşim/gelişme (+%6)` };
+    case "ticari-turizm":
+      return { carpan: 1.09, not: `ÇDP üst plan: ${etiket} · ticaret/turizm (+%9)` };
+    case "sanayi":
+      return { carpan: 1.05, not: `ÇDP üst plan: ${etiket} · sanayi (+%5)` };
+    case "koy-yerlesik":
+      return { carpan: 0.97, not: `ÇDP üst plan: ${etiket} · köy yerleşik (−%3)` };
+    case "tarim-koruma":
+      return { carpan: 0.90, not: `ÇDP üst plan: ${etiket} · tarım/koruma (−%10)` };
+    default:
+      return { carpan: 1.0, not: `ÇDP üst plan: ${etiket} · nötr` };
   }
 }
 
@@ -1597,6 +1624,7 @@ export async function fiyatTahminEt(
   cevre: CevreAnalizi | null = null,
   egim: EgimAnalizi | null = null,
   resmiImar: EPlanImarVerisi | null = null,
+  tucbs: TucbsCdpSonuc | null = null,
 ): Promise<FiyatTahmini> {
   // Kullanıcının manuel girdiği emsalleri ek emsal olarak baseline hesabına dahil et
   const manuelVeri = await manuelVeriOku(parsel);
@@ -1701,6 +1729,7 @@ export async function fiyatTahminEt(
   }
   const imar = fiyatIcinImarSec(parsel, resmiImar);
   const imarC = imarCarpani(imar, baseline.kategori);
+  const tucbsC = tucbsCdpCarpani(tucbs);
 
   // İmar-koşullu nitelik düzeltmesi:
   // Parselin nitelik metni "tarla/bahçe" olsa bile resmi/ilan imarı konut/ticari/sanayi
@@ -1763,6 +1792,13 @@ export async function fiyatTahminEt(
     { ad: "Çevre/POI", carpan: cevreC.carpan, not: cevreC.not },
     { ad: "Eğim", carpan: egimC.carpan, not: egimC.not },
   ];
+  if (tucbsC) {
+    bilesenler.splice(3, 0, {
+      ad: "ÇDP üst plan",
+      carpan: tucbsC.carpan,
+      not: tucbsC.not,
+    });
+  }
   if (kirsalC.carpan !== 1.0) {
     bilesenler.push({ ad: "Kırsal (Su/Yol/Köy)", carpan: kirsalC.carpan, not: kirsalC.not });
   }
@@ -1781,9 +1817,9 @@ export async function fiyatTahminEt(
     });
   }
 
-  // Beklenen TL/m² = baseline × tüm çarpanlar
+  // Beklenen TL/m² = baseline × tüm çarpanlar × (opsiyonel ÇDP)
   let beklenenPerM2 = Math.round(
-    baseline.baseline * clampedMultiplier,
+    baseline.baseline * clampedMultiplier * (tucbsC?.carpan ?? 1),
   );
 
   // Cross-validation bias düzeltmesi (backend'den)
@@ -1894,6 +1930,11 @@ export async function fiyatTahminEt(
   // Likidite veri kalitesi notuna ekle
   if (ilNorm && likidite.aciklama) {
     veriKalitesiNotlari.push(`Likidite: ${likidite.aciklama}.`);
+  }
+  if (tucbsC) {
+    veriKalitesiNotlari.push(tucbsC.not);
+  } else if (tucbs?.kapsam === "il-eksik") {
+    veriKalitesiNotlari.push("ÇDP: bu il TUCBS kapsamında değil (üst plan sinyali yok).");
   }
 
   return {

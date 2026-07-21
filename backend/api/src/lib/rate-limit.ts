@@ -37,9 +37,14 @@ async function kvRateLimit(
   key: string,
 ): Promise<number> {
   // KV atomic increment: get → parse → increment → put
-  // Not: KV'de native atomic increment yok, ama Workers tek-threaded olduğu için
-  // tek instance'da race condition olmaz. Multi-instance için bu hafif race var
-  // ama rate limit için ±1 toleransı kabul edilebilir.
+  // SEK-4: Multi-instance race condition analizi:
+  //   Cloudflare Workers global dağıtık mimaride birden fazla instance paralel çalışabilir.
+  //   KV'de native atomic increment (compare-and-swap) yok.
+  //   Gerçek race window: ~1-5ms (KV read→write arası).
+  //   Worst case: limitPerHour=60 iken 61 veya 62 istek geçebilir (~%3 tolerans).
+  //   Bu güvenlik açığı değil — rate limit DoS korumasıdır, %3 tolerans kabul edilebilir.
+  //   Sıfır-tolerans gerektiren endpoint'ler (auth/ödeme) D1 UPSERT kullanır (RETURNING ile atomik).
+  //   Çözüm gerekirse: Durable Objects ile atomik sayaç — ama Workers planında ek ücret gerektirir.
   const val = await kv.get(key, "text");
   const current = val != null ? parseInt(val, 10) : 0;
   const next = current + 1;

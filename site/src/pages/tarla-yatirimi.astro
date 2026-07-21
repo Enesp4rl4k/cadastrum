@@ -1,0 +1,75 @@
+---
+export const prerender = true;
+import SeoLanding from "../components/SeoLanding.astro";
+---
+
+<SeoLanding
+  title="Tarla Yatırımı 2026 — Nitellik, İmar ve Fiyat Analizi | Cadastrum"
+  description="Tarla yatırımı öncesi TKGM niteliği, imar/tarım kısıtı ve mahalle TL/m² bandını kontrol edin. Yatırımlık tarla için bireysel ve kurumsal karar desteği — Cadastrum."
+  keywords={[
+    "tarla yatırımı",
+    "yatırımlık tarla",
+    "tarla alımı",
+    "tarım arazisi yatırım",
+    "tarla fiyat m²",
+    "tarla imar durumu",
+    "TKGM tarla sorgu",
+    "Cadastrum",
+  ]}
+  breadcrumbLabel="Tarla yatırımı"
+  h1="Tarla yatırımı: nitellik ve kısıtları önce görün"
+  lead="Ucuz m² her zaman fırsat değildir. Tarla yatırımı; TKGM niteliği, tarım/imar kısıtları ve bölge likiditesiyle birlikte okunmalıdır. Cadastrum resmi katmanları tek panelde toplar."
+  sections={[
+    {
+      h2: "Tarla yatırımında en sık hatalar",
+      p: "İlan ‘arsa’ derken TKGM ‘tarla’ yazabilir; imar beklentisi gerçekleşmeyebilir. Yol, sulama ve hisseli mülkiyet de değerlemeyi kökten değiştirir.",
+      bullets: [
+        "Nitelik uyuşmazlığı (ilan vs tapu)",
+        "İmarsız tarım arazisinde yapı hayali",
+        "Hisseli satış ve şuyuun giderilmesi maliyeti",
+        "Bölgede işlem hacmi düşükse çıkış riski",
+      ],
+    },
+    {
+      h2: "Cadastrum ile tarla analizi",
+      p: "İlanı açın; eklenti TKGM kaydını çeker, e-Plan varsa imar özetini ekler, mahalle/ilçe emsal fiyatıyla TL/m² bandı üretir.",
+      bullets: [
+        "Ada/parsel ve yüzölçümü doğrulama",
+        "Nitelik: tarla, bağ, zeytinlik, bahçe…",
+        "Var ise imar planı / kullanım notu",
+        "Bölge yoğunluk haritası ile likidite sinyali",
+      ],
+    },
+    {
+      h2: "Ne zaman tarla, ne zaman arsa?",
+      p: "Kısa vadeli geliştirme hedefi imarlı arsa ister. Uzun vadeli arazi / dönüşüm hikâyesi tarlada olabilir — ama plan riski yüksektir. Kararı veriye dayandırın.",
+      bullets: [
+        "Kısa vade: imar + emsal net olmalı",
+        "Uzun vade: plan değişikliği senaryosunu ayrı modelleyin",
+        "Karşılaştırma için /sorgu ve /veri sayfalarını kullanın",
+      ],
+    },
+  ]}
+  faqs={[
+    {
+      q: "Tarla yatırımı kârlı mı?",
+      a: "Bölgeye, niteliğe ve imar beklentisine bağlıdır. Cadastrum fiyat ve resmi kısıtları gösterir; getiri garantisi vermez. Likidite düşük bölgelerde çıkış süresi uzayabilir.",
+    },
+    {
+      q: "Tarlada imar var mı nasıl anlaşılır?",
+      a: "e-Plan ve belediye imar planlarından kontrol edilir. Cadastrum e-Plan özetini otomatik getirir; kayıt yoksa bunu da net şekilde belirtir.",
+    },
+    {
+      q: "Tarla m² fiyatı nereden bakılır?",
+      a: "Cadastrum 65.000+ mahalle için arsa/konut/tarla emsal bantları sunar. /veri sayfasından il seçerek başlayabilirsiniz.",
+    },
+  ]}
+  related={[
+    { href: "/arsa-yatirimi", label: "Arsa yatırımı rehberi" },
+    { href: "/imar-sorgu", label: "İmar sorgu" },
+    { href: "/tkgm-parsel-sorgu", label: "TKGM parsel sorgu" },
+    { href: "/veri", label: "Tarla / arsa fiyat verisi" },
+    { href: "/sorgu", label: "Parsel değer hesaplayıcı" },
+    { href: "/blog/tarla-yatirimi-rehberi-2026", label: "Detaylı blog rehberi" },
+  ]}
+/>

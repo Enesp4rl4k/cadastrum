@@ -1,0 +1,93 @@
+---
+export const prerender = true;
+import SeoLanding from "../components/SeoLanding.astro";
+---
+
+<SeoLanding
+  title="AI Arsa & Tarla Analiz Aracı 2026 — Yatırım Asistanı | Cadastrum"
+  description="Yapay zeka ile arsa ve tarla seçimi: TKGM parsel doğrulama, e-Plan imar, mahalle TL/m² ve AI fiyat tahmini tek araçta. Bireysel ve kurumsal yatırımcılar için Cadastrum."
+  keywords={[
+    "AI arsa analiz",
+    "yapay zeka arsa fiyat",
+    "arsa yatırım aracı",
+    "tarla seçim aracı",
+    "AI gayrimenkul",
+    "arsa analiz tool",
+    "yatırım asistanı arsa",
+    "AI ile arsa seçimi",
+    "Cadastrum AI",
+  ]}
+  breadcrumbLabel="AI arsa analiz"
+  h1="AI ile arsa ve tarla seçim aracı"
+  lead="İlanı açın; Cadastrum resmi TKGM kaydı, imar özeti ve mahalle emsalini AI fiyat bandıyla birleştirir. Spekülasyon değil — açıklanabilir karar desteği. Bireysel yatırımcıdan kurumsal ekibe kadar."
+  sections={[
+    {
+      h2: "Kimler için?",
+      p: "Arsa veya tarla alırken “hangi parsele bakayım?” sorusunu hızlandırmak isteyen herkes. Özellikle AI / araç arayan yatırımcılar için tek panelde doğrulama + fiyat + risk.",
+      bullets: [
+        "Bireysel yatırımcı — ilan üzerinde anında filtre",
+        "Emlak danışmanı — müşteriye şeffaf m² bandı",
+        "Kurumsal / müteahhit — toplu tarama ve PDF rapor",
+        "Kat karşılığı düşünen malik — emsal + fizibilite",
+      ],
+    },
+    {
+      h2: "AI ne yapıyor, ne yapmıyor?",
+      p: "Cadastrum’un AI katmanı mahalle baseline, canlı ilan medyanı ve bölgesel sinyalleri birleştirip TL/m² aralığı üretir. Yatırım tavsiyesi vermez; resmi veriyi hızlandırır ve çelişkileri gösterir.",
+      bullets: [
+        "Gemini destekli çoklu kaynak fiyat tahmini",
+        "Güven aralığı (P25–P75) — tek sahte “kesin fiyat” yok",
+        "TKGM + e-Plan olmadan AI yorumu anlamsızdır; önce resmi katman",
+        "Asking vs gerçek satış farkı kullanıcıya açıkça belirtilir",
+      ],
+    },
+    {
+      h2: "Arsa / tarla seçiminde 60 saniyelik akış",
+      p: "Chrome’a ekleyin → Sahibinden veya Hepsiemlak ilanını açın → yan panelde parsel, imar, TL/m² ve yatırım skorunu okuyun. Alternatif: sitede /sorgu ile lokasyon + emsal girin.",
+      bullets: [
+        "1) Parsel doğru mu? (TKGM)",
+        "2) Yapı hakkı var mı? (e-Plan emsal/TAKS)",
+        "3) Bölge fiyatı makul mü? (AI + mahalle emsal)",
+        "4) Likidite / risk? (yoğunluk haritası + uyarılar)",
+      ],
+    },
+    {
+      h2: "Neden Google’da “tool” arayanlar için uyumlu?",
+      p: "Cadastrum bir blog değil; kullanılabilir bir analiz aracıdır. Ücretsiz başlar, Pro ile sınırsız sorgu ve PDF. Kurumsal API ile ofis akışına bağlanır.",
+      bullets: [
+        "Free: günlük TKGM + mahalle baseline",
+        "Pro: AI tahmin, otomatik imar, rapor",
+        "Web sorgu + Chrome eklentisi aynı motor",
+      ],
+    },
+  ]}
+  faqs={[
+    {
+      q: "AI ile arsa seçmek güvenli mi?",
+      a: "AI tek başına karar vermemelidir. Cadastrum AI’yı TKGM ve e-Plan ile birlikte kullanır; çelişki varsa uyarır. Nihai karar ve hukuki kontrol size aittir.",
+    },
+    {
+      q: "Bu bir ChatGPT prompt’u mu?",
+      a: "Hayır. Canlı parsel verisi, imar özeti ve mahalle fiyat motoru var. AI, bu girdiler üzerinde fiyat bandı ve yorum üretir.",
+    },
+    {
+      q: "Tarla için de çalışır mı?",
+      a: "Evet. Nitellik (tarla/bağ/zeytinlik), imar kısıtı ve tarla TL/m² bandı birlikte okunur. Detay: /tarla-yatirimi.",
+    },
+    {
+      q: "Kurumsal ekip nasıl kullanır?",
+      a: "Pro+/Kurumsal ile toplu analiz, markalı PDF ve API. Ofisler portföy taramasını hızlandırır.",
+    },
+  ]}
+  related={[
+    { href: "/arsa-yatirimi", label: "Arsa yatırımı rehberi" },
+    { href: "/tarla-yatirimi", label: "Tarla yatırımı" },
+    { href: "/sorgu", label: "Parsel değer sorgusu" },
+    { href: "/tkgm-parsel-sorgu", label: "TKGM parsel sorgu" },
+    { href: "/imar-sorgu", label: "İmar sorgu" },
+    { href: "/blog/ai-ile-arsa-fiyat-tahmini-nasil-calisir", label: "AI metodoloji yazısı" },
+    { href: "/blog/ai-ile-arsa-tarla-nasil-secilir-2026", label: "AI ile seçim rehberi" },
+    { href: "/fiyat", label: "Planlar" },
+  ]}
+  secondaryCta={{ href: "/sorgu", label: "Ücretsiz dene (web)" }}
+/>

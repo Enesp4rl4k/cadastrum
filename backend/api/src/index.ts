@@ -43,6 +43,10 @@ import { tcmbRoutes } from "./routes/tcmb.js";
 import { raporRoutes } from "./routes/rapor.js";
 import { telemetriRoutes } from "./routes/telemetri.js";
 import { haritaRoutes } from "./routes/harita.js";
+import { araziAvciRoutes } from "./routes/arazi-avci.js";
+import { araziAvciCronCalistir } from "./routes/arazi-avci-cron.js";
+import { aiDanismanRoutes } from "./routes/ai-danisman.js";
+import { imarDegisimRoutes } from "./routes/imar-degisim.js";
 import { rateLimitMiddleware, rateLimitTemizle } from "./lib/rate-limit.js";
 import { bearerYetkilendir, cspHeader } from "./lib/security.js";
 
@@ -124,6 +128,8 @@ app.use("/v1/proxy/tucbs/tile/*", rateLimitMiddleware(600, "proxy-tile"));
 app.use("/v1/proxy/eplan", rateLimitMiddleware(60, "proxy-eplan"));
 app.use("/v1/proxy/tucbs", rateLimitMiddleware(60, "proxy-tucbs"));
 app.use("/v1/proxy/tkgm-analiz", rateLimitMiddleware(60, "proxy-analiz"));
+// Wayback: sorgu başına 4 kare — saatte ~30 sorgu × 4 = 120; kenar cache ile ucuz
+app.use("/v1/proxy/wayback", rateLimitMiddleware(200, "proxy-wayback"));
 
 // Emsal spatial: DB-ağır sorgu — saatte 60 istek/IP
 app.use("/v1/emsal/*", rateLimitMiddleware(60, "emsal"));
@@ -132,8 +138,13 @@ app.use("/v1/emsal/*", rateLimitMiddleware(60, "emsal"));
 // burada daha yüksek tutuyoruz, sorgu.ts'nin kendi kontrolü daha sıkı davranacak
 app.use("/v1/sorgu/*", rateLimitMiddleware(100, "sorgu"));
 
-// Harita: GeoJSON ağır veri — saatte 30 istek/IP
-app.use("/v1/harita/*", rateLimitMiddleware(30, "harita"));
+// Harita — site tek/az istek atar (heatmap/ilceler/likidite); legacy analiz/* ayrı kova
+app.use("/v1/harita/heatmap", rateLimitMiddleware(120, "harita-heatmap"));
+app.use("/v1/harita/ilceler", rateLimitMiddleware(120, "harita-ilceler"));
+app.use("/v1/harita/analiz/*", rateLimitMiddleware(200, "harita-analiz"));
+app.use("/v1/harita/likidite", rateLimitMiddleware(200, "harita-likidite"));
+app.use("/v1/harita/trend", rateLimitMiddleware(200, "harita-trend"));
+app.use("/v1/harita/*", rateLimitMiddleware(200, "harita"));
 
 // Newsletter kayıt: spam önleme — saatte 5 istek/IP
 app.use("/v1/newsletter/*", rateLimitMiddleware(5, "newsletter"));
@@ -211,6 +222,18 @@ app.route("/v1/rapor", raporRoutes);
 
 // Hata telemetrisi (observability — extension + backend runtime hataları)
 app.route("/v1/telemetri", telemetriRoutes);
+
+// Faz A3/A4 — Arazi Avcısı (arama + kriter kayıt + uyarı)
+app.use("/v1/arazi-avci/ara", rateLimitMiddleware(30, "arazi-avci"));
+app.route("/v1/arazi-avci", araziAvciRoutes);
+
+// Faz B3/B4 — AI Yatırım Danışmanı (RAG chat)
+app.use("/v1/ai-danisman/*", rateLimitMiddleware(20, "ai-danisman"));
+app.route("/v1/ai-danisman", aiDanismanRoutes);
+
+// Faz C1/C2 — İmar Değişim Sinyali
+app.use("/v1/imar-degisim/*", rateLimitMiddleware(60, "imar-degisim"));
+app.route("/v1/imar-degisim", imarDegisimRoutes);
 
 // Cron / manuel istatistik yenileme
 // S1: secret artık URL param değil, Authorization: Bearer header'ında
@@ -427,6 +450,12 @@ export default {
           console.log("[cron-hourly] bildirim:", r, "ts:", event.scheduledTime),
         ),
       );
+    } else if (cron === "0 8 * * *") {
+      // YENI-1: Arazi Avcısı günlük uyarı — kriterleri tara + email gönder
+      ctx.waitUntil((async () => {
+        const r = await araziAvciCronCalistir(env);
+        console.log("[cron-arazi-avci]", r);
+      })());
     } else if (cron === "0 2 1 * *") {
       // Aylık scraper hatırlatma (A+E hibrit):
       //   1) Worker'dan Sahibinden fetch'i dener (PerimeterX engelliyor — beklenen)

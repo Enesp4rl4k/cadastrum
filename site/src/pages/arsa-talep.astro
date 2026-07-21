@@ -1,0 +1,17 @@
+---
+// arsa-talep.astro → /sorgu sayfasına yönlendir
+// Arazi Avcısı özelliği /sorgu içinde mevcut
+export const prerender = true;
+---
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0;url=/sorgu" />
+    <link rel="canonical" href="https://cadastrum.com.tr/sorgu" />
+    <meta name="robots" content="noindex, follow" />
+    <title>Yönlendiriliyor — Cadastrum</title>
+  </head>
+  <body>
+    <p>Bu sayfa <a href="/sorgu">Sorgu</a> sayfasına taşındı.</p>
+  </body>
+</html>

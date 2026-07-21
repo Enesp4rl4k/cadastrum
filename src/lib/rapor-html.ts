@@ -167,6 +167,7 @@ function imarRiskHtml(veri: RaporVerisi): string {
 
   return `<section class="cad-card cad-span2 cad-reveal" style="--d:.32s">
     <div class="cad-card-h">İmar &amp; Risk Taraması</div>
+    <p class="cad-note" style="font-size:11px;opacity:.75;margin:0 0 8px">Plan öznitelikleri e-Plan’dan; renkli uygulama imar görseli haritadaki ÇDP/belediye katmanından bakılır (PDF’e gömülü plan görüntüsü yok).</p>
     <div class="cad-ir">
       <div class="cad-imar">${imarRows}<div class="cad-src">Kaynak: ${esc(imarKaynak)}</div></div>
       <div class="cad-risk">${riskHtml}</div>

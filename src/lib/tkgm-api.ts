@@ -296,10 +296,9 @@ interface RawParselFeature {
 /**
  * TKGM `alan` alanı endpoint'e göre farklı formatta geliyor:
  * - `/parsel/{mahalle}/{ada}/{parsel}` → `"260,08"` / `"4.036,38"` (TR)
- * - `/parsel/{lat}/{lng}/` → `"260.08"` (EN ondalık nokta)
+ * - `/parsel/{lat}/{lng}/` → `"260.08"` (EN) veya `"8,478.81"` / `"14,600.00"` (US)
  *
- * Eski parse tüm `.` karakterlerini binlik ayırıcı sanıp siliyordu;
- * haritadan tıklanınca `"260.08"` → 26008 oluyordu.
+ * Son ayırıcıya göre TR vs US seçilir; aksi halde `"14,600"` → 14.6 hatası oluşur.
  */
 export function parseTkgmAlan(raw: unknown): number {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -311,15 +310,30 @@ export function parseTkgmAlan(raw: unknown): number {
 
   let normalized: string;
   if (s.includes(",") && s.includes(".")) {
-    // TR: 4.036,38
-    normalized = s.replace(/\./g, "").replace(",", ".");
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+    if (lastComma > lastDot) {
+      // TR: 4.036,38
+      normalized = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // US: 8,478.81 / 14,600.00  (lat/lng endpoint)
+      normalized = s.replace(/,/g, "");
+    }
   } else if (s.includes(",")) {
-    // TR ondalık: 260,08
-    normalized = s.replace(",", ".");
+    const parts = s.split(",");
+    const afterLast = parts[parts.length - 1] ?? "";
+    // Birden fazla virgül veya son grup tam 3 hane → US binlik (14,600 / 1,234,567)
+    // TKGM TR ondalığı genelde 1–2 hane (260,08) — 3 haneli ondalık nadirdir
+    if (parts.length > 2 || afterLast.length === 3) {
+      normalized = s.replace(/,/g, "");
+    } else {
+      // TR ondalık: 260,08 / 260,8
+      normalized = s.replace(",", ".");
+    }
   } else if (s.includes(".")) {
     const parts = s.split(".");
     const afterLast = parts[parts.length - 1] ?? "";
-    // Birden fazla nokta veya son grup tam 3 hane → binlik (1.234.567 / 26.008)
+    // Birden fazla nokta veya son grup tam 3 hane → TR binlik (1.234.567 / 26.008)
     if (parts.length > 2 || afterLast.length === 3) {
       normalized = s.replace(/\./g, "");
     } else {
@@ -432,8 +446,8 @@ function parseGittigiParseller(raw: unknown): string[] {
 }
 
 const PARSEL_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 gün
-/** v2: lat/lng endpoint EN ondalık alan parse düzeltmesi — eski 26008 cache'lerini atla */
-const PARSEL_CACHE_VER = "v2";
+/** v3: US binlik virgül (14,600.00 / 8,478.81) — eski 14.6 cache'lerini atla */
+const PARSEL_CACHE_VER = "v3";
 
 export async function parselCacheGet(key: string): Promise<Parsel | null> {
   try {

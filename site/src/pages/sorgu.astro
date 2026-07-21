@@ -1,23 +1,55 @@
----
+﻿---
 export const prerender = true;
 import Base from "../layouts/Base.astro";
+import { CHROME_STORE_URL } from "../config/launch";
 ---
 
 <!-- MapLibre GL JS — CDN, build'e girmiyor -->
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
 
-<Base title="Parsel Sorgu — Cadastrum" description="Haritaya tıkla, parselin TL değer aralığını, emsal sayısını ve güven seviyesini anında gör.">
+<Base
+  title="Arsa & Tarla Parsel Sorgu — İmar, Emsal, TL/m² | Cadastrum"
+  description="Parsel sorgu ve imar hesaplayıcı: lokasyon + emsal/TAKS ile arsa-tarla TL/m² bandı, kat karşılığı ve fizibilite. TKGM doğrulama Chrome eklentisinde."
+  keywords={[
+    "parsel sorgu",
+    "arsa değer sorgu",
+    "tarla fiyat hesaplama",
+    "imar emsal hesaplama",
+    "kat karşılığı hesaplama",
+    "TL/m² arsa",
+    "Cadastrum sorgu",
+  ]}
+  breadcrumb={[
+    { ad: "Ana Sayfa", url: "/" },
+    { ad: "Parsel Sorgu", url: "/sorgu" },
+  ]}
+>
 
-  <!-- Page header -->
+  <!-- Page-level WebApplication schema — sorgu aracı -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Cadastrum Parsel Sorgu & Hesaplayıcı",
+    "url": "https://cadastrum.com.tr/sorgu",
+    "description": "Lokasyon + imar parametreleri (emsal/TAKS) ile arsa-tarla TL/m² bandı. Fizibilite ve kat karşılığı hesaplayıcıları dahil.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web Browser",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TRY" },
+    "featureList": ["TL/m² fiyat bandı", "Emsal/TAKS hesaplayıcı", "Fizibilite", "Kat karşılığı", "Fiyat trendi"],
+    "provider": { "@id": "https://cadastrum.com.tr/#organization" },
+    "inLanguage": "tr-TR"
+  })} />
+
+  <!-- Page header + dürüst bölge ticker -->
   <div class="border-b border-slate-100 bg-white/80 backdrop-blur-sm">
     <div class="container-prose py-5">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 class="font-display text-2xl md:text-3xl font-bold text-imperial-700 leading-tight">
-            Parsel Değer Sorgusu
+            Arsa & tarla parsel sorgu
           </h1>
           <p class="text-slate-500 text-sm mt-1">
-            Haritaya tıkla veya adres gir → anında <strong class="text-slate-700">TL değer aralığı</strong>, emsal ve güven skoru
+            Lokasyon + imar (emsal/TAKS) → <strong class="text-slate-700">TL/m² bandı</strong> · TKGM ada/parsel eklentide
           </p>
         </div>
         <div class="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
@@ -26,6 +58,12 @@ import Base from "../layouts/Base.astro";
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
           Free: 20 sorgu/saat
+        </div>
+      </div>
+      <div class="mt-3 flex items-center gap-2 text-xs text-slate-500 overflow-hidden">
+        <span class="shrink-0 font-semibold text-imperial-600 uppercase tracking-wide text-[10px]">Bölgeler</span>
+        <div id="bolge-ticker" class="truncate text-slate-600 transition-opacity duration-300" aria-live="polite">
+          Veri katalogundan örnek medyanlar yükleniyor…
         </div>
       </div>
     </div>
@@ -74,6 +112,14 @@ import Base from "../layouts/Base.astro";
         Haritaya tıkla → değeri hesapla
       </div>
 
+      <!-- TUCBS ÇDP imar ipucu (üst plan — resmi 1/1000 değil) -->
+      <div id="tucbs-ipucu"
+        class="absolute bottom-4 right-3 z-10 max-w-[220px] bg-white/95 backdrop-blur-sm text-xs text-slate-700 px-3 py-2 rounded-lg border border-slate-200 shadow-md hidden">
+        <div class="text-[10px] font-semibold uppercase tracking-wide text-imperial-600 mb-0.5">ÇDP ipucu</div>
+        <div id="tucbs-ipucu-metin" class="leading-snug">—</div>
+        <p class="text-[10px] text-slate-400 mt-1.5 leading-snug">Üst ölçek TUCBS. Resmi KAKS/TAKS → Chrome eklentisi.</p>
+      </div>
+
       <!-- Koordinat göstergesi -->
       <div id="koord-badge"
         class="absolute bottom-4 left-3 z-10 bg-white/90 backdrop-blur-sm text-xs text-slate-600 px-2.5 py-1.5 rounded-md border border-white/60 shadow-sm font-mono hidden">
@@ -89,37 +135,121 @@ import Base from "../layouts/Base.astro";
       <form id="sorgu-form" method="post" action="javascript:void(0)"
         class="bg-white border-b border-slate-100 p-4 space-y-3">
 
-        <!-- Koordinat satırı — harita tıklaması otomatik doldurur -->
+        <!-- Kolayimar kalıbı: sekme — Ada → eklenti (TKGM sitede yok) -->
+        <div class="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50" role="tablist" aria-label="Sorgu modu">
+          <button type="button" role="tab" data-mod="lokasyon" aria-selected="true"
+            class="sorgu-mod flex-1 px-2 py-1.5 text-xs font-semibold rounded-md bg-white text-imperial-700 shadow-sm">
+            Lokasyon
+          </button>
+          <button type="button" role="tab" data-mod="harita" aria-selected="false"
+            class="sorgu-mod flex-1 px-2 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700">
+            Harita
+          </button>
+          <button type="button" role="tab" data-mod="ada" aria-selected="false"
+            class="sorgu-mod flex-1 px-2 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700">
+            Ada / Parsel
+          </button>
+        </div>
+
+        <div id="mod-ada-panel" class="hidden rounded-lg border border-imperial/20 bg-imperial/5 p-3 text-xs space-y-2">
+          <p class="text-slate-700 leading-snug">
+            Resmi <strong>ada/parsel + e-Plan KAKS/TAKS</strong> sitede yok — Chrome eklentisinde.
+            Burada lokasyon ve imar varsayımıyla değer bandı hesaplanır.
+          </p>
+          <a href={CHROME_STORE_URL} class="inline-flex font-semibold text-imperial-700 hover:underline">
+            Eklentiyi aç → resmi sorgu
+          </a>
+          <a href="/sorgu" class="block text-slate-500 hover:text-imperial-600">Arazi avcısına git →</a>
+        </div>
+
+        <div id="mod-form-alanlari">
+        <!-- Lokasyon — Endeksa tarzı -->
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">İl</label>
+          <select id="il" required
+            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none">
+            <option value="">İl seçin…</option>
+          </select>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Enlem</label>
-            <input type="number" id="lat" step="0.0001" placeholder="41.0082" required
-              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50 focus:bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
+            <label class="block text-xs font-medium text-slate-500 mb-1">İlçe</label>
+            <select id="ilce"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400">
+              <option value="">Önce il seçin</option>
+            </select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Boylam</label>
-            <input type="number" id="lng" step="0.0001" placeholder="28.9784" required
-              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50 focus:bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
+            <label class="block text-xs font-medium text-slate-500 mb-1">Mahalle</label>
+            <input type="text" id="mahalle" placeholder="örn. Altunizade" list="mahalle-onerileri"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none" />
+            <datalist id="mahalle-onerileri"></datalist>
           </div>
         </div>
 
-        <!-- m² + Kategori yan yana -->
-        <div class="grid grid-cols-2 gap-2">
+        <!-- İmar parametreleri -->
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">İmar tipi</label>
+          <select id="imar-tipi"
+            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none">
+            <option value="konut">Konut</option>
+            <option value="ticari">Ticari</option>
+            <option value="sanayi">Sanayi / Depo</option>
+            <option value="karma">Karma</option>
+            <option value="tarim">Tarım</option>
+            <option value="belirsiz">Bilmiyorum</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Parsel m² <span class="text-slate-400">(opsiyonel)</span></label>
-            <input type="number" id="m2" min="1" step="1" placeholder="500"
-              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
+            <label class="block text-xs font-medium text-slate-500 mb-1">Emsal <span class="text-slate-400">(KAKS)</span></label>
+            <input type="number" id="emsal" step="0.05" min="0.1" max="15" placeholder="1.50" value="1.50"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none" />
+            <input type="range" id="emsal-slider" min="0.1" max="5" step="0.05" value="1.50"
+              class="mt-1.5 w-full accent-imperial h-1.5 cursor-pointer" aria-label="Emsal kaydırıcı" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Kategori</label>
-            <select id="kategori"
-              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors bg-white">
-              <option value="arsa">Arsa</option>
-              <option value="tarla">Tarla</option>
-              <option value="konut">Konut</option>
-            </select>
+            <label class="block text-xs font-medium text-slate-500 mb-1">TAKS</label>
+            <input type="number" id="taks" step="0.05" min="0.05" max="1" placeholder="0.30" value="0.30"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none" />
+            <input type="range" id="taks-slider" min="0.05" max="0.80" step="0.05" value="0.30"
+              class="mt-1.5 w-full accent-imperial h-1.5 cursor-pointer" aria-label="TAKS kaydırıcı" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Parsel m²</label>
+            <input type="number" id="m2" min="1" step="1" placeholder="500"
+              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none" />
           </div>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Kategori</label>
+          <select id="kategori"
+            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none bg-white">
+            <option value="arsa">Arsa</option>
+            <option value="tarla">Tarla</option>
+            <option value="konut">Konut</option>
+          </select>
+        </div>
+
+        <!-- Koordinat — harita senkronu (opsiyonel) -->
+        <details class="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2">
+          <summary class="cursor-pointer text-xs font-medium text-slate-500 list-none flex items-center justify-between">
+            <span>Harita / koordinat <span class="text-slate-400 font-normal">(opsiyonel)</span></span>
+            <span class="text-slate-400">▾</span>
+          </summary>
+          <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-0.5">Enlem</label>
+              <input type="number" id="lat" step="0.0001" placeholder="41.0082"
+                class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono bg-white focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-0.5">Boylam</label>
+              <input type="number" id="lng" step="0.0001" placeholder="28.9784"
+                class="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono bg-white focus:border-imperial focus:outline-none" />
+            </div>
+          </div>
+        </details>
 
         <button type="submit" id="submit-btn"
           class="w-full px-4 py-2.5 bg-imperial text-white rounded-lg text-sm font-semibold
@@ -132,6 +262,7 @@ import Base from "../layouts/Base.astro";
           </svg>
           <span id="submit-label">Değer Hesapla</span>
         </button>
+        </div><!-- /mod-form-alanlari -->
     </form>
 
       <!-- Sonuç paneli — skeleton → içerik -->
@@ -144,8 +275,8 @@ import Base from "../layouts/Base.astro";
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 20.25v-15m0 0L3.75 9.75M9 5.25l5.25 4.5M15 3.75v15m0 0l5.25-4.5M15 18.75l-5.25-4.5"/>
             </svg>
           </div>
-          <p class="text-sm font-medium text-slate-600 mb-1">Haritaya tıkla</p>
-          <p class="text-xs text-slate-400">veya koordinat girip "Değer Hesapla"</p>
+          <p class="text-sm font-medium text-slate-600 mb-1">Lokasyon ve imar gir</p>
+          <p class="text-xs text-slate-400">veya haritaya tıkla → "Değer Hesapla"</p>
         </div>
 
         <!-- Skeleton — yüklenirken görünür -->
@@ -184,7 +315,15 @@ import Base from "../layouts/Base.astro";
 
       </div>
 
+      <!-- Belediye portal — seçili il için deep-link -->
+      <div id="belediye-portal" class="hidden border-t border-slate-200 bg-white px-4 py-2.5 text-xs">
+        <a id="belediye-portal-link" href="#" target="_blank" rel="noopener"
+          class="font-semibold text-imperial-700 hover:underline">Belediye e-imar →</a>
+        <span class="text-slate-400 ml-1">(görsel / resmi belge belediyeden)</span>
+      </div>
+
       <!-- Fizibilite accordion — panelin altı -->
+      <div id="hesaplayicilar" class="scroll-mt-20"></div>
       <details id="fizibilite-panel"
         class="border-t border-slate-200 bg-white">
         <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-imperial-700 flex items-center justify-between list-none hover:bg-slate-50 transition-colors">
@@ -200,7 +339,7 @@ import Base from "../layouts/Base.astro";
         </summary>
         <div class="px-4 pb-4 pt-3 border-t border-slate-100 space-y-3">
           <p class="text-xs text-slate-500">
-            TAKS/KAKS gir → inşa edilebilir alan, daire adedi, kârlılık.
+            Formdaki TAKS/Emsal otomatik gelir → inşa edilebilir alan, daire adedi, kârlılık.
           </p>
           <div class="grid grid-cols-2 gap-2">
             <div>
@@ -242,6 +381,88 @@ import Base from "../layouts/Base.astro";
         </div>
       </details>
 
+      <!-- Ters fizibilite -->
+      <details id="ters-fiz-panel" class="border-t border-slate-200 bg-white">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-imperial-700 flex items-center justify-between list-none hover:bg-slate-50 transition-colors">
+          <span>Ters Fizibilite</span>
+          <span class="text-slate-400 text-xs font-normal">hedef kâr → min emsal</span>
+        </summary>
+        <div class="px-4 pb-4 pt-3 border-t border-slate-100 space-y-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Hedef kâr %</label>
+              <input type="number" id="tf-hedef" value="25" min="0" max="100"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Hedef daire (opsiyonel)</label>
+              <input type="number" id="tf-daire" min="1" placeholder="—"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400">Parsel / TAKS / maliyetler yukarıdaki İmar Fizibilite alanlarından alınır.</p>
+          <button type="button" id="tf-hesapla"
+            class="w-full px-3 py-2 border border-imperial/30 text-imperial-700 rounded-lg text-sm font-semibold hover:bg-imperial/5 transition-colors">
+            Ters hesapla
+          </button>
+          <div id="tf-sonuc" class="hidden text-sm"></div>
+        </div>
+      </details>
+
+      <!-- Kat karşılığı -->
+      <details id="kat-panel" class="border-t border-slate-200 bg-white">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-imperial-700 flex items-center justify-between list-none hover:bg-slate-50 transition-colors">
+          <span>Kat Karşılığı</span>
+          <span class="text-slate-400 text-xs font-normal">malik / müteahhit</span>
+        </summary>
+        <div class="px-4 pb-4 pt-3 border-t border-slate-100 space-y-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Müteahhit payı %</label>
+              <input type="number" id="kk-pay" value="50" min="10" max="90"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">Daire m²</label>
+              <input type="number" id="kk-daire-m2" value="120" min="40"
+                class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-sm focus:border-imperial focus:outline-none" />
+            </div>
+          </div>
+          <button type="button" id="kk-hesapla"
+            class="w-full px-3 py-2 border border-imperial/30 text-imperial-700 rounded-lg text-sm font-semibold hover:bg-imperial/5 transition-colors">
+            Dağılımı hesapla
+          </button>
+          <div id="kk-sonuc" class="hidden text-sm"></div>
+        </div>
+      </details>
+
+      <!-- Senaryo A/B -->
+      <details id="senaryo-panel" class="border-t border-slate-200 bg-white">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-imperial-700 flex items-center justify-between list-none hover:bg-slate-50 transition-colors">
+          <span>Senaryo A / B</span>
+          <span class="text-slate-400 text-xs font-normal">emsal karşılaştır</span>
+        </summary>
+        <div class="px-4 pb-4 pt-3 border-t border-slate-100 space-y-3">
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="space-y-2 rounded-lg border border-slate-100 p-2 bg-slate-50/80">
+              <div class="font-semibold text-imperial-700">Senaryo A</div>
+              <label class="block text-slate-500">Emsal<input type="number" id="sa-kaks" step="0.05" value="1.20" class="mt-0.5 w-full px-2 py-1 border border-slate-200 rounded text-sm" /></label>
+              <label class="block text-slate-500">TAKS<input type="number" id="sa-taks" step="0.05" value="0.30" class="mt-0.5 w-full px-2 py-1 border border-slate-200 rounded text-sm" /></label>
+            </div>
+            <div class="space-y-2 rounded-lg border border-champagne/40 p-2 bg-champagne/5">
+              <div class="font-semibold text-imperial-700">Senaryo B</div>
+              <label class="block text-slate-500">Emsal<input type="number" id="sb-kaks" step="0.05" value="1.80" class="mt-0.5 w-full px-2 py-1 border border-slate-200 rounded text-sm" /></label>
+              <label class="block text-slate-500">TAKS<input type="number" id="sb-taks" step="0.05" value="0.40" class="mt-0.5 w-full px-2 py-1 border border-slate-200 rounded text-sm" /></label>
+            </div>
+          </div>
+          <button type="button" id="senaryo-hesapla"
+            class="w-full px-3 py-2 bg-imperial text-white rounded-lg text-sm font-semibold hover:bg-imperial-700 transition-colors">
+            Karşılaştır
+          </button>
+          <div id="senaryo-sonuc" class="hidden text-sm"></div>
+        </div>
+      </details>
+
     </div><!-- /sağ panel -->
   </div><!-- /split layout -->
 
@@ -249,10 +470,11 @@ import Base from "../layouts/Base.astro";
   <div class="border-t border-slate-200 bg-slate-50">
     <div class="container-prose py-4 flex items-center justify-between gap-4 flex-wrap">
       <p class="text-xs text-slate-500">
-        TKGM parsel doğrulama, e-Plan imar, deprem/taşkın analizi →
+        Resmi ada/parsel + e-Plan imar + deprem/taşkın →
         <strong class="text-slate-700">Chrome eklentisinde</strong>
+        (sitede TKGM sorgu yok)
       </p>
-      <a href="https://chromewebstore.google.com/"
+      <a href={CHROME_STORE_URL}
         class="btn-primary text-xs py-1.5 px-3 whitespace-nowrap">
         Eklentiyi Yükle →
       </a>
@@ -261,8 +483,23 @@ import Base from "../layouts/Base.astro";
 
   <script>
     import { PUBLIC_API_BASE } from "../lib/config";
-    import { kullaniciAl, tokenAl } from "../lib/auth";
-    import { fizibiliteHesapla, varsayilanInsaatMaliyeti } from "../lib/fizibilite";
+    import {
+      fizibiliteHesapla,
+      varsayilanInsaatMaliyeti,
+      tersFizibiliteHesapla,
+      senaryoKarsilastir,
+    } from "../lib/fizibilite";
+    import { katKarsiligiHesapla } from "../lib/kat-karsiligi";
+    import { tucbsSlugIlIcin, tucbsFeatureOzet } from "../lib/tucbs-slug";
+    import { belediyePortalIlIcin } from "../lib/belediye-wms";
+    import { CHROME_STORE_URL } from "../config/launch";
+    import { yatirimSkoruHesapla, type YatirimSkoruSonuc } from "../lib/yatirim-skoru";
+    import {
+      bboxFromMerkez,
+      gelisimTrendiAnaliz,
+      gelisimSkorRenk,
+      type GelisimTrendiSonuc,
+    } from "../lib/gelisim-trendi";
 
     // ── Helpers ──
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -276,6 +513,14 @@ import Base from "../layouts/Base.astro";
     const lngInput    = $<HTMLInputElement>("lng");
     const m2Input     = $<HTMLInputElement>("m2");
     const kategoriInput = $<HTMLSelectElement>("kategori");
+    const ilSelect    = $<HTMLSelectElement>("il");
+    const ilceSelect  = $<HTMLSelectElement>("ilce");
+    const mahalleInput = $<HTMLInputElement>("mahalle");
+    const imarTipiSelect = $<HTMLSelectElement>("imar-tipi");
+    const emsalInput  = $<HTMLInputElement>("emsal");
+    const taksInput   = $<HTMLInputElement>("taks");
+    const emsalSlider = $<HTMLInputElement>("emsal-slider");
+    const taksSlider  = $<HTMLInputElement>("taks-slider");
     const submitBtn   = $<HTMLButtonElement>("submit-btn");
     const submitLabel = $<HTMLSpanElement>("submit-label");
     const adresInput  = $<HTMLInputElement>("adres");
@@ -283,10 +528,321 @@ import Base from "../layouts/Base.astro";
     const adresStatus = $<HTMLDivElement>("adres-status");
     const konumBtn    = $<HTMLButtonElement>("konum-btn");
     const haritaIpucu = $<HTMLDivElement>("harita-ipucu");
+    const tucbsIpucu  = $<HTMLDivElement>("tucbs-ipucu");
+    const tucbsMetin  = $<HTMLDivElement>("tucbs-ipucu-metin");
     const koordBadge  = $<HTMLDivElement>("koord-badge");
     const sonucBos    = $<HTMLDivElement>("sonuc-bos");
     const sonucSkeleton = $<HTMLDivElement>("sonuc-skeleton");
     const sonucIcerik = $<HTMLDivElement>("sonuc-icerik");
+    const sonuc       = $<HTMLDivElement>("sonuc");
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let sonSorguVar = false;
+
+    // ── Bölge ticker (dürüst — veri kataloğu medyanları, sahte “şimdi sorgu” değil) ──
+    const TICKER = [
+      { t: "İstanbul · Beşiktaş", href: "/veri/istanbul" },
+      { t: "Ankara · Çankaya", href: "/veri/ankara" },
+      { t: "İzmir · Konak", href: "/veri/izmir" },
+      { t: "Antalya · Muratpaşa", href: "/veri/antalya" },
+      { t: "Muğla · Bodrum", href: "/veri/mugla" },
+      { t: "Bursa · Nilüfer", href: "/veri/bursa" },
+      { t: "Veri kataloğu → kaynaklar", href: "/veri-katalogu" },
+    ];
+    let tickerI = 0;
+    const tickerEl = document.getElementById("bolge-ticker");
+    function tickerTick() {
+      if (!tickerEl) return;
+      const item = TICKER[tickerI % TICKER.length]!;
+      tickerEl.style.opacity = "0";
+      setTimeout(() => {
+        tickerEl.innerHTML = `<a href="${item.href}" class="hover:text-imperial-700 hover:underline">${item.t}</a> · medyan & emsal → katalog`;
+        tickerEl.style.opacity = "1";
+      }, 200);
+      tickerI++;
+    }
+    tickerTick();
+    setInterval(tickerTick, 4000);
+
+    // ── Sorgu mod sekmeleri ──
+    document.querySelectorAll<HTMLButtonElement>(".sorgu-mod").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mod = btn.dataset["mod"];
+        document.querySelectorAll<HTMLButtonElement>(".sorgu-mod").forEach((b) => {
+          const on = b === btn;
+          b.setAttribute("aria-selected", on ? "true" : "false");
+          b.classList.toggle("bg-white", on);
+          b.classList.toggle("text-imperial-700", on);
+          b.classList.toggle("shadow-sm", on);
+          b.classList.toggle("font-semibold", on);
+          b.classList.toggle("font-medium", !on);
+          b.classList.toggle("text-slate-500", !on);
+        });
+        const ada = document.getElementById("mod-ada-panel");
+        const formAlan = document.getElementById("mod-form-alanlari");
+        if (mod === "ada") {
+          ada?.classList.remove("hidden");
+          formAlan?.classList.add("hidden");
+        } else {
+          ada?.classList.add("hidden");
+          formAlan?.classList.remove("hidden");
+          if (mod === "harita") {
+            document.getElementById("sorgu-harita")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            haritaIpucu?.classList.remove("hidden", "opacity-0");
+          }
+        }
+      });
+    });
+
+    function skorEtiketSinif(etiket: string): string {
+      if (etiket === "Güçlü") return "text-emerald-700 bg-emerald-50 border-emerald-200";
+      if (etiket === "İyi") return "text-sky-700 bg-sky-50 border-sky-200";
+      if (etiket === "Dengeli") return "text-imperial-700 bg-imperial/5 border-imperial/20";
+      if (etiket === "Temkinli") return "text-amber-800 bg-amber-50 border-amber-200";
+      return "text-red-700 bg-red-50 border-red-200";
+    }
+
+    function skorHalkaRenk(skor: number): string {
+      if (skor >= 80) return "#059669";
+      if (skor >= 65) return "#0284c7";
+      if (skor >= 50) return "#1B2A4A";
+      if (skor >= 35) return "#d97706";
+      return "#dc2626";
+    }
+
+    function yatirimSkoruKartHTML(ys: YatirimSkoruSonuc): string {
+      const r = 42;
+      const c = 2 * Math.PI * r;
+      const offset = c * (1 - ys.skor / 100);
+      const renk = skorHalkaRenk(ys.skor);
+      const bars = ys.bilesenler
+        .map((b) => {
+          const pct = Math.round((b.puan / b.max) * 100);
+          return `
+            <div class="space-y-0.5">
+              <div class="flex justify-between gap-2 text-[11px]">
+                <span class="text-slate-700 font-medium">${b.ad}</span>
+                <span class="font-mono text-slate-500">${b.puan}/${b.max}</span>
+              </div>
+              <div class="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div class="h-full rounded-full bg-imperial-600/80 transition-all" style="width:${pct}%"></div>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate">${b.not}</div>
+            </div>`;
+        })
+        .join("");
+      return `
+        <div id="yatirim-skoru-kart" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-3">
+          <div class="flex items-start gap-4">
+            <div class="relative shrink-0 w-[100px] h-[100px]">
+              <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90" aria-hidden="true">
+                <circle cx="50" cy="50" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+                <circle cx="50" cy="50" r="${r}" fill="none" stroke="${renk}" stroke-width="8"
+                  stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}"
+                  style="transition: stroke-dashoffset 0.6s ease"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center rotate-0">
+                <span class="text-2xl font-bold text-imperial-800 leading-none">${ys.skor}</span>
+                <span class="text-[9px] text-slate-400 uppercase tracking-wide mt-0.5">/ 100</span>
+              </div>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <h2 class="font-display text-base font-bold text-imperial-700">Yatırım skoru</h2>
+                <span class="text-[10px] px-2 py-0.5 rounded-full border font-semibold ${skorEtiketSinif(ys.etiket)}">${ys.etiket}</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-snug mb-3">${ys.yorum}</p>
+              <div class="space-y-2">${bars}</div>
+              <p class="text-[10px] text-slate-400 mt-2">Bilgilendirme amaçlıdır; resmi ekspertiz / yatırım tavsiyesi değildir.</p>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function skorGirdiden(data: any, trendDegisimYuzde?: number | null): YatirimSkoruSonuc {
+      if (data.yatirim_skoru && trendDegisimYuzde == null) {
+        return data.yatirim_skoru as YatirimSkoruSonuc;
+      }
+      return yatirimSkoruHesapla({
+        guvenSkoru: data.guven_skoru ?? 0,
+        kaynak: data.kaynak ?? "il-fallback",
+        emsalAdet: data.emsal_adet ?? 0,
+        imarTipi: data.imar_tipi ?? "belirsiz",
+        emsal: data.emsal ?? null,
+        taks: data.taks ?? null,
+        toplamCarpan: data.toplam_carpan ?? 1,
+        altTlm2: data.alt_tlm2 ?? null,
+        ustTlm2: data.ust_tlm2 ?? null,
+        medyanTlm2: data.medyan_tlm2 ?? null,
+        trendDegisimYuzde: trendDegisimYuzde ?? null,
+      });
+    }
+
+    function yatirimHikayesi(data: any, imarTipi: string, m2: number): string {
+      const med = data.medyan_tlm2 ?? 0;
+      const guven = data.guven_skoru ?? 0;
+      const lok = data.lokasyon ? String(data.lokasyon) : "seçilen bölge";
+      const tip = imarTipi && imarTipi !== "belirsiz" ? imarTipi : "belirsiz imar";
+      const band =
+        med > 0
+          ? `Medyan yaklaşık ${fmt(med)} ₺/m² (güven %${guven}).`
+          : "Bu bölgede emsal henüz ince — bandı imar varsayımıyla geniş tutun.";
+      const alan =
+        Number.isFinite(m2) && m2 > 0 && med > 0
+          ? ` ${fmt(m2)} m² için orta senaryo ~${fmt(Math.round(med * m2))} ₺.`
+          : "";
+      const imarNot =
+        tip === "tarim"
+          ? " Tarım tipi seçildi — yapılaşma kısıtı fiyatı baskılar."
+          : tip === "ticari"
+            ? " Ticari imar varsayımı bandı yukarı çeker."
+            : ` İmar tipi: ${tip}.`;
+      const sonraki =
+        data.kaynak === "il-fallback"
+          ? " Sonraki adım: mahalle netleştir veya eklentide resmi parsel doğrula."
+          : " Fizibilite ve kat karşılığı panelleriyle senaryoyu stres test et.";
+      return `${lok} için ${band}${alan}${imarNot}${sonraki}`;
+    }
+
+    function syncSliderFromInput(input: HTMLInputElement, slider: HTMLInputElement) {
+      const v = parseFloat(input.value);
+      if (Number.isFinite(v)) slider.value = String(v);
+    }
+    function syncInputFromSlider(slider: HTMLInputElement, input: HTMLInputElement) {
+      input.value = slider.value;
+    }
+    function debouncedResorgu() {
+      if (!sonSorguVar) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => form.requestSubmit(), 450);
+    }
+    emsalSlider?.addEventListener("input", () => {
+      syncInputFromSlider(emsalSlider, emsalInput);
+      debouncedResorgu();
+    });
+    taksSlider?.addEventListener("input", () => {
+      syncInputFromSlider(taksSlider, taksInput);
+      debouncedResorgu();
+    });
+    emsalInput?.addEventListener("change", () => {
+      syncSliderFromInput(emsalInput, emsalSlider);
+      debouncedResorgu();
+    });
+    taksInput?.addEventListener("change", () => {
+      syncSliderFromInput(taksInput, taksSlider);
+      debouncedResorgu();
+    });
+
+    async function tucbsIpucuYukle(lat: number, lng: number) {
+      if (!tucbsIpucu || !tucbsMetin) return;
+      const bolge = tucbsSlugIlIcin(ilSelect.value);
+      if (!bolge) {
+        tucbsIpucu.classList.remove("hidden");
+        tucbsMetin.textContent = "Bu il için TUCBS ÇDP kapsamı yok. Resmi imar → eklenti.";
+        return;
+      }
+      tucbsIpucu.classList.remove("hidden");
+      tucbsMetin.textContent = `${bolge.bolgeAd} sorgulanıyor…`;
+      try {
+        const res = await fetch(
+          `${PUBLIC_API_BASE}/proxy/tucbs?wms=${encodeURIComponent(bolge.slug)}&lat=${lat}&lng=${lng}`,
+          { signal: AbortSignal.timeout(8000) },
+        );
+        if (!res.ok) {
+          tucbsMetin.textContent = "ÇDP yanıtı alınamadı (üst plan).";
+          return;
+        }
+        const data = await res.json();
+        const ozet = tucbsFeatureOzet(data);
+        tucbsMetin.textContent = ozet
+          ? `${ozet} · ${bolge.bolgeAd}`
+          : `${bolge.bolgeAd}: bu noktada özellik yok / kapsam dışı.`;
+      } catch {
+        tucbsIpucu.classList.add("hidden");
+      }
+    }
+
+    const ILLER = [
+      ["istanbul","İstanbul"],["ankara","Ankara"],["izmir","İzmir"],["bursa","Bursa"],["antalya","Antalya"],
+      ["adana","Adana"],["konya","Konya"],["gaziantep","Gaziantep"],["mersin","Mersin"],["diyarbakir","Diyarbakır"],
+      ["kayseri","Kayseri"],["samsun","Samsun"],["eskisehir","Eskişehir"],["denizli","Denizli"],["sanliurfa","Şanlıurfa"],
+      ["trabzon","Trabzon"],["hatay","Hatay"],["manisa","Manisa"],["kahramanmaras","Kahramanmaraş"],["balikesir","Balıkesir"],
+      ["aydin","Aydın"],["tekirdag","Tekirdağ"],["sakarya","Sakarya"],["mugla","Muğla"],["kocaeli","Kocaeli"],
+      ["malatya","Malatya"],["erzurum","Erzurum"],["van","Van"],["ordu","Ordu"],["yalova","Yalova"],
+      ["canakkale","Çanakkale"],["edirne","Edirne"],["adiyaman","Adıyaman"],["afyonkarahisar","Afyonkarahisar"],
+      ["agri","Ağrı"],["aksaray","Aksaray"],["amasya","Amasya"],["ardahan","Ardahan"],["artvin","Artvin"],
+      ["bartin","Bartın"],["batman","Batman"],["bayburt","Bayburt"],["bilecik","Bilecik"],["bingol","Bingöl"],
+      ["bitlis","Bitlis"],["bolu","Bolu"],["burdur","Burdur"],["cankiri","Çankırı"],["corum","Çorum"],
+      ["duzce","Düzce"],["elazig","Elazığ"],["erzincan","Erzincan"],["giresun","Giresun"],["gumushane","Gümüşhane"],
+      ["hakkari","Hakkari"],["igdir","Iğdır"],["isparta","Isparta"],["karabuk","Karabük"],["karaman","Karaman"],
+      ["kars","Kars"],["kastamonu","Kastamonu"],["kirikkale","Kırıkkale"],["kirklareli","Kırklareli"],
+      ["kirsehir","Kırşehir"],["kilis","Kilis"],["kutahya","Kütahya"],["mardin","Mardin"],["mus","Muş"],
+      ["nevsehir","Nevşehir"],["nigde","Niğde"],["osmaniye","Osmaniye"],["rize","Rize"],["siirt","Siirt"],
+      ["sinop","Sinop"],["sivas","Sivas"],["sirnak","Şırnak"],["tokat","Tokat"],["tunceli","Tunceli"],
+      ["usak","Uşak"],["zonguldak","Zonguldak"],
+    ];
+
+    for (const [v, l] of ILLER) {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = l;
+      ilSelect.appendChild(opt);
+    }
+
+    function displaySlug(s: string) {
+      return s.split(/[-\s]/).filter(Boolean).map(w => w.charAt(0).toLocaleUpperCase("tr") + w.slice(1)).join(" ");
+    }
+
+    async function ilceYukle(ilNorm: string) {
+      ilceSelect.disabled = true;
+      ilceSelect.innerHTML = '<option value="">Yükleniyor…</option>';
+      try {
+        const res = await fetch(`${PUBLIC_API_BASE}/fiyat/toplu-ilce-ozet/${ilNorm}?kategori=arsa`);
+        const data = await res.json();
+        const list = (data.ilceler ?? []) as Array<{ ilce_norm: string }>;
+        ilceSelect.innerHTML = '<option value="">İlçe seçin…</option>';
+        if (list.length === 0) {
+          // Serbest giriş: kullanıcı mahalle + geocode ile devam edebilir
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "İlçe listesi boş — mahalle yazın";
+          ilceSelect.appendChild(opt);
+        } else {
+          for (const ic of list.sort((a, b) => a.ilce_norm.localeCompare(b.ilce_norm, "tr"))) {
+            const opt = document.createElement("option");
+            opt.value = ic.ilce_norm;
+            opt.textContent = displaySlug(ic.ilce_norm);
+            ilceSelect.appendChild(opt);
+          }
+        }
+      } catch {
+        ilceSelect.innerHTML = '<option value="">İlçe yüklenemedi — yazarak devam</option>';
+      }
+      ilceSelect.disabled = false;
+    }
+
+    function belediyePortalGuncelle() {
+      const wrap = document.getElementById("belediye-portal");
+      const link = document.getElementById("belediye-portal-link") as HTMLAnchorElement | null;
+      const p = belediyePortalIlIcin(ilSelect.value);
+      if (!wrap || !link) return;
+      if (!p) {
+        wrap.classList.add("hidden");
+        return;
+      }
+      link.href = p.url;
+      link.textContent = `${p.ad} →`;
+      wrap.classList.remove("hidden");
+    }
+
+    ilSelect.addEventListener("change", () => {
+      if (ilSelect.value) void ilceYukle(ilSelect.value);
+      else {
+        ilceSelect.innerHTML = '<option value="">Önce il seçin</option>';
+        ilceSelect.disabled = true;
+      }
+      belediyePortalGuncelle();
+    });
 
     // ── State ──
     let map: any = null;
@@ -351,6 +907,7 @@ import Base from "../layouts/Base.astro";
         }
       }
 
+      void tucbsIpucuYukle(lat, lng);
       if (autoSorgu) setTimeout(() => form.requestSubmit(), 300);
     }
 
@@ -409,19 +966,53 @@ import Base from "../layouts/Base.astro";
       const lng = parseFloat(lngInput.value);
       const m2 = parseFloat(m2Input.value);
       const kategori = kategoriInput.value;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        sonuc.classList.remove("hidden");
-        sonuc.innerHTML = '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">Lat/lng gerekli.</div>';
+      const il = ilSelect.value;
+      const ilceRaw = ilceSelect.value;
+      const ilce = ilceRaw === "_manuel" ? "" : ilceRaw;
+      const mahalle = mahalleInput.value.trim();
+      const imar_tipi = imarTipiSelect.value;
+      const emsal = parseFloat(emsalInput.value);
+      const taks = parseFloat(taksInput.value);
+
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+      if (!hasCoords && !il) {
+        alert("İl seçin veya haritadan konum işaretleyin.");
         return;
       }
 
-      sonuc.classList.remove("hidden");
-      sonuc.innerHTML = '<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-slate-500 text-sm">Sorgulanıyor…</div>';
+      // Koordinat yoksa geocode
+      if (!hasCoords && il) {
+        const q = [mahalle, ilce && ilce !== "_manuel" ? displaySlug(ilce) : "", displaySlug(il), "Türkiye"]
+          .filter(Boolean).join(" ");
+        submitBtn.disabled = true;
+        submitLabel.textContent = "Konum aranıyor…";
+        try {
+          const r = await geocode(q);
+          if (r) setKoordinat(r.lat, r.lng, false);
+        } catch { /* devam — lokasyon API ile */ }
+        submitLabel.textContent = "Değer Hesapla";
+      }
+
+      const lat2 = parseFloat(latInput.value);
+      const lng2 = parseFloat(lngInput.value);
+
+      sonucBos.classList.add("hidden");
+      sonucSkeleton.classList.remove("hidden");
+      sonucIcerik.classList.add("hidden");
       submitBtn.disabled = true;
 
       try {
-        const body: Record<string, unknown> = { lat, lng, kategori };
+        const body: Record<string, unknown> = { kategori, imar_tipi };
+        if (Number.isFinite(lat2) && Number.isFinite(lng2)) {
+          body.lat = lat2;
+          body.lng = lng2;
+        }
+        if (il) body.il = il;
+        if (ilce) body.ilce = ilce;
+        if (mahalle) body.mahalle = mahalle;
         if (Number.isFinite(m2) && m2 > 0) body.m2 = m2;
+        if (Number.isFinite(emsal) && emsal > 0) body.emsal = emsal;
+        if (Number.isFinite(taks) && taks > 0) body.taks = taks;
 
         const res = await fetch(`${PUBLIC_API_BASE}/sorgu`, {
           method: "POST",
@@ -430,9 +1021,11 @@ import Base from "../layouts/Base.astro";
         });
         const data = await res.json();
         submitBtn.disabled = false;
+        sonucSkeleton.classList.add("hidden");
 
         if (!res.ok) {
-          sonuc.innerHTML = `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">❌ ${data.error ?? "Sorgu hatası"}</div>`;
+          sonucIcerik.classList.remove("hidden");
+          sonucIcerik.innerHTML = `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">❌ ${data.error ?? "Sorgu hatası"}</div>`;
           return;
         }
 
@@ -440,19 +1033,17 @@ import Base from "../layouts/Base.astro";
         const kaynakRozet: Record<string, { label: string; class: string }> = {
           "spatial-radius": { label: "Spatial Emsal", class: "bg-emerald-100 text-emerald-800" },
           "mahalle-istatistik": { label: "Mahalle İstatistiği", class: "bg-blue-100 text-blue-800" },
+          "ilce-istatistik": { label: "İlçe İstatistiği", class: "bg-sky-100 text-sky-800" },
           "il-fallback": { label: "İl Baseline (yaklaşık)", class: "bg-amber-100 text-amber-800" },
         };
         const kr = kaynakRozet[data.kaynak] ?? { label: data.kaynak, class: "bg-slate-100 text-slate-800" };
 
-        // Güven rozeti
         const guven = data.guven_skoru ?? 0;
         const guvenSinif = guven >= 80 ? "bg-emerald-500" : guven >= 60 ? "bg-blue-500" : guven >= 40 ? "bg-amber-500" : "bg-red-500";
 
-        // TL format
         const fmt = (n: number) => n.toLocaleString("tr-TR");
         const fmtKisa = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + " M ₺" : n >= 1000 ? (n / 1000).toFixed(0) + " bin ₺" : fmt(n) + " ₺";
 
-        // Toplam TL kartı (parsel m² verildiyse)
         const toplamKart = data.toplam_tl ? `
           <div class="bg-gradient-to-br from-imperial-50 to-imperial-100/50 border-2 border-imperial-200 rounded-2xl p-6 mb-4">
             <div class="text-xs text-imperial-700 uppercase tracking-wider font-semibold">Parsel Toplam Değer</div>
@@ -460,15 +1051,37 @@ import Base from "../layouts/Base.astro";
             <div class="text-sm text-imperial-700 mt-2">
               Aralık: <strong>${fmtKisa(data.toplam_tl.alt)}</strong> — <strong>${fmtKisa(data.toplam_tl.ust)}</strong>
             </div>
-            <div class="text-xs text-imperial-600 mt-1">${m2 || ""} m² × ortalama ${fmt(data.medyan_tlm2)} ₺/m²</div>
+            <div class="text-xs text-imperial-600 mt-1">${m2 || data.m2 || ""} m² × ${fmt(data.medyan_tlm2)} ₺/m²</div>
           </div>
         ` : "";
 
-        sonuc.innerHTML = `
+        const ayarBlok = (data.ayarlar && data.ayarlar.length > 0) ? `
+          <div class="rounded-xl border border-imperial/15 bg-slate-50 p-3 mb-3 text-xs space-y-1">
+            <div class="text-[10px] font-semibold uppercase tracking-wide text-imperial-600">Neden bu band?</div>
+            ${data.ham_medyan_tlm2 ? `<div class="text-slate-500">Ham medyan: <strong>${fmt(data.ham_medyan_tlm2)}</strong> ₺/m² · çarpan ×${data.toplam_carpan}</div>` : ""}
+            ${data.ayarlar.map((a: any) => `
+              <div class="flex justify-between gap-2"><span class="text-slate-700">${a.not}</span><span class="font-mono font-semibold">×${a.carpan}</span></div>
+            `).join("")}
+          </div>
+        ` : "";
+
+        const fizOzet = data.fizibilite_ozet ? `
+          <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
+            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">Taban</div><div class="font-semibold">${fmt(data.fizibilite_ozet.taban_m2)} m²</div></div>
+            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">İnşaat</div><div class="font-semibold">${fmt(data.fizibilite_ozet.insaat_m2)} m²</div></div>
+            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">~Kat</div><div class="font-semibold">${data.fizibilite_ozet.tahmini_kat}</div></div>
+          </div>
+        ` : "";
+
+        const skorKart = yatirimSkoruKartHTML(skorGirdiden(data));
+
+        sonucIcerik.classList.remove("hidden");
+        sonucIcerik.innerHTML = `
           ${toplamKart}
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <h2 class="font-display text-xl font-bold text-imperial-700">Birim Fiyat Analizi</h2>
+          ${skorKart}
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 class="font-display text-lg font-bold text-imperial-700">Birim Fiyat</h2>
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-xs px-2.5 py-1 rounded-full ${kr.class} font-medium">${kr.label}</span>
                 <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-medium inline-flex items-center gap-1.5">
@@ -477,68 +1090,50 @@ import Base from "../layouts/Base.astro";
                 </span>
               </div>
             </div>
-
-            <div class="grid grid-cols-3 gap-3 mb-4">
-              <div class="bg-slate-50 p-3 rounded-lg">
-                <div class="text-xs text-slate-500">Alt sınır</div>
-                <div class="text-lg font-bold text-slate-700">${fmt(data.alt_tlm2 ?? 0)} ₺</div>
-                <div class="text-xs text-slate-400">/m²</div>
+            ${data.lokasyon ? `<div class="text-xs text-slate-500 mb-2 capitalize">📍 ${data.lokasyon}</div>` : ""}
+            ${ayarBlok}
+            ${fizOzet}
+            <div class="grid grid-cols-3 gap-2 mb-3">
+              <div class="bg-slate-50 p-2.5 rounded-lg">
+                <div class="text-xs text-slate-500">Alt</div>
+                <div class="text-base font-bold text-slate-700">${fmt(data.alt_tlm2 ?? 0)}</div>
+                <div class="text-[10px] text-slate-400">₺/m²</div>
               </div>
-              <div class="bg-imperial-50 p-3 rounded-lg ring-2 ring-imperial-200">
+              <div class="bg-imperial-50 p-2.5 rounded-lg ring-2 ring-imperial-200">
                 <div class="text-xs text-imperial-700 font-medium">Medyan</div>
-                <div class="text-xl font-bold text-imperial-800">${fmt(data.medyan_tlm2 ?? 0)} ₺</div>
-                <div class="text-xs text-imperial-600">/m²</div>
+                <div class="text-lg font-bold text-imperial-800">${fmt(data.medyan_tlm2 ?? 0)}</div>
+                <div class="text-[10px] text-imperial-600">₺/m²</div>
               </div>
-              <div class="bg-slate-50 p-3 rounded-lg">
-                <div class="text-xs text-slate-500">Üst sınır</div>
-                <div class="text-lg font-bold text-slate-700">${fmt(data.ust_tlm2 ?? 0)} ₺</div>
-                <div class="text-xs text-slate-400">/m²</div>
+              <div class="bg-slate-50 p-2.5 rounded-lg">
+                <div class="text-xs text-slate-500">Üst</div>
+                <div class="text-base font-bold text-slate-700">${fmt(data.ust_tlm2 ?? 0)}</div>
+                <div class="text-[10px] text-slate-400">₺/m²</div>
               </div>
             </div>
-
-            <div class="text-sm text-slate-600 space-y-1.5">
-              <div><span class="text-slate-400">📍</span> Yarıçap: <strong>${data.radius_km} km</strong></div>
-              <div><span class="text-slate-400">🎯</span> Emsal: <strong>${data.emsal_adet}</strong> ilan
-                (0-1km: ${data.halka_dagilimi.r0_1km}, 1-3km: ${data.halka_dagilimi.r1_3km}, 3-5km: ${data.halka_dagilimi.r3_5km})</div>
-              <div><span class="text-slate-400">📊</span> Bu saat kalan kotanız: <strong>${data.kalan_kota}/20</strong></div>
-            </div>
-
-            <div class="mt-5 pt-4 border-t border-slate-100 flex gap-2 flex-wrap">
-              <a href="/rapor?lat=${lat}&lng=${lng}&kategori=${kategori}${m2 ? `&m2=${m2}` : ""}"
-                 class="px-4 py-2 bg-imperial text-white rounded-lg text-sm font-medium hover:bg-imperial-700">
-                📄 PDF Rapor
-              </a>
-              <button id="musteri-ekle-btn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">
-                👤 Müşterime Ekle
-              </button>
-              <button id="link-kopyala-btn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">
-                🔗 Linki Paylaş
-              </button>
+            <div class="text-xs text-slate-600 space-y-1">
+              ${data.radius_km ? `<div>Yarıçap: <strong>${data.radius_km} km</strong> · Emsal ilan: <strong>${data.emsal_adet}</strong></div>` : `<div>Emsal ilan: <strong>${data.emsal_adet}</strong></div>`}
+              <div>Kalan kota: <strong>${data.kalan_kota}/20</strong></div>
             </div>
           </div>
 
           ${(data.emsaller && data.emsaller.length > 0) ? `
-            <div class="mt-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h2 class="font-display text-xl font-bold text-imperial-700 mb-3">Karşılaştırmalı Emsaller (CMA)</h2>
+            <div class="mt-3 bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+              <h2 class="font-display text-base font-bold text-imperial-700 mb-2">Karşılaştırmalı Emsaller</h2>
               <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-xs">
                   <thead>
                     <tr class="text-left text-slate-500 border-b border-slate-200">
-                      <th class="py-2 pr-3 font-medium">Mahalle</th>
-                      <th class="py-2 px-3 font-medium text-right">₺/m²</th>
-                      <th class="py-2 px-3 font-medium text-right">m²</th>
-                      <th class="py-2 px-3 font-medium text-right">Mesafe</th>
-                      <th class="py-2 pl-3 font-medium text-right">Yaş</th>
+                      <th class="py-1.5 pr-2 font-medium">Mahalle</th>
+                      <th class="py-1.5 px-2 font-medium text-right">₺/m²</th>
+                      <th class="py-1.5 pl-2 font-medium text-right">Mesafe</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${data.emsaller.map((e: any) => `
                       <tr class="border-b border-slate-50">
-                        <td class="py-2 pr-3 capitalize">${e.mahalle ?? "—"}</td>
-                        <td class="py-2 px-3 text-right font-semibold">${fmt(e.fiyat_per_m2)}</td>
-                        <td class="py-2 px-3 text-right text-slate-500">${e.m2 ? fmt(e.m2) : "—"}</td>
-                        <td class="py-2 px-3 text-right text-slate-500">${e.mesafe_m >= 1000 ? (e.mesafe_m/1000).toFixed(1)+" km" : e.mesafe_m+" m"}</td>
-                        <td class="py-2 pl-3 text-right text-slate-400">${e.yas_gun}g</td>
+                        <td class="py-1.5 pr-2 capitalize">${e.mahalle ?? "—"}</td>
+                        <td class="py-1.5 px-2 text-right font-semibold">${fmt(e.fiyat_per_m2)}</td>
+                        <td class="py-1.5 pl-2 text-right text-slate-500">${e.mesafe_m >= 1000 ? (e.mesafe_m/1000).toFixed(1)+" km" : e.mesafe_m+" m"}</td>
                       </tr>
                     `).join("")}
                   </tbody>
@@ -547,55 +1142,136 @@ import Base from "../layouts/Base.astro";
             </div>
           ` : ""}
 
-          <div id="trend-bolum" class="mt-4"></div>
+          <div id="gelisim-trendi-bolum" class="mt-3"></div>
+          <div id="trend-bolum" class="mt-3"></div>
 
           ${data.kaynak === "il-fallback" ? `
-            <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
-              <strong>⚠ Sınırlı veri:</strong> Bu bölgede henüz yeterli ilan emsali yok — il-bazlı kaba bir tahmin gösteriliyor.
-              Daha doğru sonuç için Chrome eklentisi ile parselin tam analizini yapın.
+            <div class="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+              <strong>Veri yok / ince emsal — saklamıyoruz:</strong> mahalle/ilçe havuzu yetersiz, il baseline kullanıldı.
+              Bu bir resmi imar hükmü değildir. Emsal/TAKS girin, <a href="/veri" class="underline font-semibold">veri kataloğundan</a> mahalle seçin veya eklentide parsel doğrulayın.
             </div>
           ` : ""}
+
+          <div class="mt-3 rounded-xl border border-champagne/40 bg-champagne/5 p-3 text-xs space-y-1.5">
+            <div class="font-semibold text-imperial-700">Yatırım hikâyesi</div>
+            <p class="text-slate-700 leading-snug">${yatirimHikayesi(data, imar_tipi, m2)}</p>
+          </div>
+
+          <div class="mt-3 rounded-xl border border-imperial/20 bg-imperial/5 p-3 text-xs">
+            <div class="font-semibold text-imperial-700 mb-1">Resmi ada/parsel + e-Plan imar</div>
+            <p class="text-slate-600 mb-2 leading-snug">Sitede TKGM sorgu yok. KAKS/TAKS ve parsel doğrulama Chrome eklentisinde.</p>
+            <a href="${CHROME_STORE_URL}" class="inline-flex items-center gap-1 font-semibold text-imperial-700 hover:underline">
+              Eklentiyi aç →
+            </a>
+            · <a href="/arsa-talep" class="text-slate-600 hover:underline">Arsa talebi bırak</a>
+          </div>
         `;
 
-        // ── Fizibilite panelini otomatik doldur ──
-        if (m2 && Number.isFinite(m2)) (document.getElementById("f-m2") as HTMLInputElement).value = String(m2);
+        sonSorguVar = true;
+
+        // Fizibilite panelini doldur
+        if (Number.isFinite(m2) && m2 > 0) (document.getElementById("f-m2") as HTMLInputElement).value = String(m2);
+        if (Number.isFinite(emsal) && emsal > 0) (document.getElementById("f-kaks") as HTMLInputElement).value = String(emsal);
+        if (Number.isFinite(taks) && taks > 0) (document.getElementById("f-taks") as HTMLInputElement).value = String(taks);
         if (data.toplam_tl?.orta) (document.getElementById("f-arsa") as HTMLInputElement).value = String(data.toplam_tl.orta);
         else if (data.medyan_tlm2 && m2) (document.getElementById("f-arsa") as HTMLInputElement).value = String(Math.round(data.medyan_tlm2 * m2));
-        if (data.medyan_tlm2) (document.getElementById("f-satis") as HTMLInputElement).value = String(Math.round(data.medyan_tlm2 * 2.4)); // arsa→bitmiş kaba çarpan
+        if (data.medyan_tlm2) (document.getElementById("f-satis") as HTMLInputElement).value = String(Math.round(data.medyan_tlm2 * 2.4));
 
-        // ── Trend grafiği (paralel fetch) ──
-        fetch(`${PUBLIC_API_BASE}/sorgu/trend?lat=${lat}&lng=${lng}&kategori=${kategori}&ay=12`)
-          .then((r) => r.json())
-          .then((t) => {
-            const el = document.getElementById("trend-bolum");
-            if (!el || !t.ok || !t.noktalar || t.noktalar.length < 2) return;
-            el.innerHTML = trendKartHTML(t, fmt);
-          })
-          .catch(() => {});
+        if (Number.isFinite(lat2) && Number.isFinite(lng2)) {
+          fetch(`${PUBLIC_API_BASE}/sorgu/trend?lat=${lat2}&lng=${lng2}&kategori=${kategori}&ay=12`)
+            .then((r) => r.json())
+            .then((t) => {
+              const el = document.getElementById("trend-bolum");
+              if (!el || !t.ok || !t.noktalar || t.noktalar.length < 2) return;
+              el.innerHTML = trendKartHTML(t, fmt);
+              const deg = typeof t.degisim_yuzde === "number" ? t.degisim_yuzde : null;
+              if (deg != null) {
+                const kart = document.getElementById("yatirim-skoru-kart");
+                if (kart) {
+                  const wrap = document.createElement("div");
+                  wrap.innerHTML = yatirimSkoruKartHTML(skorGirdiden(data, deg));
+                  kart.replaceWith(wrap.firstElementChild!);
+                }
+              }
+            })
+            .catch(() => {});
 
-        // CTA handler'ları
-        document.getElementById("link-kopyala-btn")?.addEventListener("click", () => {
-          const url = `${location.origin}/sorgu?lat=${lat}&lng=${lng}&kategori=${kategori}${m2 ? `&m2=${m2}` : ""}`;
-          navigator.clipboard.writeText(url);
-          alert("Link panoya kopyalandı.");
-        });
-
-        document.getElementById("musteri-ekle-btn")?.addEventListener("click", async () => {
-          const token = tokenAl();
-          if (!token) { location.href = "/giris?dön=" + encodeURIComponent(location.pathname + location.search); return; }
-          const u = kullaniciAl();
-          if (u && u.tier !== "kurumsal" && u.tier !== "pro_plus") {
-            alert("CRM Lite için Pro+ veya Kurumsal abonelik gerekli.");
-            return;
-          }
-          location.href = `/musteriler`;
-        });
+          // Uydu gelişim trendi (Wayback → API proxy → client pixel analizi)
+          void yuklenGelisimTrendi(lat2, lng2);
+        }
 
       } catch (err) {
         submitBtn.disabled = false;
-        sonuc.innerHTML = `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">❌ Bağlantı hatası: ${err}</div>`;
+        sonucSkeleton.classList.add("hidden");
+        sonucIcerik.classList.remove("hidden");
+        sonucIcerik.innerHTML = `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">❌ Bağlantı hatası: ${err}</div>`;
       }
     });
+
+    // ── Uydu gelişim trendi (Esri Wayback via proxy) ──
+    async function yuklenGelisimTrendi(lat: number, lng: number): Promise<void> {
+      const el = document.getElementById("gelisim-trendi-bolum");
+      if (!el) return;
+      el.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+          <div class="text-xs text-slate-500">Uydu kareleri analiz ediliyor…</div>
+        </div>`;
+      try {
+        const bbox = bboxFromMerkez(lat, lng, 180);
+        const sonuc = await gelisimTrendiAnaliz(bbox, async (_url, releaseId) => {
+          const q = new URLSearchParams({
+            minLng: String(bbox.minLng),
+            minLat: String(bbox.minLat),
+            maxLng: String(bbox.maxLng),
+            maxLat: String(bbox.maxLat),
+            releaseId: String(releaseId),
+            w: "160",
+            h: "120",
+          });
+          const res = await fetch(`${PUBLIC_API_BASE}/proxy/wayback?${q}`);
+          if (!res.ok) throw new Error(`Uydu ${res.status}`);
+          return res.blob();
+        });
+        if (document.getElementById("gelisim-trendi-bolum") !== el) return;
+        el.innerHTML = gelisimTrendiKartHTML(sonuc);
+      } catch {
+        if (document.getElementById("gelisim-trendi-bolum") === el) {
+          el.innerHTML = "";
+        }
+      }
+    }
+
+    function gelisimTrendiKartHTML(g: GelisimTrendiSonuc): string {
+      const renk = gelisimSkorRenk(g.skor);
+      const skorStr = g.skor > 0 ? `+${g.skor}` : String(g.skor);
+      const bars = g.yillar
+        .map((y) => {
+          const px = Math.max(4, Math.round(y.builtUp * 28));
+          return `<div class="flex-1 flex flex-col items-center gap-0.5 justify-end">
+            <div class="w-full rounded-sm bg-sky-500/80" style="height:${px}px" title="${y.yil}: yapay yüzey ~${(y.builtUp * 100).toFixed(0)}%"></div>
+            <span class="text-[8px] text-slate-400 tabular-nums">${y.yil}</span>
+          </div>`;
+        })
+        .join("");
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+          <div class="flex items-center justify-between mb-3 gap-2">
+            <h2 class="font-display text-base font-bold text-imperial-700">Uydu gelişim trendi</h2>
+            <span class="text-[10px] text-slate-400">2014–2024</span>
+          </div>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex h-14 w-14 flex-shrink-0 flex-col items-center justify-center rounded-xl text-white" style="background:${renk}">
+              <span class="text-sm font-bold tabular-nums leading-none">${skorStr}</span>
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-slate-800">${g.etiket}</div>
+              <p class="mt-0.5 text-xs leading-relaxed text-slate-500">${g.aciklama}</p>
+            </div>
+          </div>
+          <div class="flex items-end gap-1">${bars}</div>
+          <p class="mt-2 text-[10px] text-slate-400 italic">Kaynak: Esri Wayback · görsel proxy (yatırım tavsiyesi değildir) · güven: ${g.guven}</p>
+        </div>`;
+    }
 
     // ── Trend kart HTML (mini SVG çizgi grafik) ──
     function trendKartHTML(t: any, fmt: (n: number) => string): string {
@@ -685,15 +1361,171 @@ import Base from "../layouts/Base.astro";
       `;
     });
 
+    function fizGirdiOku(): {
+      parselM2: number; taks: number; kaks: number; arsaMaliyeti: number;
+      insaatBirimMaliyet: number; satisBirimFiyat: number;
+    } | null {
+      const num = (id: string) => parseFloat((document.getElementById(id) as HTMLInputElement)?.value);
+      const parselM2 = num("f-m2") || parseFloat(m2Input.value);
+      const taks = num("f-taks") || parseFloat(taksInput.value);
+      const kaks = num("f-kaks") || parseFloat(emsalInput.value);
+      const arsaMaliyeti = num("f-arsa");
+      const insaatBirimMaliyet = Number.isFinite(num("f-insaat")) ? num("f-insaat") : varsayilanInsaatMaliyeti();
+      const satisBirimFiyat = num("f-satis");
+      if (![parselM2, taks, kaks, arsaMaliyeti, satisBirimFiyat].every(Number.isFinite)) return null;
+      return { parselM2, taks, kaks, arsaMaliyeti, insaatBirimMaliyet, satisBirimFiyat };
+    }
+
+    document.getElementById("tf-hesapla")?.addEventListener("click", () => {
+      const g = fizGirdiOku();
+      const el = document.getElementById("tf-sonuc") as HTMLDivElement;
+      if (!g) {
+        el.classList.remove("hidden");
+        el.innerHTML = '<div class="bg-amber-50 text-amber-800 p-3 rounded-lg text-xs">Önce İmar Fizibilite alanlarını doldurun (veya değer sorgusu çalıştırın).</div>';
+        return;
+      }
+      const hedef = parseFloat((document.getElementById("tf-hedef") as HTMLInputElement).value) || 25;
+      const hedefDaire = parseFloat((document.getElementById("tf-daire") as HTMLInputElement).value);
+      const r = tersFizibiliteHesapla({
+        ...g,
+        mevcutKaks: g.kaks,
+        hedefKarlilikYuzde: hedef,
+        hedefDaireAdedi: Number.isFinite(hedefDaire) ? hedefDaire : undefined,
+      });
+      el.classList.remove("hidden");
+      el.innerHTML = `
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-1.5 text-xs">
+          ${r.minEmsal != null ? `<div>Min emsal (hedef kâr): <strong class="text-imperial-700">${r.minEmsal}</strong></div>` : ""}
+          ${r.maxArsaMaliyeti != null ? `<div>Max arsa bedeli: <strong>${fmtK(r.maxArsaMaliyeti)}</strong></div>` : ""}
+          ${r.minEmsalDaireIcin != null ? `<div>Min emsal (daire hedefi): <strong>${r.minEmsalDaireIcin}</strong></div>` : ""}
+          <p class="text-slate-600 pt-1">${r.yorum}</p>
+        </div>`;
+    });
+
+    document.getElementById("kk-hesapla")?.addEventListener("click", () => {
+      const g = fizGirdiOku();
+      const el = document.getElementById("kk-sonuc") as HTMLDivElement;
+      if (!g) {
+        el.classList.remove("hidden");
+        el.innerHTML = '<div class="bg-amber-50 text-amber-800 p-3 rounded-lg text-xs">Önce fizibilite / sorgu alanlarını doldurun.</div>';
+        return;
+      }
+      const pay = parseFloat((document.getElementById("kk-pay") as HTMLInputElement).value) || 50;
+      const daireM2 = parseFloat((document.getElementById("kk-daire-m2") as HTMLInputElement).value) || 120;
+      const r = katKarsiligiHesapla({
+        parselM2: g.parselM2,
+        kaks: g.kaks,
+        muteahhitPayYuzde: pay,
+        insaatBirimMaliyet: g.insaatBirimMaliyet,
+        satisBirimFiyat: g.satisBirimFiyat,
+        ortalamaDaireM2: daireM2,
+        arsaDegeri: g.arsaMaliyeti,
+      });
+      el.classList.remove("hidden");
+      el.innerHTML = `
+        <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+          <div class="rounded-lg bg-emerald-50 border border-emerald-100 p-2">
+            <div class="text-emerald-700 font-semibold">Malik %${r.malikPayYuzde}</div>
+            <div>${fmt(r.malikAlanM2)} m² · ~${r.malikDaire} daire</div>
+            <div class="text-slate-500 mt-0.5">≈ ${fmtK(r.malikSatisDegeri)}</div>
+          </div>
+          <div class="rounded-lg bg-slate-50 border border-slate-200 p-2">
+            <div class="text-slate-700 font-semibold">Müteahhit %${r.muteahhitPayYuzde}</div>
+            <div>${fmt(r.muteahhitAlanM2)} m² · ~${r.muteahhitDaire} daire</div>
+            <div class="text-slate-500 mt-0.5">Kâr ≈ ${fmtK(r.muteahhitBrutKar)}</div>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500">${r.yorum}</p>`;
+    });
+
+    document.getElementById("senaryo-hesapla")?.addEventListener("click", () => {
+      const g = fizGirdiOku();
+      const el = document.getElementById("senaryo-sonuc") as HTMLDivElement;
+      const num = (id: string) => parseFloat((document.getElementById(id) as HTMLInputElement).value);
+      const parselM2 = g?.parselM2 || parseFloat(m2Input.value) || 500;
+      const arsaMaliyeti = g?.arsaMaliyeti
+        || (Number.isFinite(parseFloat((document.getElementById("f-arsa") as HTMLInputElement)?.value))
+          ? parseFloat((document.getElementById("f-arsa") as HTMLInputElement).value)
+          : parselM2 * 15000);
+      const insaat = g?.insaatBirimMaliyet ?? varsayilanInsaatMaliyeti();
+      const satis = g?.satisBirimFiyat
+        || parseFloat((document.getElementById("f-satis") as HTMLInputElement)?.value)
+        || 60000;
+      const a = {
+        parselM2, taks: num("sa-taks"), kaks: num("sa-kaks"),
+        arsaMaliyeti, insaatBirimMaliyet: insaat, satisBirimFiyat: satis,
+      };
+      const b = {
+        parselM2, taks: num("sb-taks"), kaks: num("sb-kaks"),
+        arsaMaliyeti, insaatBirimMaliyet: insaat, satisBirimFiyat: satis,
+      };
+      if (![a.taks, a.kaks, b.taks, b.kaks].every(Number.isFinite)) {
+        el.classList.remove("hidden");
+        el.innerHTML = '<div class="bg-amber-50 text-amber-800 p-3 rounded-lg text-xs">A ve B emsal/TAKS girin.</div>';
+        return;
+      }
+      const r = senaryoKarsilastir(a, b);
+      const kazananMetin = r.kazanan === "berabere" ? "Berabere" : `Senaryo ${r.kazanan} önde`;
+      el.classList.remove("hidden");
+      el.innerHTML = `
+        <div class="text-xs font-semibold text-imperial-700 mb-2">${kazananMetin}</div>
+        <table class="w-full text-xs">
+          <thead><tr class="text-slate-500 border-b"><th class="py-1 text-left"></th><th class="py-1 text-right">A</th><th class="py-1 text-right">B</th></tr></thead>
+          <tbody>
+            <tr class="border-b border-slate-50"><td class="py-1">Kârlılık</td><td class="text-right font-semibold">%${r.a.karlilikYuzde}</td><td class="text-right font-semibold">%${r.b.karlilikYuzde}</td></tr>
+            <tr class="border-b border-slate-50"><td class="py-1">Brüt kâr</td><td class="text-right">${fmtK(r.a.brutKar)}</td><td class="text-right">${fmtK(r.b.brutKar)}</td></tr>
+            <tr class="border-b border-slate-50"><td class="py-1">Daire</td><td class="text-right">~${r.a.daireAdedi}</td><td class="text-right">~${r.b.daireAdedi}</td></tr>
+            <tr><td class="py-1">İnşaat m²</td><td class="text-right">${fmt(r.a.toplamInsaatAlani)}</td><td class="text-right">${fmt(r.b.toplamInsaatAlani)}</td></tr>
+          </tbody>
+        </table>
+        <p class="text-[11px] text-slate-400 mt-2">Δ kârlılık: ${r.deltaKarlilik > 0 ? "+" : ""}${r.deltaKarlilik} puan · Δ daire: ${r.deltaDaire > 0 ? "+" : ""}${r.deltaDaire}</p>`;
+    });
+
     // URL param'lardan otomatik doldur (rapor → sorgu round-trip için)
     const params = new URLSearchParams(location.search);
     if (params.get("lat")) latInput.value = params.get("lat")!;
     if (params.get("lng")) lngInput.value = params.get("lng")!;
     if (params.get("m2")) m2Input.value = params.get("m2")!;
     if (params.get("kategori")) kategoriInput.value = params.get("kategori")!;
+    if (params.get("il")) {
+      ilSelect.value = params.get("il")!;
+      void ilceYukle(params.get("il")!).then(() => {
+        if (params.get("ilce")) ilceSelect.value = params.get("ilce")!;
+      });
+    }
+    if (params.get("mahalle")) mahalleInput.value = params.get("mahalle")!;
+    if (params.get("emsal")) {
+      emsalInput.value = params.get("emsal")!;
+      syncSliderFromInput(emsalInput, emsalSlider);
+    }
+    if (params.get("taks")) {
+      taksInput.value = params.get("taks")!;
+      syncSliderFromInput(taksInput, taksSlider);
+    }
+    if (params.get("imar_tipi")) imarTipiSelect.value = params.get("imar_tipi")!;
+    syncSliderFromInput(emsalInput, emsalSlider);
+    syncSliderFromInput(taksInput, taksSlider);
+
+    // MapLibre CDN + init (harita boş kalmasın)
+    function loadMapLibreThenInit() {
+      if ((window as any).maplibregl) {
+        initHarita();
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
+      s.onload = () => initHarita();
+      document.head.appendChild(s);
+    }
+    loadMapLibreThenInit();
+
     if (params.get("lat") && params.get("lng")) {
-      // Otomatik sorgu tetikle
-      setTimeout(() => form.requestSubmit(), 100);
+      setTimeout(() => {
+        setKoordinat(parseFloat(params.get("lat")!), parseFloat(params.get("lng")!), false);
+        form.requestSubmit();
+      }, 400);
+    } else if (params.get("il") && (params.get("ilce") || params.get("mahalle"))) {
+      setTimeout(() => form.requestSubmit(), 600);
     }
   </script>
 </Base>

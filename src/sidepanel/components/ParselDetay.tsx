@@ -72,11 +72,13 @@ export function ParselDetay({ parsel, onYakinPoiler, onKarsilastirTabAc }: Props
     }
   }
 
+  // Her zaman m² göster (yatırımcı dili); büyük parsellerde ha alt satırda
   const alan = parsel.alan > 0
-    ? parsel.alan >= 10_000
-      ? `${(parsel.alan / 10_000).toFixed(2)} ha`
-      : `${parsel.alan.toLocaleString("tr-TR")} m²`
+    ? `${parsel.alan.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} m²`
     : null;
+  const alanSub = parsel.alan >= 10_000
+    ? `${(parsel.alan / 10_000).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ha · yüzölçüm`
+    : "yüzölçüm";
 
   return (
     <div className="space-y-3">
@@ -113,7 +115,7 @@ export function ParselDetay({ parsel, onYakinPoiler, onKarsilastirTabAc }: Props
           <MetricCard
             label="Alan"
             value={alan}
-            sub="yüzölçüm"
+            sub={alanSub}
             accent="info"
           />
         )}

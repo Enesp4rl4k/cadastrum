@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { TucbsCdpSonuc, TucbsCdpKategori } from "../../lib/tucbs";
 import type { EPlanImarVerisi } from "../../lib/eplan";
+import type { EPlanSorguDurum } from "../../lib/eplan-api";
 import { Section } from "../ui/Card";
 import {
   belediyePortalBul,
@@ -29,6 +30,8 @@ interface Props {
   /** e-Plan imar verisi — KAKS/TAKS/maks kat görsel özeti için */
   ePlan?: EPlanImarVerisi | null;
   ePlanLoading?: boolean;
+  ePlanMesaj?: string | null;
+  ePlanDurum?: EPlanSorguDurum | null;
   /** Belediye portal linkleri için parsel bilgisi */
   ilAd?: string;
   mahalleKodu?: number | null;
@@ -124,6 +127,7 @@ function ImarOzetSatiri({ ePlan }: { ePlan: EPlanImarVerisi }) {
       <div className="flex items-center gap-1.5">
         <FileCheckIcon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
         <span className="text-xs font-semibold text-emerald-800">Resmi e-Plan İmar Verisi</span>
+        <span className="ml-auto text-3xs text-emerald-700/80">eplan.csb.gov.tr</span>
       </div>
 
       {/* KAKS metrikleri — grid */}
@@ -203,7 +207,7 @@ function GuvenBar({ skor }: { skor: number }) {
 
 // ─── Ana bileşen ──────────────────────────────────────────────────────────────
 
-export function CdpKarti({ veri, loading, ePlan, ePlanLoading, ilAd, mahalleKodu, adaNo, parselNo }: Props) {
+export function CdpKarti({ veri, loading, ePlan, ePlanLoading, ePlanMesaj, ePlanDurum, ilAd, mahalleKodu, adaNo, parselNo }: Props) {
   const ePlanVar = ePlan && (
     ePlan.kullanimKarari || ePlan.planKarari ||
     ePlan.emsal != null || ePlan.taks != null || ePlan.maksKat != null
@@ -235,24 +239,40 @@ export function CdpKarti({ veri, loading, ePlan, ePlanLoading, ilAd, mahalleKodu
     );
   }
 
-  // İkisi de yok
-  if (!veri && !ePlanVar) return null;
+  // İkisi de yok ama durum mesajı var → yine göster (429 / boş / ağ)
+  if (!veri && !ePlanVar && !ePlanMesaj && !ePlanDurum) return null;
+
+  const kaynakEtiketi = [
+    ePlanVar ? "e-Plan ✓" : ePlanDurum === "rate-limit" ? "e-Plan limit" : ePlanDurum === "bos" ? "e-Plan boş" : null,
+    veri?.kapsam === "tam" ? "TUCBS ÇDP ✓" : veri?.kapsam === "il-eksik" ? "ÇDP il-eksik" : null,
+  ].filter(Boolean).join(" · ") || "İmar bilgisi";
 
   return (
     <Section
       title="İmar & Üst Plan"
       icon={<LayersIcon className="h-3.5 w-3.5" />}
       accent="info"
-      subtitle={
-        <span className="text-slate-500">
-          {[
-            ePlanVar ? "e-Plan ✓" : null,
-            veri?.kapsam === "tam" ? "TUCBS ÇDP ✓" : null,
-          ].filter(Boolean).join(" · ") || "İmar bilgisi"}
-        </span>
-      }
+      subtitle={<span className="text-slate-500">{kaynakEtiketi}</span>}
     >
       <div className="space-y-2.5">
+
+        {/* e-Plan durum uyarısı (veri yokken) */}
+        {!ePlanVar && ePlanMesaj && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
+              <AlertIcon className="h-3.5 w-3.5 shrink-0" />
+              {ePlanDurum === "rate-limit"
+                ? "e-Plan günlük limit"
+                : ePlanDurum === "bos"
+                  ? "e-Plan kaydı yok"
+                  : "e-Plan erişilemedi"}
+            </div>
+            <p className="text-3xs text-amber-800 leading-relaxed">{ePlanMesaj}</p>
+            <p className="text-3xs text-slate-500">
+              Kaynak: eplan.csb.gov.tr · Haritada ÇDP / belediye imar katmanını açabilirsiniz.
+            </p>
+          </div>
+        )}
 
         {/* ── e-Plan KAKS/imar özeti (varsa önce göster) ── */}
         {ePlanVar && <ImarOzetSatiri ePlan={ePlan!} />}
@@ -338,8 +358,9 @@ export function CdpKarti({ veri, loading, ePlan, ePlanLoading, ilAd, mahalleKodu
                 </span>
               </div>
               <p className="text-3xs text-slate-500 leading-relaxed">
-                CSB'nin açık WMS servisi bu ili kapsamıyor. e-Plan verisini aşağıda görebilirsiniz;
-                detaylı imar durumu için belediye portalarına gidin.
+                CSB'nin açık WMS servisi bu ili kapsamıyor (il-eksik). e-Plan özeti varsa yukarıda;
+                detaylı uygulama imarı için belediye portalına gidin. Haritada belediye imar katmanı
+                (İstanbul ise İBB) açılabilir.
               </p>
             </div>
 

@@ -1,0 +1,73 @@
+---
+export const prerender = true;
+import SeoLanding from "../components/SeoLanding.astro";
+---
+
+<SeoLanding
+  title="Kat Karşılığı Hesaplama 2026 — Arsa Payı ve Emsal | Cadastrum"
+  description="Kat karşılığı anlaşmasında arsa payı, emsal ve daire adedini hesaplayın. İmar + parsel verisiyle daha sağlıklı müzakere — Cadastrum hesaplayıcıları."
+  keywords={[
+    "kat karşılığı",
+    "kat karşılığı hesaplama",
+    "kat karşılığı arsa payı",
+    "müteahhit kat karşılığı",
+    "emsal kat karşılığı",
+    "arsa kat karşılığı oran",
+    "Cadastrum",
+  ]}
+  breadcrumbLabel="Kat karşılığı"
+  h1="Kat karşılığı: emsal olmadan oran konuşulmaz"
+  lead="Kat karşılığı müzakeresi imar hakkına dayanır. Cadastrum önce e-Plan emsal/TAKS ve TKGM alanını netleştirir; /sorgu üzerindeki hesaplayıcılarla arsa payı senaryolarını hızlıca modeller."
+  sections={[
+    {
+      h2: "Kat karşılığında kritik girdiler",
+      p: "Oran pazarlığı; toplam inşaat alanı, satılabilir m², maliyet ve bölge satış fiyatına bağlıdır. Girdi yanlışsa oran da yanlışdır.",
+      bullets: [
+        "Parsel alanı (TKGM)",
+        "Emsal ve TAKS (e-Plan)",
+        "Bölge TL/m² (mahalle emsal)",
+        "Maliyet / KDV / süre varsayımları",
+      ],
+    },
+    {
+      h2: "Cadastrum nasıl yardımcı olur?",
+      p: "Önce resmi parse ve imarı doğrular; sonra sitedeki kat karşılığı / fizibilite hesaplayıcılarıyla senaryo üretir. Kurumsal ekipler PDF raporla paylaşır.",
+      bullets: [
+        "İmar özeti → yapı hakkı",
+        "/sorgu hesaplayıcıları → oran senaryosu",
+        "PDF rapor (Pro) → müteahhit / malik paylaşımı",
+      ],
+    },
+    {
+      h2: "Yatırımcı ve malik için uyarı",
+      p: "Bu araç karar destek amaçlıdır; sözleşme ve hukuki danışmanlık yerine geçmez. Özellikle hisseli parsellerde noter/avukat süreci şarttır.",
+      bullets: [
+        "Hisseli mülkiyette tüm malik onayı",
+        "Plan notlarındaki özel kısıtlar",
+        "Asking vs gerçek satış farkı",
+      ],
+    },
+  ]}
+  faqs={[
+    {
+      q: "Kat karşılığı oranı nasıl hesaplanır?",
+      a: "Genelde arsa sahibi ile müteahhit, toplam satılabilir değeri ve maliyeti paylaştırır. Emsal ve alan doğru değilse oran anlamsızlaşır. Cadastrum önce bu girdileri netleştirir.",
+    },
+    {
+      q: "Kat karşılığı hesaplayıcı nerede?",
+      a: "/sorgu sayfasındaki hesaplayıcılar bölümünde kat karşılığı ve fizibilite araçları bulunur.",
+    },
+    {
+      q: "Kurumsal ofisler için uygun mu?",
+      a: "Evet. Pro+ ve Kurumsal planlarda toplu analiz, markalı PDF ve API ile ofis akışına oturtulabilir.",
+    },
+  ]}
+  related={[
+    { href: "/sorgu#hesaplayicilar", label: "Hesaplayıcıları aç" },
+    { href: "/imar-sorgu", label: "İmar sorgu" },
+    { href: "/arsa-yatirimi", label: "Arsa yatırımı" },
+    { href: "/arsa-talep", label: "Arsa talebi bırak" },
+    { href: "/fiyat", label: "Planlar" },
+  ]}
+  secondaryCta={{ href: "/sorgu#hesaplayicilar", label: "Hesaplayıcıya git" }}
+/>

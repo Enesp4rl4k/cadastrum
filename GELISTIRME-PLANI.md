@@ -84,6 +84,17 @@ Beklenen: `ej_%` (Emlakjet), `hepsiemlak`, `extension` (Sahibinden) satırları;
 
 ## Faz 3 — Ürün / kalite (ROADMAP ile uyumlu)
 
+Ürün / AI öncelik sırası için bak: [`ROADMAP.md`](./ROADMAP.md) → **Ürün / AI Yol Haritası** (P1–P6, Faz A–C):
+
+1. AI gelecek değer skoru  
+2. AI arazi avcısı  
+3. Arsa TradingView grafikleri  
+4. AI yatırım danışmanı chat  
+5. İmar değişikliği tahmini  
+6. Arsa dijital ikizi  
+
+Veri / kalite paralel:
+
 - Sel/taşkın, nüfus (statik dataset)
 - Onboarding, responsive, Dexie v12
 - API tokens / müşteri paneli

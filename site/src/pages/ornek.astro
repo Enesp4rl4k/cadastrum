@@ -1,0 +1,139 @@
+---
+export const prerender = true;
+import Base from "../layouts/Base.astro";
+import { CTA } from "../config/launch";
+---
+
+<Base
+  title="Örnek Parsel Analizi — Cadastrum Demo"
+  robots="noindex, follow"
+  description="Eklentinin bir parseli nasıl özetlediğini canlı örnekle görün: imar, TL/m² bandı, risk sinyali. Chrome'a ekleyin, Sahibinden ilanında aynı bakışı alın."
+  keywords={["örnek parsel analizi", "Cadastrum demo", "arsa imar TL/m²", "TKGM e-Plan örnek"]}
+>
+
+  <section class="relative overflow-hidden bg-gradient-to-br from-imperial-700 via-imperial to-imperial-500 text-white py-12 md:py-16">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-champagne-500/15 blur-3xl"></div>
+    </div>
+    <div class="relative max-w-5xl mx-auto px-4">
+      <nav class="text-sm text-imperial-100 mb-5" aria-label="Breadcrumb">
+        <a href="/" class="hover:text-white transition">Cadastrum</a>
+        <span class="mx-2 opacity-40">›</span>
+        <span class="text-white font-medium">Örnek analiz</span>
+      </nav>
+      <p class="text-champagne-200 text-xs font-semibold uppercase tracking-wider mb-3">Demo · Sahibinden benzeri akış</p>
+      <h1 class="font-display text-3xl md:text-5xl font-bold leading-tight mb-4">
+        Bir parsel,<br />
+        <span class="text-champagne-200">dört satırda net</span>
+      </h1>
+      <p class="text-imperial-100 text-base md:text-lg max-w-2xl leading-relaxed mb-8">
+        Eklenti açılınca önce bunu görürsünüz: ada/parsel, imar, TL/m² bandı ve en kritik risk.
+        Aşağıdaki örnek sabit bir demo — gerçek ilanınızda canlı TKGM + e-Plan + fiyat çalışır.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a
+          href={CTA.veri.href}
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-champagne-500 text-imperial-700 font-semibold hover:bg-champagne-400 transition shadow-sm"
+        >
+          {CTA.veri.label}
+        </a>
+        <a
+          href="/sorgu"
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-white/30 bg-white/10 text-white font-medium hover:bg-white/15 transition"
+        >
+          Sitede parsel sorgula
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-slate-50 py-12 md:py-16">
+    <div class="max-w-5xl mx-auto px-4 grid lg:grid-cols-[1fr_340px] gap-10 items-start">
+      <div>
+        <h2 class="font-display text-2xl font-bold text-imperial-700 mb-3">Senaryo</h2>
+        <p class="text-slate-600 leading-relaxed mb-6">
+          İstanbul · Üsküdar · Altunizade mahallesinde satılık arsa ilanı.
+          Kullanıcı Sahibinden sayfasını açar; Cadastrum side panel otomatik parsel bağlar.
+        </p>
+        <ul class="space-y-3 text-sm text-slate-700">
+          <li class="flex gap-3">
+            <span class="mt-0.5 w-6 h-6 shrink-0 rounded-md bg-imperial-50 text-imperial-700 text-xs font-bold flex items-center justify-center">1</span>
+            <span><strong class="text-imperial-800">TKGM</strong> ada/parsel ve alan bilgisini çeker.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 w-6 h-6 shrink-0 rounded-md bg-imperial-50 text-imperial-700 text-xs font-bold flex items-center justify-center">2</span>
+            <span><strong class="text-slate-800">e-Plan / ÇDP</strong> imar kullanımını özetler.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 w-6 h-6 shrink-0 rounded-md bg-imperial-50 text-imperial-700 text-xs font-bold flex items-center justify-center">3</span>
+            <span><strong class="text-slate-800">Fiyat motoru</strong> bölge medyanına göre TL/m² bandı üretir.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 w-6 h-6 shrink-0 rounded-md bg-imperial-50 text-imperial-700 text-xs font-bold flex items-center justify-center">4</span>
+            <span><strong class="text-slate-800">Risk tarayıcı</strong> en kritik kısıtı üste taşır.</span>
+          </li>
+        </ul>
+        <p class="mt-8 text-xs text-slate-500">
+          Bu sayfadaki rakamlar tanıtım amaçlıdır; yatırım tavsiyesi değildir.
+          Canlı veri için eklentiyi yükleyin veya <a href="/sorgu" class="underline text-imperial-600">parsel sorgu</a> kullanın.
+        </p>
+      </div>
+
+      <!-- Side panel mock — Tek bakış -->
+      <aside class="rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden" aria-label="Eklenti tek bakış örneği">
+        <div class="bg-imperial-700 text-white px-3 py-2.5 flex items-center justify-between">
+          <span class="text-xs font-semibold tracking-wide">Cadastrum</span>
+          <span class="text-[10px] text-champagne-200">Free demo</span>
+        </div>
+        <div class="p-3 space-y-2">
+          <div class="rounded-lg border border-imperial/15 bg-gradient-to-br from-white to-slate-50 p-2.5">
+            <div class="mb-1.5 flex items-center justify-between gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-imperial-600">Tek bakış</span>
+              <span class="truncate text-[10px] text-slate-500">Altunizade · Üsküdar · İstanbul</span>
+            </div>
+            <div class="space-y-1.5">
+              <div class="rounded-md border border-slate-100 bg-white/80 px-2 py-1.5">
+                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Parsel</div>
+                <div class="text-xs font-medium text-slate-800">Ada 412 / Parsel 7</div>
+              </div>
+              <div class="rounded-md border border-slate-100 bg-white/80 px-2 py-1.5">
+                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">İmar</div>
+                <div class="text-xs text-slate-800">Konut · E:1.50 · Hmax: 12.50 m</div>
+              </div>
+              <div class="rounded-md border border-slate-100 bg-white/80 px-2 py-1.5">
+                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">TL/m²</div>
+                <div class="text-xs font-semibold text-imperial-700">48.200 – 61.500 TL/m²</div>
+              </div>
+              <div class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900">
+                <span class="text-[10px] font-semibold uppercase tracking-wide opacity-80">Risk</span>
+                <span class="text-xs font-medium leading-snug">İlan–e-Plan emsal farkı yüksek</span>
+              </div>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 px-0.5">
+            Sonra skorlar, ÇDP lejantı, fiyat kartı ve özet rapor yazdırma gelir.
+          </p>
+          <a
+            href={CTA.veri.href}
+            class="block w-full text-center rounded-md bg-imperial px-3 py-2.5 text-xs font-semibold text-white hover:bg-imperial-700 transition"
+          >
+            Chrome'a ekle — kendi ilanında dene
+          </a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="bg-white py-12 border-t border-slate-100">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+      <h2 class="font-display text-2xl font-bold text-imperial-700 mb-3">Başka illere bak</h2>
+      <p class="text-slate-600 mb-6">İl medyanı ve likidite için veri sayfaları · ülke geneli için harita</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="/veri/istanbul" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-imperial-700 hover:border-champagne-400 transition">İstanbul</a>
+        <a href="/veri/ankara" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-imperial-700 hover:border-champagne-400 transition">Ankara</a>
+        <a href="/veri/izmir" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-imperial-700 hover:border-champagne-400 transition">İzmir</a>
+        <a href="/harita" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-imperial-700 hover:border-champagne-400 transition">Yoğunluk haritası</a>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
-import { Flame as FlameIcon, Layers as LayersIcon, Mountain as MountainIcon, Thermometer as ThermometerIcon } from "lucide-react";
+import { Flame as FlameIcon, Layers as LayersIcon, Mountain as MountainIcon, Thermometer as ThermometerIcon, Map as MapIcon, ExternalLink as ExternalLinkIcon, RotateCw as RetryIcon } from "lucide-react";
 import { getParselByLatLng } from "../../lib/tkgm-api";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
@@ -25,8 +25,16 @@ import {
   applyHeatmap,
   removeHeatmap,
 } from "./heatmap-layer";
-import { applyCdpWms, removeCdpWms } from "./cdp-wms-layer";
+import { applyCdpWms, removeCdpWms, setCdpWmsOpacity } from "./cdp-wms-layer";
+import {
+  applyBelediyeWms,
+  removeBelediyeWms,
+  belediyeWmsKaynakBul,
+} from "./belediye-wms-layer";
+import { belediyeDeepLinkBul } from "../../lib/belediye-wms-tiles";
 import { tucbsWmsEndpointGetir } from "../../lib/data/tucbs-wms-endpoints";
+import { tucbsCdpGetir, CDP_LEJANT, type TucbsCdpSonuc } from "../../lib/tucbs";
+import { useLisans } from "../../lib/lisans";
 import {
   terrainEkle,
   terrainKaldir,
@@ -63,6 +71,12 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
   const [heatmapMenuAcik, setHeatmapMenuAcik] = useState(false);
   const [cdpAcik, setCdpAcik] = useState(false);
   const cdpSlugRef = useRef<string | null>(null);
+  const [cdpOpacity, setCdpOpacity] = useState(0.55);
+  const [cdpInfo, setCdpInfo] = useState<TucbsCdpSonuc | null>(null);
+  const [cdpInfoLoading, setCdpInfoLoading] = useState(false);
+  const [belImarAcik, setBelImarAcik] = useState(false);
+  const [katmanHata, setKatmanHata] = useState<string | null>(null);
+  const [katmanRetryKey, setKatmanRetryKey] = useState(0);
   // Terrain + Eğim state'leri
   const [terrainAcik, setTerrainAcik] = useState(false);
   const [egimAcik, setEgimAcik] = useState(false);
@@ -70,8 +84,23 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
   const [egimSonuc, setEgimSonuc] = useState<{ kategori: EgimKategori; ortEgim: number; maxEgim: number } | null>(null);
   parselRef.current = parsel;
 
+  const lisans = useLisans();
+  const heatmapYetki = lisans.can("tkgm-heatmap");
+  const terrainYetki = lisans.can("uc-d-gorselleştirme");
+
   const cdpEndpoint = useMemo(
     () => (parsel?.ilAd ? tucbsWmsEndpointGetir(parsel.ilAd) : null),
+    [parsel?.ilAd],
+  );
+
+  const belWmsKaynak = useMemo(
+    () => belediyeWmsKaynakBul(parsel?.ilAd),
+    [parsel?.ilAd],
+  );
+  const belWmsKaynakRef = useRef(belWmsKaynak);
+  belWmsKaynakRef.current = belWmsKaynak;
+  const belDeepLink = useMemo(
+    () => belediyeDeepLinkBul(parsel?.ilAd),
     [parsel?.ilAd],
   );
 
@@ -125,8 +154,11 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
       if (cdpAcik && cdpSlugRef.current) {
         applyCdpWms(map, cdpSlugRef.current);
       }
+      if (belImarAcik && belWmsKaynakRef.current) {
+        applyBelediyeWms(map, belWmsKaynakRef.current);
+      }
     });
-  }, [basemap, heatmapAcik, heatmapAnalizTip, cdpAcik]);
+  }, [basemap, heatmapAcik, heatmapAnalizTip, cdpAcik, belImarAcik]);
 
   // Heatmap toggle / parsel ilçe değişimi → TKGM analiz noktalarını çek + render
   useEffect(() => {
@@ -177,17 +209,105 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
     if (!cdpAcik || !cdpEndpoint?.slug) {
       cdpSlugRef.current = null;
       removeCdpWms(map);
+      setCdpInfo(null);
       return;
     }
 
+    setKatmanHata(null);
     cdpSlugRef.current = cdpEndpoint.slug;
-    applyCdpWms(map, cdpEndpoint.slug);
-  }, [cdpAcik, cdpEndpoint?.slug]);
+    try {
+      applyCdpWms(map, cdpEndpoint.slug, cdpOpacity);
+    } catch (e) {
+      setKatmanHata(e instanceof Error ? e.message : "ÇDP katmanı yüklenemedi");
+    }
+
+    const onErr = (ev: { error?: { message?: string }; sourceId?: string }) => {
+      if (ev.sourceId === "tucbs-cdp-wms-src" || String(ev.error?.message ?? "").includes("tucbs")) {
+        setKatmanHata("ÇDP karoları yüklenemedi — ağ veya WMS hatası. Tekrar deneyin.");
+      }
+    };
+    map.on("error", onErr);
+    return () => {
+      map.off("error", onErr);
+    };
+  }, [cdpAcik, cdpEndpoint?.slug, cdpOpacity, katmanRetryKey]);
+
+  useEffect(() => {
+    if (!cdpAcik) return;
+    setCdpWmsOpacity(mapRef.current, cdpOpacity);
+  }, [cdpOpacity, cdpAcik]);
 
   // İl kapsam dışına geçince overlay'i kapat
   useEffect(() => {
     if (!cdpEndpoint && cdpAcik) setCdpAcik(false);
   }, [cdpEndpoint, cdpAcik]);
+
+  // ÇDP GetFeatureInfo — seçili parsel merkezinden
+  useEffect(() => {
+    if (!cdpAcik || !parsel || !cdpEndpoint) {
+      if (!cdpAcik) setCdpInfo(null);
+      return;
+    }
+    let iptal = false;
+    setCdpInfoLoading(true);
+    tucbsCdpGetir(parsel)
+      .then((s) => {
+        if (!iptal) setCdpInfo(s);
+      })
+      .catch(() => {
+        if (!iptal) setCdpInfo(null);
+      })
+      .finally(() => {
+        if (!iptal) setCdpInfoLoading(false);
+      });
+    return () => {
+      iptal = true;
+    };
+  }, [cdpAcik, parsel, cdpEndpoint?.slug]);
+
+  // Belediye imar WMS (pilot İBB ArcGIS)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!belImarAcik || !belWmsKaynak) {
+      removeBelediyeWms(map);
+      return;
+    }
+    setKatmanHata(null);
+    try {
+      applyBelediyeWms(map, belWmsKaynak);
+    } catch (e) {
+      setKatmanHata(e instanceof Error ? e.message : "Belediye imar katmanı yüklenemedi");
+    }
+    const onErr = (ev: { error?: { message?: string }; sourceId?: string }) => {
+      if (ev.sourceId === "belediye-imar-wms-src") {
+        setKatmanHata("Belediye imar karoları yüklenemedi. Portal linkini deneyin.");
+      }
+    };
+    map.on("error", onErr);
+    return () => {
+      map.off("error", onErr);
+    };
+  }, [belImarAcik, belWmsKaynak, katmanRetryKey]);
+
+  useEffect(() => {
+    if (!belWmsKaynak && belImarAcik) setBelImarAcik(false);
+  }, [belWmsKaynak, belImarAcik]);
+
+  useEffect(() => {
+    if (!heatmapYetki && heatmapAcik) setHeatmapAcik(false);
+  }, [heatmapYetki, heatmapAcik]);
+
+  useEffect(() => {
+    if (!terrainYetki && terrainAcik) {
+      setTerrainAcik(false);
+      const map = mapRef.current;
+      if (map) {
+        terrainKaldir(map);
+        map.easeTo({ pitch: 0, bearing: 0, duration: 300 });
+      }
+    }
+  }, [terrainYetki, terrainAcik]);
 
   useEffect(() => {
     if (!flyTo || !mapRef.current) return;
@@ -255,8 +375,12 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
           parselSecili={!!parsel?.ilceKodu}
           noktaSayisi={heatmapNoktaSayisi}
           menuAcik={heatmapMenuAcik}
+          kilitli={!heatmapYetki}
           onMenuToggle={() => setHeatmapMenuAcik((v) => !v)}
-          onToggle={() => setHeatmapAcik((v) => !v)}
+          onToggle={() => {
+            if (!heatmapYetki) return;
+            setHeatmapAcik((v) => !v);
+          }}
           onTipChange={(t) => {
             setHeatmapAnalizTip(t);
             setHeatmapMenuAcik(false);
@@ -266,15 +390,62 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
           acik={cdpAcik}
           kapsamVar={!!cdpEndpoint}
           bolgeAd={cdpEndpoint?.bolgeAd ?? null}
+          ilAd={parsel?.ilAd ?? null}
+          opacity={cdpOpacity}
+          onOpacityChange={setCdpOpacity}
           onToggle={() => setCdpAcik((v) => !v)}
         />
+        <BelediyeImarKontrol
+          acik={belImarAcik}
+          kaynakAd={belWmsKaynak?.ad ?? null}
+          deepLink={belDeepLink}
+          onToggle={() => setBelImarAcik((v) => !v)}
+        />
+        {katmanHata && (
+          <div className="absolute left-3 right-14 top-3 z-20 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-2xs text-amber-900 shadow-sm">
+            <span className="flex-1 leading-snug">{katmanHata}</span>
+            <button
+              type="button"
+              className="shrink-0 rounded border border-amber-400 bg-white px-1.5 py-0.5 font-medium hover:bg-amber-100"
+              onClick={() => {
+                setKatmanHata(null);
+                setKatmanRetryKey((k) => k + 1);
+              }}
+            >
+              <RetryIcon className="inline h-3 w-3" /> Tekrar
+            </button>
+          </div>
+        )}
+        {cdpAcik && (cdpInfo || cdpInfoLoading) && (
+          <div className="absolute bottom-3 left-3 z-20 max-w-[14rem] rounded-md border border-emerald-200 bg-white/95 px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/95">
+            <div className="text-[9px] font-semibold uppercase tracking-wide text-emerald-700">ÇDP bu nokta</div>
+            {cdpInfoLoading ? (
+              <div className="mt-1 text-2xs text-slate-500">Sorgulanıyor…</div>
+            ) : cdpInfo?.araziKullanimi ? (
+              <div className="mt-1 space-y-0.5">
+                <div className="text-2xs font-medium text-slate-800 dark:text-slate-100">
+                  {cdpInfo.araziKullanimi.renkEtiket}
+                </div>
+                <div className="text-[10px] leading-snug text-slate-600 dark:text-slate-300">
+                  {cdpInfo.araziKullanimi.metin}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1 text-2xs text-slate-500">
+                {cdpInfo?.hata ?? "Bu noktada ÇDP özniteliği yok"}
+              </div>
+            )}
+          </div>
+        )}
         <Terrain3DKontrol
           terrainAcik={terrainAcik}
           egimAcik={egimAcik}
           egimYukleniyor={egimYukleniyor}
           egimSonuc={egimSonuc}
           parselSecili={!!parsel}
+          kilitli={!terrainYetki}
           onTerrainToggle={() => {
+            if (!terrainYetki) return;
             const map = mapRef.current;
             if (!map) return;
             const yeni = !terrainAcik;
@@ -283,7 +454,6 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
               terrainEkle(map);
             } else {
               terrainKaldir(map);
-              // Terrain kapanınca pitch'i sıfırla
               map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
             }
           }}
@@ -297,7 +467,6 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
               setEgimSonuc(null);
               return;
             }
-            // Parsel bbox'ı hesapla
             const coords = parsel.koordinatlar;
             if (!coords.length) return;
             const lats = coords.map(c => c.lat);
@@ -358,11 +527,17 @@ function CdpKontrol({
   acik,
   kapsamVar,
   bolgeAd,
+  ilAd,
+  opacity,
+  onOpacityChange,
   onToggle,
 }: {
   acik: boolean;
   kapsamVar: boolean;
   bolgeAd: string | null;
+  ilAd: string | null;
+  opacity: number;
+  onOpacityChange: (v: number) => void;
   onToggle: () => void;
 }) {
   return (
@@ -378,8 +553,10 @@ function CdpKontrol({
           kapsamVar
             ? acik
               ? "ÇDP plan katmanını kapat"
-              : "TUCBS Çevre Düzeni Planı renk katmanı"
-            : "Bu il için TUCBS ÇDP verisi yok"
+              : "TUCBS Çevre Düzeni Planı (~1/100.000) renk katmanı"
+            : ilAd
+              ? `${ilAd}: TUCBS ÇDP WMS kapsam dışı (il-eksik)`
+              : "Önce parsel seçin — ÇDP il kapsamında açılır"
         }
         className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           acik
@@ -391,9 +568,96 @@ function CdpKontrol({
         <LayersIcon className="h-4 w-4" />
       </button>
       {acik && bolgeAd && (
-        <span className="max-w-[9rem] rounded-md border border-slate-200 bg-white px-2 py-0.5 text-right text-3xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-          {bolgeAd}
+        <div className="w-[11rem] rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-left shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-3xs font-semibold text-emerald-800 dark:text-emerald-300">ÇDP · {bolgeAd}</div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-[9px] text-slate-500">Opaklık</span>
+            <input
+              type="range"
+              min={15}
+              max={90}
+              value={Math.round(opacity * 100)}
+              onChange={(e) => onOpacityChange(Number(e.target.value) / 100)}
+              className="h-1 flex-1 cursor-pointer accent-emerald-600"
+            />
+            <span className="w-6 text-right text-[9px] tabular-nums text-slate-500">{Math.round(opacity * 100)}</span>
+          </div>
+          <div className="mt-1.5 space-y-0.5 border-t border-slate-100 pt-1 dark:border-slate-700">
+            {CDP_LEJANT.slice(0, 5).map((l) => (
+              <div key={l.kategori} className="flex items-center gap-1.5">
+                <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: l.renk }} />
+                <span className="truncate text-[9px] text-slate-600 dark:text-slate-300">{l.etiket}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {!kapsamVar && ilAd && (
+        <span className="max-w-[9rem] rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-right text-[9px] text-slate-500 shadow-sm">
+          {ilAd}: ÇDP yok
         </span>
+      )}
+    </div>
+  );
+}
+
+/** Belediye uygulama imar — İBB ArcGIS; diğer illerde deep-link */
+function BelediyeImarKontrol({
+  acik,
+  kaynakAd,
+  deepLink,
+  onToggle,
+}: {
+  acik: boolean;
+  kaynakAd: string | null;
+  deepLink: { ad: string; url: string } | null;
+  onToggle: () => void;
+}) {
+  const varMi = !!kaynakAd;
+  return (
+    <div className="absolute right-3 top-[8.25rem] z-10 flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={() => {
+          if (!varMi) return;
+          onToggle();
+        }}
+        disabled={!varMi}
+        title={
+          varMi
+            ? acik
+              ? `${kaynakAd} katmanını kapat`
+              : `${kaynakAd} — uygulama imar (ArcGIS export)`
+            : deepLink
+              ? `${deepLink.ad}: harita katmanı yok — portal linki kullanın`
+              : "Belediye imar: şimdilik İstanbul (İBB) haritada; diğer iller portal linki"
+        }
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          acik
+            ? "border-amber-600 bg-amber-600 text-white"
+            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        }`}
+        aria-label="Belediye imar katmanı"
+      >
+        <MapIcon className="h-4 w-4" />
+      </button>
+      {acik && kaynakAd && (
+        <div className="max-w-[10rem] rounded-md border border-amber-200 bg-white px-2 py-1 text-right shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-3xs font-semibold text-amber-800">{kaynakAd}</div>
+          <div className="text-[9px] leading-tight text-slate-500">İBB CBS · 1/1000–1/5000</div>
+        </div>
+      )}
+      {!varMi && deepLink && (
+        <a
+          href={deepLink.url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex max-w-[10rem] items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[9px] text-slate-700 shadow-sm hover:bg-slate-50"
+          title="Belediye portalını yeni sekmede aç"
+        >
+          <ExternalLinkIcon className="h-3 w-3 shrink-0" />
+          <span className="truncate">{deepLink.ad}</span>
+        </a>
       )}
     </div>
   );
@@ -705,6 +969,7 @@ function Terrain3DKontrol({
   egimYukleniyor,
   egimSonuc,
   parselSecili,
+  kilitli = false,
   onTerrainToggle,
   onEgimToggle,
 }: {
@@ -713,19 +978,27 @@ function Terrain3DKontrol({
   egimYukleniyor: boolean;
   egimSonuc: { kategori: EgimKategori; ortEgim: number; maxEgim: number } | null;
   parselSecili: boolean;
+  kilitli?: boolean;
   onTerrainToggle: () => void;
   onEgimToggle: () => Promise<void>;
 }) {
   const egimRenk = egimSonuc ? EGIM_RENKLERI[egimSonuc.kategori] : undefined;
 
   return (
-    <div className="absolute right-3 top-[8.5rem] z-10 flex flex-col items-end gap-1">
+    <div className="absolute right-3 top-[11rem] z-10 flex flex-col items-end gap-1">
       {/* 3D Terrain toggle */}
       <button
         type="button"
         onClick={onTerrainToggle}
-        title={terrainAcik ? "3D görünümü kapat" : "3D terrain aç (2D/3D)"}
-        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors ${
+        disabled={kilitli}
+        title={
+          kilitli
+            ? "3D terrain Kurumsal Pro özelliği"
+            : terrainAcik
+              ? "3D görünümü kapat"
+              : "3D terrain aç (2D/3D)"
+        }
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           terrainAcik
             ? "border-transparent bg-indigo-600 text-white"
             : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -802,6 +1075,7 @@ function HeatmapKontrol({
   parselSecili,
   noktaSayisi,
   menuAcik,
+  kilitli = false,
   onMenuToggle,
   onToggle,
   onTipChange,
@@ -812,6 +1086,7 @@ function HeatmapKontrol({
   parselSecili: boolean;
   noktaSayisi: number;
   menuAcik: boolean;
+  kilitli?: boolean;
   onMenuToggle: () => void;
   onToggle: () => void;
   onTipChange: (t: AnalizTip) => void;
@@ -823,16 +1098,18 @@ function HeatmapKontrol({
       <button
         type="button"
         onClick={() => {
-          if (!parselSecili) return;
+          if (kilitli || !parselSecili) return;
           onToggle();
         }}
-        disabled={!parselSecili}
+        disabled={kilitli || !parselSecili}
         title={
-          parselSecili
-            ? acik
-              ? "TKGM heatmap'i kapat"
-              : "TKGM heatmap'i aç"
-            : "Önce haritada bir parsel seç"
+          kilitli
+            ? "TKGM heatmap Bireysel Pro özelliği"
+            : parselSecili
+              ? acik
+                ? "TKGM heatmap'i kapat"
+                : "TKGM heatmap'i aç"
+              : "Önce haritada bir parsel seç"
         }
         className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           acik

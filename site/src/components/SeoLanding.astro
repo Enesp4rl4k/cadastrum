@@ -1,0 +1,172 @@
+---
+/**
+ * Yüksek niyetli SEO landing şablonu.
+ * Tek H1, FAQ schema, breadcrumb, net CTA — arama + AI keşfi için.
+ */
+import Base from "../layouts/Base.astro";
+import { CTA } from "../config/launch";
+
+export interface FaqItem {
+  q: string;
+  a: string;
+}
+
+export interface Section {
+  h2: string;
+  p: string;
+  bullets?: string[];
+}
+
+interface Props {
+  title: string;
+  description: string;
+  keywords: string[];
+  h1: string;
+  lead: string;
+  breadcrumbLabel: string;
+  sections: Section[];
+  faqs: FaqItem[];
+  related?: { href: string; label: string }[];
+  primaryCta?: { href: string; label: string };
+  secondaryCta?: { href: string; label: string };
+}
+
+const {
+  title,
+  description,
+  keywords,
+  h1,
+  lead,
+  breadcrumbLabel,
+  sections,
+  faqs,
+  related = [],
+  primaryCta = { href: CTA.veri.href, label: CTA.veri.label },
+  secondaryCta = { href: "/sorgu", label: "Sitede ücretsiz sorgula" },
+} = Astro.props;
+
+const breadcrumb = [
+  { ad: "Ana Sayfa", url: "/" },
+  { ad: breadcrumbLabel, url: Astro.url.pathname },
+];
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+---
+
+<Base
+  title={title}
+  description={description}
+  keywords={keywords}
+  breadcrumb={breadcrumb}
+  pageType="WebSite"
+>
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+
+  <section class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-imperial-50/40">
+    <div class="container-prose py-14 md:py-20">
+      <nav class="text-sm text-slate-500 mb-6" aria-label="Breadcrumb">
+        <a href="/" class="hover:text-ink transition">Cadastrum</a>
+        <span class="mx-2 opacity-40">›</span>
+        <span class="text-ink font-medium">{breadcrumbLabel}</span>
+      </nav>
+      <h1 class="font-display text-3xl md:text-5xl font-bold text-ink tracking-tight max-w-3xl leading-tight">
+        {h1}
+      </h1>
+      <p class="mt-5 text-lg text-slate-600 max-w-2xl leading-relaxed">
+        {lead}
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a
+          href={primaryCta.href}
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-imperial text-white font-semibold hover:bg-imperial-700 transition shadow-sm"
+        >
+          {primaryCta.label}
+        </a>
+        <a
+          href={secondaryCta.href}
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-slate-200 bg-white text-slate-800 font-medium hover:border-slate-300 transition"
+        >
+          {secondaryCta.label}
+        </a>
+      </div>
+    </div>
+  </section>
+
+  {sections.map((s) => (
+    <section class="py-12 md:py-16 border-b border-slate-100">
+      <div class="container-prose max-w-3xl">
+        <h2 class="font-display text-2xl md:text-3xl font-bold text-ink tracking-tight">
+          {s.h2}
+        </h2>
+        <p class="mt-4 text-slate-600 leading-relaxed">{s.p}</p>
+        {s.bullets && s.bullets.length > 0 && (
+          <ul class="mt-5 space-y-2.5 text-slate-700">
+            {s.bullets.map((b) => (
+              <li class="flex gap-3">
+                <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-imperial" />
+                <span class="leading-relaxed">{b}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  ))}
+
+  <section class="py-12 md:py-16 bg-slate-50 border-b border-slate-100">
+    <div class="container-prose max-w-3xl">
+      <h2 class="font-display text-2xl md:text-3xl font-bold text-ink tracking-tight mb-8">
+        Sık sorulanlar
+      </h2>
+      <div class="space-y-4">
+        {faqs.map((f) => (
+          <details class="group rounded-lg border border-slate-200 bg-white open:shadow-sm">
+            <summary class="cursor-pointer list-none px-5 py-4 font-semibold text-ink flex items-center justify-between gap-4">
+              {f.q}
+              <span class="text-slate-400 group-open:rotate-45 transition text-xl leading-none">+</span>
+            </summary>
+            <p class="px-5 pb-4 text-slate-600 leading-relaxed">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  {related.length > 0 && (
+    <section class="py-12 md:py-16">
+      <div class="container-prose max-w-3xl">
+        <h2 class="font-display text-xl font-bold text-ink mb-4">İlgili araçlar ve rehberler</h2>
+        <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          {related.map((r) => (
+            <li>
+              <a href={r.href} class="text-imperial-700 font-medium hover:underline">{r.label}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+
+  <section class="py-14 md:py-20 bg-imperial text-white">
+    <div class="container-prose max-w-3xl text-center">
+      <h2 class="font-display text-2xl md:text-3xl font-bold">Kararı hızlandırın</h2>
+      <p class="mt-3 text-imperial-100 max-w-xl mx-auto">
+        TKGM parsel, e-Plan imar ve mahalle TL/m² — Cadastrum ile aynı bakışta.
+      </p>
+      <a
+        href={primaryCta.href}
+        class="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-champagne-500 text-imperial-700 font-semibold hover:bg-champagne-400 transition"
+      >
+        {primaryCta.label}
+      </a>
+    </div>
+  </section>
+</Base>

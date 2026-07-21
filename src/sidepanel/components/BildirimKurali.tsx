@@ -27,6 +27,8 @@ async function tokenAl(): Promise<string | null> {
   return typeof t === "string" ? t : null;
 }
 
+const SITE_URL = "https://cadastrum.com.tr";
+
 export function BildirimKurali({ parsel }: Props) {
   const lisans = useLisans();
   const [durum, setDurum] = useState<Durum>("idle");
@@ -35,6 +37,33 @@ export function BildirimKurali({ parsel }: Props) {
   const lat = parsel.merkezNokta?.lat;
   const lng = parsel.merkezNokta?.lng;
   if (typeof lat !== "number" || typeof lng !== "number") return null;
+
+  // Lisans kapısı — watchlist-uyari Pro+ gerektirir
+  if (!lisans.can("watchlist-uyari")) {
+    return (
+      <div className="rounded border border-violet-200 bg-violet-50 dark:bg-slate-900 dark:border-slate-700 p-2 text-2xs">
+        <div className="flex items-center gap-1.5 font-semibold text-violet-900 dark:text-violet-300 mb-1.5">
+          <BellIcon className="h-3.5 w-3.5" />
+          <span>Fiyat değişimi bildirimi</span>
+        </div>
+        <p className="text-3xs text-slate-500 mb-1.5">
+          Bu bölgede fiyat değiştiğinde e-posta al. Pro plan gerektirir.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof chrome !== "undefined" && chrome?.tabs) {
+              chrome.tabs.create({ url: `${SITE_URL}/fiyat?plan=pro&source=extension-bildirim` });
+            }
+          }}
+          className="w-full rounded border border-violet-300 bg-white px-2 py-1 text-2xs font-medium text-violet-700 hover:bg-violet-50 transition"
+        >
+          🔔 Pro'ya geç — e-posta uyarı aktif
+        </button>
+      </div>
+    );
+  }
+
 
   const kategori = parsel.nitelik.toLocaleLowerCase("tr").includes("tarla")
     ? "tarla"

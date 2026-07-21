@@ -25,8 +25,26 @@ export interface FavoriParsel {
   notlar?: ParselNot[];
   /** N1 — Renk etiketi (izleme durumu için) */
   etiket?: ParselEtiket | null;
+  /**
+   * Değişim radarı — Pro (`watchlist-uyari`).
+   * Scrapesiz: seyrek e-Plan proxy + açılışta fiyat snapshot. Max 5 parsel.
+   */
+  izleme?: boolean;
+  /**
+   * Fiyat bandı baseline — kullanıcı parseli açınca model ile karşılaştırılır.
+   * İlan scrape yok.
+   */
+  fiyatSnapshot?: FavoriFiyatSnapshot | null;
   eklenmeTarihi: number;
   parsel: Parsel;
+}
+
+/** Favori fiyat bandı snapshot — TL/m² */
+export interface FavoriFiyatSnapshot {
+  beklenenPerM2: number;
+  altPerM2: number;
+  ustPerM2: number;
+  ts: number;
 }
 
 export interface SorguGecmisi {
@@ -494,6 +512,32 @@ class ArsaDB extends Dexie {
               : [];
           }
           if (kayit.etiket === undefined) kayit.etiket = null;
+        });
+    });
+    // v18: Değişim radarı — izleme + fiyatSnapshot (index yok, nested alanlar)
+    this.version(18).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi, etiket",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+      fiyatTrendi: "&key, fetchedAt",
+      taskinRiskCache: "&key, fetchedAt",
+    }).upgrade(async (tx) => {
+      await tx
+        .table<FavoriParsel>("favoriler")
+        .toCollection()
+        .modify((kayit) => {
+          if (kayit.izleme === undefined) kayit.izleme = false;
+          if (kayit.fiyatSnapshot === undefined) kayit.fiyatSnapshot = null;
         });
     });
   }

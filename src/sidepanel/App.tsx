@@ -52,7 +52,7 @@ interface TabConfig {
 const TABS: TabConfig[] = [
   { id: "harita",         label: "Harita",   Icon: MapIcon },
   { id: "ara",            label: "Ara",      Icon: SearchIcon },
-  { id: "favoriler",      label: "Favori",   Icon: StarIcon },
+  { id: "favoriler",      label: "Radar",    Icon: StarIcon },
   { id: "gecmis",         label: "Geçmiş",   Icon: HistoryIcon },
   { id: "karsilastirma",  label: "Karşılaştır", Icon: CompareIcon },
   { id: "toplu",          label: "Toplu",    Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },

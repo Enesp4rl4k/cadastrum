@@ -35,6 +35,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
 import { BasemapSecici } from "../components/BasemapSecici";
+import { useLisans } from "../../lib/lisans";
 import {
   type BasemapId,
   getBasemap,
@@ -96,6 +97,10 @@ export function BolgeView() {
   >(null);
   bboxRef.current = bbox;
   parsellerRef.current = parseller;
+
+  const lisans = useLisans();
+  const heatYetki = lisans.can("tkgm-heatmap");
+  const joinYetki = lisans.can("sahibinden-join");
 
   // BBox içindeki sahibinden gözlemlerini çek
   const ilanGozlemBolge = useLiveQuery(
@@ -393,6 +398,25 @@ export function BolgeView() {
             }
           }
           setSahibindenJoin(sonuclar.sort((a, b) => b.ortPerM2 - a.ortPerM2));
+
+          // TL/m² heatmap: mahalle ortalamasını parsel merkezlerine yay
+          const fiyatByMahalleNorm = new Map(
+            sonuclar.map((s) => [normalizeYerAdi(s.mahalle), s.ortPerM2]),
+          );
+          const fiyatNoktalari: { lat: number; lng: number; tlM2: number }[] = [];
+          for (const p of sonuc.parseller) {
+            if (!p.mahalleAd || !p.merkezNokta) continue;
+            const tl = fiyatByMahalleNorm.get(normalizeYerAdi(p.mahalleAd));
+            if (tl == null || tl <= 0) continue;
+            fiyatNoktalari.push({
+              lat: p.merkezNokta.lat,
+              lng: p.merkezNokta.lng,
+              tlM2: tl,
+            });
+          }
+          if (mapRef.current && fiyatNoktalari.length > 0) {
+            drawFiyatHeatmap(mapRef.current, fiyatNoktalari);
+          }
         } catch (e) {
           console.warn("[bolge-sahibinden] hata:", e);
         }
@@ -620,38 +644,42 @@ export function BolgeView() {
                   Bölge tarım analizi (5-yıl iklim)
                 </span>
               </label>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
+              <label className={`flex items-center gap-2 py-0.5 rounded px-1 ${heatYetki ? "cursor-pointer hover:bg-slate-50" : "opacity-50"}`}>
                 <input
                   type="checkbox"
                   checked={analizSecimleri.tkgmHeatmap}
+                  disabled={!heatYetki}
                   onChange={(e) =>
                     setAnalizSecimleri((s) => ({
                       ...s,
                       tkgmHeatmap: e.target.checked,
                     }))
                   }
-                  className="h-3 w-3 cursor-pointer accent-purple-500"
+                  className="h-3 w-3 cursor-pointer accent-purple-500 disabled:cursor-not-allowed"
                 />
                 <span className="flex items-center gap-1 text-2xs">
                   <span className="text-purple-600">🔥</span>
                   TKGM resmi alım-satım heatmap
+                  {!heatYetki && <span className="text-[9px] text-amber-700">Pro</span>}
                 </span>
               </label>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
+              <label className={`flex items-center gap-2 py-0.5 rounded px-1 ${joinYetki ? "cursor-pointer hover:bg-slate-50" : "opacity-50"}`}>
                 <input
                   type="checkbox"
                   checked={analizSecimleri.sahibindenJoin}
+                  disabled={!joinYetki}
                   onChange={(e) =>
                     setAnalizSecimleri((s) => ({
                       ...s,
                       sahibindenJoin: e.target.checked,
                     }))
                   }
-                  className="h-3 w-3 cursor-pointer accent-orange-500"
+                  className="h-3 w-3 cursor-pointer accent-orange-500 disabled:cursor-not-allowed"
                 />
                 <span className="flex items-center gap-1 text-2xs">
                   <span className="text-orange-600">📡</span>
                   Sahibinden mahalle TL/m² join
+                  {!joinYetki && <span className="text-[9px] text-amber-700">Pro</span>}
                 </span>
               </label>
             </div>
@@ -797,7 +825,9 @@ function StatsBlogu({
             💡 İlan gözlemi: {ilanSayisi} sahibinden ilanı kayıtlı
           </div>
           <div className="text-[10px] text-orange-700">
-            Bu bbox'taki TKGM parsellerini ilanlarla eşleyip TL/m² heatmap'i v0.5'te gelecek.
+            {sahibindenJoin && sahibindenJoin.length > 0
+              ? "Mahalle TL/m² eşlemesi haritada ısı katmanı olarak çizildi (ilan medyanı → parsel merkezleri)."
+              : "Sahibinden eşlemesini açarak bu bbox’taki mahalle TL/m² ısı haritasını görüntüleyin."}
           </div>
         </div>
       )}
@@ -1173,6 +1203,55 @@ function drawTkgmHeatmap(
           1, "rgba(127, 29, 29, 0.85)",
         ],
         "heatmap-opacity": 0.75,
+      },
+    });
+  }
+}
+
+/** İlan TL/m² — mahalle ortalamasının parsel merkezlerine yayılmış ısı katmanı */
+function drawFiyatHeatmap(
+  map: MapLibreMap,
+  noktalar: { lat: number; lng: number; tlM2: number }[],
+): void {
+  const SRC = "fiyat-heat-bolge-src";
+  const LAYER = "fiyat-heat-bolge-layer";
+  if (noktalar.length === 0) return;
+
+  const maxTl = Math.max(...noktalar.map((n) => n.tlM2), 1);
+  const features: GeoJSON.Feature[] = noktalar.map((n) => ({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [n.lng, n.lat] },
+    properties: { tlM2: n.tlM2, weight: n.tlM2 / maxTl },
+  }));
+  const data: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
+    features,
+  };
+
+  const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined;
+  if (src) {
+    src.setData(data);
+  } else {
+    map.addSource(SRC, { type: "geojson", data });
+    map.addLayer({
+      id: LAYER,
+      type: "heatmap",
+      source: SRC,
+      paint: {
+        "heatmap-weight": ["get", "weight"],
+        "heatmap-intensity": 1.0,
+        "heatmap-radius": 22,
+        "heatmap-color": [
+          "interpolate",
+          ["linear"],
+          ["heatmap-density"],
+          0, "rgba(201, 168, 106, 0)",
+          0.15, "rgba(201, 168, 106, 0.25)",
+          0.4, "rgba(180, 120, 40, 0.45)",
+          0.7, "rgba(185, 28, 28, 0.65)",
+          1, "rgba(127, 29, 29, 0.85)",
+        ],
+        "heatmap-opacity": 0.8,
       },
     });
   }

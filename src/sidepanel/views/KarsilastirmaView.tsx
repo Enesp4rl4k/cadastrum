@@ -76,9 +76,11 @@ function ParselKolonu({ kayit, onFlyTo }: {
             ? fiyatTahminEt(parsel)
             : Promise.resolve(fiyat ?? null),
           ePlan === undefined
-            ? aktifEPlanVerisiGetir(parsel).then((cached) =>
-                cached ?? otomatikEPlanSorgula(parsel)
-              )
+            ? aktifEPlanVerisiGetir(parsel).then(async (cached) => {
+                if (cached) return cached;
+                const oto = await otomatikEPlanSorgula(parsel);
+                return oto.veri;
+              })
             : Promise.resolve(ePlan ?? null),
         ]);
 

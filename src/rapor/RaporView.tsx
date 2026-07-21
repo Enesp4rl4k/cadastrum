@@ -378,6 +378,11 @@ export function RaporView() {
         {/* e-Plan + yapı hakları */}
         <section className="section">
           <h2>İmar Durumu<span className="section-no">02 · e-Plan</span></h2>
+          <div className="not-kutusu" style={{ marginBottom: "12px", fontSize: "9pt", color: "var(--muted)", lineHeight: 1.45 }}>
+            Bu rapor imar özetini e-Plan özniteliklerinden alır. Uygulama imar planı görseli (renkli parsel/ada çizimi)
+            belediye OGC veya harita ekranındaki ÇDP / belediye imar katmanından bakılmalıdır — PDF’e gömülü plan görüntüsü
+            henüz üretilmez.
+          </div>
           {ePlan ? (
             <>
               <p style={{ fontSize: "10pt", marginBottom: "10px", color: "var(--ink)" }}>{ePlanOzet(ePlan)}</p>

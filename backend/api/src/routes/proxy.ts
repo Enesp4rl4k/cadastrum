@@ -4,6 +4,7 @@
  * Mevcut endpoint'ler:
  *   GET /v1/proxy/eplan?ilceKodu=&mahalleKodu=&adaNo=&parselNo=
  *   GET /v1/proxy/tucbs?wms=csb_cdp_im_wms&lat=&lng=
+ *   GET /v1/proxy/wayback?minLng=&minLat=&maxLng=&maxLat=&releaseId=
  *
  * NOT (S1.4): AFAD TDTH proxy'si kaldırıldı. Sebep: AFAD'ın public API'si
  * stabil değil, /api/v1/sismik/ endpoint'i 404 dönüyor. Mevcut il-bazlı
@@ -389,8 +390,72 @@ proxyRoutes.get("/tkgm-analiz", async (c) => {
   }
 });
 
+// ── Esri Wayback uydu karesi (site CORS) ───────────────────────────────────────
+// Client-side gelişim trendi analizi için JPEG; Worker canvas decode yapmaz.
+
+const WAYBACK_EXPORT =
+  "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/export";
+const WAYBACK_RELEASE_IDS = new Set([10, 36, 60, 92]); // 2014, 2017, 2020, 2024
+
+proxyRoutes.get("/wayback", async (c) => {
+  const minLng = Number(c.req.query("minLng"));
+  const minLat = Number(c.req.query("minLat"));
+  const maxLng = Number(c.req.query("maxLng"));
+  const maxLat = Number(c.req.query("maxLat"));
+  const releaseId = Number(c.req.query("releaseId"));
+  const w = Math.min(256, Math.max(32, Math.round(Number(c.req.query("w") || 160) || 160)));
+  const h = Math.min(256, Math.max(32, Math.round(Number(c.req.query("h") || 120) || 120)));
+
+  if (![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) {
+    return c.json({ error: "bbox parametreleri gerekli (minLng,minLat,maxLng,maxLat)" }, 400);
+  }
+  if (minLng >= maxLng || minLat >= maxLat) {
+    return c.json({ error: "bbox geçersiz" }, 400);
+  }
+  // Türkiye + yakın tampon
+  if (minLat < 35 || maxLat > 43.5 || minLng < 25 || maxLng > 45.5) {
+    return c.json({ error: "bbox Türkiye sınırları dışında" }, 400);
+  }
+  if ((maxLng - minLng) > 0.08 || (maxLat - minLat) > 0.08) {
+    return c.json({ error: "bbox çok büyük (max ~0.08°)" }, 400);
+  }
+  if (!Number.isInteger(releaseId) || !WAYBACK_RELEASE_IDS.has(releaseId)) {
+    return c.json({ error: "releaseId geçersiz (10|36|60|92)" }, 400);
+  }
+
+  const bbox = `${minLng.toFixed(6)},${minLat.toFixed(6)},${maxLng.toFixed(6)},${maxLat.toFixed(6)}`;
+  const url =
+    `${WAYBACK_EXPORT}` +
+    `?bbox=${bbox}&bboxSR=4326&imageSR=4326` +
+    `&size=${w},${h}&format=jpg&f=image&time=${releaseId}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "image/jpeg,*/*",
+        "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
+      },
+      cf: { cacheTtl: 86_400 * 30, cacheEverything: true } as never,
+    });
+    if (!res.ok) {
+      return c.json({ error: `Wayback HTTP ${res.status}` }, 502);
+    }
+    const buf = await res.arrayBuffer();
+    return new Response(buf, {
+      status: 200,
+      headers: {
+        "Content-Type": res.headers.get("Content-Type") || "image/jpeg",
+        "Cache-Control": "public, max-age=2592000, stale-while-revalidate=86400",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
 // ── Sağlık ────────────────────────────────────────────────────────────────────
 
 proxyRoutes.get("/health", (c) =>
-  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz"] }),
+  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz", "wayback"] }),
 );

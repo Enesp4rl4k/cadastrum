@@ -40,11 +40,15 @@ Alternatif: Cloudflare Pages, Netlify — aynı setup.
 
 ## Roadmap (Site v1 sonrası)
 
+Ürün / AI (P1–P6): kök [`ROADMAP.md`](../ROADMAP.md) — gelecek değer skoru, arazi avcısı, TradingView grafikleri, danışman chat, imar tahmini, dijital ikiz.
+
+Site işleri:
+
 - [ ] Hero görseli (extension screenshot mock)
 - [ ] Demo video (Loom embed) `/demo` sayfası
-- [ ] Blog (Astro Content Collections) — TR yatırım/arsa içerikleri için SEO
-- [ ] LemonSqueezy buy butonları gerçek URL'lerle (`PROCEED` placeholder'ı değiştir)
-- [ ] OG image generation (`/og.png`)
+- [x] Blog — TR yatırım/arsa SEO içerikleri
+- [ ] LemonSqueezy buy butonları gerçek URL'lerle
+- [x] OG image (`/og.png`)
 - [ ] Analytics (Plausible/Umami — KVKK dostu)
 - [ ] i18n: EN sürüm yatırımcı segmenti için
 

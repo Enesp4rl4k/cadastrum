@@ -1,5 +1,7 @@
 # www → apex (SEO için tek canonical)
 https://www.cadastrum.com.tr/* https://cadastrum.com.tr/:splat 301!
 
-# /veri/* dynamic SPA fallback
-/veri/* /veri/detay/index.html 200!
+# Sadece ilçe/mahalle derin path'leri detay SPA'ya düşür.
+# /veri/{il} statik HTML'e dokunma — eski /veri/* 200! soft-404 üretiyordu.
+/veri/*/* /veri/detay/index.html 200
+/veri/*/*/* /veri/detay/index.html 200

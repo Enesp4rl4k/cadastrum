@@ -1,0 +1,42 @@
+# Cadastrum
+
+> Türkiye arsa ve tarla yatırımı için AI destekli analiz aracı (Chrome eklentisi + web).
+> TKGM parsel sorgu · e-Plan imar · mahalle emsal fiyat · yapay zeka TL/m² tahmini.
+
+Cadastrum; bireysel ve kurumsal yatırımcıların Sahibinden/Hepsiemlak ilanlarını resmi TKGM kaydıyla doğrulamasını, e-Plan imar (emsal, TAKS) özetini görmesini ve AI + 65.000+ mahalle verisiyle fiyat karşılaştırması yapmasını sağlar. Spekülatif “tek rakam” değil; açıklanabilir karar desteği. TKGM / Sahibinden / Hepsiemlak ile resmi bağlantısı yoktur.
+
+## AI & yatırım aracı (öncelikli)
+
+- AI arsa & tarla analiz aracı: https://cadastrum.com.tr/ai-arsa-analiz
+- Arsa yatırımı: https://cadastrum.com.tr/arsa-yatirimi
+- Tarla yatırımı: https://cadastrum.com.tr/tarla-yatirimi
+- Parsel / değer sorgu: https://cadastrum.com.tr/sorgu
+- Chrome eklentisi: https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej
+
+## Resmi veri & imar
+
+- TKGM parsel sorgu: https://cadastrum.com.tr/tkgm-parsel-sorgu
+- İmar sorgu (e-Plan): https://cadastrum.com.tr/imar-sorgu
+- Kat karşılığı: https://cadastrum.com.tr/kat-karsiligi
+- Yoğunluk haritası: https://cadastrum.com.tr/harita
+- Mahalle fiyat verisi (81 il): https://cadastrum.com.tr/veri
+
+## Blog (nasıl seçilir?)
+
+- AI ile arsa/tarla nasıl seçilir: https://cadastrum.com.tr/blog/ai-ile-arsa-tarla-nasil-secilir-2026
+- AI fiyat metodolojisi: https://cadastrum.com.tr/blog/ai-ile-arsa-fiyat-tahmini-nasil-calisir
+- Arsa yatırımı checklist: https://cadastrum.com.tr/blog/arsa-yatirimi-nasil-yapilir-2026
+- Tarla yatırımı: https://cadastrum.com.tr/blog/tarla-yatirimi-rehberi-2026
+- TKGM rehberi: https://cadastrum.com.tr/blog/tkgm-parsel-sorgu-rehberi-2026
+
+## Kimler için?
+
+- AI / tool arayan bireysel arsa-tarla yatırımcıları
+- Emlak danışmanları ve ofisler
+- Kurumsal portföy ve arazi geliştirme ekipleri
+
+## İletişim
+
+- iletisim@cadastrum.com.tr
+- https://cadastrum.com.tr/iletisim
+- Fiyatlar: https://cadastrum.com.tr/fiyat

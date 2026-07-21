@@ -1,0 +1,74 @@
+---
+export const prerender = true;
+import SeoLanding from "../components/SeoLanding.astro";
+---
+
+<SeoLanding
+  title="İmar Sorgu 2026 — e-Plan Emsal, TAKS, Kullanım | Cadastrum"
+  description="İmar sorgu: e-Plan üzerinden emsal, TAKS, yapı yüksekliği ve kullanım türünü öğrenin. Arsa/tarla almadan önce Cadastrum ile otomatik imar özeti."
+  keywords={[
+    "imar sorgu",
+    "e-Plan imar",
+    "emsal sorgu",
+    "TAKS sorgu",
+    "imar durumu nasıl öğrenilir",
+    "parsel imar",
+    "Çevre Şehircilik e-Plan",
+    "Cadastrum",
+  ]}
+  breadcrumbLabel="İmar sorgu"
+  h1="İmar sorgu: emsal ve TAKS’ı saniyede görün"
+  lead="Yapı hakkı belirsizse arsa fiyatı spekülasyondur. Cadastrum, e-Plan imar sorgusunu TKGM parsel kaydıyla birleştirerek emsal, TAKS ve kullanım özetini yan panelde gösterir."
+  sections={[
+    {
+      h2: "İmar sorgusunda bakılacaklar",
+      p: "Plan notları ve lejant tek başına yeterli değildir. Yatırımcı için üç sayı kritiktir: emsal (E), TAKS ve Hmax — artı kullanım (konut, ticaret, yeşil alan…).",
+      bullets: [
+        "Emsal (E): toplam inşaat alanı çarpanı",
+        "TAKS: taban oturum oranı",
+        "Hmax / kat adedi: yükseklik sınırı",
+        "Kullanım: konut, ticaret, tarım, özel kısıt",
+      ],
+    },
+    {
+      h2: "Manuel e-Plan vs Cadastrum",
+      p: "Resmi e-Plan portalında parsel seçmek zaman alır. Cadastrum, Sahibinden/Hepsiemlak ilanından veya sitedeki /sorgu akışından aynı özeti otomatik üretir.",
+      bullets: [
+        "İlan açıkken otomatik parsel bağlama",
+        "İmar + fiyat + risk tek bakış",
+        "PDF raporda imar özeti (Pro)",
+      ],
+    },
+    {
+      h2: "İmar yok / kayıt bulunamadı ne demek?",
+      p: "Bazı belediyelerde e-Plan verisi henüz yüklenmemiş olabilir. Bu durumda ‘kayıt yok’ bilgisi de karar için değerlidir — varsayımla ilerlemeyin, belediyeden teyit alın.",
+      bullets: [
+        "Veri yok ≠ imarsız; teyit gerekir",
+        "Plan değişikliği sürecindeki parsellerde ekstra hukuki kontrol",
+        "Cadastrum SSS ve blog’da e-Plan okuma rehberi var",
+      ],
+    },
+  ]}
+  faqs={[
+    {
+      q: "İmar sorgu ücretsiz mi?",
+      a: "e-Plan kamu erişimine açıktır. Cadastrum Free planında da imar özetine sınırlı erişim vardır; Pro’da otomatik ve sınırsız sorgu sunulur.",
+    },
+    {
+      q: "Emsal ve TAKS ne anlama gelir?",
+      a: "Emsal toplam inşaat hakkını, TAKS taban oturumunu belirler. Detaylı okuma için blog’daki e-Plan rehberine bakın.",
+    },
+    {
+      q: "İmar sorgu hangi illerde çalışır?",
+      a: "e-Plan Türkiye genelini kapsar; bazı belediyelerde veri eksik olabilir. Eksik durumda Cadastrum bunu açıkça bildirir.",
+    },
+  ]}
+  related={[
+    { href: "/sorgu", label: "Parsel + imar hesaplayıcı" },
+    { href: "/tkgm-parsel-sorgu", label: "TKGM parsel sorgu" },
+    { href: "/arsa-yatirimi", label: "Arsa yatırımı" },
+    { href: "/kat-karsiligi", label: "Kat karşılığı" },
+    { href: "/blog/e-plan-imar-nasil-okunur-taks-emsal-2026", label: "e-Plan okuma rehberi" },
+  ]}
+  secondaryCta={{ href: "/sorgu", label: "İmarlı değer hesapla" }}
+/>

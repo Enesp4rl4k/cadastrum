@@ -43,6 +43,10 @@ export default defineManifest({
     "https://e-plan.gov.tr/*",
     "https://eplan.csb.gov.tr/*",
     "https://tucbs-public-api.csb.gov.tr/*",
+    // Belediye imar WMS (pilot: İBB Şehir Haritası OGC)
+    "https://sehirharitasi.ibb.gov.tr/*",
+    "https://cbsmapws.ibb.gov.tr/*",
+    "https://eplan.ibb.istanbul/*",
     "https://overpass-api.de/*",
     "https://lz4.overpass-api.de/*",
     "https://overpass.osm.ch/*",

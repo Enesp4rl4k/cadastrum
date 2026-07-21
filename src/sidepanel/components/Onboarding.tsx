@@ -108,7 +108,7 @@ function Adim2() {
           <p className="text-xs font-semibold text-tkgm-primary">Pro'da ek özellikler:</p>
         </div>
         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          Sınırsız AI analizi, PDF rapor, toplu parsel karşılaştırma, watchlist bildirimleri.
+          Yatırım skoru, fiyat bandı, PDF rapor, toplu karşılaştırma, scrapesiz parsel radarı.
         </p>
         <a
           href="https://cadastrum.com.tr/fiyat"

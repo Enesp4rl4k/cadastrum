@@ -144,6 +144,16 @@ function kategoriRenkEtiketi(kategori: TucbsCdpKategori): string {
   }
 }
 
+/** MapView lejant — arazi kullanım renkleri (yaklaşık TUCBS paleti) */
+export const CDP_LEJANT: { kategori: TucbsCdpKategori; etiket: string; renk: string }[] = [
+  { kategori: "konut-gelisme", etiket: "Yerleşim / gelişme", renk: "#facc15" },
+  { kategori: "koy-yerlesik", etiket: "Köy yerleşik", renk: "#a16207" },
+  { kategori: "tarim-koruma", etiket: "Tarım / koruma", renk: "#22c55e" },
+  { kategori: "sanayi", etiket: "Sanayi / depo", renk: "#a855f7" },
+  { kategori: "ticari-turizm", etiket: "Ticaret / turizm", renk: "#ef4444" },
+  { kategori: "diger", etiket: "Diğer", renk: "#94a3b8" },
+];
+
 function buildGetFeatureInfoUrl(
   wmsSlug: string,
   lat: number,

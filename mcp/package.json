@@ -1,0 +1,29 @@
+{
+  "name": "@cadastrum/arsa-mcp",
+  "version": "1.0.0",
+  "description": "Cadastrum Arsa MCP — mahalle fiyat, spatial emsal, sorgu ve risk araçlarını Claude/Cursor'a bağlar",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cadastrum-arsa-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

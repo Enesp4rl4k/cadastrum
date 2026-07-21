@@ -1,0 +1,72 @@
+---
+export const prerender = true;
+import SeoLanding from "../components/SeoLanding.astro";
+---
+
+<SeoLanding
+  title="TKGM Parsel Sorgu 2026 — Ada, Alan, Nitelik Doğrulama | Cadastrum"
+  description="TKGM parsel sorgu ile ada, parsel, alan ve niteliği doğrulayın. Sahibinden/Hepsiemlak ilanlarında otomatik TKGM kontrolü — Cadastrum Chrome eklentisi."
+  keywords={[
+    "TKGM parsel sorgu",
+    "parsel sorgu",
+    "ada parsel sorgu",
+    "tapu parsel sorgu",
+    "parselsorgu.tkgm.gov.tr",
+    "parsel bilgisi öğrenme",
+    "Cadastrum",
+  ]}
+  breadcrumbLabel="TKGM parsel sorgu"
+  h1="TKGM parsel sorgu — resmi kaydı ilanda görün"
+  lead="Yatırımın ilk filtresi resmi parsel kaydıdır. Cadastrum, TKGM Parsel Sorgu verisini Sahibinden ve Hepsiemlak ilanlarında otomatik çeker; yanlış ada-parsel veya alan uyuşmazlığını anında gösterir."
+  sections={[
+    {
+      h2: "TKGM Parsel Sorgu ne gösterir?",
+      p: "Herkese açık kayıtta il/ilçe/mahalle, ada-parsel, yüzölçümü, nitelik ve mevkii yer alır. Malik, ipotek ve haciz için Web Tapu / e-Devlet gerekir.",
+      bullets: [
+        "Ada ve parsel numarası",
+        "Yüzölçümü (m²)",
+        "Nitelik: arsa, tarla, bahçe…",
+        "Mahalle / köy doğrulaması",
+      ],
+    },
+    {
+      h2: "Neden ilan üzerinde otomatik sorgu?",
+      p: "Manuel sorgu yavaştır ve satıcı hatalarını kaçırır. Eklenti ilan metninden ada-parseli yakalar, TKGM ile karşılaştırır.",
+      bullets: [
+        "Sahte veya yanlış parsel uyarısı",
+        "İlan mahallesi ≠ TKGM mahallesi tespiti",
+        "Ardından imar + fiyat katmanları",
+      ],
+    },
+    {
+      h2: "Siteden de sorgulayın",
+      p: "Eklenti kurmadan önce /sorgu ve /ornek sayfalarından akışı deneyebilirsiniz. Veri kataloğu kaynakları şeffaf listeler.",
+      bullets: [
+        "/sorgu — lokasyon + imar → TL/m² bandı",
+        "/ornek — demo tek bakış paneli",
+        "/veri-katalogu — veri kaynakları",
+      ],
+    },
+  ]}
+  faqs={[
+    {
+      q: "TKGM parsel sorgu ücretli mi?",
+      a: "Temel parsel bilgisi ücretsizdir. Cadastrum Free planında günlük sorgu limiti vardır; Pro’da sınırsızdır.",
+    },
+    {
+      q: "Cadastrum TKGM’nin resmi sitesi midir?",
+      a: "Hayır. Cadastrum bağımsız bir araçtır; TKGM’nin herkese açık verilerini kullanarak yatırımcıya hız kazandırır. Resmi bağ yoktur.",
+    },
+    {
+      q: "Parsel bulunamadı ne demek?",
+      a: "Ada-parsel TKGM’de yoksa ilan bilgisi hatalı veya güncel olmayabilir. Alım öncesi satıcıdan doğru bilgileri isteyin.",
+    },
+  ]}
+  related={[
+    { href: "/sorgu", label: "Parsel değer sorgusu" },
+    { href: "/imar-sorgu", label: "İmar sorgu" },
+    { href: "/arsa-yatirimi", label: "Arsa yatırımı" },
+    { href: "/harita", label: "TKGM yoğunluk haritası" },
+    { href: "/blog/tkgm-parsel-sorgu-rehberi-2026", label: "Adım adım TKGM rehberi" },
+  ]}
+/>

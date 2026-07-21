@@ -3,8 +3,11 @@ import Base from "../../layouts/Base.astro";
 import PaywallOverlay from "../../components/PaywallOverlay.astro";
 ---
 
-<Base title="Mahalle Fiyat Verisi | Cadastrum"
-      description="Türkiye gayrimenkul mahalle bazlı m² fiyat verisi.">
+<Base
+  title="Mahalle Fiyat Verisi | Cadastrum"
+  description="Türkiye gayrimenkul mahalle bazlı m² fiyat verisi."
+  robots="noindex, follow"
+>
   <PaywallOverlay her={true} baslik="Mahalle detay verisi Pro üyelere özel" />
   <main class="min-h-screen bg-gradient-to-b from-slate-50 to-white">
     <div class="max-w-5xl mx-auto px-4 py-10" id="main">

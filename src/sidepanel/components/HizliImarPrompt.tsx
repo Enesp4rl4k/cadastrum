@@ -20,9 +20,11 @@ interface Props {
   parsel: Parsel;
   onKaydedildi: () => void;
   onSkip: () => void;
+  /** e-Plan otomatik sorgu durumu — rate-limit / boş / ağ ayrımı */
+  ePlanMesaj?: string | null;
 }
 
-export function HizliImarPrompt({ parsel, onKaydedildi, onSkip }: Props) {
+export function HizliImarPrompt({ parsel, onKaydedildi, onSkip, ePlanMesaj }: Props) {
   const [kullanim, setKullanim] = useState("");
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
@@ -50,8 +52,8 @@ export function HizliImarPrompt({ parsel, onKaydedildi, onSkip }: Props) {
               İmar bilgisi gerekli
             </div>
             <div className="mt-0.5 text-2xs leading-relaxed text-slate-600">
-              e-Plan otomatik sorgu sonuç vermedi. Doğru fiyat tahmini için
-              arsanın kullanım kararını seçin — imar fiyatı %20–%80 etkiler.
+              {ePlanMesaj ??
+                "e-Plan otomatik sorgu sonuç vermedi. Doğru fiyat tahmini için arsanın kullanım kararını seçin — imar fiyatı %20–%80 etkiler."}
             </div>
           </div>
         </div>

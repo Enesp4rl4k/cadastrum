@@ -1,26 +1,17 @@
 /**
- * Harita endpoint'leri — TKGM analiz verisi D1'den okunur.
+ * Harita endpoint'leri — tüm veri D1'den okunur.
  *
- * Veri tek seferlik scripts/tkgm-analiz-seed.mjs ile seed edilir.
- * Site buradan okur; TKGM'ye doğrudan hiç istek atmaz.
+ * Seed: scripts/tkgm-analiz-seed.mjs (yılda bir, sunucu tarafı).
+ * Site kullanıcıları TKGM'ye istek ATMAZ — yasal + rate güvenliği.
  *
- * GET /v1/harita/analiz?ilceKodu=XXX&analizTip=1&yil=2024
- *   → Tek ilçe, tek tip, tek yıl noktaları
+ * GET /v1/harita/heatmap?analizTip=1
+ *   → Ülke geneli ısı haritası (grid aggregate, tek istek)
  *
- * GET /v1/harita/analiz/birlesik?ilceKodu=XXX&analizTip=1
- *   → Tek ilçe, tek tip, tüm yıllar birleşik (parsel bazında sum)
+ * GET /v1/harita/ilceler?analizTip=1
+ *   → Seed'li ilçe listesi + centroid (D1; TKGM idari yok)
  *
- * GET /v1/harita/ozet?analizTip=1&yil=2024
- *   → Tüm ilçelerin özet sayıları (harita renklendirme için)
- *
- * GET /v1/harita/likidite?kategori=arsa
- *   → İl bazlı likidite skoru + yıllık satış hacmi (harita choropleth için)
- *
- * GET /v1/harita/trend?kategori=arsa
- *   → İl bazlı son 6 ay fiyat değişim yüzdesi (sıcaklık haritası için)
- *
- * GET /v1/harita/seed-status
- *   → Kaç ilçe/tip/yıl seed edilmiş (admin/debug için)
+ * GET /v1/harita/analiz|analiz/birlesik|ozet — legacy / eklenti
+ * GET /v1/harita/likidite|trend|poi|seed-status
  */
 
 import { Hono } from "hono";
@@ -128,6 +119,105 @@ export const haritaRoutes = new Hono<{ Bindings: Env }>();
 const VALID_TIP = new Set([1, 2, 3, 4, 5]);
 const YIL_MIN = 2003;
 const YIL_MAX = new Date().getFullYear();
+
+/**
+ * GET /v1/harita/heatmap?analizTip=1
+ * Ülke geneli ısı — ~0.01° grid aggregate. Tek istek, edge cache 7 gün.
+ * Kullanıcı başına TKGM / ilçe-ilçe lazy load YOK.
+ */
+haritaRoutes.get("/heatmap", async (c) => {
+  const analizTip = Number(c.req.query("analizTip") ?? "1");
+  if (!VALID_TIP.has(analizTip)) {
+    return c.json({ error: "analizTip 1–5 olmalı" }, 400);
+  }
+
+  // ROUND(…,2) ≈ 1 km hücre — heatmap için yeterli, payload ~40k nokta
+  // 0,0 ve Türkiye bbox dışı seed hatalarını ele
+  const rows = await c.env.DB.prepare(
+    `SELECT ROUND(enlem, 2) AS enlem,
+            ROUND(boylam, 2) AS boylam,
+            SUM(sayi) AS sayi
+     FROM tkgm_analiz_noktalari
+     WHERE analiz_tip = ?
+       AND enlem BETWEEN 35.5 AND 42.5
+       AND boylam BETWEEN 25.5 AND 45.5
+     GROUP BY ROUND(enlem, 2), ROUND(boylam, 2)
+     LIMIT 80000`,
+  ).bind(analizTip).all<{ enlem: number; boylam: number; sayi: number }>();
+
+  let ilceKapsam = 0;
+  try {
+    const seed = await c.env.DB.prepare(
+      `SELECT COUNT(DISTINCT ilce_kodu) AS n FROM tkgm_analiz_ozet WHERE analiz_tip = ?`,
+    ).bind(analizTip).first<{ n: number }>();
+    ilceKapsam = seed?.n ?? 0;
+  } catch { /* ignore */ }
+
+  const noktalar = (rows.results ?? []).map((r) => ({
+    enlem: r.enlem,
+    boylam: r.boylam,
+    sayi: r.sayi,
+  }));
+
+  return c.json(
+    {
+      analizTip,
+      kaynak: "d1-tkgm-analiz",
+      mod: "grid-0.01",
+      ilce_kapsam: ilceKapsam,
+      hedef_ilce: 957,
+      nokta_adet: noktalar.length,
+      noktalar,
+    },
+    200,
+    { "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400" },
+  );
+});
+
+/**
+ * GET /v1/harita/ilceler?analizTip=1
+ * Seed edilmiş ilçe kodları + ortalama lat/lng — TKGM idari proxy yok.
+ */
+haritaRoutes.get("/ilceler", async (c) => {
+  const analizTip = Number(c.req.query("analizTip") ?? "1");
+  if (!VALID_TIP.has(analizTip)) {
+    return c.json({ error: "analizTip 1–5 olmalı" }, 400);
+  }
+
+  const rows = await c.env.DB.prepare(
+    `SELECT ilce_kodu AS ilceKodu,
+            AVG(enlem) AS lat,
+            AVG(boylam) AS lng,
+            COUNT(*) AS nokta_adet,
+            SUM(sayi) AS toplam_islem
+     FROM tkgm_analiz_noktalari
+     WHERE analiz_tip = ?
+     GROUP BY ilce_kodu
+     ORDER BY ilce_kodu`,
+  ).bind(analizTip).all<{
+    ilceKodu: number;
+    lat: number;
+    lng: number;
+    nokta_adet: number;
+    toplam_islem: number;
+  }>();
+
+  return c.json(
+    {
+      analizTip,
+      kaynak: "d1-tkgm-analiz",
+      ilceler: (rows.results ?? []).map((r) => ({
+        ilceKodu: r.ilceKodu,
+        lat: Math.round(r.lat * 1e5) / 1e5,
+        lng: Math.round(r.lng * 1e5) / 1e5,
+        nokta_adet: r.nokta_adet,
+        toplam_islem: r.toplam_islem,
+      })),
+    },
+    200,
+    { "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400" },
+  );
+});
 
 // ── Tek ilçe / tek yıl noktaları ──────────────────────────────────────────────
 
@@ -279,34 +369,94 @@ haritaRoutes.get("/poi", async (c) => {
 
 // ── İl bazlı likidite skoru (harita choropleth) ───────────────────────────────
 // GET /v1/harita/likidite?kategori=arsa
-// Statik TÜİK verisinden üretilir — D1 sorgusu gerekmez.
+// Temel: TÜİK tarzı yıllık satış / nüfus. Zenginleştirme: D1 il_istatistik ilan adedi.
 
-haritaRoutes.get("/likidite", (c) => {
+haritaRoutes.get("/likidite", async (c) => {
   const kategori = c.req.query("kategori") ?? "arsa";
   const VALID_KAT = new Set(["arsa", "tarla", "konut"]);
   if (!VALID_KAT.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
 
+  // İlan hacmi — piyasa likiditesi sinyali (isteğe bağlı; tablo yoksa sessizce atla)
+  const ilanMap = new Map<string, number>();
+  try {
+    const ilanRows = await c.env.DB.prepare(
+      `SELECT il_norm, ilan_adet FROM il_istatistik WHERE kategori = ?`,
+    ).bind(kategori === "konut" ? "arsa" : kategori)
+      .all<{ il_norm: string; ilan_adet: number }>();
+    for (const r of ilanRows.results ?? []) {
+      ilanMap.set(r.il_norm, r.ilan_adet);
+    }
+  } catch {
+    // D1 / tablo yoksa sadece statik tablo
+  }
+
+  // Max ilan (normalize için)
+  let maxIlan = 0;
+  for (const n of ilanMap.values()) if (n > maxIlan) maxIlan = n;
+
+  // TKGM seed kapsamı — UI "veri doluluk" göstergesi
+  let tkgmIlceKapsam = 0;
+  try {
+    const seed = await c.env.DB.prepare(
+      `SELECT COUNT(DISTINCT ilce_kodu) AS n FROM tkgm_analiz_ozet WHERE analiz_tip = 1`,
+    ).first<{ n: number }>();
+    tkgmIlceKapsam = seed?.n ?? 0;
+  } catch {
+    /* ignore */
+  }
+
   const iller = Object.entries(IL_LIKIDITE).map(([ilNorm, veri]) => {
     const skor = ilLikiditeSkoru(ilNorm);
-    // Tarla kategorisinde kırsal iller biraz daha likit — tarla alım-satımı kentsel değil
     const kategoriDuzeltme = kategori === "tarla" && veri.nufusM < 0.5 ? 0.1 : 0;
-    const nihai = Math.min(1.0, Math.round((skor + kategoriDuzeltme) * 100) / 100);
+
+    // İlan yoğunluğu: kişi başına ilan → skor'a hafif katkı (max +0.12)
+    const ilanAdet = ilanMap.get(ilNorm) ?? 0;
+    const ilanPerCapita = veri.nufusM > 0 ? ilanAdet / (veri.nufusM * 1_000_000) : 0;
+    // Tipik arsa ilanı ~0.00001–0.0001 / kişi; normalize kaba
+    const ilanSkor = Math.min(0.12, ilanPerCapita * 800);
+
+    const nihai = Math.min(
+      1.0,
+      Math.round((skor + kategoriDuzeltme + ilanSkor) * 100) / 100,
+    );
+
+    const perCapita = Math.round((veri.yillikSatis / (veri.nufusM * 1_000_000)) * 1_000_000) / 1_000_000;
+
     return {
       il_norm: ilNorm,
       skor: nihai,
       yillik_satis: veri.yillikSatis,
       ipotekli_oran: veri.ipotekliOran,
       nufus_m: veri.nufusM,
-      etiket: nihai >= 0.85 ? "Çok Aktif" : nihai >= 0.70 ? "Aktif" : nihai >= 0.50 ? "Normal" : "Düşük",
+      per_capita: perCapita,
+      ilan_adet: ilanAdet,
+      ilan_pay: maxIlan > 0 ? Math.round((ilanAdet / maxIlan) * 100) / 100 : 0,
+      etiket:
+        nihai >= 0.95 ? "En Likit"
+        : nihai >= 0.85 ? "Çok Aktif"
+        : nihai >= 0.70 ? "Aktif"
+        : nihai >= 0.50 ? "Normal"
+        : "Düşük",
+      kaynak: ilanAdet > 0 ? "tuik+ilan" : "tuik",
     };
   });
 
+  // Skora göre sıralı — harita aynı; API tüketicileri için faydalı
+  iller.sort((a, b) => b.skor - a.skor);
+
   return c.json(
-    { kategori, guncelleme: "2025-12", iller },
+    {
+      kategori,
+      guncelleme: "2025-12",
+      kaynak: "TÜİK tapu işlem hacmi + Cadastrum ilan havuzu",
+      tkgm_ilce_kapsam: tkgmIlceKapsam,
+      tkgm_hedef_ilce: 957,
+      iller,
+    },
     200,
-    { "Cache-Control": "public, max-age=2592000, stale-while-revalidate=86400" }, // 30 gün
+    { "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400" },
   );
 });
 

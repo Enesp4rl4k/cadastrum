@@ -218,31 +218,49 @@ function parseNum(val: unknown): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
+/** e-Plan otomatik sorgu sonucu — UI 429/boş/ağ ayrımı */
+export type EPlanSorguDurum =
+  | "ok"
+  | "rate-limit"
+  | "bos"
+  | "ag-hatasi"
+  | "yetki-hatasi"
+  | "geometri-yok";
+
+export interface EPlanSorguSonuc {
+  veri: EPlanImarVerisi | null;
+  durum: EPlanSorguDurum;
+  mesaj: string;
+}
+
 /**
  * E-Plan sunucularından parselin imar durumunu otomatik çeker.
  * eplan.csb.gov.tr misafir oturumu + resmi imarDurumu.js akışı.
  */
-export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVerisi | null> {
+export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanSorguSonuc> {
   const cacheKey = ePlanParselKeyFromParsel(parsel);
 
   if (await eplanRateLimitedMi()) {
     console.warn(
       "[eplan-api] e-Plan günlük misafir limiti doldu (~10 sorgu). Yarın tekrar deneyin veya eplan.csb.gov.tr'de manuel sorgu yapın.",
     );
-    return null;
+    return {
+      veri: null,
+      durum: "rate-limit",
+      mesaj: "e-Plan günlük misafir sorgu limiti doldu (~10). Yarın tekrar deneyin veya manuel girin.",
+    };
   }
 
   try {
     const data = await chrome.storage.local.get(EPLAN_STORAGE_KEY);
     const cached = data[EPLAN_STORAGE_KEY] as EPlanImarVerisi | undefined;
     if (cached && cached.parselKey === cacheKey && Date.now() - cached.yakalandiAt < CACHE_TTL) {
-      return cached;
+      return { veri: cached, durum: "ok", mesaj: "Önbellekten yüklendi." };
     }
   } catch (e) {
     console.warn("[eplan-api] Cache okunurken hata:", e);
   }
 
-  // Önce TKGM koordinatları (ek API çağrısı yok — misafir limitini korur)
   let wkt3857: string | null = parselToWkt3857(parsel);
   if (
     !wkt3857 &&
@@ -255,7 +273,11 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
   }
   if (!wkt3857) {
     console.warn("[eplan-api] Parsel geometrisi yok, e-Plan sorgusu yapılamıyor.");
-    return null;
+    return {
+      veri: null,
+      durum: "geometri-yok",
+      mesaj: "Parsel geometrisi yok; imar sorgusu yapılamadı. Kullanım kararını manuel seçin.",
+    };
   }
 
   try {
@@ -271,17 +293,23 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
 
     const planList = JSON.parse(queryRes.text) as Record<string, unknown>[];
     if (!Array.isArray(planList) || planList.length === 0) {
-      return null;
+      return {
+        veri: null,
+        durum: "bos",
+        mesaj: "Bu parsel için e-Plan kaydı bulunamadı. Kullanım kararını seçin veya belediye portalına bakın.",
+      };
     }
 
     const ilkPlan = planList[0];
-    if (!ilkPlan) return null;
+    if (!ilkPlan) {
+      return { veri: null, durum: "bos", mesaj: "e-Plan plan listesi boş döndü." };
+    }
 
     const planID = ilkPlan.recID as string | undefined;
     const pin = ilkPlan[EPLAN_PARAM.publicPlanPinIDPropertyRecID] as string | undefined;
     if (!planID) {
       console.warn("[eplan-api] Plan bulundu ama recID alınamadı.", ilkPlan);
-      return null;
+      return { veri: null, durum: "bos", mesaj: "Plan bulundu ama kimlik alınamadı." };
     }
 
     const gmlRes = await eplanApi(`planGML/getGmlData?planRecID=${planID}`, "POST", wkt3857);
@@ -292,7 +320,11 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
     const gmlRows = JSON.parse(gmlRes.text) as Record<string, unknown>[];
     const details = pickBestGmlRow(Array.isArray(gmlRows) ? gmlRows : []);
     if (!details) {
-      return null;
+      return {
+        veri: null,
+        durum: "bos",
+        mesaj: "Plan var ama yapı koşulu satırı okunamadı. Manuel giriş önerilir.",
+      };
     }
 
     const kullanimKarari =
@@ -336,22 +368,43 @@ export async function otomatikEPlanSorgula(parsel: Parsel): Promise<EPlanImarVer
     };
 
     await chrome.storage.local.set({ [EPLAN_STORAGE_KEY]: sonuc });
-    return sonuc;
+    return { veri: sonuc, durum: "ok", mesaj: "e-Plan resmi kaydı alındı." };
   } catch (error) {
     const mesaj = error instanceof Error ? error.message : String(error);
     if (/HTTP 0|Failed to fetch|NetworkError/i.test(mesaj)) {
       console.warn("[eplan-api] e-plan ulaşılamıyor, content-script/manuel fallback'e geçiliyor");
-    } else if (/HTTP 429/i.test(mesaj)) {
+      return {
+        veri: null,
+        durum: "ag-hatasi",
+        mesaj: "e-Plan sunucusuna ulaşılamadı. Manuel giriş veya haritadaki ÇDP katmanını deneyin.",
+      };
+    }
+    if (/HTTP 429/i.test(mesaj)) {
       console.warn(
         "[eplan-api] e-Plan misafir sorgu limiti doldu (günlük ~10) — eplan.csb.gov.tr'de manuel sorgu veya TÜCBS fallback kullanın",
       );
-    } else if (/HTTP 40[0-9]/i.test(mesaj)) {
+      await eplanRateLimitIsaretle();
+      return {
+        veri: null,
+        durum: "rate-limit",
+        mesaj: "e-Plan günlük misafir limiti doldu. Yarın tekrar veya manuel giriş.",
+      };
+    }
+    if (/HTTP 40[0-9]/i.test(mesaj)) {
       console.warn(
         "[eplan-api] e-Plan otomatik sorgu yetkilendirme/endpoint hatası — manuel imar/TÜCBS fallback devrede",
       );
-    } else {
-      console.error("[eplan-api] E-Plan otomatik sorgu başarısız:", error);
+      return {
+        veri: null,
+        durum: "yetki-hatasi",
+        mesaj: "e-Plan otomatik sorgu yetkilendirme hatası. Manuel imar girişi kullanın.",
+      };
     }
-    return null;
+    console.error("[eplan-api] E-Plan otomatik sorgu başarısız:", error);
+    return {
+      veri: null,
+      durum: "ag-hatasi",
+      mesaj: "e-Plan sorgusu başarısız. Manuel giriş veya ÇDP katmanı ile devam edin.",
+    };
   }
 }

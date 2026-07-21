@@ -1,0 +1,80 @@
+---
+export const prerender = true;
+import SeoLanding from "../components/SeoLanding.astro";
+---
+
+<SeoLanding
+  title="Arsa Yatırımı 2026 — TKGM, İmar ve TL/m² Analizi | Cadastrum"
+  description="Arsa yatırımı yapmadan önce TKGM parsel doğrulama, e-Plan imar (emsal/TAKS), mahalle TL/m² ve risk sinyallerini tek bakışta görün. Bireysel ve kurumsal yatırımcılar için Cadastrum."
+  keywords={[
+    "arsa yatırımı",
+    "arsa yatırım nasıl yapılır",
+    "yatırımlık arsa",
+    "arsa almadan önce kontrol",
+    "TKGM arsa sorgu",
+    "imarlı arsa yatırım",
+    "arsa TL/m²",
+    "Cadastrum",
+  ]}
+  breadcrumbLabel="Arsa yatırımı"
+  h1="Arsa yatırımı: karar öncesi net bakış"
+  lead="İlan fiyatına değil, resmi parsele bakın. Cadastrum; TKGM kaydı, e-Plan imar ve mahalle emsal fiyatını bir araya getirerek bireysel ve kurumsal arsa yatırımcılarının riskini düşürür."
+  sections={[
+    {
+      h2: "Arsa yatırımı neden farklıdır?",
+      p: "Konuttan farklı olarak arsa değeri büyük ölçüde imar hakkına, konum likiditesine ve resmi tapu niteliğine bağlıdır. Yanlış mahalle, eksik imar veya hisseli kayıt — ilan metninde görünmeyebilir.",
+      bullets: [
+        "TKGM’de ada/parsel ve alan, ilanla uyuşmalı",
+        "e-Plan’da kullanım (konut/ticaret), emsal ve TAKS kritik",
+        "Mahalle medyan TL/m², asking fiyatı gerçek satıştan ayrışır",
+        "Deprem / taşkın ve yol erişimi portföy riskini belirler",
+      ],
+    },
+    {
+      h2: "Yatırımcı checklist’i (Cadastrum ile)",
+      p: "Sahibinden veya Hepsiemlak ilanını açtığınızda eklenti yan panelde resmi katmanları toplar. Kurumsal ekipler aynı akışı toplu tarama ve PDF raporla ölçekler.",
+      bullets: [
+        "Parsel doğrulama — sahte / yanlış ada-parsel uyarısı",
+        "İmar özeti — emsal, yükseklik, kullanım",
+        "Fiyat bandı — 65.000+ mahalle emsal verisi",
+        "Yoğunluk haritası — bölgede gerçek alım-satım sinyali",
+      ],
+    },
+    {
+      h2: "Bireysel vs kurumsal arsa yatırımı",
+      p: "Bireysel yatırımcı tek parselde hız ve doğruluk ister; kurumsal ekip portföy, kat karşılığı ve bölge taraması ister. Cadastrum Free ile başlar, Pro/Pro+ ile ofis ölçeğine çıkar.",
+      bullets: [
+        "Free: günlük TKGM + mahalle baseline",
+        "Pro: sınırsız sorgu, otomatik imar, PDF",
+        "Kurumsal: API, çoklu kullanıcı, beyaz etiket",
+      ],
+    },
+  ]}
+  faqs={[
+    {
+      q: "Arsa yatırımı yapmadan önce ne kontrol edilmeli?",
+      a: "Önce TKGM’de parsel kaydı (ada, alan, nitelik), sonra e-Plan imar (emsal/TAKS/kullanım), ardından mahalle TL/m² bandı ve bölge likiditesi. Cadastrum bu adımları ilan üzerinde otomatikleştirir.",
+    },
+    {
+      q: "İmarlı arsa ile tarla yatırımı aynı mıdır?",
+      a: "Hayır. Tarla (tarım niteliği) imarsız veya kısıtlı kullanımda olabilir; imarlı arsa yapı hakkına sahiptir. Niteliği TKGM’den, imarı e-Plan’dan doğrulayın.",
+    },
+    {
+      q: "Kurumsal yatırımcı Cadastrum’u nasıl kullanır?",
+      a: "Ofis ekipleri Pro+/Kurumsal ile toplu parsel analizi, markalı PDF ve API erişimi kullanır. Lead toplama için /arsa-talep formu da mevcuttur.",
+    },
+    {
+      q: "Cadastrum yatırım tavsiyesi verir mi?",
+      a: "Hayır. Cadastrum karar destek aracıdır; resmi kaynakları hızlandırır. Nihai karar ve hukuki/finansal danışmanlık kullanıcıya aittir.",
+    },
+  ]}
+  related={[
+    { href: "/tarla-yatirimi", label: "Tarla yatırımı rehberi" },
+    { href: "/imar-sorgu", label: "İmar sorgu" },
+    { href: "/tkgm-parsel-sorgu", label: "TKGM parsel sorgu" },
+    { href: "/kat-karsiligi", label: "Kat karşılığı hesaplayıcı" },
+    { href: "/veri", label: "Mahalle fiyat verisi" },
+    { href: "/harita", label: "Alım-satım yoğunluk haritası" },
+    { href: "/blog/arsa-yatirimi-nasil-yapilir-2026", label: "Detaylı blog rehberi" },
+  ]}
+/>

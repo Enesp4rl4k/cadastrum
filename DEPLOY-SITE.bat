@@ -17,7 +17,7 @@ call npm run build
 if errorlevel 1 (echo BUILD HATASI & pause & exit /b 1)
 echo.
 echo Deploying to Cloudflare Pages...
-call npx wrangler pages deploy dist --project-name cadastrum-site --branch production
+call npx wrangler pages deploy dist --project-name cadastrum-site --branch master
 echo.
 echo TAMAM. Site guncellendi: https://cadastrum.com.tr
 pause

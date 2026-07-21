@@ -24,7 +24,7 @@ bucket_name = "cadastrum-tucbs-tiles"
 # Çıktıdaki id'yi buraya yaz.
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "e1e2bcac79554997a99fd3bd4b9bfc27"
 
 # Cron Triggers:
 #   "0 3 * * *"   — günde bir, istatistik refresh + rate_limit/giris_denemesi cleanup

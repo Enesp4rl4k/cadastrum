@@ -4,7 +4,7 @@
  *
  * Veri akışı:
  *   TKGM (tek seferlik) → scripts/tkgm-analiz-seed.mjs → D1
- *   Site → GET /v1/harita/analiz/birlesik → D1 → heatmap
+ *   Site → GET /v1/harita/heatmap → D1 (tek istek). Kullanıcı TKGM'ye gitmez.
  *
  * POI Katmanları (statik JSON):
  *   - Havalimanları (DHMİ kamuya açık liste)
@@ -16,6 +16,9 @@
  */
 
 const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+const CHROME_STORE_URL =
+  "https://chromewebstore.google.com/detail/cadastrum-arsa-tkgm-parsel-zekasi/aelbnillaapmecnopkoojcolecbdhiej";
+const CHROME_CTA_HTML = `<a href="${CHROME_STORE_URL}" target="_blank" rel="noopener" style="color:#C9A86A;font-size:10px;text-decoration:none;font-weight:600">Chrome'a ekle →</a>`;
 
 // ─── Fiyat choropleth renk paleti (TL/m² log skala) ──────────────────────────
 // Logaritmik interpolasyon: 500 TL/m² (kırsal) → 100.000 TL/m² (İstanbul merkez)
@@ -58,42 +61,6 @@ const TIP_ETIKETLERI: Record<number, string> = {
   4: "Bağımsız Bölüm Satış",
   5: "Bağımsız Bölüm İpotekli Satış",
 };
-
-// İl merkez koordinatları — ilçe listesi viewport filtresi için
-const IL_MERKEZLER: Record<number, [number, number]> = {
-  1:[37.00,35.32],2:[37.76,38.28],3:[38.76,30.54],4:[39.72,43.06],5:[40.65,35.83],
-  6:[39.92,32.85],7:[36.90,30.70],8:[41.18,41.82],9:[37.85,27.85],10:[39.65,27.88],
-  11:[40.15,29.97],12:[39.00,40.50],13:[38.40,42.11],14:[40.74,31.61],15:[37.72,30.29],
-  16:[40.19,29.06],17:[40.15,26.41],18:[40.60,33.62],19:[40.55,34.95],20:[37.78,29.09],
-  21:[37.91,40.22],22:[41.67,26.56],23:[38.68,39.22],24:[39.75,39.49],25:[39.91,41.27],
-  26:[39.78,30.52],27:[37.07,37.38],28:[40.91,38.39],29:[40.44,39.48],30:[37.58,43.74],
-  31:[36.60,36.16],32:[37.76,30.56],33:[36.80,34.64],34:[41.01,28.95],35:[38.42,27.14],
-  36:[40.61,36.10],37:[41.37,33.78],38:[38.72,35.49],39:[41.73,27.22],40:[39.15,33.52],
-  41:[40.85,29.88],42:[37.87,32.49],43:[39.42,29.98],44:[38.35,38.31],45:[38.62,27.43],
-  46:[37.58,36.94],47:[37.32,40.74],48:[37.21,28.37],49:[38.73,41.49],50:[38.62,34.72],
-  51:[37.97,34.68],52:[40.98,37.88],53:[41.02,40.52],54:[40.69,30.43],55:[41.28,36.33],
-  56:[38.00,41.95],57:[42.03,35.15],58:[39.75,37.02],59:[41.42,27.98],60:[40.31,36.55],
-  61:[40.99,39.73],62:[39.11,39.55],63:[37.16,38.80],64:[38.67,29.40],65:[38.50,43.41],
-  66:[39.83,34.81],67:[41.46,31.80],68:[38.35,33.99],69:[40.62,43.10],70:[37.18,33.22],
-  71:[40.11,33.51],72:[37.89,41.14],73:[37.52,42.46],74:[41.63,32.34],75:[41.08,42.71],
-  76:[39.89,44.04],77:[40.65,29.27],78:[41.20,32.64],79:[36.72,37.12],80:[37.07,36.23],
-  81:[40.84,31.16],
-};
-
-interface D1Nokta {
-  parsel_id: number;
-  enlem: number;
-  boylam: number;
-  sayi: number;
-}
-
-interface IlceBilgi {
-  ilceKodu: number;
-  ilceAdi: string;
-  ilKodu: number;
-  lat: number;
-  lng: number;
-}
 
 interface HeatPoint {
   type: "Feature";
@@ -144,7 +111,7 @@ const IL_CENTROID: Record<string, [number, number]> = {
   diyarbakir:[37.91,40.22],edirne:[41.67,26.56],elazig:[38.68,39.22],erzincan:[39.75,39.49],
   erzurum:[39.91,41.27],eskisehir:[39.78,30.52],gaziantep:[37.07,37.38],giresun:[40.91,38.39],
   gumushane:[40.44,39.48],hakkari:[37.58,43.74],hatay:[36.60,36.16],isparta:[37.76,30.56],
-  mersin:[36.80,34.64],istanbul:[41.01,28.95],izmir:[38.42,27.14],kars:[40.61,36.10],
+  mersin:[36.80,34.64],istanbul:[41.01,28.95],izmir:[38.42,27.14],kars:[40.60,43.10],
   kastamonu:[41.37,33.78],kayseri:[38.72,35.49],kirklareli:[41.73,27.22],kirsehir:[39.15,33.52],
   kocaeli:[40.85,29.88],konya:[37.87,32.49],kutahya:[39.42,29.98],malatya:[38.35,38.31],
   manisa:[38.62,27.43],kahramanmaras:[37.58,36.94],mardin:[37.32,40.74],mugla:[37.21,28.37],
@@ -265,12 +232,12 @@ function fiyatKatmanEkle(veri: IlFiyatOzet[]) {
         const ilcelerEl = document.getElementById(`${popupId}-ilceler`);
         if (!ilcelerEl) return;
         try {
-          const res = await fetch(`${API_BASE}/fiyat/ilce/${ilNorm}?kategori=${fiyatKategori}`);
+          const res = await fetch(`${API_BASE}/fiyat/il/${ilNorm}?kategori=${fiyatKategori}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json() as {
-            mahalleler?: Array<{ ilce_norm: string; medyan: number; ilan_adet: number }>;
+            ilceler?: Array<{ ilce_norm: string; medyan: number; ilan_adet: number }>;
           };
-          const ilceler = (data.mahalleler ?? []).slice(0, 8);
+          const ilceler = (data.ilceler ?? []).slice(0, 8);
           if (ilceler.length === 0) {
             ilcelerEl.textContent = "İlçe verisi yok";
             return;
@@ -292,8 +259,9 @@ function fiyatKatmanEkle(veri: IlFiyatOzet[]) {
                 </div>
               </div>`;
             }),
-            `<div style="text-align:right;margin-top:4px">
+            `<div style="text-align:right;margin-top:4px;display:flex;justify-content:flex-end;gap:10px">
               <a href="/veri/${ilNorm}" style="color:#60a5fa;font-size:9px;text-decoration:none">Tüm mahalleler →</a>
+              ${CHROME_CTA_HTML}
             </div>`,
           ].join("");
         } catch {
@@ -356,18 +324,23 @@ interface IlLikiditeSonuc {
   ipotekli_oran: number;
   nufus_m: number;
   etiket: string;
+  per_capita?: number;
+  ilan_adet?: number;
+  kaynak?: string;
 }
 
 let likiditKatmanAcik = false;
 let likiditKategori: "arsa" | "tarla" = "arsa";
 let likiditVerisi: IlLikiditeSonuc[] = [];
+let likiditMeta: { tkgm_ilce_kapsam?: number; tkgm_hedef_ilce?: number; guncelleme?: string } = {};
 
+// Koyu basemap üzerinde okunur cyan ölçeği (#1e293b/#334155 neredeyse görünmezdi)
 const LIKIDITE_SKALA = [
-  { esik: 0.30, renk: "#1e293b", etiket: "Düşük" },
-  { esik: 0.50, renk: "#334155", etiket: "Normal" },
-  { esik: 0.70, renk: "#0369a1", etiket: "Aktif" },
-  { esik: 0.85, renk: "#0ea5e9", etiket: "Çok Aktif" },
-  { esik: Infinity, renk: "#38bdf8", etiket: "En Likit" },
+  { esik: 0.50, renk: "#94a3b8", etiket: "Düşük" },
+  { esik: 0.70, renk: "#38bdf8", etiket: "Normal" },
+  { esik: 0.85, renk: "#0ea5e9", etiket: "Aktif" },
+  { esik: 0.95, renk: "#22d3ee", etiket: "Çok Aktif" },
+  { esik: Infinity, renk: "#a5f3fc", etiket: "En Likit" },
 ];
 
 function likiditRenk(skor: number): string {
@@ -378,19 +351,41 @@ function likiditRenk(skor: number): string {
 }
 
 async function likiditVerisiCek(kategori: "arsa" | "tarla"): Promise<IlLikiditeSonuc[]> {
-  const cacheKey = `likidite-v1:${kategori}`;
+  const cacheKey = `likidite-v3:${kategori}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
-      const { veri, ts } = JSON.parse(cached) as { veri: IlLikiditeSonuc[]; ts: number };
-      if (Date.now() - ts < 86_400_000) return veri; // 24 saat cache
+      const { veri, meta, ts } = JSON.parse(cached) as {
+        veri: IlLikiditeSonuc[];
+        meta?: typeof likiditMeta;
+        ts: number;
+      };
+      if (Date.now() - ts < 3_600_000 && veri.length > 0) {
+        if (meta) likiditMeta = meta;
+        return veri;
+      }
     }
   } catch {}
   const res = await fetch(`${API_BASE}/harita/likidite?kategori=${kategori}`);
-  if (!res.ok) throw new Error(`likidite HTTP ${res.status}`);
-  const data = await res.json() as { iller: IlLikiditeSonuc[] };
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`likidite HTTP ${res.status}${errBody.includes("Rate") ? " (rate limit)" : ""}`);
+  }
+  const data = await res.json() as {
+    iller: IlLikiditeSonuc[];
+    tkgm_ilce_kapsam?: number;
+    tkgm_hedef_ilce?: number;
+    guncelleme?: string;
+  };
   const veri = data.iller ?? [];
-  try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
+  likiditMeta = {
+    tkgm_ilce_kapsam: data.tkgm_ilce_kapsam,
+    tkgm_hedef_ilce: data.tkgm_hedef_ilce,
+    guncelleme: data.guncelleme,
+  };
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({ veri, meta: likiditMeta, ts: Date.now() }));
+  } catch {}
   return veri;
 }
 
@@ -401,16 +396,23 @@ function likiditKatmanEkle(veri: IlLikiditeSonuc[]) {
   for (const [ilNorm, centroid] of Object.entries(IL_CENTROID)) {
     const bilgi = fiyatMap.get(ilNorm);
     if (!bilgi) continue;
+    const skorPct = Math.round(bilgi.skor * 100);
     features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [centroid[1], centroid[0]] },
       properties: {
         il_norm: ilNorm,
         skor: bilgi.skor,
+        skor_pct: skorPct,
         yillik_satis: bilgi.yillik_satis,
+        ipotekli_oran: bilgi.ipotekli_oran,
+        nufus_m: bilgi.nufus_m,
+        ilan_adet: bilgi.ilan_adet ?? 0,
         etiket: bilgi.etiket,
+        etiket_skor: `${bilgi.etiket} · ${skorPct}`,
         renk: likiditRenk(bilgi.skor),
-        boyut: Math.round(10 + bilgi.skor * 20), // 10-30px arası
+        // Ülke zoomunda bile görünsün (min ~14px)
+        boyut: Math.round(14 + bilgi.skor * 22),
       },
     });
   }
@@ -426,31 +428,37 @@ function likiditKatmanEkle(veri: IlLikiditeSonuc[]) {
       type: "circle",
       source: srcId,
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, ["get", "boyut"], 6, ["+", ["get", "boyut"], 8], 8, ["+", ["get", "boyut"], 18]],
+        "circle-radius": [
+          "interpolate", ["linear"], ["zoom"],
+          4, ["get", "boyut"],
+          6, ["+", ["get", "boyut"], 10],
+          8, ["+", ["get", "boyut"], 20],
+        ],
         "circle-color": ["get", "renk"],
-        "circle-opacity": 0.80,
-        "circle-stroke-width": 1.5,
-        "circle-stroke-color": "rgba(255,255,255,0.5)",
+        "circle-opacity": 0.92,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "rgba(255,255,255,0.75)",
+        "circle-blur": 0.05,
       },
     });
     harita.addLayer({
       id: "likidite-label",
       type: "symbol",
       source: srcId,
-      minzoom: 5,
+      minzoom: 4.2,
       layout: {
-        "text-field": ["get", "etiket"],
+        "text-field": ["get", "etiket_skor"],
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 5, 8, 8, 10],
-        "text-offset": [0, 1.8],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 9, 7, 11],
+        "text-offset": [0, 1.6],
         "text-anchor": "top",
-        "text-allow-overlap": false,
-        "text-optional": true,
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
       },
       paint: {
-        "text-color": "#e0f2fe",
+        "text-color": "#ecfeff",
         "text-halo-color": "#0c4a6e",
-        "text-halo-width": 1.5,
+        "text-halo-width": 1.8,
       },
     });
     harita.on("click", "likidite-circle", (e) => {
@@ -459,17 +467,25 @@ function likiditKatmanEkle(veri: IlLikiditeSonuc[]) {
       const ilAd = String(p["il_norm"]);
       const skor = Number(p["skor"]);
       const renk = String(p["renk"]);
-      new MLPopup({ closeButton: true, maxWidth: "260px" })
+      const ipotek = Number(p["ipotekli_oran"] ?? 0);
+      const ilanAdet = Number(p["ilan_adet"] ?? 0);
+      new MLPopup({ closeButton: true, maxWidth: "280px" })
         .setLngLat(e.lngLat)
         .setHTML(`
-          <div style="font-family:Inter,sans-serif;padding:2px 4px;min-width:200px">
+          <div style="font-family:Inter,sans-serif;padding:2px 4px;min-width:210px">
             <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px">
               ${ilAd.charAt(0).toUpperCase() + ilAd.slice(1)}
             </div>
             <div style="font-size:18px;font-weight:800;color:${renk}">${String(p["etiket"])}</div>
-            <div style="font-size:11px;color:#64748b;margin-top:4px">
-              Likidite skoru: <strong>${Math.round(skor * 100)}%</strong><br>
-              Yıllık satış: <strong>${Number(p["yillik_satis"]).toLocaleString("tr-TR")}</strong>
+            <div style="font-size:11px;color:#64748b;margin-top:6px;line-height:1.55">
+              Likidite skoru: <strong style="color:#0f172a">${Math.round(skor * 100)}</strong>/100<br>
+              Yıllık tapu satışı: <strong style="color:#0f172a">${Number(p["yillik_satis"]).toLocaleString("tr-TR")}</strong><br>
+              İpotekli oran: <strong style="color:#0f172a">%${Math.round(ipotek * 100)}</strong><br>
+              ${ilanAdet > 0 ? `İlan havuzu: <strong style="color:#0f172a">${ilanAdet.toLocaleString("tr-TR")}</strong><br>` : ""}
+            </div>
+            <div style="margin-top:8px;text-align:right;display:flex;justify-content:flex-end;gap:10px">
+              <a href="/veri/${ilAd}" style="color:#0891b2;font-size:10px;text-decoration:none;font-weight:600">İl detayı →</a>
+              ${CHROME_CTA_HTML}
             </div>
           </div>
         `)
@@ -478,6 +494,11 @@ function likiditKatmanEkle(veri: IlLikiditeSonuc[]) {
     harita.on("mouseenter", "likidite-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
     harita.on("mouseleave", "likidite-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
   }
+  // Heatmap / POI üstünde kalsın
+  try {
+    if (harita.getLayer("likidite-circle")) harita.moveLayer("likidite-circle");
+    if (harita.getLayer("likidite-label")) harita.moveLayer("likidite-label");
+  } catch { /* ignore */ }
 }
 
 function likiditKatmanGorunurluk(gorünür: boolean) {
@@ -487,15 +508,42 @@ function likiditKatmanGorunurluk(gorünür: boolean) {
   if (harita.getLayer("likidite-label"))  harita.setLayoutProperty("likidite-label",  "visibility", vis);
 }
 
+function likiditeLegendGuncelle() {
+  const el = document.getElementById("likidite-legend");
+  if (!el) return;
+  el.innerHTML = LIKIDITE_SKALA.map(s =>
+    `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;color:#94a3b8">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.renk};border:1px solid rgba(255,255,255,0.3)"></span>
+      ${s.etiket}
+    </span>`
+  ).join("");
+  const metaEl = document.getElementById("likidite-meta");
+  if (metaEl && likiditMeta.tkgm_ilce_kapsam != null) {
+    const hedef = likiditMeta.tkgm_hedef_ilce ?? 957;
+    metaEl.textContent = `TKGM ısı haritası seed: ${likiditMeta.tkgm_ilce_kapsam}/${hedef} ilçe`;
+  }
+}
+
 async function likiditToggle(kategori: "arsa" | "tarla" = "arsa") {
   if (!harita) return;
+  durumGuncelle("Likidite verisi yükleniyor…");
   if (kategori !== likiditKategori || likiditVerisi.length === 0) {
     likiditKategori = kategori;
     try {
       likiditVerisi = await likiditVerisiCek(kategori);
+      if (likiditVerisi.length === 0) {
+        durumGuncelle("Likidite verisi boş döndü");
+        return;
+      }
       likiditKatmanEkle(likiditVerisi);
     } catch (e) {
       console.warn("[likidite] veri alınamadı:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      durumGuncelle(
+        msg.includes("429") || msg.includes("rate")
+          ? "Likidite: istek limiti — 1 dk sonra tekrar açın"
+          : "Likidite verisi alınamadı — tekrar deneyin",
+      );
       return;
     }
   } else {
@@ -503,6 +551,8 @@ async function likiditToggle(kategori: "arsa" | "tarla" = "arsa") {
   }
   likiditKatmanAcik = true;
   likiditKatmanGorunurluk(true);
+  likiditeLegendGuncelle();
+  durumGuncelle("");
 }
 
 // ─── Trend / sıcaklık choropleth ───────────────────────────────────────────────
@@ -699,12 +749,58 @@ const katmanDurum: Record<string, boolean> = {
   "osb": false,
   "lojistik": false,
   "cdp-imar": false,
+  "belediye-imar": false,
   "tmo": false,
   "stb": false,
   "baraj": false,
   "enerji": false,
   "otoyol": false,
 };
+
+/** İBB Plan ArcGIS export — görsel katman (ada/parsel sorgu değil) */
+const IBB_PLAN_TILE =
+  "https://cbsmapws.ibb.gov.tr/arcgis/rest/services/KAZI_RUHSAT/QueryMap/MapServer/export" +
+  "?bboxSR=3857&imageSR=3857&size=256,256&dpi=96&format=png32&transparent=true" +
+  "&layers=show:12,13,14&f=image&bbox={bbox-epsg-3857}";
+
+function belediyeImarLayerEkle() {
+  if (!harita) return;
+  if (!harita.getSource("belediye-ibb-src")) {
+    harita.addSource("belediye-ibb-src", {
+      type: "raster",
+      tiles: [IBB_PLAN_TILE],
+      tileSize: 256,
+      attribution: "© İBB CBS — Plan 1/1000–1/5000 (görsel)",
+      maxzoom: 18,
+    });
+  }
+  if (!harita.getLayer("belediye-ibb-layer")) {
+    const before = harita.getLayer("heat-cloud") ? "heat-cloud" : undefined;
+    harita.addLayer(
+      {
+        id: "belediye-ibb-layer",
+        type: "raster",
+        source: "belediye-ibb-src",
+        minzoom: 10,
+        maxzoom: 18,
+        paint: { "raster-opacity": 0.65 },
+      },
+      before,
+    );
+  } else {
+    harita.setLayoutProperty("belediye-ibb-layer", "visibility", "visible");
+  }
+  const bilgi = document.getElementById("cdp-bilgi");
+  if (bilgi) {
+    bilgi.classList.remove("hidden");
+    bilgi.textContent = "İBB plan (İstanbul · zoom ≥10)";
+  }
+}
+
+function belediyeImarLayerKapat() {
+  if (!harita?.getLayer("belediye-ibb-layer")) return;
+  harita.setLayoutProperty("belediye-ibb-layer", "visibility", "none");
+}
 
 // ─── Otoyol & D-yol layer ─────────────────────────────────────────────────────
 // /geo/otoyollar.geojson — extract-otoyollar.mjs ile üretilir
@@ -821,10 +917,12 @@ function otoyolGorunurluk(gorünür: boolean) {
 
 let harita: import("maplibre-gl").Map | null = null;
 let aktifTip = 1;
-let yuklenenIlceler = new Set<string>();
 let tumNoktalar: HeatPoint[] = [];
 let yukleniyor = false;
 let poiVeri: PoiVeri | null = null;
+/** tip → cache (session) */
+const heatmapCache = new Map<number, HeatPoint[]>();
+let seedIlceKapsam = 0;
 
 // ─── Haversine mesafe (km) ────────────────────────────────────────────────────
 
@@ -847,78 +945,53 @@ async function poiVeriYukle(): Promise<PoiVeri> {
   return poiVeri;
 }
 
-// ─── D1 backend'den ilçe verisi çek ──────────────────────────────────────────
+// ─── D1 heatmap — tek istek, TKGM yok ────────────────────────────────────────
 
-async function ilceBirlesikCek(ilceKodu: number, tip: number): Promise<D1Nokta[]> {
-  const cacheKey = `harita-d1:${ilceKodu}:${tip}`;
-  try {
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached) as D1Nokta[];
-  } catch {}
-
-  const url = `${API_BASE}/harita/analiz/birlesik?ilceKodu=${ilceKodu}&analizTip=${tip}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json() as { noktalar?: D1Nokta[] };
-  const noktalar = data.noktalar ?? [];
-
-  try { sessionStorage.setItem(cacheKey, JSON.stringify(noktalar)); } catch {}
-  return noktalar;
-}
-
-// ─── TKGM idari yapı — ilçe listesi (backend proxy) ─────────────────────────
-
-// İdari yapı (il/ilçe) TKGM'de nadiren değişir — backend zaten 30 gün cache'liyor,
-// istemci tarafında da aynı süre localStorage'da tutup ilk yüklemeyi hızlandırıyoruz.
-const ILCE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-async function tumIlceleriCek(): Promise<IlceBilgi[]> {
-  const cacheKey = "tkgm-ilce-listesi-v3";
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const { veri, zaman } = JSON.parse(cached) as { veri: IlceBilgi[]; zaman: number };
-      if (Date.now() - zaman < ILCE_CACHE_TTL_MS) return veri;
-    }
-  } catch {}
-
-  const ilceler: IlceBilgi[] = [];
-  const ilKodlari = Array.from({ length: 81 }, (_, i) => i + 1);
-  const GRUP = 24;
-
-  for (let i = 0; i < ilKodlari.length; i += GRUP) {
-    const grup = ilKodlari.slice(i, i + GRUP);
-    await Promise.allSettled(
-      grup.map(async (ilKodu) => {
-        try {
-          const res = await fetch(`${API_BASE}/proxy/tkgm-idari/ilceListe/${ilKodu}`);
-          if (!res.ok) return;
-          const data = await res.json() as {
-            features?: Array<{ properties?: Record<string, unknown> }>;
-          };
-          const merkez = IL_MERKEZLER[ilKodu] ?? [39.0, 35.5];
-          for (const f of data.features ?? []) {
-            const p = (f.properties ?? {}) as Record<string, unknown>;
-            const ilceKodu = Number(p["id"] ?? 0);
-            if (!ilceKodu) continue;
-            const idx = ilceler.filter(x => x.ilKodu === ilKodu).length;
-            ilceler.push({
-              ilceKodu,
-              ilceAdi: String(p["text"] ?? p["ad"] ?? ""),
-              ilKodu,
-              lat: merkez[0] + ((idx % 6) - 2.5) * 0.25,
-              lng: merkez[1] + (Math.floor(idx / 6) - 2) * 0.35,
-            });
-          }
-        } catch {}
-      })
-    );
+async function heatmapYukle(tip: number): Promise<void> {
+  if (!harita || yukleniyor) return;
+  if (heatmapCache.has(tip)) {
+    tumNoktalar = heatmapCache.get(tip)!;
+    sourceGuncelle();
+    const maxSayi = tumNoktalar.reduce((m, p) => Math.max(m, p.properties.sayi), 1);
+    layerEkleVeyaGuncelle(maxSayi);
+    durumGuncelle(`${tumNoktalar.length.toLocaleString("tr-TR")} ısı hücresi (D1)`);
+    istatistikGuncelle(tumNoktalar.length);
+    return;
   }
 
+  yukleniyor = true;
+  durumGuncelle("Isı haritası yükleniyor (kendi veritabanımız)…");
   try {
-    localStorage.setItem(cacheKey, JSON.stringify({ veri: ilceler, zaman: Date.now() }));
-  } catch {}
-  return ilceler;
+    const res = await fetch(`${API_BASE}/harita/heatmap?analizTip=${tip}`);
+    if (!res.ok) throw new Error(`heatmap HTTP ${res.status}`);
+    const data = await res.json() as {
+      noktalar?: Array<{ enlem: number; boylam: number; sayi: number }>;
+      ilce_kapsam?: number;
+      nokta_adet?: number;
+    };
+    seedIlceKapsam = data.ilce_kapsam ?? 0;
+    const features: HeatPoint[] = (data.noktalar ?? []).map((n) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [n.boylam, n.enlem] },
+      properties: { sayi: n.sayi },
+    }));
+    heatmapCache.set(tip, features);
+    tumNoktalar = features;
+    sourceGuncelle();
+    const maxSayi = features.reduce((m, p) => Math.max(m, p.properties.sayi), 1);
+    layerEkleVeyaGuncelle(maxSayi);
+    const ilceEl = document.getElementById("stat-ilce");
+    if (ilceEl) ilceEl.textContent = String(seedIlceKapsam || "—");
+    durumGuncelle(
+      `${features.length.toLocaleString("tr-TR")} ısı hücresi · ${seedIlceKapsam}/957 ilçe seed`,
+    );
+    istatistikGuncelle(features.length);
+  } catch (e) {
+    console.warn("[heatmap] D1 yükleme hatası:", e);
+    durumGuncelle("Isı haritası yüklenemedi — sayfayı yenileyin");
+  } finally {
+    yukleniyor = false;
+  }
 }
 
 // ─── GeoJSON source ───────────────────────────────────────────────────────────
@@ -986,66 +1059,7 @@ function layerEkleVeyaGuncelle(maxSayi: number) {
   });
 }
 
-// ─── Görünen ilçeleri lazy yükle ─────────────────────────────────────────────
-
-async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
-  if (!harita || yukleniyor) return;
-
-  const bounds = harita.getBounds();
-  if (!bounds) return;
-
-  const ne = bounds.getNorthEast();
-  const sw = bounds.getSouthWest();
-  const latPad = (ne.lat - sw.lat) * 0.2;
-  const lngPad = (ne.lng - sw.lng) * 0.2;
-
-  const gorünenler = ilceler.filter((ilce) =>
-    ilce.lat >= sw.lat - latPad && ilce.lat <= ne.lat + latPad &&
-    ilce.lng >= sw.lng - lngPad && ilce.lng <= ne.lng + lngPad
-  );
-
-  const yuklenecekler = gorünenler.filter(
-    (ilce) => !yuklenenIlceler.has(`${ilce.ilceKodu}:${aktifTip}`)
-  );
-
-  if (yuklenecekler.length === 0) return;
-
-  yukleniyor = true;
-  durumGuncelle(`${yuklenecekler.length} ilçe yükleniyor…`);
-
-  const CONCURRENCY = 6; // D1 backend hızlı — daha yüksek concurrency
-  for (let i = 0; i < yuklenecekler.length; i += CONCURRENCY) {
-    const grup = yuklenecekler.slice(i, i + CONCURRENCY);
-    await Promise.allSettled(
-      grup.map(async (ilce) => {
-        const key = `${ilce.ilceKodu}:${aktifTip}`;
-        yuklenenIlceler.add(key);
-        try {
-          const noktalar = await ilceBirlesikCek(ilce.ilceKodu, aktifTip);
-          tumNoktalar.push(
-            ...noktalar.map((n): HeatPoint => ({
-              type: "Feature",
-              geometry: { type: "Point", coordinates: [n.boylam, n.enlem] },
-              properties: { sayi: n.sayi },
-            }))
-          );
-        } catch {
-          // sessiz fail — seed edilmemiş ilçe
-        }
-      })
-    );
-    // Harita çizimini ilçe başına değil, batch başına güncelle — "damla damla"
-    // yerine düzgün, birkaç kademeli adımda dolan bir görünüm.
-    sourceGuncelle();
-    const araMaxSayi = tumNoktalar.reduce((m, p) => Math.max(m, (p.properties as { sayi: number }).sayi), 1);
-    layerEkleVeyaGuncelle(araMaxSayi);
-  }
-
-  const toplamNokta = tumNoktalar.length;
-  durumGuncelle(`${toplamNokta.toLocaleString("tr-TR")} işlem noktası (tüm yıllar birleşik)`);
-  istatistikGuncelle(toplamNokta);
-  yukleniyor = false;
-}
+// (eski lazy ilçe yükleme kaldırıldı — TKGM idari + N×birlesik yasak)
 
 // ─── UI ───────────────────────────────────────────────────────────────────────
 
@@ -1467,6 +1481,22 @@ async function katmanToggle(katman: string) {
     return;
   }
 
+  // Belediye imar — İBB raster (İstanbul); diğer iller portal deep-link
+  if (katman === "belediye-imar") {
+    if (acik) {
+      belediyeImarLayerEkle();
+      const center = harita.getCenter();
+      // İstanbul yaklaşık bbox dışıysa kullanıcıyı bilgilendir
+      if (center.lng < 27.5 || center.lng > 30.2 || center.lat < 40.7 || center.lat > 41.6) {
+        harita.flyTo({ center: [29.0, 41.05], zoom: 11, duration: 1200 });
+      }
+    } else {
+      belediyeImarLayerKapat();
+    }
+    btnToggleGuncelle(katman, acik);
+    return;
+  }
+
   const cfg = POI_LAYER_MAP[katman];
   if (!cfg) return;
 
@@ -1592,20 +1622,73 @@ function cdpKatmanGuncelle() {
   if (bilgi && cdpInfo) bilgi.textContent = cdpInfo.ad;
 }
 
-function tipDegistir(yeniTip: number, ilceler: IlceBilgi[]) {
+function tipDegistir(yeniTip: number) {
   aktifTip = yeniTip;
   tumNoktalar = [];
-  const temiz = new Set<string>();
-  for (const k of yuklenenIlceler) {
-    if (!k.endsWith(`:${yeniTip}`)) temiz.add(k);
-  }
-  yuklenenIlceler = temiz;
   sourceGuncelle();
   legendGuncelle(yeniTip);
   if (harita?.getLayer("heat-circle")) {
     harita.setPaintProperty("heat-circle", "circle-color", TIP_RENKLERI[yeniTip] ?? "#7c3aed");
   }
-  void gorunenIlceleriYukle(ilceler);
+  void heatmapYukle(yeniTip);
+}
+
+/** ÇDP katmanı açıkken tıklama → GetFeatureInfo ipucu (üst plan; 1/1000 değil). */
+async function cdpImarTiklama(lng: number, lat: number) {
+  if (!harita || !MLPopup || !katmanDurum["cdp-imar"]) return;
+  const slug = aktifCdpSlug ?? cdpSlugSec(lng);
+  const ad = CDP_SLUGLARI.find((c) => c.slug === slug)?.ad ?? "ÇDP";
+  const popup = new MLPopup({ closeButton: true, maxWidth: "260px" })
+    .setLngLat([lng, lat])
+    .setHTML(
+      `<div style="font-family:Inter,sans-serif;font-size:12px;padding:2px">
+        <div style="font-weight:600;color:#1B2A4A;margin-bottom:4px">ÇDP ipucu · ${ad}</div>
+        <div id="cdp-fi-metin" style="color:#64748b">Sorgulanıyor…</div>
+        <p style="font-size:10px;color:#94a3b8;margin:8px 0 0;line-height:1.35">
+          Üst ölçek TUCBS. Resmi KAKS/TAKS için Chrome eklentisi.
+        </p>
+      </div>`,
+    )
+    .addTo(harita);
+  try {
+    const res = await fetch(
+      `${API_BASE}/proxy/tucbs?wms=${encodeURIComponent(slug)}&lat=${lat}&lng=${lng}`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    const el = document.getElementById("cdp-fi-metin");
+    if (!el) return;
+    if (!res.ok) {
+      el.textContent = "Yanıt alınamadı veya kapsam dışı.";
+      return;
+    }
+    const data = (await res.json()) as {
+      features?: Array<{ properties?: Record<string, unknown> }>;
+    };
+    const feats = data.features;
+    if (!feats?.length) {
+      el.textContent = "Bu noktada ÇDP özelliği yok / kapsam dışı.";
+      return;
+    }
+    const p = feats[0].properties ?? {};
+    const keys = ["KULLANIM", "kullanim", "SINIF", "sinif", "ADI", "adi", "PLAN_ADI"];
+    let ozet: string | null = null;
+    for (const k of keys) {
+      if (p[k] != null && String(p[k]).trim()) {
+        ozet = String(p[k]).trim();
+        break;
+      }
+    }
+    if (!ozet) {
+      const first = Object.entries(p).find(([, v]) => v != null && String(v).length < 80);
+      ozet = first ? `${first[0]}: ${first[1]}` : "Katman bulundu";
+    }
+    el.style.color = "#334155";
+    el.textContent = ozet;
+  } catch {
+    const el = document.getElementById("cdp-fi-metin");
+    if (el) el.textContent = "Sorgu zaman aşımı.";
+  }
+  void popup;
 }
 
 // ─── Ana init ─────────────────────────────────────────────────────────────────
@@ -1669,19 +1752,21 @@ export async function initHarita() {
     if (parent) parent.style.display = "none";
   }
 
-  // İlçe listesini çek
-  durumGuncelle("İlçe listesi yükleniyor…");
-  const ilceler = await tumIlceleriCek();
-  document.getElementById("stat-ilce")!.textContent = String(ilceler.length);
+  // Isı haritası — D1 tek paket (TKGM idari / ilçe-ilçe yok)
+  document.getElementById("stat-ilce")!.textContent = "…";
 
   harita.on("load", async () => {
     sourceGuncelle();
-    await gorunenIlceleriYukle(ilceler);
+    await heatmapYukle(aktifTip);
   });
 
   harita.on("moveend", () => {
-    void gorunenIlceleriYukle(ilceler);
     cdpKatmanGuncelle();
+  });
+
+  harita.on("click", (e) => {
+    if (!katmanDurum["cdp-imar"]) return;
+    void cdpImarTiklama(e.lngLat.lng, e.lngLat.lat);
   });
 
   // Legend tıklama — analiz tipi değiştir
@@ -1690,7 +1775,7 @@ export async function initHarita() {
     if (!target?.dataset["tip"]) return;
     const yeniTip = Number(target.dataset["tip"]);
     if (yeniTip === aktifTip) return;
-    tipDegistir(yeniTip, ilceler);
+    tipDegistir(yeniTip);
   });
 
   // POI katman toggle butonları
@@ -1753,12 +1838,13 @@ export async function initHarita() {
   // ── Likidite katman toggle ────────────────────────────────────────────────
   const likiditBtn = document.getElementById("likidite-katman-btn") as HTMLButtonElement | null;
   const likiditKatWrap = document.getElementById("likidite-kat-wrap") as HTMLElement | null;
+  const likiditeLegendWrap = document.getElementById("likidite-legend-wrap") as HTMLElement | null;
   let seciliLikiditKat: "arsa" | "tarla" = "arsa";
 
   async function likiditKatmanAc(kat: "arsa" | "tarla") {
     seciliLikiditKat = kat;
     document.querySelectorAll<HTMLButtonElement>(".likidite-kat-btn").forEach((b) => {
-      const aktif = b.dataset["likiditKategori"] === kat;
+      const aktif = b.dataset["likiditeKategori"] === kat;
       b.setAttribute("aria-pressed", aktif ? "true" : "false");
       b.classList.toggle("text-cyan-300", aktif);
       b.classList.toggle("font-semibold", aktif);
@@ -1766,6 +1852,8 @@ export async function initHarita() {
       b.classList.toggle("text-slate-400", !aktif);
     });
     await likiditToggle(kat);
+    likiditeLegendWrap?.classList.remove("hidden");
+    likiditeLegendWrap?.classList.add("flex");
   }
 
   likiditBtn?.addEventListener("click", async () => {
@@ -1775,6 +1863,8 @@ export async function initHarita() {
       likiditBtn.classList.remove("bg-slate-600", "text-white", "border-cyan-400");
       likiditBtn.classList.add("text-slate-400");
       likiditKatWrap?.classList.replace("flex", "hidden");
+      likiditeLegendWrap?.classList.add("hidden");
+      likiditeLegendWrap?.classList.remove("flex");
       likiditKatmanAcik = false;
       likiditKatmanGorunurluk(false);
     } else {
@@ -1788,7 +1878,7 @@ export async function initHarita() {
 
   document.querySelectorAll<HTMLButtonElement>(".likidite-kat-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const kat = btn.dataset["likiditKategori"] as "arsa" | "tarla" | undefined;
+      const kat = (btn.dataset["likiditeKategori"] ?? btn.dataset["likiditeKat"]) as "arsa" | "tarla" | undefined;
       if (!kat) return;
       await likiditKatmanAc(kat);
     });
