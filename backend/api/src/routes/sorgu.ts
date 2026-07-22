@@ -193,6 +193,8 @@ sorguRoutes.post("/", async (c) => {
   interface EmsalRow {
     fiyat_per_m2: number;
     mesafeM: number;
+    lat: number;
+    lng: number;
     m2: number | null;
     mahalle_norm: string | null;
     imar_durumu: string | null;
@@ -316,6 +318,8 @@ sorguRoutes.post("/", async (c) => {
         .map((row) => ({
           fiyat_per_m2: row.fiyat_per_m2,
           mesafeM: haversineM(body.lat!, body.lng!, row.lat, row.lng),
+          lat: row.lat,
+          lng: row.lng,
           m2: row.m2,
           mahalle_norm: row.mahalle_norm,
           imar_durumu: row.imar_durumu,
@@ -402,6 +406,8 @@ sorguRoutes.post("/", async (c) => {
   // CMA — en yakın 8 emsal
   const emsaller = filtered.slice(0, 8).map((e) => ({
     fiyat_per_m2: Math.round(e.fiyat_per_m2),
+    lat: e.lat,
+    lng: e.lng,
     m2: e.m2,
     mahalle: e.mahalle_norm,
     imar: e.imar_durumu,
