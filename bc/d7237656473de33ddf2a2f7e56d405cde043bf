@@ -1,0 +1,18 @@
+site/src/pages/sorgu.astro
+  h_2675fe4e526316 1325-1329,1332-1333,1338-1339,1342,1347,1352,1358-1364,1372-1393,1426-1428
+backend/api/src/routes/sorgu.ts
+  h_2675fe4e526316 196-197,321-322,409-410
+site/src/styles/global.css
+  h_2675fe4e526316 105-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bcd7237656473de33ddf2a2f7e56d405cde043bf",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
