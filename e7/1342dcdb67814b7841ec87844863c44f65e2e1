@@ -1,0 +1,14 @@
+site/src/layouts/Base.astro
+  h_2675fe4e526316 102-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e71342dcdb67814b7841ec87844863c44f65e2e1",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
