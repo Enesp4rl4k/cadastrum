@@ -261,8 +261,6 @@
   }
   @keyframes cb-spin { to { transform: rotate(360deg); } }
 
-  .hidden { display: none !important; }
-
   /* ─── HERO LAYOUT ─────────────────────────────────────────────────── */
 
   /* Two-column grid: copy left, visual right */
