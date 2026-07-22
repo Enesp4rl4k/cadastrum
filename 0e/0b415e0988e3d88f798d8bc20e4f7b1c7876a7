@@ -1,0 +1,14 @@
+site/src/styles/global.css
+  h_2675fe4e526316 104-263
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0e0b415e0988e3d88f798d8bc20e4f7b1c7876a7",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
