@@ -1,0 +1,14 @@
+site/src/pages/sorgu.astro
+  h_2675fe4e526316 78,1067-1083
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bbd46b931ddb163a9fb0e39d42d37b0ca30b71ce",
+  "prompts": {},
+  "humans": {
+    "h_2675fe4e526316": {
+      "author": "Enes Parlak <eparlak996@gmail.com>"
+    }
+  }
+}
