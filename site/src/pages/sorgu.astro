@@ -163,27 +163,53 @@ import { CHROME_STORE_URL } from "../config/launch";
         </div>
 
         <div id="mod-form-alanlari">
-        <!-- Lokasyon — Endeksa tarzı -->
+        <!-- Lokasyon — searchable combobox -->
+
+        <!-- İl combobox -->
         <div>
-          <label class="block text-xs font-medium text-slate-500 mb-1">İl</label>
-          <select id="il" required
-            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none">
-            <option value="">İl seçin…</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">İlçe</label>
-            <select id="ilce"
-              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400">
-              <option value="">Önce il seçin</option>
-            </select>
+          <label class="block text-xs font-medium text-slate-500 mb-1" for="il-input">İl</label>
+          <div class="combobox-wrap" id="il-combo">
+            <div class="combobox-field">
+              <input type="text" id="il-input" placeholder="İl ara…" autocomplete="off" role="combobox"
+                aria-expanded="false" aria-haspopup="listbox" aria-controls="il-listbox"
+                class="combobox-input" />
+              <svg class="combobox-caret" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z"/></svg>
+            </div>
+            <ul id="il-listbox" role="listbox" aria-label="İl seçenekleri" class="combobox-list hidden"></ul>
           </div>
+          <!-- hidden value for form logic -->
+          <input type="hidden" id="il" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <!-- İlçe combobox -->
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Mahalle</label>
-            <input type="text" id="mahalle" placeholder="örn. Altunizade" list="mahalle-onerileri"
-              class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none" />
-            <datalist id="mahalle-onerileri"></datalist>
+            <label class="block text-xs font-medium text-slate-500 mb-1" for="ilce-input">İlçe</label>
+            <div class="combobox-wrap" id="ilce-combo">
+              <div class="combobox-field combobox-disabled" id="ilce-field">
+                <input type="text" id="ilce-input" placeholder="Önce il seçin" autocomplete="off" role="combobox"
+                  aria-expanded="false" aria-haspopup="listbox" aria-controls="ilce-listbox"
+                  disabled class="combobox-input" />
+                <svg class="combobox-caret" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z"/></svg>
+              </div>
+              <ul id="ilce-listbox" role="listbox" aria-label="İlçe seçenekleri" class="combobox-list hidden"></ul>
+            </div>
+            <input type="hidden" id="ilce" />
+          </div>
+
+          <!-- Mahalle combobox -->
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1" for="mahalle-input">Mahalle</label>
+            <div class="combobox-wrap" id="mahalle-combo">
+              <div class="combobox-field combobox-disabled" id="mahalle-field">
+                <input type="text" id="mahalle-input" placeholder="Önce ilçe seçin" autocomplete="off" role="combobox"
+                  aria-expanded="false" aria-haspopup="listbox" aria-controls="mahalle-listbox"
+                  disabled class="combobox-input" />
+                <svg class="combobox-caret" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z"/></svg>
+              </div>
+              <ul id="mahalle-listbox" role="listbox" aria-label="Mahalle seçenekleri" class="combobox-list hidden"></ul>
+            </div>
+            <input type="hidden" id="mahalle" />
           </div>
         </div>
 
@@ -513,10 +539,20 @@ import { CHROME_STORE_URL } from "../config/launch";
     const lngInput    = $<HTMLInputElement>("lng");
     const m2Input     = $<HTMLInputElement>("m2");
     const kategoriInput = $<HTMLSelectElement>("kategori");
-    const ilSelect    = $<HTMLSelectElement>("il");
-    const ilceSelect  = $<HTMLSelectElement>("ilce");
-    const mahalleInput = $<HTMLInputElement>("mahalle");
+    // Combobox hidden value inputs (gerçek değer buraya yazılır)
+    const ilHidden    = $<HTMLInputElement>("il");
+    const ilceHidden  = $<HTMLInputElement>("ilce");
+    const mahalleHidden = $<HTMLInputElement>("mahalle");
+    // Combobox display inputs
+    const ilInput     = $<HTMLInputElement>("il-input");
+    const ilceInput   = $<HTMLInputElement>("ilce-input");
+    const mahalleInput2 = $<HTMLInputElement>("mahalle-input");
     const imarTipiSelect = $<HTMLSelectElement>("imar-tipi");
+    // Legacy aliases — form submit kodunu değiştirmeden çalışsın
+    const ilSelect    = { get value() { return ilHidden.value; }, set value(v: string) { ilHidden.value = v; } };
+    const ilceSelect  = { get value() { return ilceHidden.value; }, set value(v: string) { ilceHidden.value = v; } };
+    const mahalleInput = { get value() { return mahalleHidden.value; }, set value(v: string) { mahalleHidden.value = v; },
+      get textContent() { return mahalleHidden.value; } };
     const emsalInput  = $<HTMLInputElement>("emsal");
     const taksInput   = $<HTMLInputElement>("taks");
     const emsalSlider = $<HTMLInputElement>("emsal-slider");
@@ -735,7 +771,7 @@ import { CHROME_STORE_URL } from "../config/launch";
 
     async function tucbsIpucuYukle(lat: number, lng: number) {
       if (!tucbsIpucu || !tucbsMetin) return;
-      const bolge = tucbsSlugIlIcin(ilSelect.value);
+      const bolge = tucbsSlugIlIcin(ilHidden.value);
       if (!bolge) {
         tucbsIpucu.classList.remove("hidden");
         tucbsMetin.textContent = "Bu il için TUCBS ÇDP kapsamı yok. Resmi imar → eklenti.";
@@ -762,7 +798,7 @@ import { CHROME_STORE_URL } from "../config/launch";
       }
     }
 
-    const ILLER = [
+    const ILLER: [string, string][] = [
       ["istanbul","İstanbul"],["ankara","Ankara"],["izmir","İzmir"],["bursa","Bursa"],["antalya","Antalya"],
       ["adana","Adana"],["konya","Konya"],["gaziantep","Gaziantep"],["mersin","Mersin"],["diyarbakir","Diyarbakır"],
       ["kayseri","Kayseri"],["samsun","Samsun"],["eskisehir","Eskişehir"],["denizli","Denizli"],["sanliurfa","Şanlıurfa"],
@@ -782,67 +818,197 @@ import { CHROME_STORE_URL } from "../config/launch";
       ["usak","Uşak"],["zonguldak","Zonguldak"],
     ];
 
-    for (const [v, l] of ILLER) {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = l;
-      ilSelect.appendChild(opt);
-    }
-
     function displaySlug(s: string) {
       return s.split(/[-\s]/).filter(Boolean).map(w => w.charAt(0).toLocaleUpperCase("tr") + w.slice(1)).join(" ");
     }
 
+    // ── Generic Combobox factory ──────────────────────────────────────────────
+    function makeCombobox(opts: {
+      inputEl: HTMLInputElement;
+      listEl: HTMLUListElement;
+      hiddenEl: HTMLInputElement;
+      fieldEl: HTMLDivElement;
+      onSelect?: (value: string, label: string) => void;
+    }) {
+      let items: { value: string; label: string }[] = [];
+      let activeIdx = -1;
+
+      function normalize(s: string) {
+        return s.toLocaleLowerCase("tr").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s")
+          .replace(/ı/g,"i").replace(/ö/g,"o").replace(/ç/g,"c");
+      }
+
+      function renderList(filtered: { value: string; label: string }[]) {
+        listEl.innerHTML = "";
+        activeIdx = -1;
+        if (filtered.length === 0) {
+          listEl.innerHTML = `<li class="combobox-empty">Sonuç bulunamadı</li>`;
+          return;
+        }
+        filtered.forEach((item, i) => {
+          const li = document.createElement("li");
+          li.role = "option";
+          li.className = "combobox-option";
+          li.setAttribute("aria-selected", item.value === hiddenEl.value ? "true" : "false");
+          li.dataset["value"] = item.value;
+          li.innerHTML = `<svg class="combobox-option-check" viewBox="0 0 12 12" fill="currentColor"><path d="M10 3L5 8.5 2 5.5"/></svg>${item.label}`;
+          li.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            selectItem(item);
+          });
+          listEl.appendChild(li);
+        });
+      }
+
+      function selectItem(item: { value: string; label: string }) {
+        hiddenEl.value = item.value;
+        inputEl.value = item.label;
+        closeList();
+        opts.onSelect?.(item.value, item.label);
+      }
+
+      function openList() {
+        const q = normalize(inputEl.value.trim());
+        const filtered = q
+          ? items.filter(it => normalize(it.label).includes(q) || normalize(it.value).includes(q))
+          : items;
+        renderList(filtered);
+        listEl.classList.remove("hidden");
+        fieldEl.setAttribute("data-open", "true");
+        inputEl.setAttribute("aria-expanded", "true");
+      }
+
+      function closeList() {
+        listEl.classList.add("hidden");
+        fieldEl.removeAttribute("data-open");
+        inputEl.setAttribute("aria-expanded", "false");
+        activeIdx = -1;
+      }
+
+      inputEl.addEventListener("focus", () => openList());
+      inputEl.addEventListener("input", () => { hiddenEl.value = ""; openList(); });
+      inputEl.addEventListener("blur", () => setTimeout(closeList, 150));
+      inputEl.addEventListener("keydown", (e) => {
+        const lis = listEl.querySelectorAll<HTMLLIElement>(".combobox-option[data-value]");
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          activeIdx = Math.min(activeIdx + 1, lis.length - 1);
+          lis.forEach((l, i) => l.classList.toggle("combobox-active", i === activeIdx));
+          lis[activeIdx]?.scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          activeIdx = Math.max(activeIdx - 1, 0);
+          lis.forEach((l, i) => l.classList.toggle("combobox-active", i === activeIdx));
+          lis[activeIdx]?.scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          const active = lis[activeIdx];
+          if (active?.dataset["value"]) {
+            const val = active.dataset["value"];
+            const item = items.find(it => it.value === val);
+            if (item) selectItem(item);
+          }
+        } else if (e.key === "Escape") {
+          closeList();
+        }
+      });
+
+      return {
+        setItems(newItems: { value: string; label: string }[]) {
+          items = newItems;
+        },
+        setValue(value: string, label?: string) {
+          hiddenEl.value = value;
+          inputEl.value = label ?? (items.find(it => it.value === value)?.label ?? displaySlug(value));
+        },
+        enable() {
+          inputEl.disabled = false;
+          fieldEl.classList.remove("combobox-disabled");
+          inputEl.placeholder = "Ara…";
+        },
+        disable(placeholder = "Önce il seçin") {
+          inputEl.disabled = true;
+          inputEl.value = "";
+          hiddenEl.value = "";
+          fieldEl.classList.add("combobox-disabled");
+          inputEl.placeholder = placeholder;
+        },
+        setLoading() {
+          listEl.innerHTML = `<li class="combobox-loading">Yükleniyor…</li>`;
+          listEl.classList.remove("hidden");
+        },
+      };
+    }
+
+    // ── İl combobox ──
+    const ilCombo = makeCombobox({
+      inputEl: ilInput,
+      listEl: $<HTMLUListElement>("il-listbox"),
+      hiddenEl: ilHidden,
+      fieldEl: $<HTMLDivElement>("il-combo"),
+      onSelect: (value) => {
+        void ilceYukle(value);
+        belediyePortalGuncelle();
+        // mahalle sıfırla
+        mahalleCombo.disable("Önce ilçe seçin");
+        ilceCombo.disable("Yükleniyor…");
+      },
+    });
+    ilCombo.setItems(ILLER.map(([v, l]) => ({ value: v, label: l })));
+
+    // ── İlçe combobox ──
+    const ilceCombo = makeCombobox({
+      inputEl: ilceInput,
+      listEl: $<HTMLUListElement>("ilce-listbox"),
+      hiddenEl: ilceHidden,
+      fieldEl: $<HTMLDivElement>("ilce-field"),
+      onSelect: (_value) => {
+        mahalleCombo.enable();
+        mahalleCombo.setItems([]);
+        mahalleHidden.value = "";
+        mahalleInput2.value = "";
+      },
+    });
+
+    // ── Mahalle combobox ──
+    const mahalleCombo = makeCombobox({
+      inputEl: mahalleInput2,
+      listEl: $<HTMLUListElement>("mahalle-listbox"),
+      hiddenEl: mahalleHidden,
+      fieldEl: $<HTMLDivElement>("mahalle-field"),
+    });
+
     async function ilceYukle(ilNorm: string) {
-      ilceSelect.disabled = true;
-      ilceSelect.innerHTML = '<option value="">Yükleniyor…</option>';
+      ilceCombo.disable("Yükleniyor…");
+      ilceCombo.setLoading();
       try {
         const res = await fetch(`${PUBLIC_API_BASE}/fiyat/toplu-ilce-ozet/${ilNorm}?kategori=arsa`);
         const data = await res.json();
         const list = (data.ilceler ?? []) as Array<{ ilce_norm: string }>;
-        ilceSelect.innerHTML = '<option value="">İlçe seçin…</option>';
         if (list.length === 0) {
-          // Serbest giriş: kullanıcı mahalle + geocode ile devam edebilir
-          const opt = document.createElement("option");
-          opt.value = "";
-          opt.textContent = "İlçe listesi boş — mahalle yazın";
-          ilceSelect.appendChild(opt);
+          ilceCombo.enable();
+          ilceCombo.setItems([{ value: "", label: "İlçe yok — mahalle yazın" }]);
         } else {
-          for (const ic of list.sort((a, b) => a.ilce_norm.localeCompare(b.ilce_norm, "tr"))) {
-            const opt = document.createElement("option");
-            opt.value = ic.ilce_norm;
-            opt.textContent = displaySlug(ic.ilce_norm);
-            ilceSelect.appendChild(opt);
-          }
+          const sorted = list.sort((a, b) => a.ilce_norm.localeCompare(b.ilce_norm, "tr"));
+          ilceCombo.setItems(sorted.map(ic => ({ value: ic.ilce_norm, label: displaySlug(ic.ilce_norm) })));
+          ilceCombo.enable();
         }
       } catch {
-        ilceSelect.innerHTML = '<option value="">İlçe yüklenemedi — yazarak devam</option>';
+        ilceCombo.enable();
+        ilceCombo.setItems([{ value: "", label: "Yüklenemedi — tekrar dene" }]);
       }
-      ilceSelect.disabled = false;
     }
 
     function belediyePortalGuncelle() {
       const wrap = document.getElementById("belediye-portal");
       const link = document.getElementById("belediye-portal-link") as HTMLAnchorElement | null;
-      const p = belediyePortalIlIcin(ilSelect.value);
+      const p = belediyePortalIlIcin(ilHidden.value);
       if (!wrap || !link) return;
-      if (!p) {
-        wrap.classList.add("hidden");
-        return;
-      }
+      if (!p) { wrap.classList.add("hidden"); return; }
       link.href = p.url;
       link.textContent = `${p.ad} →`;
       wrap.classList.remove("hidden");
     }
-
-    ilSelect.addEventListener("change", () => {
-      if (ilSelect.value) void ilceYukle(ilSelect.value);
-      else {
-        ilceSelect.innerHTML = '<option value="">Önce il seçin</option>';
-        ilceSelect.disabled = true;
-      }
-      belediyePortalGuncelle();
-    });
 
     // ── State ──
     let map: any = null;
@@ -1488,12 +1654,20 @@ import { CHROME_STORE_URL } from "../config/launch";
     if (params.get("m2")) m2Input.value = params.get("m2")!;
     if (params.get("kategori")) kategoriInput.value = params.get("kategori")!;
     if (params.get("il")) {
-      ilSelect.value = params.get("il")!;
-      void ilceYukle(params.get("il")!).then(() => {
-        if (params.get("ilce")) ilceSelect.value = params.get("ilce")!;
+      const ilVal = params.get("il")!;
+      ilCombo.setValue(ilVal);
+      void ilceYukle(ilVal).then(() => {
+        if (params.get("ilce")) {
+          const ilceVal = params.get("ilce")!;
+          ilceCombo.setValue(ilceVal);
+        }
       });
     }
-    if (params.get("mahalle")) mahalleInput.value = params.get("mahalle")!;
+    if (params.get("mahalle")) {
+      const mVal = params.get("mahalle")!;
+      mahalleHidden.value = mVal;
+      mahalleInput2.value = mVal;
+    }
     if (params.get("emsal")) {
       emsalInput.value = params.get("emsal")!;
       syncSliderFromInput(emsalInput, emsalSlider);
