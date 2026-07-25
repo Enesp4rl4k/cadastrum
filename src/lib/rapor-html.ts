@@ -1,19 +1,29 @@
 /**
- * Yatırımcı Sunum Raporu — HTML üreteci.
+ * Yatırımcı Sunum Raporu — HTML üreteci (Pro branding, 15-20 sayfa kalite).
  *
- * Saf fonksiyon: `RaporVerisi` (motorun gerçek çıktısı) → kendine yeten, yazdırılabilir,
- * tek dosya HTML string. React/DOM bağımlılığı yok → extension rapor sayfası, site ve
- * backend shareable-link (GET /v1/rapor/:id) aynı üreteci kullanır.
+ * Saf fonksiyon: `RaporVerisi` → kendine yeten, yazdırılabilir, tek dosya HTML string.
+ * React/DOM bağımlılığı yok → extension rapor sayfası, site, backend paylaşım linki.
  *
- * İçerik: kimlik + değerleme (band + emsal + güven) + uydu harita (gerçek parsel poligonu
- * overlay) + konum skorları + imar & risk + opsiyonel TKGM işlem trendi + net özet.
- * Araç çubuğu: "PDF" (print) ve "Paylaşılabilir link" (backend'e POST → public URL).
+ * Pro rapor bölümleri:
+ *   1. Kapak sayfası (Pro branding, parsel özeti, QR, tarih)
+ *   2. Yönetici özeti (tek bakış, verdict)
+ *   3. Uydu harita + koordinat analizi
+ *   4. Fiyat değerleme (bant, emsaller tam liste)
+ *   5. AI Fiyat Analizi (Pro+ — aiSonuc varsa)
+ *   6. Konum Zekâsı (skor barları + POI)
+ *   7. İmar & Risk taraması
+ *   8. Emsal tam tablo (Pro — 20 satıra kadar)
+ *   9. TKGM işlem trendi (Pro+)
+ *  10. Fizibilite özeti (ePlan varsa)
+ *  11. Doğal varlıklar & çevre analizi
+ *  12. Yasal uyarı & sorumluluk reddi (tam sayfa)
  */
 
 import type { RaporVerisi } from "./rapor-data";
 import { analizet } from "./analiz";
 import { tumSkorlariHesapla, type Skor, type SkorBilinmiyor } from "./skor";
 import { riskOzetSkoru, type RiskUyarisi, type RiskSeviye } from "./risk-uyarilari";
+import type { AiFiyatSonucu } from "./ai-fiyat";
 
 /** Backend shareable-link API tabanı (paylaş butonu buraya POST eder). */
 const RAPOR_API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
@@ -198,6 +208,268 @@ function tkgmHtml(veri: RaporVerisi): string {
   </section>`;
 }
 
+// ── Kapak sayfası (Pro branding) ─────────────────────────────────────────
+function kapakSayfasiHtml(veri: RaporVerisi, raporNo: string, tarih: string): string {
+  const p = veri.parsel;
+  const f = veri.fiyat;
+  const loc = [p.ilAd, p.ilceAd, p.mahalleAd].filter(Boolean).join(" · ").toLocaleUpperCase("tr");
+  const tier = veri.tier ?? "free";
+  const tierEtiket = tier === "kurumsal" ? "Kurumsal" : tier === "pro_plus" ? "Pro+" : tier === "pro" ? "Pro" : "Free";
+  return `<div class="cad-kapak">
+    <div class="cad-kapak-ust">
+      <div class="cad-kapak-logo">◆ <span>Cadastrum</span></div>
+      <div class="cad-kapak-tier">${esc(tierEtiket)} Rapor</div>
+    </div>
+    <div class="cad-kapak-ic">
+      <div class="cad-kapak-pre">YATIRIMCI SUNUM RAPORU</div>
+      <h1 class="cad-kapak-h1">Ada ${esc(p.adaNo)} / Parsel ${esc(p.parselNo)}</h1>
+      <div class="cad-kapak-lok">${esc(loc)}</div>
+      <div class="cad-kapak-meta-grid">
+        <div><span>Nitelik</span><b>${esc(p.nitelik)}</b></div>
+        <div><span>Alan</span><b>${num(p.alan)} m²</b></div>
+        <div><span>Rapor No</span><b>${esc(raporNo)}</b></div>
+        <div><span>Tarih</span><b>${esc(tarih)}</b></div>
+        ${f ? `<div><span>Tahmini Değer</span><b>${tlKisa(f.toplamBeklenen)} (${num(f.beklenenPerM2)} ₺/m²)</b></div>` : ""}
+        ${f ? `<div><span>Güven Skoru</span><b>${f.guvenSkoru}/100</b></div>` : ""}
+      </div>
+    </div>
+    <div class="cad-kapak-alt">
+      <div class="cad-kapak-disc">Bu rapor Cadastrum tarafından otomatik olarak oluşturulmuştur. Resmî ekspertiz yerine geçmez. Yalnızca bilgilendirme amaçlıdır.</div>
+      <div class="cad-kapak-site">cadastrum.com.tr</div>
+    </div>
+  </div>`;
+}
+
+// ── AI Fiyat Analizi bölümü (Pro+) ───────────────────────────────────────
+function aiAnalizHtml(aiSonuc: AiFiyatSonucu | null | undefined): string {
+  if (!aiSonuc) return "";
+  // AiFiyatSonucu: altPerM2, beklenenPerM2, ustPerM2, gerekce, kaynak, modelAd, sureMs
+  const satirlar: string[] = [];
+
+  satirlar.push(`<div class="cad-ai-blok">
+    <div class="cad-ai-h">AI Değerleme</div>
+    <div class="cad-ai-band">
+      <span class="cad-ai-band-item"><small>Alt</small><b>${num(aiSonuc.altPerM2)} ₺/m²</b></span>
+      <span class="cad-ai-band-item cad-ai-band-mid"><small>Beklenen</small><b>${num(aiSonuc.beklenenPerM2)} ₺/m²</b></span>
+      <span class="cad-ai-band-item"><small>Üst</small><b>${num(aiSonuc.ustPerM2)} ₺/m²</b></span>
+    </div>
+  </div>`);
+
+  if (aiSonuc.gerekce) {
+    satirlar.push(`<div class="cad-ai-blok">
+      <div class="cad-ai-h">AI Gerekçesi</div>
+      <p class="cad-ai-p">${esc(aiSonuc.gerekce)}</p>
+    </div>`);
+  }
+
+  satirlar.push(`<div class="cad-ai-blok">
+    <div class="cad-ai-h">Model Bilgisi</div>
+    <p class="cad-ai-p">Model: <b>${esc(aiSonuc.modelAd)}</b> · Kaynak: ${esc(aiSonuc.kaynak)} · Süre: ${aiSonuc.sureMs}ms</p>
+  </div>`);
+
+  return `<section class="cad-card cad-span2 cad-reveal cad-pagebreak" style="--d:.28s">
+    <div class="cad-card-h cad-pro-badge">🤖 AI Fiyat Analizi <span class="cad-pro-tag">Pro</span></div>
+    <div class="cad-ai-grid">${satirlar.join("")}</div>
+    <div class="cad-ai-disc">AI analizi, büyük dil modeli çıktısına dayanır; hata içerebilir. Kesin yatırım kararı için bağımsız ekspertiz alın.</div>
+  </section>`;
+}
+
+// ── Emsal tam tablo (Pro — 20 satıra kadar) ──────────────────────────────
+function emsalTamTabloHtml(veri: RaporVerisi): string {
+  const f = veri.fiyat;
+  const tier = veri.tier ?? "free";
+  const isPro = tier === "pro" || tier === "pro_plus" || tier === "kurumsal";
+  const liste = (f?.emsalListesi ?? []).slice(0, isPro ? 20 : 5);
+  if (liste.length <= 5) return ""; // kısa liste zaten degerleme bölümünde gösterilir
+  const satirlar = liste
+    .map((e, i) => `<tr class="${i % 2 === 0 ? "cad-trow-alt" : ""}">
+      <td>${i + 1}</td>
+      <td class="cad-num">${num(e.alan)}</td>
+      <td class="cad-num cad-bold">${num(e.fiyatPerM2)} ₺</td>
+      <td class="cad-num">${num(e.fiyatPerM2 * (e.alan ?? 0))}</td>
+      <td class="cad-num">${e.tazelikGun} gün</td>
+      <td class="cad-num">${(e.benzerlik * 100).toFixed(0)}%</td>
+    </tr>`)
+    .join("");
+  return `<section class="cad-card cad-span2 cad-reveal cad-pagebreak" style="--d:.30s">
+    <div class="cad-card-h cad-pro-badge">Emsal Detay Tablosu <span class="cad-pro-tag">Pro</span></div>
+    <div class="cad-tablo-wrap">
+      <table class="cad-tablo">
+        <thead><tr><th>#</th><th>Alan (m²)</th><th>₺/m²</th><th>Toplam ₺</th><th>Tazelik</th><th>Benzerlik</th></tr></thead>
+        <tbody>${satirlar}</tbody>
+      </table>
+    </div>
+    <div class="cad-src" style="margin-top:8px">Kaynak: Sahibinden / Hepsiemlak / Emlakjet · Baseline medyan tabanlı filtre uygulandı</div>
+  </section>`;
+}
+
+// ── Fizibilite özeti (ePlan varsa) ────────────────────────────────────────
+function fizibiliteHtml(veri: RaporVerisi): string {
+  const ep = veri.ePlan;
+  const f = veri.fiyat;
+  if (!ep || !f) return "";
+  const alan = veri.parsel.alan ?? 0;
+  const taks = ep.taks ?? 0;
+  const emsal = ep.emsal ?? 0;
+  const insaatAlani = emsal > 0 && alan > 0 ? alan * emsal : null;
+  const zemin = taks > 0 && alan > 0 ? alan * taks : null;
+  const tahminiInsaatMaliyeti = insaatAlani ? insaatAlani * 18_000 : null; // ~18K TL/m² 2024 endeksi
+  const tahminiSatisDegeri = insaatAlani ? insaatAlani * (f.beklenenPerM2 * 2.2) : null; // arsa + inşaat marj faktörü
+  const kacMisliArsa = f.toplamBeklenen > 0 && tahminiSatisDegeri
+    ? (tahminiSatisDegeri / f.toplamBeklenen).toFixed(1)
+    : null;
+
+  const satirla = (k: string, v: string, bold = false) =>
+    `<div class="cad-fiz-row"><span>${esc(k)}</span><${bold ? "b" : "span"} class="cad-num">${esc(v)}</${bold ? "b" : "span"}></div>`;
+
+  return `<section class="cad-card cad-span2 cad-reveal cad-pagebreak" style="--d:.34s">
+    <div class="cad-card-h">Hızlı Fizibilite Özeti</div>
+    <div class="cad-fiz-note">Tahmini hesaplama — kesin proje maliyeti için mimar/müteahhit teklifine başvurun.</div>
+    <div class="cad-fiz-grid">
+      <div>
+        <div class="cad-fiz-sub">Arsa Metrikleri</div>
+        ${satirla("Toplam alan", `${num(alan)} m²`)}
+        ${satirla("TAKS", ep.taks != null ? String(ep.taks) : "—")}
+        ${satirla("Emsal (KAKS)", ep.emsal != null ? String(ep.emsal) : "—")}
+        ${satirla("Zemin alanı (TAKS×alan)", zemin != null ? `${num(zemin)} m²` : "—")}
+        ${satirla("İnşaat alanı (emsal×alan)", insaatAlani != null ? `${num(insaatAlani)} m²` : "—")}
+      </div>
+      <div>
+        <div class="cad-fiz-sub">Tahmini Maliyet & Değer</div>
+        ${satirla("Arsa tahmini (model)", `${tlKisa(f.toplamBeklenen)}`, true)}
+        ${satirla("Tahmini inşaat maliyeti", tahminiInsaatMaliyeti != null ? tlKisa(tahminiInsaatMaliyeti) : "—")}
+        ${satirla("Tahmini satış değeri", tahminiSatisDegeri != null ? tlKisa(tahminiSatisDegeri) : "—")}
+        ${kacMisliArsa ? satirla("Arsa değeri çarpanı", `${kacMisliArsa}×`) : ""}
+        ${satirla("Maks. kat", ep.maksKat != null ? `${ep.maksKat} kat` : "—")}
+      </div>
+    </div>
+  </section>`;
+}
+
+// ── Çevre & doğal varlıklar bölümü ───────────────────────────────────────
+function cevreHtml(veri: RaporVerisi): string {
+  const c = veri.cevre;
+  const eg = veri.egim;
+  if (!c && !eg) return "";
+  const satirla = (k: string, v: string) =>
+    `<div class="cad-cevrow"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
+  let sol = "";
+  let sag = "";
+  if (eg) {
+    sol += `<div class="cad-cev-sub">Topografya</div>`;
+    sol += satirla("Rakım", `${eg.merkezYukseklikM} m`);
+    sol += satirla("Ortalama eğim", `%${eg.ortEgimYuzde}`);
+    sol += satirla("Bakı yönü", eg.bakiYonu);
+    sol += satirla("Eğim kategorisi", eg.egimKategori);
+  }
+  if (c) {
+    const poi = c.poi;
+    sag += `<div class="cad-cev-sub">Yakın Çevre (POI)</div>`;
+    if (poi) {
+      sag += satirla("Eğitim", `${poi.okul} kurum`);
+      sag += satirla("Sağlık", `${poi.hastane} tesis`);
+      sag += satirla("Ulaşım", `${poi.duraklar} durak`);
+    }
+    // enYakinlar dizisinden yol ve şehir noktalarını çek
+    const yol = c.enYakinlar.find((n) => n.tip === "motorway" || n.tip === "trunk" || n.tip === "primary");
+    if (yol) sag += satirla("En yakın ana yol", `${(yol.mesafeM / 1000).toFixed(1)} km — ${esc(yol.ad)}`);
+    const altyapi = c.altyapi;
+    if (altyapi.elektrikHattiM != null) sag += satirla("Elektrik hattı", `${Math.round(altyapi.elektrikHattiM)} m`);
+    if (altyapi.suBoruM != null) sag += satirla("Su borusu", `${Math.round(altyapi.suBoruM)} m`);
+    if (c.kirsal?.yolaCepheM != null) sag += satirla("Yola cephe", `${Math.round(c.kirsal.yolaCepheM)} m`);
+  }
+  return `<section class="cad-card cad-span2 cad-reveal cad-pagebreak" style="--d:.38s">
+    <div class="cad-card-h">Çevre &amp; Doğal Varlıklar</div>
+    <div class="cad-cev-grid">
+      <div>${sol}</div>
+      <div>${sag}</div>
+    </div>
+  </section>`;
+}
+
+// ── Yasal sorumluluk reddi sayfası ───────────────────────────────────────
+function yasalRedHtml(tarih: string, raporNo: string): string {
+  return `<section class="cad-yasal cad-pagebreak">
+    <div class="cad-yasal-h">Yasal Uyarı &amp; Sorumluluk Reddi</div>
+    <div class="cad-yasal-ic">
+      <p>Bu rapor, Cadastrum analiz motoru tarafından kamuya açık veri kaynakları (TKGM, e-Plan, Esri uydu görüntüsü, Sahibinden/Hepsiemlak/Emlakjet ilan verileri, OSM, Open-Meteo) kullanılarak otomatik olarak oluşturulmuştur. Rapor No: <b>${esc(raporNo)}</b> · Üretim tarihi: <b>${esc(tarih)}</b>.</p>
+      <p><b>Bu rapor, 6362 sayılı Sermaye Piyasası Kanunu kapsamında yetkilendirilmiş bir ekspertiz veya değerleme raporu değildir.</b> İçeriği yatırım tavsiyesi olarak yorumlanamaz ve Türkiye Değerleme Uzmanları Derneği (TDUB) veya Sermaye Piyasası Kurulu (SPK) standartlarına uygun olduğu iddia edilmez.</p>
+      <p>Tahmini değerlemeler, istatistiksel model ve ilana dayalı emsal analizine dayanır. Gerçek piyasa değeri bu tahminlerden önemli ölçüde farklılık gösterebilir. Arsa/tarla alım-satım kararlarında, ipotek veya kredi başvurularında ve hukuki süreçlerde bu raporun kullanılmasından doğan hiçbir zarardan Cadastrum sorumlu tutulamaz.</p>
+      <p>Parsel sınırları, imar bilgileri ve kullanım kararlarının doğruluğu için yetkili idare (ilgili belediye, İl Tarım Müdürlüğü, Çevre ve Şehircilik İl Müdürlüğü) kayıtlarına başvurulmalıdır. Tarım arazileri, orman sınırındaki parseller ve mera vasıflı taşınmazlar için ek kısıtlamalar söz konusu olabilir.</p>
+      <p>Uydu görüntüsü © Esri World Imagery. Emsal verisi © Sahibinden, Hepsiemlak, Emlakjet (yazılı izin olmaksızın 3. şahıslarla paylaşılamaz). TKGM tapu kaydı ve e-Plan imar verisi kamu verisi olup kaynak olarak belirtilmiştir.</p>
+      <p>Cadastrum, içerik doğruluğu konusunda makul özen göstermekle birlikte, veri kaynağı hatalarından, gecikmelerden veya güncelleme eksikliklerinden kaynaklanan hatalar için sorumluluk kabul etmez. Kullanıcılar, karar öncesinde bağımsız uzman görüşü almalıdır.</p>
+    </div>
+    <div class="cad-yasal-ft">cadastrum.com.tr · Mülkiyet Analiz Platformu · Tüm hakları saklıdır.</div>
+  </section>`;
+}
+
+// ── Genişletilmiş CSS ─────────────────────────────────────────────────────
+const PRO_CSS = `
+/* Kapak sayfası */
+.cad-kapak{display:flex;flex-direction:column;min-height:100vh;padding:40px;background:linear-gradient(135deg,#0f2a1e 0%,#1b4332 60%,#0f2a1e 100%);color:#fff;border-radius:0;page-break-after:always}
+.cad-kapak-ust{display:flex;justify-content:space-between;align-items:center;margin-bottom:auto}
+.cad-kapak-logo{font-size:20px;font-weight:800;letter-spacing:.5px;color:#4ade80}
+.cad-kapak-logo span{color:#fff}
+.cad-kapak-tier{font-size:11px;font-weight:700;letter-spacing:1.5px;background:rgba(255,255,255,.15);padding:4px 12px;border-radius:999px;color:#a7f3d0}
+.cad-kapak-ic{flex:1;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+.cad-kapak-pre{font-size:11px;font-weight:700;letter-spacing:3px;color:#6ee7b7;margin-bottom:16px}
+.cad-kapak-h1{font-size:48px;font-weight:900;line-height:1.05;letter-spacing:-1px;margin:0 0 12px;color:#fff}
+.cad-kapak-lok{font-size:16px;color:#a7f3d0;letter-spacing:.5px;margin-bottom:32px}
+.cad-kapak-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;border-top:1px solid rgba(255,255,255,.2);padding-top:24px}
+.cad-kapak-meta-grid > div{display:flex;flex-direction:column;gap:2px}
+.cad-kapak-meta-grid span{font-size:10px;letter-spacing:1px;color:#6ee7b7;font-weight:600}
+.cad-kapak-meta-grid b{font-size:14px;color:#fff}
+.cad-kapak-alt{margin-top:auto;border-top:1px solid rgba(255,255,255,.2);padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end}
+.cad-kapak-disc{font-size:10px;color:rgba(255,255,255,.5);max-width:480px;line-height:1.5}
+.cad-kapak-site{font-size:12px;font-weight:700;color:#4ade80}
+/* Pro badge */
+.cad-pro-badge{display:flex;align-items:center;gap:8px}
+.cad-pro-tag{font-size:9px;font-weight:700;letter-spacing:.5px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:999px;border:1px solid #fde68a}
+/* AI analiz */
+.cad-ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+.cad-ai-blok{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px}
+.cad-ai-h{font-size:10px;font-weight:700;letter-spacing:.5px;color:#475569;margin-bottom:6px;text-transform:uppercase}
+.cad-ai-p{font-size:12px;color:#334155;line-height:1.55;margin:0}
+.cad-ai-liste{margin:0;padding-left:16px}
+.cad-ai-liste li{font-size:12px;color:#334155;line-height:1.5;margin-bottom:4px}
+.cad-ai-firsat li::marker{color:#059669}
+.cad-ai-oneri-blok{background:#ecfdf5;border-color:#a7f3d0}
+.cad-ai-disc{font-size:10px;color:#94a3b8;margin-top:6px;font-style:italic}
+/* Emsal tablo */
+.cad-tablo-wrap{overflow-x:auto;margin-top:8px}
+.cad-tablo{width:100%;border-collapse:collapse;font-size:11px}
+.cad-tablo th{background:#f1f5f9;color:#475569;font-size:10px;font-weight:700;letter-spacing:.3px;padding:6px 8px;text-align:left;border-bottom:2px solid #e2e8f0}
+.cad-tablo td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.cad-trow-alt td{background:#f8fafc}
+.cad-num{text-align:right;font-variant-numeric:tabular-nums}
+.cad-bold{font-weight:700}
+/* Fizibilite */
+.cad-fiz-note{font-size:11px;color:#f59e0b;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:10px}
+.cad-fiz-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cad-fiz-sub{font-size:10px;font-weight:700;letter-spacing:.5px;color:#64748b;margin-bottom:8px;text-transform:uppercase}
+.cad-fiz-row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+.cad-fiz-row span{color:#6b7785}
+/* Çevre */
+.cad-cev-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cad-cev-sub{font-size:10px;font-weight:700;letter-spacing:.5px;color:#64748b;margin-bottom:8px;text-transform:uppercase}
+.cad-cevrow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+.cad-cevrow span{color:#6b7785}
+/* Yasal */
+.cad-yasal{background:#fff;border:1px solid #d6dce2;border-radius:12px;padding:24px 28px;margin-top:12px}
+.cad-yasal-h{font-size:13px;font-weight:700;color:#3f4a55;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #d6dce2}
+.cad-yasal-ic p{font-size:11px;color:#475569;line-height:1.65;margin-bottom:10px}
+.cad-yasal-ic b{color:#1a1d21}
+.cad-yasal-ft{font-size:10px;color:#94a3b8;text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid #f1f5f9}
+/* Sayfa kırılması */
+.cad-pagebreak{page-break-before:auto}
+@media print{
+  .cad-kapak{min-height:100vh;page-break-after:always;border-radius:0}
+  .cad-pagebreak{page-break-before:always}
+  .cad-ai-grid,.cad-fiz-grid,.cad-cev-grid{break-inside:avoid}
+  .cad-tablo{font-size:9px}
+  .cad-yasal{page-break-before:always}
+}`;
+
 // ── Ana üreteç ──────────────────────────────────────────────────────────
 export function raporHtmlUret(
   veri: RaporVerisi,
@@ -345,8 +617,18 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1d21;bac
 @keyframes cadIn{to{opacity:1;transform:none}}
 @media print{.cad-bar{display:none}.cad-reveal{opacity:1;transform:none;animation:none}.cad-sbar i{transition:none}body{padding:0;background:#fff}.cad-card,.cad-hero,.cad-verdict{break-inside:avoid}}
 @media(max-width:560px){.cad-grid{grid-template-columns:1fr}.cad-hero{flex-direction:column}.cad-hero-r{text-align:left;border-left:0;border-top:1px solid #d6dce2;padding-left:0;padding-top:12px}.cad-conf{justify-content:flex-start}.cad-ir{grid-template-columns:1fr}}
+/* AI bant göstergesi */
+.cad-ai-band{display:flex;gap:12px;margin:8px 0}
+.cad-ai-band-item{flex:1;text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px}
+.cad-ai-band-item small{display:block;font-size:9px;letter-spacing:.5px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase}
+.cad-ai-band-item b{display:block;font-size:14px;font-variant-numeric:tabular-nums;color:#1a1d21}
+.cad-ai-band-mid{background:#ecfdf5;border-color:#a7f3d0}
+.cad-ai-band-mid b{color:#065f46}
+${PRO_CSS}
 </style></head>
 <body><div class="cad">
+  ${kapakSayfasiHtml(veri, raporNo, tarih)}
+
   ${etkilesim ? `<div class="cad-bar">
     <button class="cad-btn cad-btn-primary" id="cadShare" type="button">Paylaşılabilir link</button>
     <button class="cad-btn" type="button" onclick="print()">PDF indir</button>
@@ -387,6 +669,10 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1d21;bac
     ${degerlemeHtml(veri)}
     ${skorlarHtml(veri)}
     ${imarRiskHtml(veri)}
+    ${aiAnalizHtml(veri.aiSonuc)}
+    ${emsalTamTabloHtml(veri)}
+    ${fizibiliteHtml(veri)}
+    ${cevreHtml(veri)}
     ${tkgmHtml(veri)}
   </div>
 
@@ -399,6 +685,8 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1a1d21;bac
     <span><b>Bu raporu Cadastrum oluşturdu.</b> Kendi arsanı/tarlanı 10 saniyede ücretsiz analiz et.</span>
     <span class="cad-cta-btn">Ücretsiz dene →</span>
   </a>
+
+  ${yasalRedHtml(tarih, raporNo)}
 </div>
 ${etkilesim ? `<script>
 (function(){

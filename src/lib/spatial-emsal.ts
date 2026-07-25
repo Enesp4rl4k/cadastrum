@@ -352,9 +352,11 @@ export async function radiusEmsalGetir(
  */
 export function spatialBaselineYeterliMi(sonuc: SpatialEmsalSonuc): boolean {
   if (sonuc.baseline == null || sonuc.baseline <= 0) return false;
-  if (sonuc.emsaller.length < 2) return false;
+  // En az 5 emsal gerekli (test: 4 emsal → false, 6 emsal → devam)
+  if (sonuc.emsaller.length < 5) return false;
+  // Yakın bant (0-3km) en az 2 emsal — tek uzak emsal güven düşürür
   const yakin = sonuc.halkaDagilimi.r0_1km + sonuc.halkaDagilimi.r1_3km;
-  return yakin >= 1;
+  return yakin >= 2;
 }
 
 // ── IDW AVM — Extension tarafı ──────────────────────────────────────────────

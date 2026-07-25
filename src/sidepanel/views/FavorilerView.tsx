@@ -4,6 +4,7 @@ import { Lock as LockIcon, Radar as RadarIcon, RefreshCw as RefreshIcon } from "
 import { db, type FavoriParsel } from "../../lib/db";
 import { etiketBul } from "../components/ParselNotDefteri";
 import { useLisans } from "../../lib/lisans";
+import { PortfoyOzeti } from "../components/PortfoyOzeti";
 import {
   favoriIzlemeAyarla,
   imarDegisiklikLogOku,
@@ -111,6 +112,9 @@ export function FavorilerView({ onSelect }: Props) {
     return <p className="p-4 text-xs text-tkgm-muted">Yükleniyor…</p>;
   }
 
+  // PortfoyOzeti için FavoriParsel dizisini doğrudan geçir
+  // (fiyatSnapshot varsa toplam değer hesaplanır)
+
   if (favoriler.length === 0) {
     return (
       <div className="p-4 text-xs text-tkgm-muted space-y-2">
@@ -126,6 +130,13 @@ export function FavorilerView({ onSelect }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* ── Portföy Özeti — favori sayısı ≥2 olduğunda göster ── */}
+      {favoriler.length >= 2 && (
+        <div className="shrink-0 border-b border-slate-100 dark:border-slate-800 px-2 py-2">
+          <PortfoyOzeti favoriler={favoriler} />
+        </div>
+      )}
+
       <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
         <div className="mb-1 flex items-center gap-1.5">
           <RadarIcon className="h-3.5 w-3.5 text-imperial-600 dark:text-champagne-400" />

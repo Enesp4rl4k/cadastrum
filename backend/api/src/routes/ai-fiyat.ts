@@ -383,6 +383,226 @@ aiFiyat.post("/tahmin", async (c) => {
   });
 });
 
+/**
+ * POST /v1/ai-fiyat/acikla — Açıklanabilir AI Değerleme
+ *
+ * "Bu arsanın değeri neden X TL/m²?" sorusuna yapısal yanıt.
+ * Fiyat bileşenlerini alır, her faktörün etkisini sayısal olarak açıklar.
+ *
+ * Body: {
+ *   parselAnahtar: string,
+ *   beklenenPerM2: number,
+ *   faktörler: { konum, imar, risk, cevre, trend, emsal }
+ *   parselVeri: ParselVeri
+ * }
+ *
+ * Yanıt: {
+ *   aciklama: string,          — Türkçe doğal dil (2-3 cümle özet)
+ *   faktorler: [{ad, etki, yuzde, aciklama}],  — sayısal kırılım
+ *   ozet: string,              — 1 cümle özet ("OSB'ye yakın, yola cepheli, düşük eğim")
+ *   modelAd: string,
+ *   sureMs: number,
+ *   cached: boolean
+ * }
+ */
+aiFiyat.post("/acikla", async (c) => {
+  const tier = c.get("tier" as any) as string;
+  const kullaniciId = c.get("kullaniciId" as any) as number;
+
+  if (!c.env.GEMINI_API_KEY && !c.env.GROQ_API_KEY) {
+    return c.json({ hata: "AI servisi yapılandırılmamış" }, 503);
+  }
+
+  interface AciklaIstekGovde {
+    parselAnahtar: string;
+    beklenenPerM2: number;
+    parselVeri: ParselVeri;
+    faktorler?: {
+      lojistikSkor?: number;
+      fizikselSkor?: number;
+      erisimSkor?: number;
+      altyapiSkor?: number;
+      depremZonu?: string;
+      taskinRisk?: string;
+      otoyolKm?: number;
+      osbKm?: number;
+      havalimanKm?: number;
+      egimYuzde?: number;
+      guvenSkoru?: number;
+      trendYuzde?: number | null;
+    };
+  }
+
+  let body: AciklaIstekGovde;
+  try {
+    body = await c.req.json<AciklaIstekGovde>();
+  } catch {
+    return c.json({ hata: "Geçersiz JSON" }, 400);
+  }
+
+  if (!body.parselAnahtar || !body.beklenenPerM2 || !body.parselVeri) {
+    return c.json({ hata: "parselAnahtar, beklenenPerM2 ve parselVeri zorunlu" }, 400);
+  }
+
+  // Cache kontrolü (24 saat)
+  const cacheKey = `acikla:${body.parselAnahtar}:${body.beklenenPerM2}`;
+  const cached = await c.env.DB.prepare(
+    `SELECT aciklama, faktorler_json, ozet, model, sure_ms
+     FROM ai_fiyat_cache
+     WHERE parsel_anahtar = ? AND olusturuldu > ?`
+  ).bind(cacheKey, Date.now() - 86400000).first<{
+    aciklama: string;
+    faktorler_json: string;
+    ozet: string;
+    model: string;
+    sure_ms: number;
+  }>().catch(() => null);
+
+  if (cached?.aciklama) {
+    return c.json({
+      aciklama: cached.aciklama,
+      faktorler: JSON.parse(cached.faktorler_json ?? "[]"),
+      ozet: cached.ozet,
+      modelAd: cached.model,
+      sureMs: cached.sure_ms,
+      cached: true,
+    });
+  }
+
+  // Açıklama promptu oluştur
+  const v = body.parselVeri;
+  const fiyatFormatli = body.beklenenPerM2.toLocaleString("tr-TR");
+  const f = body.faktorler ?? {};
+
+  const promptSatirlari = [
+    `Türkiye'de ${[v.il, v.ilce, v.mahalle].filter(Boolean).join("/")} bölgesindeki bir ${v.kategori} parseli için TL/m² tahmini **${fiyatFormatli} TL/m²** olarak hesaplandı.`,
+    ``,
+    `Bu değere etki eden faktörler:`,
+  ];
+
+  if (f.lojistikSkor != null) promptSatirlari.push(`- Lojistik skoru: ${f.lojistikSkor}/100`);
+  if (f.fizikselSkor != null) promptSatirlari.push(`- Fiziksel skor: ${f.fizikselSkor}/100`);
+  if (f.erisimSkor != null) promptSatirlari.push(`- Erişim skoru: ${f.erisimSkor}/100`);
+  if (f.depremZonu) promptSatirlari.push(`- Deprem zonu: ${f.depremZonu}`);
+  if (f.taskinRisk) promptSatirlari.push(`- Taşkın riski: ${f.taskinRisk}`);
+  if (f.otoyolKm != null) promptSatirlari.push(`- En yakın otoyol: ${f.otoyolKm.toFixed(1)} km`);
+  if (f.osbKm != null) promptSatirlari.push(`- En yakın OSB: ${f.osbKm.toFixed(1)} km`);
+  if (f.havalimanKm != null) promptSatirlari.push(`- En yakın havalimanı: ${f.havalimanKm.toFixed(1)} km`);
+  if (f.egimYuzde != null) promptSatirlari.push(`- Arazi eğimi: %${f.egimYuzde}`);
+  if (f.guvenSkoru != null) promptSatirlari.push(`- Emsal güven skoru: ${f.guvenSkoru}/100`);
+  if (f.trendYuzde != null) promptSatirlari.push(`- Bölgesel fiyat trendi (12 ay): %${f.trendYuzde > 0 ? "+" : ""}${f.trendYuzde}`);
+  if (v.imarDurumu) promptSatirlari.push(`- İmar durumu: ${v.imarDurumu}`);
+  if (v.baselineTlm2) promptSatirlari.push(`- Bölge medyan TL/m²: ${v.baselineTlm2.toLocaleString("tr-TR")}`);
+  if (v.m2) promptSatirlari.push(`- Parsel alanı: ${v.m2} m²`);
+
+  promptSatirlari.push(
+    ``,
+    `Bu faktörleri analiz ederek JSON döndür:`,
+    `{`,
+    `  "aciklama": "<2-3 cümle Türkçe açıklama: hangi faktörler bu fiyatı belirliyor?>",`,
+    `  "ozet": "<tek cümle, en etkili 3 faktörü listele>",`,
+    `  "faktorler": [`,
+    `    {"ad": "<faktör adı>", "etki": "pozitif"|"negatif"|"nötr", "yuzde": <1-100 etki büyüklüğü>, "aciklama": "<kısa açıklama>"}`,
+    `  ]`,
+    `}`,
+    `Yasal uyarı ekle: bu resmi değerleme değildir.`,
+    `Sadece JSON döndür, başka metin yok.`,
+  );
+
+  const prompt = promptSatirlari.join("\n");
+  const t0 = Date.now();
+  let aciklamaJson: { aciklama: string; ozet: string; faktorler: unknown[] } | null = null;
+  let modelAd = "bilinmiyor";
+
+  // Gemini önce, Groq fallback
+  if (c.env.GEMINI_API_KEY) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${c.env.GEMINI_API_KEY}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const j = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+        const raw = j.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        const temiz = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(temiz) as { aciklama: string; ozet: string; faktorler: unknown[] };
+        if (parsed.aciklama && parsed.ozet && Array.isArray(parsed.faktorler)) {
+          aciklamaJson = parsed;
+          modelAd = "gemini-2.5-flash";
+        }
+      }
+    } catch { /* Groq'a geç */ }
+  }
+
+  if (!aciklamaJson && c.env.GROQ_API_KEY) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3,
+          max_tokens: 1024,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+        const raw = j.choices?.[0]?.message?.content ?? "";
+        const temiz = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(temiz) as { aciklama: string; ozet: string; faktorler: unknown[] };
+        if (parsed.aciklama && parsed.ozet && Array.isArray(parsed.faktorler)) {
+          aciklamaJson = parsed;
+          modelAd = "groq-llama-3.3-70b";
+        }
+      }
+    } catch { /* fall through */ }
+  }
+
+  if (!aciklamaJson) {
+    return c.json({ hata: "AI açıklama üretilemedi" }, 503);
+  }
+
+  const sureMs = Date.now() - t0;
+
+  // Cache'e yaz (acikla endpoint'i için özel sütunlar kullanıyoruz)
+  // Basit yaklaşım: parsel_anahtar alanına cacheKey yazıyoruz
+  await c.env.DB.prepare(
+    `INSERT OR REPLACE INTO ai_fiyat_cache
+     (parsel_anahtar, baseline_hash, model, alt_per_m2, beklenen_per_m2, ust_per_m2, gerekce, sure_ms, olusturuldu)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    cacheKey,
+    "acikla",
+    modelAd,
+    body.beklenenPerM2,
+    body.beklenenPerM2,
+    body.beklenenPerM2,
+    JSON.stringify({ aciklama: aciklamaJson.aciklama, ozet: aciklamaJson.ozet, faktorler: aciklamaJson.faktorler }),
+    sureMs,
+    Date.now(),
+  ).run().catch(() => {});
+
+  return c.json({
+    aciklama: aciklamaJson.aciklama,
+    faktorler: aciklamaJson.faktorler,
+    ozet: aciklamaJson.ozet,
+    modelAd,
+    sureMs,
+    cached: false,
+  });
+});
+
 // ── Kullanım durumu ──────────────────────────────────────────────
 aiFiyat.get("/durum", async (c) => {
   const tier = c.get("tier" as any) as string;

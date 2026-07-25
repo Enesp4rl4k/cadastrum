@@ -2,71 +2,368 @@
 export const prerender = true;
 import Base from "../layouts/Base.astro";
 
-const emsalCurl = `curl -H "X-API-Key: cdrm_..." \\
-  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/emsal/spatial?lat=41.08&lng=29.05&radius_km=3&kategori=arsa"`;
+const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
-const ornekCurl = `# İstanbul Beykoz Akbaba arsa medyan fiyatı
-curl -H "X-API-Key: $TOKEN" \\
-  https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/beykoz/akbaba
+const endpoints = [
+  {
+    method: "GET",
+    path: "/v1/api/health",
+    tier: "Tümü",
+    aciklama: "API sağlık kontrolü. Token gerekmez.",
+    ornek: `curl "${API_BASE}/api/health"`,
+    yanit: `{"ok": true, "ts": 1736089200000}`,
+  },
+  {
+    method: "GET",
+    path: "/v1/api/fiyat/mahalle/:il/:ilce/:mahalle",
+    tier: "Kurumsal Pro",
+    aciklama: "Mahalle bazlı TL/m² fiyat istatistiği. İl, ilçe ve mahalle adları normalize edilir (türkçe karaktersiz, küçük harf).",
+    params: [
+      { ad: "kategori", tip: "query", zorunlu: false, aciklama: "arsa | tarla | konut (varsayılan: arsa)" },
+    ],
+    ornek: `curl -H "X-API-Key: $TOKEN" \\
+  "${API_BASE}/api/fiyat/mahalle/istanbul/beykoz/akbaba?kategori=arsa"`,
+    yanit: `{
+  "ok": true,
+  "medyan": 18500,
+  "q1": 14200,
+  "q3": 24100,
+  "ortalama": 19800,
+  "ilan_adet": 47,
+  "kaynak": "ilanGozlem-mahalle",
+  "son_guncelleme": 1735000000000
+}`,
+  },
+  {
+    method: "GET",
+    path: "/v1/api/emsal/spatial",
+    tier: "Kurumsal Pro",
+    aciklama: "Koordinat bazlı spatial emsal sorgusu. Belirtilen yarıçap içindeki ilan emsallerini döner.",
+    params: [
+      { ad: "lat",       tip: "query", zorunlu: true,  aciklama: "Enlem (WGS84)" },
+      { ad: "lng",       tip: "query", zorunlu: true,  aciklama: "Boylam (WGS84)" },
+      { ad: "radius_km", tip: "query", zorunlu: false, aciklama: "Yarıçap km (varsayılan: 5, max: 20)" },
+      { ad: "kategori",  tip: "query", zorunlu: false, aciklama: "arsa | tarla | konut" },
+    ],
+    ornek: `curl -H "X-API-Key: $TOKEN" \\
+  "${API_BASE}/api/emsal/spatial?lat=41.08&lng=29.05&radius_km=3&kategori=arsa"`,
+    yanit: `{
+  "ok": true,
+  "medyan_tlm2": 22400,
+  "alt_tlm2": 17800,
+  "ust_tlm2": 28900,
+  "guven_skoru": 74,
+  "emsal_adet": 31,
+  "radius_km": 3,
+  "halka_dagilimi": { "r0_1km": 8, "r1_3km": 18, "r3_5km": 5 }
+}`,
+  },
+  {
+    method: "GET",
+    path: "/v1/api/risk/deprem",
+    tier: "Kurumsal Pro",
+    aciklama: "İl bazlı deprem risk verisi (AFAD TDTH, 475 yıllık PGA).",
+    params: [
+      { ad: "il", tip: "query", zorunlu: true, aciklama: "İl adı (normalize: istanbul, ankara...)" },
+    ],
+    ornek: `curl -H "X-API-Key: $TOKEN" \\
+  "${API_BASE}/api/risk/deprem?il=istanbul"`,
+    yanit: `{
+  "ok": true,
+  "il": "istanbul",
+  "zon": "Z1",
+  "pga_g": 0.42,
+  "seviye": "kritik",
+  "aciklama": "Çok yüksek sismik risk — 475 yıl dönüş periyodu PGA ≥ 0.40g"
+}`,
+  },
+  {
+    method: "GET",
+    path: "/v1/api/risk/taskin",
+    tier: "Kurumsal Pro",
+    aciklama: "İl bazlı taşkın/sel risk verisi.",
+    params: [
+      { ad: "il", tip: "query", zorunlu: true, aciklama: "İl adı" },
+    ],
+    ornek: `curl -H "X-API-Key: $TOKEN" \\
+  "${API_BASE}/api/risk/taskin?il=rize"`,
+    yanit: `{
+  "ok": true,
+  "il": "rize",
+  "risk": "yuksek",
+  "aciklama": "Yüksek taşkın riski — sık sel/taşkın yaşanan il"
+}`,
+  },
+  {
+    method: "POST",
+    path: "/v1/api/tokens",
+    tier: "Kurumsal Pro (JWT)",
+    aciklama: "Yeni API token oluştur. Bearer JWT ile kimlik doğrulama gerekir (hesap token'ı).",
+    ornek: `curl -X POST \\
+  -H "Authorization: Bearer $JWT" \\
+  -H "Content-Type: application/json" \\
+  -d '{"ad": "Entegrasyon token 1"}' \\
+  "${API_BASE}/api/tokens"`,
+    yanit: `{
+  "ok": true,
+  "token": "cdrm_a1b2c3d4...",
+  "id": 42,
+  "rate_limit_per_min": 60
+}`,
+  },
+  {
+    method: "GET",
+    path: "/v1/api/tokens",
+    tier: "Kurumsal Pro (JWT)",
+    aciklama: "Aktif API token listesi.",
+    ornek: `curl -H "Authorization: Bearer $JWT" "${API_BASE}/api/tokens"`,
+    yanit: `{
+  "ok": true,
+  "tokens": [
+    { "id": 42, "ad": "Entegrasyon token 1", "olusturuldu": 1736000000000, "son_kullanim": 1736089200000 }
+  ]
+}`,
+  },
+  {
+    method: "DELETE",
+    path: "/v1/api/tokens/:id",
+    tier: "Kurumsal Pro (JWT)",
+    aciklama: "Token iptal et.",
+    ornek: `curl -X DELETE \\
+  -H "Authorization: Bearer $JWT" \\
+  "${API_BASE}/api/tokens/42"`,
+    yanit: `{"ok": true, "iptal_edildi": 42}`,
+  },
+];
 
-# Bodrum çevresinde 10 km içinde arsa emsalleri
-curl -H "X-API-Key: $TOKEN" \\
-  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/emsal/spatial?lat=37.04&lng=27.43&radius_km=10&kategori=arsa"`;
+const METHODRENK: Record<string, string> = {
+  GET:    "bg-sky-100 text-sky-700 border-sky-200",
+  POST:   "bg-emerald-100 text-emerald-700 border-emerald-200",
+  DELETE: "bg-red-100 text-red-700 border-red-200",
+};
 ---
 
-<Base title="API Dokümantasyon — Cadastrum">
-  <div class="max-w-4xl mx-auto px-4 py-8 prose prose-slate">
-    <h1>Cadastrum Public API</h1>
-    <p class="text-slate-600">
-      Programmatic erişim — Kurumsal Pro tier'ı için. <a href="/hesap/api-tokens">Token oluştur →</a>
-    </p>
+<Base
+  title="Cadastrum Public API Dokümantasyon"
+  description="Cadastrum REST API — mahalle fiyat, spatial emsal, deprem risk ve taşkın riski için programmatic erişim. Kurumsal Pro planı."
+  keywords={["cadastrum api", "arsa fiyat api", "mahalle fiyat api", "parsel api türkiye"]}
+>
+  <div class="bg-imperial text-white py-10 px-4">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-xs tracking-widest text-white/50 uppercase font-medium mb-2">Cadastrum API</div>
+      <h1 class="text-3xl font-bold tracking-tight">Public API Dokümantasyon</h1>
+      <p class="mt-3 text-white/75 max-w-2xl">
+        REST API ile mahalle bazlı fiyat, spatial emsal, deprem ve taşkın risk verilerine programmatic erişim.
+        Kurumsal Pro planında dahildir.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        <a href="/hesap/api-tokens" class="rounded-lg bg-champagne-500 hover:bg-champagne-600 px-4 py-2 text-sm font-bold text-imperial transition-colors">
+          Token Oluştur →
+        </a>
+        <a href="/fiyat" class="rounded-lg border border-white/30 hover:bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors">
+          Fiyatlandırma
+        </a>
+      </div>
+    </div>
+  </div>
 
-    <h2>Kimlik doğrulama</h2>
-    <pre><code>{`GET /v1/api/health HTTP/1.1
-Host: api.cadastrum.com.tr
-X-API-Key: cdrm_a1b2c3d4e5f6...`}</code></pre>
-    <p>
-      Token formatı: <code>cdrm_</code> prefix + 32 hex karakter. Token sadece
-      oluşturulurken bir kez gösterilir; tekrar görmek mümkün değil — kaybedersen
-      yeni token üret. Rate limit: 60 req/dakika (varsayılan).
-    </p>
+  <div class="max-w-4xl mx-auto px-4 py-10 space-y-10">
 
-    <h2>Endpoint'ler</h2>
+    <!-- Kimlik Doğrulama -->
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-slate-800">Kimlik Doğrulama</h2>
+      <p class="text-slate-600 text-sm">
+        Tüm API istekleri <code class="bg-slate-100 px-1 py-0.5 rounded text-xs">X-API-Key</code> header'ı gerektirir.
+        Token formatı: <code class="bg-slate-100 px-1 py-0.5 rounded text-xs">cdrm_</code> prefix + 32 hex karakter.
+      </p>
+      <div class="rounded-xl bg-slate-900 text-slate-100 p-4 text-sm font-mono overflow-x-auto">
+        <span class="text-slate-400"># Her istekte bu header'ı ekle</span><br/>
+        X-API-Key: cdrm_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+      </div>
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <strong>⚠ Token güvenliği:</strong> Token yalnızca oluşturulduğunda bir kez gösterilir.
+        Kaybedersen <a href="/hesap/api-tokens" class="underline">yeni token üret</a>.
+        Token'ı git'e commit etme — environment variable kullan.
+      </div>
+    </section>
 
-    <h3><code>GET /v1/api/health</code></h3>
-    <p>Sağlık kontrolü.</p>
-    <pre><code>{`{"ok": true, "ts": 1736089200000}`}</code></pre>
+    <!-- Rate Limit -->
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-slate-800">Rate Limit</h2>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-left">Plan</th>
+              <th class="px-4 py-3 text-left">Limit</th>
+              <th class="px-4 py-3 text-left">Not</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr class="bg-white">
+              <td class="px-4 py-3 font-medium">Kurumsal Pro</td>
+              <td class="px-4 py-3 font-mono text-xs">60 req/dakika</td>
+              <td class="px-4 py-3 text-slate-500">Varsayılan; destek ile artırılabilir</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-slate-500">
+        Rate limit aşıldığında <code class="bg-slate-100 px-1 rounded">429 Too Many Requests</code> döner.
+        <code class="bg-slate-100 px-1 rounded">Retry-After</code> header'ı bekleme süresini saniye cinsinden verir.
+      </p>
+    </section>
 
-    <h3><code>GET /v1/api/fiyat/mahalle/:il/:ilce/:mahalle</code></h3>
-    <p>Mahalle bazlı fiyat istatistiği (TL/m² medyan, q1, q3, ortalama, ilan adedi).</p>
-    <pre><code>{`curl -H "X-API-Key: cdrm_..." \\
-  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/beykoz/akbaba?kategori=arsa"`}</code></pre>
+    <!-- Endpoint'ler -->
+    <section class="space-y-6">
+      <h2 class="text-xl font-bold text-slate-800">Endpoint'ler</h2>
 
-    <h3><code>GET /v1/api/emsal/spatial</code></h3>
-    <p>Koord bazlı spatial emsal sorgu — 5 km yarıçap içindeki ilanlar.</p>
-    <pre><code>{emsalCurl}</code></pre>
+      {endpoints.map((ep) => (
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <!-- Header -->
+          <div class="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50">
+            <span class={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold font-mono ${METHODRENK[ep.method] ?? "bg-slate-100 text-slate-700"}`}>
+              {ep.method}
+            </span>
+            <code class="text-sm font-mono text-slate-800 break-all">{ep.path}</code>
+            <span class="ml-auto shrink-0 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+              {ep.tier}
+            </span>
+          </div>
 
-    <h3><code>GET /v1/api/risk/deprem?il=istanbul</code></h3>
-    <p>İl bazlı deprem risk metadata.</p>
+          <!-- Body -->
+          <div class="px-5 py-4 space-y-4">
+            <p class="text-sm text-slate-600">{ep.aciklama}</p>
 
-    <h2>Hata kodları</h2>
-    <table>
-      <thead><tr><th>HTTP</th><th>Anlam</th></tr></thead>
-      <tbody>
-        <tr><td>401</td><td>Token yok veya geçersiz</td></tr>
-        <tr><td>404</td><td>Veri bulunamadı</td></tr>
-        <tr><td>429</td><td>Rate limit aşıldı</td></tr>
-        <tr><td>500</td><td>Sunucu hatası</td></tr>
-      </tbody>
-    </table>
+            {ep.params && ep.params.length > 0 && (
+              <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 text-slate-500 uppercase tracking-wide">
+                    <tr>
+                      <th class="px-3 py-2 text-left">Parametre</th>
+                      <th class="px-3 py-2 text-left">Tip</th>
+                      <th class="px-3 py-2 text-left">Zorunlu</th>
+                      <th class="px-3 py-2 text-left">Açıklama</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    {ep.params.map((p) => (
+                      <tr class="bg-white">
+                        <td class="px-3 py-2 font-mono font-medium text-slate-700">{p.ad}</td>
+                        <td class="px-3 py-2 text-slate-500">{p.tip}</td>
+                        <td class="px-3 py-2">
+                          {p.zorunlu
+                            ? <span class="text-red-600 font-medium">Evet</span>
+                            : <span class="text-slate-400">Hayır</span>
+                          }
+                        </td>
+                        <td class="px-3 py-2 text-slate-600">{p.aciklama}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-    <h2>OpenAPI Spec</h2>
-    <p>
-      Tam spec: <a href="/openapi.yaml" download>openapi.yaml</a>. Swagger UI,
-      Postman, Scalar gibi araçlarla doğrudan import edebilirsin.
-    </p>
+            <div class="space-y-2">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">İstek</div>
+              <pre class="rounded-lg bg-slate-900 text-slate-100 p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap"><code>{ep.ornek}</code></pre>
+            </div>
 
-    <h2>Örnekler (curl)</h2>
-    <pre><code>{ornekCurl}</code></pre>
+            <div class="space-y-2">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Yanıt</div>
+              <pre class="rounded-lg bg-slate-800 text-emerald-300 p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap"><code>{ep.yanit}</code></pre>
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <!-- Hata Kodları -->
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-slate-800">Hata Kodları</h2>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-left">HTTP Kodu</th>
+              <th class="px-4 py-3 text-left">Anlam</th>
+              <th class="px-4 py-3 text-left">Çözüm</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {[
+              { kod: "200", anlam: "Başarılı", cozum: "—" },
+              { kod: "400", anlam: "Geçersiz istek", cozum: "Parametre formatını kontrol et" },
+              { kod: "401", anlam: "Token yok veya geçersiz", cozum: "X-API-Key header'ını ekle" },
+              { kod: "403", anlam: "Yetersiz yetki (tier)", cozum: "Kurumsal Pro planına geç" },
+              { kod: "404", anlam: "Veri bulunamadı", cozum: "İl/ilçe/mahalle adını normalize et (tr→ascii, küçük harf)" },
+              { kod: "429", anlam: "Rate limit aşıldı", cozum: "Retry-After saniye bekle" },
+              { kod: "500", anlam: "Sunucu hatası", cozum: "Birkaç saniye sonra tekrar dene; devam ederse destek yaz" },
+            ].map(({ kod, anlam, cozum }) => (
+              <tr class="bg-white">
+                <td class="px-4 py-3 font-mono font-bold text-slate-700">{kod}</td>
+                <td class="px-4 py-3 text-slate-700">{anlam}</td>
+                <td class="px-4 py-3 text-slate-500 text-xs">{cozum}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SDK & Araçlar -->
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-slate-800">SDK & Araçlar</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {[
+          {
+            baslik: "JavaScript / TypeScript",
+            aciklama: "fetch() ile doğrudan kullanım — SDK gerekmez.",
+            kod: `const res = await fetch(
+  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/besiktas/levent",
+  { headers: { "X-API-Key": process.env.CADASTRUM_API_KEY } }
+);
+const { medyan, guven_skoru } = await res.json();`,
+          },
+          {
+            baslik: "Python",
+            aciklama: "requests kütüphanesi ile örnek.",
+            kod: `import requests, os
+
+r = requests.get(
+  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/emsal/spatial",
+  params={"lat": 41.08, "lng": 29.05, "radius_km": 3},
+  headers={"X-API-Key": os.getenv("CADASTRUM_API_KEY")}
+)
+data = r.json()
+print(data["medyan_tlm2"])`,
+          },
+        ].map(({ baslik, aciklama, kod }) => (
+          <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+            <div class="font-semibold text-slate-800">{baslik}</div>
+            <p class="text-xs text-slate-500">{aciklama}</p>
+            <pre class="rounded-lg bg-slate-900 text-slate-100 p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap"><code>{kod}</code></pre>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="rounded-xl border border-imperial/20 bg-imperial text-white p-6 text-center">
+      <h2 class="text-lg font-bold mb-2">API erişimi için Kurumsal Pro planı gerekli</h2>
+      <p class="text-white/75 text-sm mb-4 max-w-lg mx-auto">
+        Kurumsal Pro ile API token, 60 req/dk limit, tüm endpoint'ler ve öncelikli destek.
+      </p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="/fiyat#kurumsal" class="rounded-lg bg-champagne-500 hover:bg-champagne-600 px-5 py-2.5 text-sm font-bold text-imperial transition-colors">
+          Planları gör →
+        </a>
+        <a href="/iletisim" class="rounded-lg border border-white/30 hover:bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors">
+          Satış ekibiyle görüş
+        </a>
+      </div>
+    </section>
+
   </div>
 </Base>

@@ -546,6 +546,51 @@ const features = [
     </div>
   </section>
 
+  <!-- SEO-IL4: Popüler ilçe analizleri — internal linking + semantic SEO -->
+  <section class="py-16 border-t border-slate-100" data-reveal>
+    <div class="container-prose">
+      <div class="flex items-baseline justify-between mb-6">
+        <div>
+          <h2 class="font-display text-2xl font-bold text-slate-900">Popüler ilçe arsa analizleri</h2>
+          <p class="text-slate-500 text-sm mt-1">Türkiye'nin en çok aranan bölgelerinde güncel TL/m² verisi</p>
+        </div>
+        <a href="/veri" class="text-sm font-medium text-imperial-600 hover:text-imperial-800 hover:underline transition shrink-0">
+          Tüm iller →
+        </a>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {[
+          { il: "istanbul", ilce: "beykoz",    ilceAd: "Beykoz",    ilAd: "İstanbul" },
+          { il: "istanbul", ilce: "silivri",   ilceAd: "Silivri",   ilAd: "İstanbul" },
+          { il: "istanbul", ilce: "sariyer",   ilceAd: "Sarıyer",   ilAd: "İstanbul" },
+          { il: "istanbul", ilce: "kadikoy",   ilceAd: "Kadıköy",   ilAd: "İstanbul" },
+          { il: "ankara",   ilce: "polatli",   ilceAd: "Polatlı",   ilAd: "Ankara" },
+          { il: "ankara",   ilce: "golbasi",   ilceAd: "Gölbaşı",   ilAd: "Ankara" },
+          { il: "izmir",    ilce: "cesme",     ilceAd: "Çeşme",     ilAd: "İzmir" },
+          { il: "izmir",    ilce: "urla",      ilceAd: "Urla",      ilAd: "İzmir" },
+          { il: "antalya",  ilce: "alanya",    ilceAd: "Alanya",    ilAd: "Antalya" },
+          { il: "mugla",    ilce: "bodrum",    ilceAd: "Bodrum",    ilAd: "Muğla" },
+          { il: "mugla",    ilce: "fethiye",   ilceAd: "Fethiye",   ilAd: "Muğla" },
+          { il: "bursa",    ilce: "nilufer",   ilceAd: "Nilüfer",   ilAd: "Bursa" },
+          { il: "kocaeli",  ilce: "gebze",     ilceAd: "Gebze",     ilAd: "Kocaeli" },
+          { il: "konya",    ilce: "selcuklu",  ilceAd: "Selçuklu",  ilAd: "Konya" },
+          { il: "balikesir",ilce: "edremit",   ilceAd: "Edremit",   ilAd: "Balıkesir" },
+          { il: "aydin",    ilce: "kusadasi",  ilceAd: "Kuşadası",  ilAd: "Aydın" },
+        ].map(({ il, ilce, ilceAd, ilAd }) => (
+          <a
+            href={`/veri/${il}/${ilce}`}
+            class="group flex flex-col rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-imperial hover:bg-imperial-50/30 hover:shadow-sm transition-all"
+          >
+            <span class="font-semibold text-slate-800 group-hover:text-imperial-700 transition-colors leading-tight text-sm">
+              {ilceAd}
+            </span>
+            <span class="text-xs text-slate-500 mt-0.5">{ilAd} · arsa fiyatları →</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="pb-24" data-reveal>
     <div class="container-prose">

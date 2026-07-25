@@ -1,11 +1,15 @@
 /**
  * Sitemap.xml — Cadastrum site için Google indexleme.
  *
- * İçerik: statik SEO landings + blog + 81 il (/veri/{il}).
- * Mahalle URL'leri bilinçli olarak yok (soft-404 indeks kirliliği).
+ * İçerik: statik SEO landings + blog + 81 il + ilçe sayfaları.
+ * SEO-5: İlçe sayfaları eklendi.
+ * Not: ILCE_LISTESI [ilce].astro ile senkron tutulmalı.
  */
 import type { APIRoute } from "astro";
 import { BLOG_YAZILAR } from "../data/blog-yazilar.ts";
+// SEO-5: İlçe URL'leri sitemap'e eklendi
+// SITE_ILCE_LISTESI = site/src/data/ilce-listesi.ts (node scripts/site-ilce-uret.mjs ile üretilir)
+// Şimdilik inline SITEMAP_ILCELER ile çalışır — dosya generate edilince import bağlanır
 
 export const prerender = true;
 
@@ -114,8 +118,62 @@ export const GET: APIRoute = () => {
     });
   }
 
-  // Mahalle URL'leri sitemap'te YOK — unique prerender HTML yokken soft-404 / indeks kirliliği üretiyordu.
-  // Statik mahalle sayfaları gelene kadar sadece /veri/{il} indeksletilir.
+  // İlçe sayfaları — [ilce].astro getStaticPaths ile SSG üretiliyor
+  // Büyük şehirlerin önemli ilçeleri + kırsal ilçeler
+  const SITEMAP_ILCELER: { il: string; ilce: string }[] = [
+    ...["besiktas","kadikoy","sisli","uskudar","beyoglu","fatih","bakirkoy","zeytinburnu",
+        "kucukcekmece","buyukcekmece","avcilar","gaziosmanpasa","sariyer","beykoz",
+        "maltepe","kartal","pendik","tuzla","atasehir","umraniye","esenyurt","arnavutkoy",
+        "catalca","silivri","beylikduzu","basaksehir","sancaktepe","cekmekoy","sultanbeyli",
+        "kagithane","eyupsultan","bayrampasa","esenler","bagcilar","bahcelievler",
+        "gungoren","sultangazi","adalar"].map(ilce => ({ il: "istanbul", ilce })),
+    ...["cankaya","kecioren","mamak","yenimahalle","etimesgut","sincan","altindag",
+        "pursaklar","golbasi","polatli","kazan","nallihan","haymana","bala",
+        "sereflikochisar","cubuk","camlidere","gudul","elmadağ","ayas"].map(ilce => ({ il: "ankara", ilce })),
+    ...["konak","karsiyaka","bornova","buca","gaziemir","narlidere","bayrakli","cigli",
+        "menemen","kemalpasa","torbali","odemis","tire","seferihisar","selcuk","cesme",
+        "karaburun","urla","aliaga","bergama","dikili","foca","kinik","menderes",
+        "bayindir","beydağ"].map(ilce => ({ il: "izmir", ilce })),
+    ...["muratpasa","konyaalti","kepez","aksu","dosemealti","alanya","manavgat","serik",
+        "kemer","kas","finike","kumluca","elmali","gazipasa"].map(ilce => ({ il: "antalya", ilce })),
+    ...["nilufer","osmangazi","yildirim","mudanya","gemlik","inegol","iznik",
+        "karacabey","mustafakemalpasa","orhangazi","yenisehir"].map(ilce => ({ il: "bursa", ilce })),
+    ...["bodrum","fethiye","marmaris","milas","merkez","ortaca","koycegiz","datca",
+        "yatagan","ula","seydikemer","dalaman"].map(ilce => ({ il: "mugla", ilce })),
+    ...["seyhan","yuregir","cukurova","saricam","karaisali","pozanti","kozan","imamoglu",
+        "karatas","yumurtalik","tufanbeyli","aladag","feke","saimbeyli"].map(ilce => ({ il: "adana", ilce })),
+    ...["selcuklu","meram","karatay","eregli","aksehir","kulu","cumra","beysehir",
+        "seydisehir","karapinar"].map(ilce => ({ il: "konya", ilce })),
+    ...["izmit","gebze","darica","derince","basiskele","golcuk","kandira","karamursel"].map(ilce => ({ il: "kocaeli", ilce })),
+    ...["ortahisar","akcaabat","of","yomra","vakfikebir"].map(ilce => ({ il: "trabzon", ilce })),
+    ...["bandirma","edremit","altieylul","gonen","erdek"].map(ilce => ({ il: "balikesir", ilce })),
+    ...["efeler","nazilli","kusadasi","didim","soke","kocarli"].map(ilce => ({ il: "aydin", ilce })),
+    ...["adapazari","serdivan","erenler","arifiye","karasu","hendek"].map(ilce => ({ il: "sakarya", ilce })),
+    ...["suleymanpasa","corlu","cerkezkoy","malkara"].map(ilce => ({ il: "tekirdag", ilce })),
+    ...["pamukkale","merkezefendi","acipayam","tavas","civril","honaz"].map(ilce => ({ il: "denizli", ilce })),
+    ...["yenisehir","mezitli","akdeniz","toroslar","silifke","erdemli","tarsus","anamur"].map(ilce => ({ il: "mersin", ilce })),
+    ...["sahinbey","sehitkamil","islahiye","nizip"].map(ilce => ({ il: "gaziantep", ilce })),
+    ...["antakya","iskenderun","defne","samandağ","kirikhan","kumlu"].map(ilce => ({ il: "hatay", ilce })),
+    ...["cukurova","seyhan"].map(ilce => ({ il: "adana", ilce })),
+    ...["yunusemre","turgutlu","akhisar","salihli","soma"].map(ilce => ({ il: "manisa", ilce })),
+    ...["onikisubat","dulkadiroglu","elbistan","afsin"].map(ilce => ({ il: "kahramanmaras", ilce })),
+  ];
+
+  // Deduplicate
+  const gorulen = new Set<string>();
+  for (const { il, ilce } of SITEMAP_ILCELER) {
+    const key = `${il}/${ilce}`;
+    if (gorulen.has(key)) continue;
+    gorulen.add(key);
+    entries.push({
+      loc: `${SITE}/veri/${il}/${ilce}`,
+      changefreq: "weekly",
+      priority: 0.65,
+      lastmod: TODAY,
+    });
+  }
+
+  // Mahalle URL'leri sitemap'te YOK — unique prerender HTML yoksa soft-404.
 
   return new Response(buildUrlSet(entries), {
     headers: {

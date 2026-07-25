@@ -1,176 +1,176 @@
-# Cadastrum — Yol Haritası
+# Cadastrum — Yol Haritası v3
 
-> İki katman: (1) **ürün / AI özellikleri**, (2) **veri genişletme**.  
-> Prensip: kullanıcıyı dış kaynağa yönlendirme yok — tüm değer Cadastrum içinde.
-
-**Son güncelleme:** 21 Temmuz 2026
+> **Son güncelleme:** 24 Temmuz 2026  
+> **Durum:** Faz A–C + Veri Faz 2 tamamlandı. Sırada: büyüme + gelir + moat.
 
 ---
 
-## Ürün / AI Yol Haritası
+## Mevcut Ürün (Tamamlanan)
 
-Öncelik sırası: önce skor ve keşif (gelir + fark), sonra grafik/chat (engagement), en sonda tahmin ve dijital ikiz (moat).
+### Temel Altyapı ✅
+- Chrome Extension (sidepanel) — TKGM parsel sorgu, e-Plan imar, risk analizi
+- Backend: Cloudflare Workers + D1 + R2 — `cadastrum-api.cadastrum-tr.workers.dev`
+- Ödeme: LemonSqueezy (Tier 0 Free / Bireysel Pro $9 / Kurumsal $29+)
+- Auth: JWT + email OTP (Resend)
 
-| # | Özellik | Kısa tanım | Hedef yüzey | Durum |
+### AI Özellikleri ✅
+| Özellik | Durum | Dosya |
+|---|---|---|
+| AI Gelecek Değer Skoru | ✅ | `GelecekDegerKarti.tsx` |
+| AI Arazi Avcısı | ✅ | `AraziAvciKarti.tsx` + `/arazi-avci` |
+| **Agentic Fırsat Tarayıcı** | ✅ | `AjanFirsatTarayici.tsx` + `/agent` |
+| **Açıklanabilir AI Değerleme** | ✅ | `FiyatAciklamasi.tsx` + `/ai-fiyat/acikla` |
+| AI Yatırım Danışmanı Chat | ✅ | `AIDanismanKarti.tsx` + `/ai-danisman` |
+| AI Scorecard (5 boyut) | ✅ | `ScorecardKarti.tsx` + `/ai-scorecard` |
+| İmar Değişikliği Tahmini | ✅ | `ImarDegisimSinyalKarti.tsx` |
+| Trend Grafikleri | ✅ | `TrendGrafik.tsx` |
+
+### Görselleştirme ✅
+| Özellik | Durum | Dosya |
+|---|---|---|
+| Dijital İkiz 2.5D (SVG izometrik) | ✅ | `DijitalIkizKarti.tsx` |
+| **Dijital İkiz 3D (Deck.gl WebGL)** | ✅ | `DijitalIkiz3D.tsx` |
+| Uydu Gelişim Trendi | ✅ | `HavaFotoTimeline.tsx` + `GelisimTrendiKarti.tsx` |
+| Spatial Heatmap | ✅ | `SpatialHeatmapMini.tsx` |
+
+### Veri Katmanı ✅
+| Veri | Durum | Kaynak |
+|---|---|---|
+| Parsel sınır + TKGM | ✅ | TKGM API |
+| İmar (TAKS/KAKS/Emsal/Kat) | ✅ | e-Plan |
+| Emsal ilan fiyatları | ✅ | Sahibinden + Hepsiemlak + Emlakjet (günlük 15 ilçe rotasyon) |
+| Eğim + yükseklik + bakı | ✅ | Open-Meteo Elevation |
+| OSM POI/yol mesafesi | ✅ | Overpass API (multi-radius) |
+| Deprem riski | ✅ | AFAD TDTH + PGA bantlı çarpan |
+| Sel/taşkın riski | ✅ | Il bazlı + koordinat bazlı GloFAS |
+| OSB koordinatları | ✅ | osblar.ts — 280+ OSB |
+| Havalimanı koordinatları | ✅ | havalimanları.ts — 56 havalimanı |
+| Liman koordinatları | ✅ | limanlar.ts — 41 liman |
+| Nüfus yoğunluğu | ✅ | il-nufus.ts (TÜİK bazlı) |
+| Serbest bölge + lojistik park | ✅ | serbest-bolgeler.ts — 35 nokta |
+| Otoyol ağı (spatial grid) | ✅ | otoyollar.ts |
+| TMO/lisanslı depo | ✅ | lisansli-depolar.ts — 130+ nokta |
+| Milli Emlak ihalesi | ✅ | milli-emlak.ts |
+| İklim verileri | ✅ | Open-Meteo Archive |
+| Toprak tipi | ✅ | ISRIC SoilGrids |
+| TUCBS ÇDP katmanı | ✅ | tucbs.ts + R2 tile cache |
+| TKGM satış heatmap | ✅ | TKGM analiz API |
+
+---
+
+## Sıradaki Sprint Listesi
+
+### Sprint 1 — Büyüme: Kullanıcı Edinimi (2–3 hafta)
+
+**Hedef:** İlk 500 aktif kullanıcı → veri flywheel'i başlat.
+
+| # | İş | Etki | Süre |
+|---|---|---|---|
+| G1 | Chrome Store listing optimize — screenshot + açıklama güncellemesi | 🔴 Yüksek | 1 gün |
+| G2 | Onboarding flow iyileştirme — ilk açılışta değer göster (demo parsel) | 🔴 Yüksek | 2 gün |
+| G3 | Referral sistemi — "Arkadaşını davet et, 1 ay Pro kazan" | 🟡 Orta | 3 gün |
+| G4 | Extension popup'tan site'e UTM link | 🟡 Orta | 0.5 gün |
+
+### Sprint 2 — Gelir: Conversion Optimizasyonu (2 hafta)
+
+**Hedef:** Free → Pro conversion %2'den %5'e çıkar.
+
+| # | İş | Etki | Süre |
+|---|---|---|---|
+| R1 | Paywall tetikleyici iyileştir — "Bu özelliği dene" CTA | 🔴 Yüksek | 1 gün |
+| R2 | 7 günlük deneme hatırlatma email dizisi (Resend) | 🔴 Yüksek | 2 gün |
+| R3 | Fiyat sayfası A/B — yıllık ön plan ($85 vs $99) | 🟡 Orta | 1 gün |
+| R4 | Kurumsal lead form — "Ekibiniz için demo" | 🟡 Orta | 1 gün |
+
+### Sprint 3 — Ürün: Moat Genişletme (3–4 hafta)
+
+**Hedef:** Rakiplerin kopyalayamayacağı özellikler.
+
+| # | İş | Etki | Süre | Açıklama |
 |---|---|---|---|---|
-| P1 | **AI gelecek değer skoru** | 3–5–10 yıl değer / getiri bandı (açıklanabilir bileşenler) | eklenti + `/sorgu` + rapor | ✅ |
-| P2 | **AI arazi avcısı** | Kriter → Türkiye genelinde aday parsel/bölge listesi | site + eklenti bildirim | ✅ |
-| P3 | **Arsa trend grafikleri** | Mahalle / ilçe TL/m² zaman serisi (SVG line chart) | site `/sorgu`, eklenti | ✅ |
-| P4 | **AI yatırım danışmanı chat** | Parsel bağlamlı RAG sohbet (imar, fiyat, risk, fizibilite) | site + eklenti panel | ✅ |
-| P5 | **İmar değişikliği tahmini** | Plan değişikliği / emsal yükseliş olasılık sinyali | eklenti + rapor | ✅ |
-| P6 | **Arsa dijital ikizi** | 2.5D: parsel poligon + imar zarfı (TAKS/KAKS/kat) + eğim + POI | eklenti + Pro rapor | ✅ |
+| M1 | Portföy izleme dashboard | 🔴 Yüksek | 1 hafta | Çoklu parsel + delta takip + alert |
+| M2 | Karşılaştırmalı analiz (4 parsel yan yana) | 🟡 Orta | 3 gün | KarsilastirmaPanel.tsx genişletme |
+| M3 | PDF rapor kalitesi — Pro branding + 15-20 sayfa | 🔴 Yüksek | 1 hafta | rapor.ts güncelleme |
+| M4 | Mobil uyumlu web app (`/sorgu` geliştirme) | 🟡 Orta | 1 hafta | site/astro genişletme |
+
+### Sprint 4 — Veri: Kapsama Artırma (sürekli)
+
+**Hedef:** 973 ilçenin %80'ini gerçek ilan verisiyle kapsa.
+
+| # | İş | Etki | Süre | Açıklama |
+|---|---|---|---|---|
+| D1 | Emlakjet günlük cron izleme dashboard | 🔴 Yüksek | 1 gün | Admin panel'e ekleme |
+| D2 | Hepsiemlak aylık scraper otomasyonu | 🔴 Yüksek | 2 gün | aylik-scrape-hepsiemlak.mjs → cron |
+| D3 | Extension veri katkısı gamification | 🟡 Orta | 3 gün | "Bu sayfada 47 ilan eklendi" + katkı skoru |
+| D4 | Sahibinden liste scraper otomasyonu | 🟡 Orta | 3 gün | sahibinden-liste.ts Worker entegrasyonu |
+
+### Sprint 5 — Kurumsal: B2B Geliştirme (4–6 hafta)
+
+**Hedef:** İlk 5 kurumsal müşteri ($145/ay+).
+
+| # | İş | Etki | Süre | Açıklama |
+|---|---|---|---|---|
+| B1 | API token sistemi production'a al | 🔴 Yüksek | 2 gün | public-api.ts zaten var, UI gerekiyor |
+| B2 | Toplu parsel analizi (CSV import) | 🟡 Orta | 1 hafta | 10-100 parsel batch |
+| B3 | White-label rapor (logo upload) | 🟡 Orta | 3 gün | rapor.ts + storage |
+| B4 | Kurumsal onboarding akışı | 🟡 Orta | 2 gün | Admin panel'den kullanıcı yönetimi |
 
 ---
 
-### Faz A — Skor & keşif (P1–P2) ✅ TAMAMLANDI
+## Veri Faz 3 — Resmi Başvuru Gerektiren (uzun vade)
 
-| Adım | Ne | Kanıt |
+| Veri | Yol | Öncelik |
 |---|---|---|
-| A1 | AI gelecek değer skoru v0 | `src/lib/gelecek-deger-skoru.ts`, `GelecekDegerKarti.tsx` |
-| A2 | Bileşen kırılımı UI | `GelecekDegerKarti.tsx` — 3/5/10y band + faktör listesi |
-| A3 | AI arazi avcısı v0 | `routes/arazi-avci.ts`, `AraziAvciKarti.tsx`, `db/0021_arazi_avci.sql` |
-| A4 | Avcı uyarıları | `POST /v1/arazi-avci/kriter` + `PATCH .../uyari` — bildirim kuralı entegrasyonu |
+| DSİ taşkın haritası (1/1000 ölçek) | DSİ Genel Müdürlüğü resmi veri talebi | 🟡 Orta |
+| AFAD ARAS heyelan haritası | AFAD resmi başvuru | 🟡 Orta |
+| TKGM tapu satış gerçek fiyatı | TKGM kurumsal anlaşma + lisans | 🔴 Yüksek (moat) |
+| KGM resmi yol haritası | Karayolları açık veri portal | 🟢 Düşük |
+| Emlakjet resmi data API | Partnership anlaşması (~$200-500/ay) | 🟡 Orta |
 
 ---
 
-### Faz B — Grafik & danışman (P3–P4) ✅ TAMAMLANDI
+## Öncelik Matrisi
 
-| Adım | Ne | Kanıt |
-|---|---|---|
-| B1 | SVG trend grafiği | `TrendGrafik.tsx` — SVG line chart, 6/12/24 ay seçeneği |
-| B2 | Grafik veri API | `GET /v1/sorgu/trend` — interval, kaynak etiketi, değişim yüzdesi |
-| B3 | AI danışman chat v0 | `routes/ai-danisman.ts`, `AIDanismanKarti.tsx` — Gemini 2.5 + Groq fallback |
-| B4 | Chat guardrails | Server-side sistem promptu, yatırım tavsiyesi reddi, kaynak zorunluluğu |
+```
+Etki / Çaba:     Düşük Çaba    Orta Çaba    Yüksek Çaba
+Yüksek Etki:     G1, G2        M1, M3       D2, D4, B2
+Orta Etki:       R1, D1        G3, R2, B1   B3, M2
+Düşük Etki:      G4            R3, R4        M4
+```
 
----
-
-### Faz C — Tahmin & dijital ikiz (P5–P6) ✅ TAMAMLANDI
-
-| Adım | Ne | Kanıt |
-|---|---|---|
-| C1 | İmar değişikliği sinyal v0 | `src/lib/imar-degisim-sinyal.ts`, `backend/api/src/lib/imar-degisim-sinyal.ts` |
-| C2 | Olasılık bandı UI | `ImarDegisimSinyalKarti.tsx` — düşük/orta/yüksek + gerekçe + bileşen çubukları |
-| C3 | Dijital ikiz v0 | `DijitalIkizKarti.tsx` — izometrik SVG, TAKS/KAKS/kat zarfı + POI özeti |
-| C4 | Dijital ikiz v1 | İzometrik projeksiyon + eğim + bakı yönü + yakın POI gösterimi |
+**İlk odak (bu hafta):** G1 → G2 → R1 → D1
 
 ---
 
-### Tamamlanan ilgili temel
+## KPI Hedefleri (2026 Q3–Q4)
 
-| Özellik | Durum | Kanıt |
-|---|---|---|
-| Yatırım skoru (açıklanabilir) | ✅ | `lib/yatirim-skoru.ts`, `YatirimSkoruKarti.tsx` |
-| Gelecek değer skoru | ✅ | `lib/gelecek-deger-skoru.ts`, `GelecekDegerKarti.tsx` |
-| Uydu gelişim trendi (Wayback) | ✅ | `HavaFotoTimeline.tsx`, `GelisimTrendiKarti.tsx`, `/v1/proxy/wayback` |
-| Fiyat trend API | ✅ | `routes/sorgu.ts` `GET /trend`, `FiyatTrendiKarti.tsx` |
-| Fizibilite / kat karşılığı | ✅ | `Fizibilite.tsx`, `kat-karsiligi.astro` |
-| Spatial emsal + bildirim kuralları | ✅ | `routes/emsal-spatial.ts`, `BildirimKurali.tsx` |
-| AI Scorecard (5 boyut) | ✅ | `routes/ai-scorecard.ts`, `ScorecardKarti.tsx`, `db/0018_ai_scorecard_cache.sql` |
-| AI Fiyat proxy | ✅ | `routes/ai-fiyat.ts` |
-| AI Danışman chat | ✅ | `routes/ai-danisman.ts`, `AIDanismanKarti.tsx`, `db/0022_ai_sohbet.sql` |
-| AI Arazi Avcısı | ✅ | `routes/arazi-avci.ts`, `AraziAvciKarti.tsx`, `db/0021_arazi_avci.sql` |
-| İmar Değişim Sinyali | ✅ | `lib/imar-degisim-sinyal.ts`, `ImarDegisimSinyalKarti.tsx`, `routes/imar-degisim.ts` |
-| Dijital İkiz (2.5D) | ✅ | `DijitalIkizKarti.tsx` |
-| Trend Grafiği (SVG) | ✅ | `TrendGrafik.tsx` |
-| Emlakjet scraper (81 il) | ✅ | `lib/emlakjet-scraper.ts` |
-| Sahibinden scraper | ✅ | `lib/sahibinden-scraper.ts` |
-| Milli Emlak entegrasyonu | ✅ | `routes/milli-emlak.ts`, `db/0019_milli_emlak.sql` |
-| TCMB döviz kuru | ✅ | `routes/tcmb.ts` |
-| Admin panel | ✅ | `routes/admin.ts` |
-| CRM sistemi | ✅ | `routes/crm.ts`, `musteri.astro` |
-| Abonelik & ödeme (Lemon Squeezy) | ✅ | `routes/lemon.ts`, `AbonelikYonetimi.tsx` |
-| API Token sistemi | ✅ | `db/0012_api_tokens.sql`, `routes/public-api.ts` |
-| Rapor export | ✅ | `routes/rapor.ts`, `RaporExportButonu.tsx` |
-| Al/Sat karar motoru | ✅ | `AlSatKararMotoru.tsx` |
-| İhale alarm kartı | ✅ | `IhaleAlarmKarti.tsx` |
-| Kayıtlı taramalar | ✅ | `KayitliTaramalar.tsx` |
-| Parsel not defteri | ✅ | `ParselNotDefteri.tsx` |
-| Zaman makinesi modal | ✅ | `ZamanMakinesiModal.tsx` |
-| Komut paleti (Cmd+K) | ✅ | `KomutPaleti.tsx` |
-| Onboarding akışı | ✅ | `Onboarding.tsx` |
-| Paywall / kilit sistemi | ✅ | `PaywallKilit.tsx` |
-| Tema seçici (dark/light) | ✅ | `TemaSecici.tsx` |
-
-### Test kapsamı
-
-| Test dosyası | Kapsam | Durum |
-|---|---|---|
-| `test/gelecek-deger-skoru.spec.ts` | Unit — 33 test | ✅ 33/33 passed |
-| `test/imar-degisim.spec.ts` | Unit — 15 test | ✅ 15/15 passed |
-| `backend/api/test/arazi-avci.spec.ts` | Integration — `/v1/arazi-avci/ara` + `/kriter` | ✅ |
-| `backend/api/test/ai-danisman.spec.ts` | Integration — `/v1/ai-danisman/sohbet` + `/imar-degisim/sinyal` | ✅ |
-| `test/yatirim-skoru.spec.ts` | Unit — yatırım skoru + ROI + kira | ✅ |
-| `test/fiyat-engine.spec.ts` | Unit — fiyat motoru | ✅ |
-| `test/deprem-tdth.spec.ts` | Unit — AFAD TDTH | ✅ |
-| `backend/api/test/health.spec.ts` | Integration — health + CORS | ✅ |
-| `backend/api/test/ai-fiyat.spec.ts` | Integration — AI fiyat proxy | ✅ |
-
-### Ürün ilkeleri (AI özellikleri)
-
-1. **Açıklanabilir skor** — kara kutu yok; her puanın faktörü UI'da.
-2. **Tavsiye değil** — gelecek değer, imar tahmini ve chat metinlerinde yasal disclaimer.
-3. **Önce mevcut veri** — yeni özellik önce D1 / e-Plan / uydu / trend'i tüketir; yeni API son çare.
-4. **Tier** — Avcı + dijital ikiz + sınırsız chat → Pro / Pro+; temel skor ücretsiz teaser.
-5. **Server-side prompt** — AI prompt'ları client'tan gelmez, server-side oluşturulur (güvenlik).
-
----
-
-## Veri Genişletme
-
-### Mevcut Durum (Temmuz 2026)
-
-| # | Veri | Durum | Kaynak |
+| Metrik | Şimdi | Q3 Hedef | Q4 Hedef |
 |---|---|---|---|
-| 1 | Parsel sınır + ada/parsel | ✅ Tam | TKGM API |
-| 2 | İmar durumu (TAKS/KAKS/Emsal/Maks Kat) | ✅ Tam | e-Plan |
-| 3 | Eğim & yükseklik & bakı yönü | ✅ Tam | Open-Meteo Elevation |
-| 4 | OSM POI/yol mesafesi | ✅ Multi-radius (1/5/15 km) + fuel/trafo + Dexie cache | Overpass |
-| 5 | Risk faktörleri (sit/askeri/zeytinlik/orman/mera) | ⚠️ Heuristic | Parsel nitelik + e-Plan metni regex |
-| 6 | Emsal ilan fiyatları | ✅ Tam | Sahibinden + Hepsiemlak content scriptleri |
-| 7 | TKGM satış yoğunluğu (heatmap) | ✅ Tam | TKGM analiz API |
-| 8 | Deprem risk skoru | ✅ AFAD TDTH + PGA bantlı fiyat çarpanı | AFAD TDTH + IL_DEPREM |
-| 9 | İklim (yağış/sıcaklık/nem) | ✅ Tam | Open-Meteo Archive |
-| 10 | Toprak tipi & organik madde | ✅ Tam | ISRIC SoilGrids |
-| 11 | OSB/Sanayi koordinat | ⚠️ OSM zayıf | — |
-| 12 | Havalimanı/liman koordinat | ⚠️ OSM zayıf | — |
-| 13 | Nüfus yoğunluğu | ❌ Eksik | — |
-| 14 | Sel/taşkın riski | ❌ Eksik | — |
-| 15 | Heyelan duyarlılık | ❌ Eksik | — |
-| 16 | Tapu gerçek satış fiyatı | ❌ Kapalı | — |
-| 17 | KGM resmi yol haritası | ⚠️ OSM | — |
-
-### Genel Durum (Temmuz 2026)
-
-Tüm Faz A–C **tamamlandı**. Ürün roadmap'i işlevsel:
-- Backend: Cloudflare Workers + D1, `/v1/arazi-avci`, `/v1/ai-danisman`, `/v1/imar-degisim`, sorgu/trend, harita
-- Extension: GelecekDegerKarti, AraziAvciKarti, TrendGrafik, AIDanismanKarti, ImarDegisimSinyalKarti, DijitalIkizKarti
-- Site: SEO landings, `/sorgu`, veri kataloğu
-- Test kapsamı: 33+ unit test geçiyor, integration testleri yazıldı
-
-### Veri Faz 2 — Statik dataset (sonraki öncelik)
-
-| Adım | Veri | Yöntem | Kapsam |
-|---|---|---|---|
-| 6 | OSB/Sanayi koordinatları | OSBÜK web → JSON dataset | 350+ OSB |
-| 7 | Havalimanı koordinatları | DHMİ liste → manuel JSON | 56 havalimanı |
-| 8 | Liman koordinatları | UDHB liste → manuel JSON | 30 liman |
-| 9 | TÜİK nüfus | TÜİK CSV download → Cadastrum cache | Tüm mahalleler |
-
-### Veri Faz 3 — Uzun vade (resmi başvuru / anlaşma)
-
-| Adım | Veri | Yol |
-|---|---|---|
-| 10 | DSİ taşkın haritası | DSİ Genel Müdürlüğü resmi veri talebi |
-| 11 | AFAD ARAS heyelan | AFAD resmi başvuru |
-| 12 | TKGM tapu satış fiyatı | TKGM kurumsal anlaşma + lisans |
-| 13 | KGM resmi yol haritası | Karayolları açık veri portal talebi |
+| Aktif kullanıcı | — | 500 | 2.000 |
+| Pro subscriber | — | 50 | 200 |
+| Aylık gelir (MRR) | $0 | $450 | $1.800 |
+| İlçe kapsama (ilan verisi) | ~200 | 400 | 700 |
+| Chrome Store puanı | — | 4.5+ | 4.7+ |
 
 ---
 
-### Veri prensipleri
+## Teknik Borç & Temizlik
 
-1. **Cadastrum içinde çöz** — Kullanıcıyı dış kuruma "git şuraya bak" diye yönlendirme yok.
-2. **Veri yetersiz ise dürüst ol** — Default 50km cezalandırması yok; veri yoksa skor null + nötr açıklama.
-3. **Akıllı çıkarımlar** — Yapı yoğunluğu altyapı sinyali, vb. sağlam proxy'ler.
-4. **Tüm veriler cache'li** — Dexie (extension) + KV (gelecek backend) ile zero-network repeat queries.
-5. **Fiyat / AI motoruna besle** — Her yeni katman fiyat, gelecek skor, imar sinyali ve dijital ikize input olur.
+| # | İş | Öncelik |
+|---|---|---|
+| T1 | `any` tipler → strict TypeScript | 🟢 Düşük |
+| T2 | Test coverage artırma (kritik lib) | 🟡 Orta |
+| T3 | Bundle boyutu analizi (`@next/bundle-analyzer`) | 🟡 Orta |
+| T4 | Cloudflare Workers CPU time profiling | 🟡 Orta |
+| T5 | D1 index optimizasyonu (mahalle_istatistik) | 🟡 Orta |
+
+---
+
+## Ürün İlkeleri
+
+1. **Açıklanabilir skor** — kara kutu yok; her puanın faktörü UI'da sayısal gerekçeyle
+2. **Tavsiye değil** — gelecek değer, imar tahmini ve chat metinlerinde yasal disclaimer
+3. **Önce mevcut veri** — yeni özellik önce D1/e-Plan/uydu/trend'i tüketir; yeni API son çare
+4. **Server-side prompt** — AI prompt'ları client'tan gelmez, server-side oluşturulur
+5. **Tier** — Temel analiz ücretsiz teaser; AI + 3D + sınırsız chat → Pro/Pro+
+6. **Cadastrum içinde çöz** — kullanıcıyı dış kuruma "git şuraya bak" diye yönlendirme yok

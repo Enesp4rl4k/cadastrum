@@ -1,14 +1,19 @@
 /**
  * Dijital İkiz Kartı — Faz C3/C4
- * 2.5D parsel görünümü: SVG poligon + imar zarfı (TAKS/KAKS/kat) + eğim + POI özeti.
- * Harici bağımlılık yok. Koordinat sistemi: pseudo-3D isometrik SVG projeksiyon.
+ * 2.5D parsel görünümü (SVG) + gerçek 3D (Deck.gl WebGL) toggle.
+ * 3D mod: lazy import — sadece açıldığında yüklenir.
  */
-import { useMemo } from "react";
-import { Box as BoxIcon } from "lucide-react";
+import { useMemo, useState, lazy, Suspense } from "react";
+import { Box as BoxIcon, Layers as LayersIcon } from "lucide-react";
 import { Section, Row } from "../ui/Card";
 import type { Parsel } from "../../types/tkgm";
 import type { EPlanImarVerisi } from "../../lib/eplan";
 import type { CevreAnalizi } from "../../lib/osm";
+
+// Deck.gl bileşeni — lazy import ile bundle'a etki etmez
+const DijitalIkiz3D = lazy(() =>
+  import("./DijitalIkiz3D").then((m) => ({ default: m.DijitalIkiz3D }))
+);
 
 interface Props {
   parsel: Parsel;
@@ -177,6 +182,7 @@ function ImarZarfSVG({ alan, taks, kaks, maksKat }: ImarZarfiProps) {
 
 export function DijitalIkizKarti({ parsel, ePlan, cevre, egimYuzde, bakiYonu }: Props) {
   const alan = parsel.alan ?? 0;
+  const [mod3D, setMod3D] = useState(false);
 
   const taks      = ePlan?.taks    ?? 0.3;
   const kaks      = ePlan?.emsal   ?? 1.0;
@@ -202,12 +208,48 @@ export function DijitalIkizKarti({ parsel, ePlan, cevre, egimYuzde, bakiYonu }: 
       title="Dijital ikiz"
       icon={<BoxIcon className="h-3.5 w-3.5" aria-hidden="true" />}
       accent="neutral"
-      subtitle="2.5D imar zarfı"
+      subtitle={mod3D ? "3D WebGL" : "2.5D imar zarfı"}
+      actions={
+        gosteri ? (
+          <button
+            type="button"
+            onClick={() => setMod3D((v) => !v)}
+            title={mod3D ? "2.5D görünüme geç" : "3D WebGL görünümüne geç"}
+            aria-label={mod3D ? "2.5D görünüme geç" : "3D WebGL görünümüne geç"}
+            className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9px] font-semibold transition-colors ${
+              mod3D
+                ? "border-blue-400 bg-blue-600 text-white hover:bg-blue-700"
+                : "border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
+            }`}
+          >
+            <LayersIcon className="h-3 w-3" aria-hidden="true" />
+            {mod3D ? "2D" : "3D"}
+          </button>
+        ) : undefined
+      }
     >
       <div className="space-y-2 p-2">
         {gosteri ? (
           <>
-            {/* İzometrik görünüm */}
+            {/* 3D WebGL görünümü (Deck.gl lazy) */}
+            {mod3D ? (
+              <Suspense
+                fallback={
+                  <div className="flex h-[260px] items-center justify-center rounded-lg border border-slate-200 bg-slate-900 text-2xs text-slate-400">
+                    3D yükleniyor…
+                  </div>
+                }
+              >
+                <DijitalIkiz3D
+                  parsel={parsel}
+                  ePlan={ePlan}
+                  cevre={cevre}
+                  egimYuzde={egimYuzde}
+                  yukseklik={260}
+                />
+              </Suspense>
+            ) : (
+            /* 2.5D İzometrik SVG görünümü */
             <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-1 dark:border-slate-800 dark:bg-slate-900/40">
               <ImarZarfSVG
                 alan={alan}
@@ -216,6 +258,7 @@ export function DijitalIkizKarti({ parsel, ePlan, cevre, egimYuzde, bakiYonu }: 
                 maksKat={maksKat}
               />
             </div>
+            )}
 
             {/* Metrikler */}
             <div className="space-y-0.5">

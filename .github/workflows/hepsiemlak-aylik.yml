@@ -1,0 +1,88 @@
+name: Hepsiemlak Aylik Scraper
+
+on:
+  # Her ayın 1'i saat 04:00 UTC
+  schedule:
+    - cron: "0 4 1 * *"
+  # Manuel tetik (GitHub Actions UI'dan)
+  workflow_dispatch:
+    inputs:
+      maks_ilce:
+        description: "Kaç ilçe taransın (varsayılan: 80)"
+        required: false
+        default: "80"
+      maks_ilan:
+        description: "İlçe başına max ilan (varsayılan: 15)"
+        required: false
+        default: "15"
+
+jobs:
+  scrape:
+    name: Hepsiemlak İlan Tarama
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js kurulum
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Bağımlılıkları yükle
+        run: npm ci
+
+      - name: Puppeteer Chrome bağımlılıkları
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libasound2 libpangocairo-1.0-0 libpango-1.0-0 \
+            libcairo2 libgtk-3-0 libgdk-pixbuf2.0-0
+
+      - name: Run başlat (API'ya kaydet)
+        id: run_start
+        run: |
+          RESPONSE=$(curl -sf -X POST \
+            -H "X-Scraper-Secret: ${{ secrets.SCRAPER_API_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"aksiyon\":\"baslat\",\"run_id\":\"${{ github.run_id }}\",\"tetik\":\"github-actions-cron\"}" \
+            "${{ secrets.API_BASE }}/v1/hepsiemlak/run-kayit") || true
+          echo "api_response=$RESPONSE" >> $GITHUB_OUTPUT
+
+      - name: Hepsiemlak scraper çalıştır
+        id: scrape
+        env:
+          SCRAPER_API_SECRET: ${{ secrets.SCRAPER_API_SECRET }}
+          API_BASE: ${{ secrets.API_BASE }}
+          MAKS_ILCE: ${{ github.event.inputs.maks_ilce || '80' }}
+          MAKS_ILAN: ${{ github.event.inputs.maks_ilan || '15' }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          node scripts/aylik-scrape-hepsiemlak.mjs \
+            --maks=$MAKS_ILCE \
+            --maks-ilan=$MAKS_ILAN \
+            --api-gonder=true
+        continue-on-error: true
+
+      - name: Run bitir (API'ya kaydet)
+        if: always()
+        run: |
+          DURUM="${{ steps.scrape.outcome == 'success' && 'tamam' || 'kismi' }}"
+          curl -sf -X POST \
+            -H "X-Scraper-Secret: ${{ secrets.SCRAPER_API_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"aksiyon\":\"bitir\",\"run_id\":\"${{ github.run_id }}\",\"durum\":\"$DURUM\"}" \
+            "${{ secrets.API_BASE }}/v1/hepsiemlak/run-kayit" || true
+
+      - name: Özet yaz
+        if: always()
+        run: |
+          echo "## Hepsiemlak Scraper Özeti" >> $GITHUB_STEP_SUMMARY
+          echo "- Run ID: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Durum: ${{ steps.scrape.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Tetik: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY

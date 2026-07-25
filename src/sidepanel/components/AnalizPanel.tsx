@@ -2,13 +2,10 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { RiskKarti } from "./RiskKarti";
 import { AnalizIlerlemeBar } from "./AnalizIlerlemeBar";
+import { AnalizSkorlar } from "./AnalizSkorlar";
+import { AnalizDetay } from "./AnalizDetay";
 import {
-  Truck as TruckIcon,
-  Mountain as MountainIcon,
-  Footprints as FootprintsIcon,
-  Zap as ZapIcon,
   BarChart3 as BarChart3Icon,
-  MapPin as MapPinIcon,
   Link2 as Link2Icon,
 } from "lucide-react";
 import { analizet } from "../../lib/analiz";
@@ -18,6 +15,7 @@ import { tumSkorlariHesapla } from "../../lib/skor";
 import type { Parsel } from "../../types/tkgm";
 import { SkorBadge } from "./SkorBadge";
 import { Fizibilite } from "./Fizibilite";
+import { YapimMaliyeti } from "./YapimMaliyeti";
 import { TkgmAnaliz } from "./TkgmAnaliz";
 import { BelediyeImar } from "./BelediyeImar";
 import { FiyatTahminKarti } from "./FiyatTahminKarti";
@@ -349,45 +347,15 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         </div>
       </div>
 
-      {/* 4 ana skor — loading/hata/sonuç state'leri SkorBadge'in kendi mantığıyla */}
-      <div className="grid grid-cols-2 gap-2">
-        <SkorBadge
-          ad="Lojistik"
-          icon={<TruckIcon className="h-4 w-4" />}
-          skor={skorlar.lojistik}
-          loading={loading && !cevre}
-          hata={!loading && !cevre && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
-        />
-        <SkorBadge
-          ad="Fiziksel"
-          icon={<MountainIcon className="h-4 w-4" />}
-          skor={skorlar.fiziksel}
-          loading={loading && !egim}
-          hata={!loading && !egim && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Yükseklik/eğim verisi henüz çekilmedi"
-        />
-        <SkorBadge
-          ad="Erişim"
-          icon={<FootprintsIcon className="h-4 w-4" />}
-          skor={skorlar.erisim}
-          loading={loading && !cevre}
-          hata={!loading && !cevre && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
-        />
-        <SkorBadge
-          ad="Altyapı"
-          icon={<ZapIcon className="h-4 w-4" />}
-          skor={skorlar.altyapi}
-          loading={loading && !cevre}
-          hata={!loading && !cevre && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
-        />
-      </div>
+      {/* 4 ana skor — AnalizSkorlar componenti */}
+      <AnalizSkorlar
+        skorlar={skorlar}
+        loading={loading}
+        cevre={cevre}
+        egim={egim}
+        error={error}
+        onRetry={() => void cevreyiAnalizEt()}
+      />
 
       <TekBakisOzeti
         parsel={parsel}
@@ -420,157 +388,14 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       </Section>
 
       {/* Skorların açıklamaları */}
-      {skorlar.lojistik.toplam != null && (
-        <Section title="🚚 Lojistik detay">
-          <p className="mb-1 text-[11px]">{skorlar.lojistik.aciklama}</p>
-          <Bilesenler bilesenler={skorlar.lojistik.bilesenler} />
-        </Section>
-      )}
-      {skorlar.fiziksel.toplam != null && egim && (
-        <Section title="🏗️ Fiziksel detay">
-          <p className="mb-1 text-[11px]">{skorlar.fiziksel.aciklama}</p>
-          <Bilesenler bilesenler={skorlar.fiziksel.bilesenler} />
-          <p className="mt-2 text-[11px] text-tkgm-muted">
-            Yükseklik: {egim.merkezYukseklikM} m · {egim.egimNotu}
-          </p>
-        </Section>
-      )}
-      {skorlar.erisim.toplam != null && (
-        <Section title="🚶 Erişim detay">
-          <p className="mb-1 text-[11px]">{skorlar.erisim.aciklama}</p>
-          <Bilesenler bilesenler={skorlar.erisim.bilesenler} />
-        </Section>
-      )}
-      {skorlar.altyapi.toplam != null && (
-        <Section title="🔌 Altyapı detay">
-          <p className="mb-1 text-[11px]">{skorlar.altyapi.aciklama}</p>
-          <Bilesenler bilesenler={skorlar.altyapi.bilesenler} />
-        </Section>
-      )}
-
-      {cevre && cevre.elementSayisi === 0 && (
-        <div className="rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
-          ℹ️ <strong>Overpass'tan 0 element geldi.</strong> Bölgede OSM'de
-          işaretli POI/yol/altyapı yok ya da çok az. Kırsal Türkiye'de OSM
-          verisi seyrektir. Lojistik / Erişim / Altyapı skorları "0" olabilir —
-          bu API hatası değil, veri eksikliği.
-        </div>
-      )}
-      {cevre && cevre.elementSayisi > 0 && cevre.elementSayisi < 5 && (
-        <div className="rounded border border-amber-200 bg-amber-50/50 p-2 text-[10px] text-amber-700">
-          ℹ️ Overpass {cevre.elementSayisi} element döndü — bölgede OSM kapsama
-          sınırlı. Bu skorları temkinli yorumla.
-        </div>
-      )}
-
-      {cevre && (
-        <>
-          <Section title="🏙️ Çevre POI">
-            <div className="grid grid-cols-3 gap-1 text-[11px]">
-              <Poi label="Eğitim" sayi={cevre.poi.okul} enYakinM={cevre.poi.okulMinM} />
-              <Poi label="Sağlık" sayi={cevre.poi.hastane} enYakinM={cevre.poi.hastaneMinM} />
-              <Poi label="Durak" sayi={cevre.poi.duraklar} enYakinM={cevre.poi.durakMinM} />
-            </div>
-            <div className="mt-1 text-[9px] text-slate-400 text-center">
-              1.5km içinde sayı · değilse en yakın mesafe (5km'ye kadar)
-            </div>
-          </Section>
-
-          <Section title="🛣 Yol Erişimi">
-            {(() => {
-              const yolTipleri = ["motorway", "trunk", "primary", "secondary", "tertiary"];
-              const yollar = cevre.enYakinlar.filter(p => yolTipleri.includes(p.tip));
-              if (yollar.length === 0) {
-                return <div className="text-[10px] text-slate-500 italic">30km içinde önemli yol bulunamadı</div>;
-              }
-              const tipAd: Record<string, string> = {
-                motorway: "Otoyol", trunk: "Devlet Yolu",
-                primary: "Anayol", secondary: "İkincil yol",
-                tertiary: "Üçüncü yol",
-              };
-              return (
-                <div className="space-y-1">
-                  {yollar.slice(0, 4).map((y, i) => {
-                    const km = y.mesafeM >= 1000 ? `${(y.mesafeM / 1000).toFixed(1)} km` : `${y.mesafeM} m`;
-                    return (
-                      <div key={i} className="flex items-center justify-between text-[11px]">
-                        <span className="flex items-center gap-1.5 text-slate-700">
-                          <span>{y.ikon ?? "🛣"}</span>
-                          <span>{tipAd[y.tip] ?? y.tip}</span>
-                          <span className="text-slate-500">· {y.ad}</span>
-                        </span>
-                        <span className="font-semibold text-tkgm-primary tabular-nums">{km}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </Section>
-
-          <Section title="🔌 Altyapı">
-            <KV
-              k="Elektrik hattı"
-              v={
-                cevre.altyapi.elektrikHattiM != null
-                  ? `${Math.round(cevre.altyapi.elektrikHattiM)} m`
-                  : "2km içinde yok"
-              }
-            />
-            <KV
-              k="Su hattı"
-              v={
-                cevre.altyapi.suBoruM != null
-                  ? `${Math.round(cevre.altyapi.suBoruM)} m`
-                  : "OSM'de işaretli yok"
-              }
-            />
-            <KV
-              k="Demiryolu"
-              v={
-                cevre.altyapi.demiryoluM != null
-                  ? `${Math.round(cevre.altyapi.demiryoluM)} m`
-                  : "2km içinde yok"
-              }
-            />
-          </Section>
-
-          {/tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(parsel.nitelik) && (
-            <Section title="🌾 Kırsal Analiz">
-              <KV
-                k="Kadastral Yol"
-                v={
-                  cevre.kirsal.yolaCepheM != null
-                    ? cevre.kirsal.yolaCepheM <= 15 ? "Yola cephe" : `${Math.round(cevre.kirsal.yolaCepheM)} m`
-                    : "OSM'de işaretli değil"
-                }
-              />
-              <KV
-                k="Su Kaynağı"
-                v={
-                  cevre.kirsal.suKaynagiM != null
-                    ? `${Math.round(cevre.kirsal.suKaynagiM)} m`
-                    : "1km içinde yok"
-                }
-              />
-              <KV
-                k="Köy Merkezi"
-                v={
-                  cevre.kirsal.koyMerkeziM != null
-                    ? `${Math.round(cevre.kirsal.koyMerkeziM)} m`
-                    : "3km içinde yok"
-                }
-              />
-            </Section>
-          )}
-        </>
-      )}
-
-      {adres && (
-        <Section title="📍 Adres (Nominatim)">
-          <p className="text-[11px]">{adres}</p>
-        </Section>
-      )}
+      {/* Skor detayları + POI/yol/altyapı/kırsal/adres — AnalizDetay componenti */}
+      <AnalizDetay
+        cevre={cevre}
+        egim={egim}
+        skorlar={skorlar}
+        adres={adres}
+        nitelik={parsel.nitelik ?? ""}
+      />
 
       {/* Doğal veri katmanı — AFAD deprem + iklim + toprak (Cadastrum içinde) */}
       <DogalVeriKarti parsel={parsel} />
@@ -867,8 +692,12 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       )}
 
       {/* ── FİZİBİLİTE — bağımsız grup (yatırım hesabı odaklı) ─────────── */}
-      <DetayGrup baslik="Fizibilite Hesaplayıcı" ikon="🧮" renk="slate">
+      <DetayGrup baslik="Fizibilite & Maliyet" ikon="🧮" renk="slate">
         <Fizibilite parsel={parsel} />
+        <YapimMaliyeti
+          parsel={parsel}
+          ePlan={birlesikImar ?? ePlanVerisi}
+        />
       </DetayGrup>
     </div>
   );

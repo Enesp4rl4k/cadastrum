@@ -1,0 +1,320 @@
+---
+/**
+ * /parsel?il=...&ilce=...&mahalle=...&ada=...&parsel=...&mk=...
+ *
+ * Extension'dan "Bağlantıyı kopyala" ile üretilen paylaşım sayfası.
+ * Extension olmadan da temel parsel bilgilerini gösterir.
+ * SSR (prerender = false) — her istek TKGM'den taze veri çeker.
+ */
+export const prerender = false;
+import Base from "../layouts/Base.astro";
+import { PUBLIC_API_BASE } from "../lib/config";
+
+const params = Astro.url.searchParams;
+const il      = params.get("il")      ?? "";
+const ilce    = params.get("ilce")    ?? "";
+const mahalle = params.get("mahalle") ?? "";
+const ada     = params.get("ada")     ?? "";
+const parsel  = params.get("parsel")  ?? "";
+const mk      = params.get("mk")      ?? "";   // mahalle kodu (opsiyonel)
+
+// Temel doğrulama
+const gecerli = ada.length > 0 && parsel.length > 0;
+
+// Sayfa başlığı
+const baslik = gecerli
+  ? `Ada ${ada} / Parsel ${parsel}${mahalle ? ` · ${mahalle}` : ""}${ilce ? ` · ${ilce}` : ""}${il ? ` · ${il}` : ""} — Cadastrum`
+  : "Parsel Özeti — Cadastrum";
+
+const aciklama = gecerli
+  ? `${il ? il + " " : ""}${ilce ? ilce + " " : ""}${mahalle ? mahalle + " " : ""}Ada ${ada} Parsel ${parsel} için TKGM kayıtlı parsel özeti, fiyat tahmini ve risk analizi.`
+  : "Parsel özeti — Cadastrum";
+
+// TKGM API çağrısı (SSR sırasında)
+interface TkgmParselSonuc {
+  adaNo?: number;
+  parselNo?: number;
+  ilAd?: string;
+  ilceAd?: string;
+  mahalleAd?: string;
+  nitelik?: string;
+  alan?: number;
+  koordinatlar?: Array<{ lat: number; lng: number }>;
+  merkezNokta?: { lat: number; lng: number };
+  [key: string]: unknown;
+}
+
+let tkgmVeri: TkgmParselSonuc | null = null;
+let tkgmHata = "";
+
+if (gecerli) {
+  try {
+    // Backend proxy üzerinden TKGM çağrısı (CORS sorununu önler)
+    const qp = new URLSearchParams();
+    if (mk) qp.set("mk", mk);
+    qp.set("ada", ada);
+    qp.set("parsel", parsel);
+    if (il)   qp.set("il", il);
+    if (ilce) qp.set("ilce", ilce);
+
+    const res = await fetch(`${PUBLIC_API_BASE}/sorgu/parsel?${qp.toString()}`, {
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const json = await res.json() as { ok?: boolean; parsel?: TkgmParselSonuc; error?: string };
+      if (json.ok && json.parsel) {
+        tkgmVeri = json.parsel;
+      } else {
+        tkgmHata = json.error ?? "Parsel bulunamadı";
+      }
+    } else {
+      tkgmHata = `API ${res.status}`;
+    }
+  } catch (e) {
+    tkgmHata = e instanceof Error ? e.message : "Bağlantı hatası";
+  }
+}
+
+// Fiyat verisi (mahalle bazlı, opsiyonel)
+interface FiyatVeri {
+  medyan_tlm2?: number;
+  alt_tlm2?: number;
+  ust_tlm2?: number;
+  guven_skoru?: number;
+  kaynak?: string;
+  [key: string]: unknown;
+}
+
+let fiyatVeri: FiyatVeri | null = null;
+if (tkgmVeri?.merkezNokta) {
+  try {
+    const { lat, lng } = tkgmVeri.merkezNokta;
+    const kategori = (tkgmVeri.nitelik ?? "").toLowerCase().includes("tarla") ? "tarla" : "arsa";
+    const res = await fetch(`${PUBLIC_API_BASE}/sorgu`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lng, kategori, m2: tkgmVeri.alan }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      const json = await res.json() as { ok?: boolean } & FiyatVeri;
+      if (json.ok) fiyatVeri = json;
+    }
+  } catch { /* fiyat opsiyonel */ }
+}
+
+function fmtTL(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + " Milyar ₺";
+  if (n >= 1_000_000)     return (n / 1_000_000).toFixed(2) + " Milyon ₺";
+  if (n >= 1_000)         return (n / 1_000).toFixed(0) + " bin ₺";
+  return n.toLocaleString("tr-TR") + " ₺";
+}
+
+const parselBaslik = tkgmVeri
+  ? `Ada ${tkgmVeri.adaNo} / Parsel ${tkgmVeri.parselNo}`
+  : gecerli
+    ? `Ada ${ada} / Parsel ${parsel}`
+    : "Geçersiz Parsel";
+
+const konumMetin = [
+  tkgmVeri?.mahalleAd ?? mahalle,
+  tkgmVeri?.ilceAd    ?? ilce,
+  tkgmVeri?.ilAd      ?? il,
+].filter(Boolean).join(", ");
+
+const storeUrl = "https://chromewebstore.google.com/detail/cadastrum/";
+---
+
+<Base
+  title={baslik}
+  description={aciklama}
+  robots="index, follow"
+>
+  <!-- Hero bar -->
+  <div class="bg-imperial text-white">
+    <div class="max-w-3xl mx-auto px-4 py-5 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <div class="text-xs text-white/60 font-medium tracking-widest uppercase mb-1">Cadastrum · Parsel Özeti</div>
+        <h1 class="text-2xl font-bold tracking-tight">{parselBaslik}</h1>
+        {konumMetin && (
+          <p class="mt-1 text-sm text-white/80">{konumMetin}</p>
+        )}
+      </div>
+      <a
+        href={storeUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="shrink-0 rounded-xl bg-white/15 border border-white/25 hover:bg-white/25 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+      >
+        🔌 Eklentiyi Yükle
+      </a>
+    </div>
+  </div>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+    {!gecerli && (
+      <div class="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+        <p class="text-red-700 font-semibold">Geçersiz parsel parametreleri</p>
+        <p class="text-red-600 text-sm mt-1">URL'de ada ve parsel numarası gerekli.</p>
+        <a href="/sorgu" class="mt-4 inline-block text-sm text-imperial underline">Sorgu sayfasına git →</a>
+      </div>
+    )}
+
+    {gecerli && tkgmHata && !tkgmVeri && (
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <p class="font-semibold text-amber-800">TKGM verisi alınamadı</p>
+        <p class="text-amber-700 text-sm mt-1">{tkgmHata}</p>
+        <p class="text-amber-600 text-xs mt-2">
+          Parsel kaydı TKGM sisteminde farklı mahalle kodunda olabilir.
+          Chrome eklentisi ile doğrudan TKGM haritasından erişin.
+        </p>
+      </div>
+    )}
+
+    {/* ── Parsel Kimlik Kartı ── */}
+    {tkgmVeri && (
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+          <span class="text-slate-400">🗺️</span>
+          <h2 class="text-sm font-semibold text-slate-700">TKGM Kayıtlı Parsel Bilgileri</h2>
+          <span class="ml-auto text-xs text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-full">✓ Resmi</span>
+        </div>
+        <div class="divide-y divide-slate-100">
+          {tkgmVeri.nitelik && (
+            <div class="px-5 py-3 flex justify-between text-sm">
+              <span class="text-slate-500">Nitelik</span>
+              <span class="font-medium text-slate-800">{tkgmVeri.nitelik}</span>
+            </div>
+          )}
+          {tkgmVeri.alan && (
+            <div class="px-5 py-3 flex justify-between text-sm">
+              <span class="text-slate-500">Alan</span>
+              <span class="font-medium text-slate-800">{tkgmVeri.alan.toLocaleString("tr-TR")} m²</span>
+            </div>
+          )}
+          {tkgmVeri.ilAd && (
+            <div class="px-5 py-3 flex justify-between text-sm">
+              <span class="text-slate-500">İl</span>
+              <span class="font-medium text-slate-800">{tkgmVeri.ilAd}</span>
+            </div>
+          )}
+          {tkgmVeri.ilceAd && (
+            <div class="px-5 py-3 flex justify-between text-sm">
+              <span class="text-slate-500">İlçe</span>
+              <span class="font-medium text-slate-800">{tkgmVeri.ilceAd}</span>
+            </div>
+          )}
+          {tkgmVeri.mahalleAd && (
+            <div class="px-5 py-3 flex justify-between text-sm">
+              <span class="text-slate-500">Mahalle</span>
+              <span class="font-medium text-slate-800">{tkgmVeri.mahalleAd}</span>
+            </div>
+          )}
+          <div class="px-5 py-3 flex justify-between text-sm">
+            <span class="text-slate-500">Ada / Parsel</span>
+            <span class="font-medium font-mono text-slate-800">{tkgmVeri.adaNo ?? ada} / {tkgmVeri.parselNo ?? parsel}</span>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* ── Fiyat Tahmini ── */}
+    {fiyatVeri && fiyatVeri.medyan_tlm2 && (
+      <section class="rounded-xl border border-champagne-400 bg-gradient-to-br from-amber-50 to-white shadow-sm overflow-hidden">
+        <div class="px-5 py-3 bg-amber-50 border-b border-champagne-300 flex items-center gap-2">
+          <span class="text-amber-500">💰</span>
+          <h2 class="text-sm font-semibold text-amber-900">Piyasa Fiyat Tahmini</h2>
+          <span class="ml-auto text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+            Güven: %{fiyatVeri.guven_skoru ?? "—"}
+          </span>
+        </div>
+        <div class="px-5 py-5 text-center">
+          <div class="text-3xl font-bold text-imperial">
+            {fiyatVeri.medyan_tlm2.toLocaleString("tr-TR")} ₺/m²
+          </div>
+          {(fiyatVeri.alt_tlm2 && fiyatVeri.ust_tlm2) && (
+            <div class="text-sm text-slate-500 mt-1">
+              {fiyatVeri.alt_tlm2.toLocaleString("tr-TR")} — {fiyatVeri.ust_tlm2.toLocaleString("tr-TR")} ₺/m²
+            </div>
+          )}
+          {(tkgmVeri?.alan && fiyatVeri.medyan_tlm2) && (
+            <div class="mt-3 inline-block rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
+              Tahmini toplam: {fmtTL(tkgmVeri.alan * fiyatVeri.medyan_tlm2)}
+            </div>
+          )}
+        </div>
+        <div class="px-5 pb-4">
+          <p class="text-xs text-slate-400 text-center">
+            Mahalle emsal ilanlarından hesaplanmıştır. Resmi değerleme yerine geçmez.
+          </p>
+        </div>
+      </section>
+    )}
+
+    {/* ── Eksik veri uyarısı ── */}
+    {gecerli && tkgmVeri && !fiyatVeri && (
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 text-center">
+        Bu bölge için henüz yeterli emsal ilan verisi oluşmamış. Daha detaylı analiz için
+        <a href={storeUrl} class="text-imperial underline ml-1">Chrome eklentisini yükleyin</a>.
+      </div>
+    )}
+
+    {/* ── Derinlemesine Analiz CTA ── */}
+    <section class="rounded-xl border border-imperial/20 bg-imperial text-white overflow-hidden">
+      <div class="px-6 py-6">
+        <h2 class="text-lg font-bold mb-2">Daha Derin Analiz</h2>
+        <p class="text-white/80 text-sm mb-5">
+          Bu parsele ait e-Plan imar durumu, deprem riski, yatırım skoru ve AI değerlendirmesini
+          görmek için Cadastrum Chrome eklentisini yükleyin.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href={storeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-lg bg-champagne-500 hover:bg-champagne-600 px-5 py-2.5 text-sm font-bold text-imperial transition-colors"
+          >
+            🔌 Eklentiyi Yükle (Ücretsiz)
+          </a>
+          <a
+            href="/sorgu"
+            class="rounded-lg border border-white/30 hover:bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors"
+          >
+            Web Sorgu →
+          </a>
+        </div>
+      </div>
+      <div class="px-6 pb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { ikon: "🏛️", text: "e-Plan imar" },
+          { ikon: "⚡", text: "Deprem riski" },
+          { ikon: "📈", text: "Yatırım skoru" },
+          { ikon: "🤖", text: "AI danışman" },
+        ].map(({ ikon, text }) => (
+          <div class="flex items-center gap-2 text-sm text-white/70">
+            <span class="text-base">{ikon}</span>
+            <span>{text}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    {/* ── TKGM Resmi Link ── */}
+    {gecerli && (
+      <div class="text-center text-xs text-slate-400">
+        Resmi kayıt için:
+        <a
+          href={`https://parselsorgu.tkgm.gov.tr/`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ml-1 text-imperial underline"
+        >
+          parselsorgu.tkgm.gov.tr →
+        </a>
+      </div>
+    )}
+
+  </main>
+</Base>

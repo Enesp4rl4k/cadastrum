@@ -47,6 +47,12 @@ import { araziAvciRoutes } from "./routes/arazi-avci.js";
 import { araziAvciCronCalistir } from "./routes/arazi-avci-cron.js";
 import { aiDanismanRoutes } from "./routes/ai-danisman.js";
 import { imarDegisimRoutes } from "./routes/imar-degisim.js";
+import { haftalikDigestGonder } from "./routes/haftalik-digest-cron.js";
+import { dripEmailCalistir } from "./routes/drip-email-cron.js";
+import { milliEmlakCronCalistir } from "./routes/milli-emlak-cron.js";
+import { arzTalepRoutes } from "./routes/arz-talep.js";
+import { hepsiemlakCronRoutes } from "./routes/hepsiemlak-cron.js";
+import { sahibindenRoutes } from "./routes/sahibinden.js";
 import { rateLimitMiddleware, rateLimitTemizle } from "./lib/rate-limit.js";
 import { bearerYetkilendir, cspHeader } from "./lib/security.js";
 
@@ -164,6 +170,9 @@ app.route("/v1/emsal", emsalSpatialRoutes);
 // Faz 4 Web App sorgu — extension'sız kullanıcı için lat/lng → fiyat
 app.route("/v1/sorgu", sorguRoutes);
 
+// Sprint 4-E: Arz-talep endeksi — haftalık ilan trendi analizi
+app.route("/v1/istatistik", arzTalepRoutes);
+
 // Faz 4 Sprint G — Bildirim sistemi (JWT bearer zorunlu)
 app.route("/v1/bildirim", bildirimRoutes);
 
@@ -181,6 +190,10 @@ app.route("/v1/harita", haritaRoutes);
 
 // Otomatik scraper — aylık cron + admin manuel tetik
 app.route("/v1/scraper", scraperRoutes);
+// Hepsiemlak aylık cron — GitHub Actions Puppeteer + bu endpoint'e POST
+app.route("/v1/hepsiemlak", hepsiemlakCronRoutes);
+// Sahibinden extension ingest — kullanıcı gezinirken liste sayfaları yakalanır
+app.route("/v1/sahibinden", sahibindenRoutes);
 
 // Milli Emlak ihale fiyatları — gerçek satış referans verisi
 // POST /v1/milli-emlak/admin/seed (SCRAPER_API_SECRET korumalı)
@@ -419,10 +432,10 @@ export default {
 
   // Cron handler — wrangler.toml `crons` listesindeki her trigger'da çağrılır.
   // Dört trigger:
-  //   "0 3 * * *"   → istatistikRefresh (günde 1, mahalle istatistik agregasyonu)
+  //   "0 3 * * *"   → istatistikRefresh + Emlakjet günlük rotasyon (15 ilçe/gün, ~65 günde tam kapsam)
   //   "0 * * * *"   → bildirimKontroluCalistir (saatlik, fiyat/emsal/eşik kontrolü)
+  //   "0 8 * * *"   → araziAvciCronCalistir (günlük arazi avcı uyarıları)
   //   "0 2 1 * *"   → Sahibinden otomatik scraper (ayın 1'i 02:00 UTC)
-  //   "0 3 15 * *"  → Emlakjet otomatik scraper (ayın 15'i 03:00 UTC) [YENİ]
   // event.cron string'i ile ayırıyoruz.
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const cron = event.cron;
@@ -437,12 +450,44 @@ export default {
         console.log("[cron-daily] rate_limit temizlendi:", rl);
 
         // 3) giris_denemesi tablosu temizliği (24 saatten eski satırlar)
-        // auth.ts'deki module-level _lastCleanupHour kaldırıldı, bu cron üstlendi.
         const dakikaSiniri = Math.floor(Date.now() / 60_000) - 60 * 24;
         const gd = await env.DB.prepare(
           "DELETE FROM giris_denemesi WHERE dakika < ?"
         ).bind(dakikaSiniri).run().catch(() => ({ meta: { changes: 0 } }));
         console.log("[cron-daily] giris_denemesi temizlendi:", gd.meta.changes, "satır");
+
+        // 4) Emlakjet günlük rotasyon — en eski taranan 15 ilçe (arsa+tarla)
+        // Her gün 15 ilçe × 2 kategori × 3 sayfa → ~45 ilan/ilçe
+        // 973 ilçe ÷ 15 = ~65 günde tam kapsam
+        try {
+          // Hem arsa hem tarla için en eski taranan ilçeleri al (UNION → distinct)
+          const ilceler = await env.DB.prepare(`
+            SELECT il_norm, ilce_norm FROM (
+              SELECT il_norm, ilce_norm, MIN(son_tarama) AS en_eski
+              FROM scraper_ilce_durum
+              GROUP BY il_norm, ilce_norm
+            ) ORDER BY en_eski ASC NULLS FIRST LIMIT 15
+          `).all<{ il_norm: string; ilce_norm: string }>().catch(() => ({ results: [] }));
+
+          let hedefler = (ilceler.results ?? []).map((row) => ({
+            ilN: row.il_norm,
+            ilceN: row.ilce_norm,
+          }));
+
+          // İlk çalışmada scraper_ilce_durum boş olabilir — baseline_ai'dan seç
+          if (hedefler.length === 0) {
+            const fb = await env.DB.prepare(
+              `SELECT DISTINCT il_norm, ilce_norm FROM mahalle_baseline_ai
+               ORDER BY RANDOM() LIMIT 15`,
+            ).all<{ il_norm: string; ilce_norm: string }>().catch(() => ({ results: [] }));
+            hedefler = (fb.results ?? []).map((row) => ({ ilN: row.il_norm, ilceN: row.ilce_norm }));
+          }
+
+          const ej = await emlakjetCronBaslat(env.DB, hedefler, 15, 3, "cron-gunluk");
+          console.log("[cron-daily] emlakjet:", ej);
+        } catch (e) {
+          console.error("[cron-daily] emlakjet hata:", e instanceof Error ? e.message : String(e));
+        }
       })());
     } else if (cron === "0 * * * *") {
       ctx.waitUntil(
@@ -451,10 +496,28 @@ export default {
         ),
       );
     } else if (cron === "0 8 * * *") {
-      // YENI-1: Arazi Avcısı günlük uyarı — kriterleri tara + email gönder
+      // Arazi Avcısı günlük uyarı — kriterleri tara + email gönder
       ctx.waitUntil((async () => {
         const r = await araziAvciCronCalistir(env);
         console.log("[cron-arazi-avci]", r);
+      })());
+    } else if (cron === "0 9 * * 1") {
+      // Haftalık portföy digest — Pazartesi 09:00 UTC
+      ctx.waitUntil((async () => {
+        const r = await haftalikDigestGonder(env);
+        console.log("[cron-haftalik-digest]", r, "ts:", event.scheduledTime);
+      })());
+    } else if (cron === "0 10 * * *") {
+      // Drip email dizisi — günlük 10:00 UTC (D+1/D+3/D+7)
+      ctx.waitUntil((async () => {
+        const r = await dripEmailCalistir(env);
+        console.log("[cron-drip-email]", r, "ts:", event.scheduledTime);
+      })());
+    } else if (cron === "0 6 * * 5") {
+      // Milli Emlak haftalık cron — Cuma 06:00 UTC
+      ctx.waitUntil((async () => {
+        const r = await milliEmlakCronCalistir(env);
+        console.log("[cron-milli-emlak]", r, "ts:", event.scheduledTime);
       })());
     } else if (cron === "0 2 1 * *") {
       // Aylık scraper hatırlatma (A+E hibrit):
@@ -499,38 +562,6 @@ export default {
         for (const a of adminler.results ?? []) {
           await emailGonder(env, a.email, konu, html, metin).catch(() => {});
         }
-      })());
-    } else if (cron === "0 3 15 * *") {
-      // Emlakjet aylık scraper — ayın 15'i 03:00 UTC
-      // Sahibinden'in aksine PerimeterX yok — Worker'dan direkt çalışır.
-      // Worker CPU 30s limiti: maxIlce=8, maxSayfa=3 → ~20-25s içinde tamamlar.
-      ctx.waitUntil((async () => {
-        // En eski taranan ilçeleri seç (veya hiç taranmamışları)
-        const ilceler = await env.DB.prepare(
-          `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-           WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 8`,
-        ).all<{ il_norm: string; ilce_norm: string }>();
-
-        let hedefler = (ilceler.results ?? []).map((r) => ({
-          ilN: r.il_norm,
-          ilceN: r.ilce_norm,
-        }));
-
-        // İlk run — mahalle_baseline_ai'dan ilçe seç (geniş kapsam için)
-        if (hedefler.length === 0) {
-          const fb = await env.DB.prepare(
-            `SELECT DISTINCT il_norm, ilce_norm FROM mahalle_baseline_ai
-             ORDER BY RANDOM() LIMIT 8`,
-          ).all<{ il_norm: string; ilce_norm: string }>();
-          hedefler = (fb.results ?? []).map((r) => ({ ilN: r.il_norm, ilceN: r.ilce_norm }));
-        }
-
-        const r = await emlakjetCronBaslat(env.DB, hedefler, 8, 3, "cron-aylik");
-        console.log("[cron-emlakjet] run tamamlandı:", r);
-
-        // İstatistikleri hemen güncelle
-        const ist = await istatistikRefresh(env.DB);
-        console.log("[cron-emlakjet] istatistik refresh:", ist);
       })());
     } else {
       console.warn("[cron] beklenmeyen schedule:", cron);

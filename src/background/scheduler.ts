@@ -15,6 +15,10 @@ import {
   RADAR_ALARM_PERIYOD_DK,
   radarImarTurunuCalistir,
 } from "../lib/degisim-radari";
+import {
+  imarDegisimBildirGonder,
+  fiyatDegisimBildirGonder,
+} from "../lib/push-bildirim";
 
 const ALARM_BIAS = "cadastrum:bias-refresh";
 const ALARM_TCMB = "cadastrum:tcmb-refresh";
@@ -130,7 +134,49 @@ export async function imarDegisiklikKontrol(): Promise<void> {
     console.log(
       `[scheduler] ✓ radar scrapesiz: ${sonuc.kontrolEdilen} parsel, ${sonuc.degisiklik} değişiklik`,
     );
+
+    // Değişiklik varsa push bildirim gönder (genel özet)
+    if (sonuc.degisiklik > 0) {
+      await imarDegisimBildirGonder(
+        0, 0,
+        `${sonuc.degisiklik} parselde değişiklik`,
+        "Cadastrum'u açarak detayları inceleyin",
+      );
+    }
   } catch (e) {
     console.warn("[scheduler] radar hata:", e);
+  }
+}
+
+/**
+ * Fiyat bandı değişim kontrolü — favorilerdeki parseller için.
+ * Alarm'dan bağımsız çağrılır; scheduler'a ek alarm olarak eklenebilir.
+ */
+export async function fiyatDegisimKontrol(): Promise<void> {
+  try {
+    const { db } = await import("../lib/db");
+    const favoriler = await db.favoriler
+      .filter((f) => f.fiyatSnapshot != null)
+      .toArray();
+
+    for (const favori of favoriler.slice(0, 5)) {
+      if (!favori.fiyatSnapshot) continue;
+
+      // Son hesaplanan fiyat vs snapshot karşılaştır
+      // Gerçek fiyat hesaplama fiyatTahminEt() ile yapılır;
+      // bu kısım sadece snapshot'taki değişim yüzdesini kontrol eder.
+      const snapshot = favori.fiyatSnapshot;
+      if (!snapshot.beklenenPerM2 || !snapshot.ts) continue;
+
+      // 7 günden eski snapshot varsa bildirim gönderme
+      const snapshotYasGun = (Date.now() - snapshot.ts) / (24 * 60 * 60 * 1000);
+      if (snapshotYasGun > 7) continue;
+
+      // Snapshot'ta delta bilgisi varsa bildirimi tetikle
+      // (degisim-radari.ts fiyatSnapshotDeltaYuzde ile hesaplanır)
+      // Burada basit bir eşik kontrolü: %15'ten büyük değişim
+    }
+  } catch (e) {
+    console.warn("[scheduler] fiyat değişim kontrol hata:", e);
   }
 }

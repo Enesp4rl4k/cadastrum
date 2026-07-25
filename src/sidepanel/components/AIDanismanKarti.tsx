@@ -25,7 +25,7 @@ const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
 // ── Tip tanımları ─────────────────────────────────────────────────────────────
 
-interface ParselBaglam {
+export interface ParselBaglamProps {
   il: string;
   ilce: string;
   mahalle?: string;
@@ -38,11 +38,15 @@ interface ParselBaglam {
   imar_tipi?: string;
   emsal?: number;
   taks?: number;
+  maks_kat?: number;
   gelecek_skor?: number;
   gelecek_etiket?: string;
   yatirim_skoru?: number;
   yatirim_etiket?: string;
 }
+
+/** @deprecated ParselBaglamProps kullan */
+type ParselBaglam = ParselBaglamProps;
 
 interface SohbetMesaj {
   rol: "kullanici" | "asistan";

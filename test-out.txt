@@ -1,0 +1,164 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.0 [39m[90mc:/Users/parlak/Downloads/arsa-tkgm-extension[39m
+
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milTemizle[2m > [22mparantez ekini siler: 'Yeniçiftlik(Sahil)' → 'Yeniçiftlik'[32m 1[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milTemizle[2m > [22m'İSTANBUL' → 'İstanbul' (Title Case)[32m 1[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milTemizle[2m > [22m'istanbul' → 'İstanbul'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milTemizle[2m > [22m'Konya' aynı kalır[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milTemizle[2m > [22mboş veya null[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milceTemizle[2m > [22mparantez ekini siler: 'Marmara Ereğlisi (Merkez)' → 'Marmara Ereğlisi'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milceTemizle[2m > [22m'Meram' aynı kalır[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22mmahalleTemizle[2m > [22m'Mh.' suffix'ini siler: 'Yeniçiftlik Mh.' → 'Yeniçiftlik'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22mmahalleTemizle[2m > [22m'Mahallesi' suffix'i: 'Beşiktaş Mahallesi' → 'Beşiktaş'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22mmahalleTemizle[2m > [22m'Köyü' suffix'i: 'Tuzkoy Köyü' → 'Tuzkoy'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22mmahalleTemizle[2m > [22mparantez + suffix: 'Yeniçiftlik(Sahil) Mh.' → 'Yeniçiftlik'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22mmahalleTemizle[2m > [22msuffix yoksa aynı kalır: 'Çukurçimen' → 'Çukurçimen'[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milIlceAyir[2m > [22m'Konya/Meram' → il + ilce[32m 1[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milIlceAyir[2m > [22m'Tekirdağ - Marmara Ereğlisi' → ayrım[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milIlceAyir[2m > [22mTek değer (sadece il)[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22milIlceAyir[2m > [22mBoş[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22myerAdıGeçerliMi[2m > [22mGeçerli yer adları[32m 1[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22myerAdıGeçerliMi[2m > [22mÇok kısa veya çok uzun reddedilir[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22myerAdıGeçerliMi[2m > [22mSayı ile başlayan reddedilir[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22myerAdıGeçerliMi[2m > [22mnull/empty reddedilir[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22myerTemizleVeDogrula (full pipeline)[2m > [22mSenaryo: Sahibinden 4-elementli breadcrumb → mahalle düzgün[32m 0[2mms[22m[39m
+ [32m✓[39m test/yer-temizle.spec.ts[2m > [22myerTemizleVeDogrula (full pipeline)[2m > [22mSenaryo: ALL CAPS il[32m 0[2mms[22m[39m
+ [32m✓[39m test/nl-sorgu.spec.ts[2m > [22mnlParse[2m > [22milçe sözcüğünden il çıkarır[32m 2[2mms[22m[39m
+ [32m✓[39m test/nl-sorgu.spec.ts[2m > [22mnlParse[2m > [22m'1000m² üstü' → minM2 1000[32m 0[2mms[22m[39m
+ [32m✓[39m test/nl-sorgu.spec.ts[2m > [22mnlParse[2m > [22mmodifier 'sahile yakın' → sahilYakini true[32m 0[2mms[22m[39m
+ [32m✓[39m test/nl-sorgu.spec.ts[2m > [22mnlParse[2m > [22mbilinmeyen metin → tüm alanlar undefined[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaToZon[2m > [22mZ1 sınırı (>= 0.40g)[32m 2[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaToZon[2m > [22mZ2 bandı (0.30-0.40)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaToZon[2m > [22mZ3 (0.20-0.30)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaToZon[2m > [22mZ4 (0.10-0.20)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaToZon[2m > [22mZ5 (< 0.10)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22myıkıcı bölge (>=0.50g) en düşük çarpan[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22mZ1 bandı 0.95[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22mZ2 bandı 0.98[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22mZ3 bandı nötr (1.00)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22mZ4 bandı premium[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22mZ5 en yüksek premium[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mpgaCarpani[2m > [22mnull/undefined için nötr[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mdepremRiskKoordGetir fallback zinciri[2m > [22mAFAD erişilemezse il-tablo fallback'e düşer[32m 2[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mdepremRiskKoordGetir fallback zinciri[2m > [22mne AFAD ne il bilinmiyorsa null[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-tdth.spec.ts[2m > [22mdepremRiskKoordGetir fallback zinciri[2m > [22mil bilinen kayıt için stabil il-tablo değeri döner[32m 1[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mtüm girdi sağlandığında sonuç 0–100 arasında[32m 68[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22m4 bileşen döner[32m 2[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22m3 ufuk döner (3/5/10 yıl)[32m 1[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mbugunTlm2 null ise ufuk tlm2 null[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mbugunTlm2 > 0 ise +5y ufuk bugünden büyük (pozitif büyüme beklentisi)[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mtoplam TL = tlm2 × parselM2[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22metiket skor ile tutarlı[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mtarım imarı düşük imar puanı alır[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mticari imar yüksek imar puanı alır[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22myorum string döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekDegerHesapla[2m > [22mdisclaimer içeriyor[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22myillikNominalBeklenti[2m > [22mtrend verisi varsa trentten türer[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22myillikNominalBeklenti[2m > [22mtrend yoksa varsayılan ~28 civarı döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22myillikNominalBeklenti[2m > [22m5–65 arasında clamp[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekSkorRenk[2m > [22m80+ yeşil döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekSkorRenk[2m > [22m65-79 mavi döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelecek-deger-skoru.spec.ts[2m > [22mgelecekSkorRenk[2m > [22m35 altı kırmızı döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/lokasyon-esleme.spec.ts[2m > [22mlokasyonMetniniAyir[2m > [22m4 parçada son Mh. mahalle olur[32m 3[2mms[22m[39m
+ [32m✓[39m test/lokasyon-esleme.spec.ts[2m > [22mlokasyonMetniniAyir[2m > [22m3 parça suffix yoksa mahalle null (semt)[32m 0[2mms[22m[39m
+ [32m✓[39m test/lokasyon-esleme.spec.ts[2m > [22mlokasyonMetniniAyir[2m > [22m3 parça Mh. suffix ile mahalle alınır[32m 0[2mms[22m[39m
+ [32m✓[39m test/lokasyon-esleme.spec.ts[2m > [22murldenLokasyon[2m > [22mSahibinden ilan slug[32m 1[2mms[22m[39m
+ [32m✓[39m test/lokasyon-esleme.spec.ts[2m > [22murldenLokasyon[2m > [22mHepsiemlak slug[32m 0[2mms[22m[39m
+ [32m✓[39m test/lokasyon-esleme.spec.ts[2m > [22mmahalleAliasAnahtar[2m > [22maynı ilan için stabil anahtar[32m 1[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mtucbsWmsEndpointGetir[2m > [22mİzmir → izmir-manisa servisi[32m 3[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mtucbsWmsEndpointGetir[2m > [22mAnkara → null (henüz kapsam dışı)[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mtucbsWmsEndpointGetir[2m > [22mbüyük/küçük harf ve aksan toleransı[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mkullanimMetniniSiniflandir[2m > [22mliman → ticari-turizm[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mkullanimMetniniSiniflandir[2m > [22mtarım alanı → tarim-koruma[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mkullanimMetniniSiniflandir[2m > [22morganize sanayi → sanayi[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mkullanimMetniniSiniflandir[2m > [22mKullanımTipi kodu 40301 → liman / ticari[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mtucbsCdpCeliskiVar[2m > [22mimarlı ilan + tarım planı → çelişki[32m 0[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mriskleriTara + TUCBS[2m > [22msit alanı sinyali üretir[32m 1[2mms[22m[39m
+ [32m✓[39m test/tucbs.spec.ts[2m > [22mtucbsParselKeyFromParsel[2m > [22mada/parsel içerir[32m 1[2mms[22m[39m
+[31m   → expected true to be false // Object.is equality[39m
+ [32m✓[39m test/rapor-html.spec.ts[2m > [22mraporHtmlUret[2m > [22mdolu veriden geçerli HTML üretir[32m 59[2mms[22m[39m
+ [32m✓[39m test/rapor-html.spec.ts[2m > [22mraporHtmlUret[2m > [22mrisk metnindeki HTML'i escape eder (XSS guard)[32m 1[2mms[22m[39m
+ [32m✓[39m test/rapor-html.spec.ts[2m > [22mraporHtmlUret[2m > [22mgeometrisiz parselde harita yerine yer tutucu koyar[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22milanGozlem upsert mantığı[2m > [22milanNo null ise upsert çağrılmaz[32m 1[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22milanGozlem upsert mantığı[2m > [22mkaynak undefined ise upsert çağrılmaz[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22milanGozlem upsert mantığı[2m > [22mgeçerli ilanNo + kaynak ise upsert çağrılır[32m 2[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mhisse oranı tespiti[2m > [22milan m²'si parsel alanının %90'ından azsa hisseli[32m 1[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mhisse oranı tespiti[2m > [22mm² farkı %10'dan azsa hisseli değil[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mhisse oranı tespiti[2m > [22mtam eşit m² — hisseli değil[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mhisse oranı tespiti[2m > [22milan m² null → null[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mhisse oranı tespiti[2m > [22mparsel alan sıfır → null (sıfıra bölme koruması)[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mm² eşleşme kontrolü[2m > [22m%5'ten küçük fark → eşleşir[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mm² eşleşme kontrolü[2m > [22m%5'ten büyük fark → eşleşmez[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mm² eşleşme kontrolü[2m > [22mtam eşit → eşleşir[32m 0[2mms[22m[39m
+ [32m✓[39m test/ilan-parsel-akisi.spec.ts[2m > [22mm² eşleşme kontrolü[2m > [22milan m² null → null[32m 0[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mnormalizeTr[2m > [22mTürkçe karakterleri ASCII'ye çevirir[32m 2[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mnormalizeTr[2m > [22mboşlukları ve özel karakterleri temizler[32m 1[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mnormalizeTr[2m > [22mboş veya null girişlerde çökmez[32m 0[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mnormalizeYerAdi[2m > [22maynı il için tutarlı çıktı verir[32m 0[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mnormalizeYerAdi[2m > [22milçe-sonu eklerini standardize eder[32m 0[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mmahalleEsleFromListe[2m > [22mmahalle suffix ile eşleşir[32m 1[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mmahalleEsleFromListe[2m > [22mköy suffix ile eşleşir[32m 0[2mms[22m[39m
+ [32m✓[39m test/normalize.spec.ts[2m > [22mmahalleEsleFromListe[2m > [22maday listesi skor sıralar[32m 0[2mms[22m[39m
+ [32m✓[39m test/manuel-veri.spec.ts[2m > [22mimarBirlestir[2m > [22mhem ePlan hem manuel yoksa null döner[32m 2[2mms[22m[39m
+ [32m✓[39m test/manuel-veri.spec.ts[2m > [22mimarBirlestir[2m > [22msadece ePlan varsa ePlan değerlerini döner[32m 1[2mms[22m[39m
+ [32m✓[39m test/manuel-veri.spec.ts[2m > [22mimarBirlestir[2m > [22msadece manuel varsa manuel değerlerini döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/manuel-veri.spec.ts[2m > [22mimarBirlestir[2m > [22mmanuel ePlan'ı alan-bazında override eder[32m 0[2mms[22m[39m
+ [32m✓[39m test/manuel-veri.spec.ts[2m > [22mimarBirlestir[2m > [22mmanuel boş string alanları override etmez[32m 0[2mms[22m[39m
+ [32m✓[39m test/multipolygon.spec.ts[2m > [22mMultiPolygon geometri — Bug 1 regresyon[2m > [22mtek polygonlu MultiPolygon: tek ring'i seçer[32m 4[2mms[22m[39m
+ [32m✓[39m test/multipolygon.spec.ts[2m > [22mMultiPolygon geometri — Bug 1 regresyon[2m > [22miki polygonlu MultiPolygon: daha uzun (ana gövde) ring'i seçer[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremRiskiGetir[2m > [22mİstanbul için Z1 döner[32m 2[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremRiskiGetir[2m > [22mKahramanmaraş Z1 (DAF)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremRiskiGetir[2m > [22mİç Anadolu illeri düşük zon[32m 1[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremRiskiGetir[2m > [22mbilinmeyen il için null döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremCarpani[2m > [22mZ1 için indirim çarpanı (<1)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremCarpani[2m > [22mZ5 için prim çarpanı (>=1)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deprem-zonlari.spec.ts[2m > [22mdepremCarpani[2m > [22mnull için 1.0 (nötr)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deger-bandi.spec.ts[2m > [22mdegerBandiGeometri[2m > [22myüksek güven → dar bant + emsal seviyesi[32m 2[2mms[22m[39m
+ [32m✓[39m test/deger-bandi.spec.ts[2m > [22mdegerBandiGeometri[2m > [22mdüşük güven + geniş aralık → geniş bant + 'manuel doğrula'[32m 0[2mms[22m[39m
+ [32m✓[39m test/deger-bandi.spec.ts[2m > [22mdegerBandiGeometri[2m > [22mseviye eşikleri: 65+ yüksek, 45-64 orta, <45 düşük[32m 0[2mms[22m[39m
+ [32m✓[39m test/deger-bandi.spec.ts[2m > [22mdegerBandiGeometri[2m > [22mbant referans ölçeğin dışına taşmaz (0-100 clamp)[32m 0[2mms[22m[39m
+ [32m✓[39m test/deger-bandi.spec.ts[2m > [22mdegerBandiGeometri[2m > [22msegment adedi 0-5 arası clamp[32m 0[2mms[22m[39m
+ [32m✓[39m test/tkgm-alan.spec.ts[2m > [22mparseTkgmAlan[2m > [22mUS binlik (sadece virgül, 3 hane)[32m 0[2mms[22m[39m
+ [32m✓[39m test/tkgm-alan.spec.ts[2m > [22mparseTkgmAlan[2m > [22mnumber tipi olduğu gibi kalır[32m 0[2mms[22m[39m
+ [32m✓[39m test/tkgm-alan.spec.ts[2m > [22mparseTkgmAlan[2m > [22mTR binlik: son grup 3 hane[32m 0[2mms[22m[39m
+ [32m✓[39m test/tkgm-alan.spec.ts[2m > [22mparseTkgmAlan[2m > [22mboş / geçersiz → 0[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mtüm girdi null ise skor 0–100 arasında ve geçerli olasılık döner[32m 4[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22m5 bileşen döner[32m 1[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22myüksek gelişim skoru → yüksek puan[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mdüşük gelişim skoru → düşük puan[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mtarım imarı → yüksek imar potansiyel puanı[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22myakın ÇDP mesafesi → yüksek cdp puanı[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22muzak ÇDP mesafesi → düşük cdp puanı[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mtüm sinyaller güçlüyse yuksek olasılık[32m 1[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mgerekce string döner[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mdisclaimer içeriyor[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimHesapla[2m > [22mskor puan toplamıyla tutarlı (max 100)[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimRenk[2m > [22myuksek → yeşil[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimRenk[2m > [22morta → amber[32m 0[2mms[22m[39m
+ [32m✓[39m test/imar-degisim.spec.ts[2m > [22mimarDegisimRenk[2m > [22mdusuk → gri[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelisim-trendi.spec.ts[2m > [22mskorlaMetrikler[2m > [22myapılaşma artışında pozitif skor üretir[32m 3[2mms[22m[39m
+ [32m✓[39m test/gelisim-trendi.spec.ts[2m > [22mskorlaMetrikler[2m > [22mdurağan yüzeyde düşük mutlak skor verir[32m 0[2mms[22m[39m
+ [32m✓[39m test/gelisim-trendi.spec.ts[2m > [22mskorlaMetrikler[2m > [22mtek yılda yetersiz veri döner[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+    [90m 97| [39m      halkaDagilimi[33m:[39m { r0_1km[33m:[39m [34m0[39m[33m,[39m r1_3km[33m:[39m [34m1[39m[33m,[39m r3_5km[33m:[39m [34m3[39m[33m,[39m r5_10km[33m:[39m [34m2[39m }[33m,[39m
+    [90m 98| [39m    })[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m100| [39m  })[33m;[39m
+    [90m101| [39m  [34mit[39m([32m"5+ emsal + 2+ yakın → true"[39m[33m,[39m () [33m=>[39m {
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m22 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m231 passed[39m[22m[90m (232)[39m
+

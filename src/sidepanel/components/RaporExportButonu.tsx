@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileDown as DownloadIcon, Loader2 as LoaderIcon, Lock as LockIcon, Printer as PrintIcon } from "lucide-react";
+import { FileDown as DownloadIcon, Loader2 as LoaderIcon, Lock as LockIcon, Printer as PrintIcon, Link as LinkIcon, Check as CheckIcon } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
 import type { CevreAnalizi } from "../../lib/osm";
 import type { EgimAnalizi } from "../../lib/elevation";
@@ -28,6 +28,21 @@ interface Props {
 const SITE_URL = "https://cadastrum.com.tr";
 
 /**
+ * Parsel'den paylaşılabilir site URL'si üret.
+ * /parsel?il=...&ilce=...&mahalle=...&ada=...&parsel=...&mk=...
+ */
+function paylasimUrlUret(parsel: Parsel): string {
+  const p = new URLSearchParams();
+  if (parsel.ilAd)      p.set("il",      parsel.ilAd);
+  if (parsel.ilceAd)    p.set("ilce",    parsel.ilceAd);
+  if (parsel.mahalleAd) p.set("mahalle", parsel.mahalleAd);
+  p.set("ada",    String(parsel.adaNo));
+  p.set("parsel", String(parsel.parselNo));
+  if (parsel.mahalleKodu) p.set("mk", String(parsel.mahalleKodu));
+  return `${SITE_URL}/parsel?${p.toString()}`;
+}
+
+/**
  * Parsel + analiz verisini chrome.storage.local'a kaydedip yeni tab'da
  * rapor sayfasını açar. Rapor sayfası kullanıcıyı print dialog'una yönlendirir.
  *
@@ -37,10 +52,30 @@ const SITE_URL = "https://cadastrum.com.tr";
 export function RaporExportButonu({ parsel, cevre, egim, ePlan }: Props) {
   const [yukleniyor, setYukleniyor] = useState(false);
   const [hata, setHata] = useState<string | null>(null);
+  const [kopyalandi, setKopyalandi] = useState(false);
   const [ayarlar] = useAyarlar();
   const lisans = useLisans();
 
   const pdfRaporAcik = lisans.can("pdf-rapor");
+
+  async function baglantiKopyala() {
+    const url = paylasimUrlUret(parsel);
+    try {
+      await navigator.clipboard.writeText(url);
+      setKopyalandi(true);
+      setTimeout(() => setKopyalandi(false), 2000);
+    } catch {
+      // Clipboard API yoksa fallback — bir input oluşturup kopyala
+      const input = document.createElement("input");
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setKopyalandi(true);
+      setTimeout(() => setKopyalandi(false), 2000);
+    }
+  }
 
   const proAi = lisans.can("ai-fiyat");
   const aktifSaglayici = proAi && ayarlar.aiSaglayici === "yok"
@@ -158,6 +193,31 @@ export function RaporExportButonu({ parsel, cevre, egim, ePlan }: Props) {
             </>
           )}
         </button>
+
+        {/* Paylaşım linki — tüm tier'larda ücretsiz */}
+        <button
+          type="button"
+          onClick={() => void baglantiKopyala()}
+          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 text-2xs font-medium transition-colors ${
+            kopyalandi
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
+          title="Bu parselin özetini paylaşılabilir link olarak kopyala"
+        >
+          {kopyalandi ? (
+            <>
+              <CheckIcon className="h-3.5 w-3.5" />
+              Bağlantı kopyalandı!
+            </>
+          ) : (
+            <>
+              <LinkIcon className="h-3.5 w-3.5" />
+              Bağlantıyı kopyala
+            </>
+          )}
+        </button>
+
         <button
           type="button"
           disabled
@@ -206,11 +266,36 @@ export function RaporExportButonu({ parsel, cevre, egim, ePlan }: Props) {
           </>
         )}
       </button>
+
+      {/* Paylaşım linki — Pro için de */}
+      <button
+        type="button"
+        onClick={() => void baglantiKopyala()}
+        className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 text-2xs font-medium transition-colors ${
+          kopyalandi
+            ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        }`}
+        title="Bu parselin özetini paylaşılabilir link olarak kopyala"
+      >
+        {kopyalandi ? (
+          <>
+            <CheckIcon className="h-3.5 w-3.5" />
+            Bağlantı kopyalandı!
+          </>
+        ) : (
+          <>
+            <LinkIcon className="h-3.5 w-3.5" />
+            Bağlantıyı kopyala
+          </>
+        )}
+      </button>
+
       {hata && (
         <div className="rounded-md bg-red-50 px-2 py-1 text-3xs text-red-700">{hata}</div>
       )}
       <p className="text-3xs italic text-slate-500">
-        Yeni sekmede açılır → tarayıcıdan &quot;PDF olarak kaydet&quot; yapın
+        PDF → yeni sekmede açılır, &quot;PDF olarak kaydet&quot; yapın
       </p>
     </div>
   );

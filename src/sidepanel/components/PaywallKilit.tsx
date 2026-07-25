@@ -4,6 +4,7 @@ import {
   Building2 as Building2Icon,
 } from "lucide-react";
 import { type Tier, TIER_BILGI } from "../../lib/lisans";
+import { upgradeModalAc } from "./UpgradeModal";
 
 interface Props {
   /** Hangi tier'a yükseltmek gerekiyor */
@@ -12,8 +13,10 @@ interface Props {
   ozellik: string;
   /** Kompakt görünüm (sıralanan kartlar arasına sıkıştırılır) */
   kompakt?: boolean;
-  /** Upgrade akışı — şu an Settings'i açar, ileride checkout'a yönlendirir */
+  /** Upgrade akışı — belirtilmezse UpgradeModal açılır */
   onUpgrade?: () => void;
+  /** UTM source override */
+  source?: string;
 }
 
 export function PaywallKilit({
@@ -21,7 +24,12 @@ export function PaywallKilit({
   ozellik,
   kompakt = false,
   onUpgrade,
+  source = "paywall-kilit",
 }: Props) {
+  // Varsayılan: UpgradeModal aç (dışarıdan override edilebilir)
+  const handleUpgrade = onUpgrade ?? (() =>
+    upgradeModalAc({ tetikleyenOzellik: ozellik, source })
+  );
   const bilgi = TIER_BILGI[gerekliTier];
   const Icon = gerekliTier.startsWith("kurumsal") ? Building2Icon : CrownIcon;
   const accentClass = gerekliTier.startsWith("kurumsal")
@@ -32,7 +40,7 @@ export function PaywallKilit({
     return (
       <button
         type="button"
-        onClick={onUpgrade}
+        onClick={handleUpgrade}
         className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50/50 px-2 py-1.5 text-2xs text-amber-800 transition-colors hover:bg-amber-50"
       >
         <LockIcon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -70,7 +78,7 @@ export function PaywallKilit({
           </span>
           <button
             type="button"
-            onClick={onUpgrade}
+            onClick={handleUpgrade}
             className="cursor-pointer rounded-md bg-tkgm-primary px-3 py-1 text-2xs font-semibold text-white transition-colors hover:bg-blue-700"
           >
             Yükselt →

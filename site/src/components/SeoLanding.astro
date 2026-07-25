@@ -17,6 +17,13 @@ export interface Section {
   bullets?: string[];
 }
 
+export interface IlceLink {
+  ilNorm: string;
+  ilceNorm: string;
+  ilceDisplay: string;
+  ilDisplay: string;
+}
+
 interface Props {
   title: string;
   description: string;
@@ -29,6 +36,8 @@ interface Props {
   related?: { href: string; label: string }[];
   primaryCta?: { href: string; label: string };
   secondaryCta?: { href: string; label: string };
+  /** Popüler ilçe sayfaları grid'i — internal linking için */
+  ilceler?: IlceLink[];
 }
 
 const {
@@ -43,6 +52,7 @@ const {
   related = [],
   primaryCta = { href: CTA.veri.href, label: CTA.veri.label },
   secondaryCta = { href: "/sorgu", label: "Sitede ücretsiz sorgula" },
+  ilceler = [],
 } = Astro.props;
 
 const breadcrumb = [
@@ -151,6 +161,28 @@ const faqSchema = {
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  )}
+
+  {ilceler.length > 0 && (
+    <section class="py-12 md:py-16 bg-slate-50 border-t border-slate-100">
+      <div class="container-prose max-w-4xl">
+        <h2 class="font-display text-xl font-bold text-ink mb-2">Popüler İlçe Verileri</h2>
+        <p class="text-sm text-slate-500 mb-6">Bu ilçelerde arsa ve tarla TL/m² verisine ulaşmak için tıklayın.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {ilceler.map((ilce) => (
+            <a
+              href={`/veri/${ilce.ilNorm}/${ilce.ilceNorm}`}
+              class="flex flex-col rounded-lg border border-slate-200 bg-white px-3 py-2.5 hover:border-imperial hover:bg-imperial-50/30 transition-colors group"
+            >
+              <span class="text-sm font-semibold text-ink group-hover:text-imperial-700 transition-colors leading-tight">
+                {ilce.ilceDisplay}
+              </span>
+              <span class="text-xs text-slate-500 mt-0.5">{ilce.ilDisplay} arsa fiyatları →</span>
+            </a>
+          ))}
+        </div>
       </div>
     </section>
   )}

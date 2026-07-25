@@ -14,8 +14,13 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { yatirimSkoruHesapla } from "../lib/yatirim-skoru.js";
+import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 export const sorguRoutes = new Hono<{ Bindings: Env }>();
+
+// IP başına saatte 60 istek — site /sorgu sayfası + extension web fallback için
+// Kayıtlı kullanıcı token'ı yoksa bu limit geçerli; extension zaten JWT ile daha yüksek limit alır
+sorguRoutes.use("*", rateLimitMiddleware(60, "sorgu"));
 
 interface SorguInput {
   lat?: number;

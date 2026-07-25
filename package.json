@@ -23,6 +23,9 @@
     "mcp:dev": "npm --prefix mcp run dev"
   },
   "dependencies": {
+    "@deck.gl/core": "9.3.7",
+    "@deck.gl/layers": "9.3.7",
+    "@deck.gl/react": "9.3.7",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^4.4.0",
     "lucide-react": "^1.14.0",

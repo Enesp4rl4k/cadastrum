@@ -69,13 +69,33 @@ import { CHROME_STORE_URL } from "../config/launch";
     </div>
   </div>
 
+  <!-- Mobil tab bar — sadece küçük ekranlarda görünür -->
+  <div class="flex lg:hidden border-b border-slate-200 bg-white sticky top-0 z-30" role="tablist" aria-label="Görünüm seç">
+    <button type="button" id="mob-tab-harita"
+      class="mob-view-tab flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-imperial-700 border-b-2 border-imperial-500 bg-imperial-50/50"
+      aria-selected="true" data-target="mob-harita">
+      <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M12 1.586l-4 4V17l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 3.293L14 7v12.414l2.293-2.293A1 1 0 0018 14V4a1 1 0 00-.293-.707z" clip-rule="evenodd"/>
+      </svg>
+      Harita
+    </button>
+    <button type="button" id="mob-tab-panel"
+      class="mob-view-tab flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent"
+      aria-selected="false" data-target="mob-panel">
+      <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h7a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+      </svg>
+      Sonuç & Form
+    </button>
+  </div>
+
   <!-- Split layout: 2/3 harita + 1/3 panel -->
   <div class="flex flex-col lg:flex-row" style="min-height: calc(100vh - 130px);">
 
     <!-- ══════════════════════════════════════
          SOL — MapLibre harita (2/3)
     ══════════════════════════════════════ -->
-    <div class="relative lg:flex-[2]" style="min-height:500px;height:60vw;max-height:calc(100vh - 130px)">
+    <div id="mob-harita" class="relative lg:flex-[2]" style="min-height:500px;height:60vw;max-height:calc(100vh - 130px)">
       <div id="sorgu-harita" style="position:absolute;inset:0;width:100%;height:100%"></div>
 
       <!-- Harita üstü overlay — adres arama -->
@@ -129,7 +149,7 @@ import { CHROME_STORE_URL } from "../config/launch";
     <!-- ══════════════════════════════════════
          SAĞ — Form + Sonuç paneli (1/3)
     ══════════════════════════════════════ -->
-    <div class="lg:flex-1 lg:max-w-sm xl:max-w-md border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/60 flex flex-col overflow-y-auto">
+    <div id="mob-panel" class="lg:flex-1 lg:max-w-sm xl:max-w-md border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/60 flex flex-col overflow-y-auto">
 
       <!-- Form — kompakt, harita tıklaması ile senkron -->
       <form id="sorgu-form" method="post" action="javascript:void(0)"
@@ -962,11 +982,9 @@ import { CHROME_STORE_URL } from "../config/launch";
       listEl: $<HTMLUListElement>("ilce-listbox"),
       hiddenEl: ilceHidden,
       fieldEl: $<HTMLDivElement>("ilce-field"),
-      onSelect: (_value) => {
-        mahalleCombo.enable();
-        mahalleCombo.setItems([]);
-        mahalleHidden.value = "";
-        mahalleInput2.value = "";
+      onSelect: (value) => {
+        // Mahalle listesini o ilçenin mahalleleriyle doldur
+        void mahalleYukle(ilHidden.value, value);
       },
     });
 
@@ -981,6 +999,10 @@ import { CHROME_STORE_URL } from "../config/launch";
     async function ilceYukle(ilNorm: string) {
       ilceCombo.disable("Yükleniyor…");
       ilceCombo.setLoading();
+      // Mahalle sıfırla
+      mahalleCombo.disable("Önce ilçe seçin");
+      mahalleHidden.value = "";
+      mahalleInput2.value = "";
       try {
         const res = await fetch(`${PUBLIC_API_BASE}/fiyat/toplu-ilce-ozet/${ilNorm}?kategori=arsa`);
         const data = await res.json();
@@ -996,6 +1018,32 @@ import { CHROME_STORE_URL } from "../config/launch";
       } catch {
         ilceCombo.enable();
         ilceCombo.setItems([{ value: "", label: "Yüklenemedi — tekrar dene" }]);
+      }
+    }
+
+    async function mahalleYukle(ilNorm: string, ilceNorm: string) {
+      if (!ilNorm || !ilceNorm) return;
+      mahalleCombo.disable("Yükleniyor…");
+      mahalleCombo.setLoading();
+      mahalleHidden.value = "";
+      mahalleInput2.value = "";
+      try {
+        const res = await fetch(
+          `${PUBLIC_API_BASE}/fiyat/ilce/${encodeURIComponent(ilNorm)}/${encodeURIComponent(ilceNorm)}?kategori=arsa`,
+        );
+        const data = await res.json();
+        const list = (data.mahalleler ?? []) as Array<{ mahalle_norm: string; medyan?: number }>;
+        if (list.length === 0) {
+          mahalleCombo.enable();
+          mahalleCombo.setItems([{ value: "", label: "Mahalle yok — boş bırakın" }]);
+        } else {
+          const sorted = list.sort((a, b) => a.mahalle_norm.localeCompare(b.mahalle_norm, "tr"));
+          mahalleCombo.setItems(sorted.map(m => ({ value: m.mahalle_norm, label: displaySlug(m.mahalle_norm) })));
+          mahalleCombo.enable();
+        }
+      } catch {
+        mahalleCombo.enable();
+        mahalleCombo.setItems([{ value: "", label: "Yüklenemedi — mahalle yazın" }]);
       }
     }
 
@@ -1073,9 +1121,16 @@ import { CHROME_STORE_URL } from "../config/launch";
       katmanBtn.addEventListener("click", () => {
         uydoMod = !uydoMod;
         if (uydoMod) {
+          // setStyle sonrası marker ve click event'i yeniden bağla
+          map.once("styledata", () => {
+            if (marker) marker.addTo(map);
+          });
           map.setStyle(uydoStyle as any);
           katmanBtn.textContent = "🗺️ Cadde";
         } else {
+          map.once("styledata", () => {
+            if (marker) marker.addTo(map);
+          });
           map.setStyle("https://tiles.openfreemap.org/styles/positron");
           katmanBtn.textContent = "🛰️ Uydu";
         }
@@ -1198,11 +1253,16 @@ import { CHROME_STORE_URL } from "../config/launch";
         return;
       }
 
+      // UI'ı hemen loading moduna al — disabled burada set edilmeli
+      submitBtn.disabled = true;
+      sonucBos.classList.add("hidden");
+      sonucSkeleton.classList.remove("hidden");
+      sonucIcerik.classList.add("hidden");
+
       // Koordinat yoksa geocode
       if (!hasCoords && il) {
         const q = [mahalle, ilce && ilce !== "_manuel" ? displaySlug(ilce) : "", displaySlug(il), "Türkiye"]
           .filter(Boolean).join(" ");
-        submitBtn.disabled = true;
         submitLabel.textContent = "Konum aranıyor…";
         try {
           const r = await geocode(q);
@@ -1213,11 +1273,6 @@ import { CHROME_STORE_URL } from "../config/launch";
 
       const lat2 = parseFloat(latInput.value);
       const lng2 = parseFloat(lngInput.value);
-
-      sonucBos.classList.add("hidden");
-      sonucSkeleton.classList.remove("hidden");
-      sonucIcerik.classList.add("hidden");
-      submitBtn.disabled = true;
 
       try {
         const body: Record<string, unknown> = { kategori, imar_tipi };
@@ -1259,8 +1314,9 @@ import { CHROME_STORE_URL } from "../config/launch";
         const guven = data.guven_skoru ?? 0;
         const guvenSinif = guven >= 80 ? "bg-emerald-500" : guven >= 60 ? "bg-blue-500" : guven >= 40 ? "bg-amber-500" : "bg-red-500";
 
-        const fmt = (n: number) => n.toLocaleString("tr-TR");
-        const fmtKisa = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + " M ₺" : n >= 1000 ? (n / 1000).toFixed(0) + " bin ₺" : fmt(n) + " ₺";
+        // fmt2 adını kullanıyoruz — outer scope'daki fmt fonksiyonunu gölgelemez
+        const fmt2 = (n: number) => n.toLocaleString("tr-TR");
+        const fmtKisa = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + " M ₺" : n >= 1000 ? (n / 1000).toFixed(0) + " bin ₺" : fmt2(n) + " ₺";
 
         const toplamKart = data.toplam_tl ? `
           <div class="bg-gradient-to-br from-imperial-50 to-imperial-100/50 border-2 border-imperial-200 rounded-2xl p-6 mb-4">
@@ -1269,14 +1325,14 @@ import { CHROME_STORE_URL } from "../config/launch";
             <div class="text-sm text-imperial-700 mt-2">
               Aralık: <strong>${fmtKisa(data.toplam_tl.alt)}</strong> — <strong>${fmtKisa(data.toplam_tl.ust)}</strong>
             </div>
-            <div class="text-xs text-imperial-600 mt-1">${m2 || data.m2 || ""} m² × ${fmt(data.medyan_tlm2)} ₺/m²</div>
+            <div class="text-xs text-imperial-600 mt-1">${m2 || data.m2 || ""} m² × ${fmt2(data.medyan_tlm2)} ₺/m²</div>
           </div>
         ` : "";
 
         const ayarBlok = (data.ayarlar && data.ayarlar.length > 0) ? `
           <div class="rounded-xl border border-imperial/15 bg-slate-50 p-3 mb-3 text-xs space-y-1">
             <div class="text-[10px] font-semibold uppercase tracking-wide text-imperial-600">Neden bu band?</div>
-            ${data.ham_medyan_tlm2 ? `<div class="text-slate-500">Ham medyan: <strong>${fmt(data.ham_medyan_tlm2)}</strong> ₺/m² · çarpan ×${data.toplam_carpan}</div>` : ""}
+            ${data.ham_medyan_tlm2 ? `<div class="text-slate-500">Ham medyan: <strong>${fmt2(data.ham_medyan_tlm2)}</strong> ₺/m² · çarpan ×${data.toplam_carpan}</div>` : ""}
             ${data.ayarlar.map((a: any) => `
               <div class="flex justify-between gap-2"><span class="text-slate-700">${a.not}</span><span class="font-mono font-semibold">×${a.carpan}</span></div>
             `).join("")}
@@ -1285,8 +1341,8 @@ import { CHROME_STORE_URL } from "../config/launch";
 
         const fizOzet = data.fizibilite_ozet ? `
           <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
-            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">Taban</div><div class="font-semibold">${fmt(data.fizibilite_ozet.taban_m2)} m²</div></div>
-            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">İnşaat</div><div class="font-semibold">${fmt(data.fizibilite_ozet.insaat_m2)} m²</div></div>
+            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">Taban</div><div class="font-semibold">${fmt2(data.fizibilite_ozet.taban_m2)} m²</div></div>
+            <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">İnşaat</div><div class="font-semibold">${fmt2(data.fizibilite_ozet.insaat_m2)} m²</div></div>
             <div class="bg-white border border-slate-200 rounded-lg p-2"><div class="text-slate-400">~Kat</div><div class="font-semibold">${data.fizibilite_ozet.tahmini_kat}</div></div>
           </div>
         ` : "";
@@ -1294,21 +1350,28 @@ import { CHROME_STORE_URL } from "../config/launch";
         const skorKart = yatirimSkoruKartHTML(skorGirdiden(data));
 
         // ── Güven gauge (yarım daire) ──
+        // SVG viewBox: 0 0 104 56 — yarım daire merkezi (52,52), r=40
+        // M 12,52 → sol uç  |  A 40,40 ... → 92,52 sağ uç (büyük yay yok, saat yönü)
         function guvenGauge(pct: number): string {
-          const R = 40, cx = 52, cy = 52;
-          const C = Math.PI * R; // yarım çevre
+          const R = 40;
+          const C = Math.PI * R; // yarım çevre ≈ 125.66
           const fill = (pct / 100) * C;
+          // stroke-dashoffset: C = tamamen boş, 0 = tamamen dolu
+          // Yayı soldan doldurmak için dashoffset = C - fill
+          const dashOffset = C - fill;
           const guvenRenk = pct >= 80 ? "#059669" : pct >= 60 ? "#0284c7" : pct >= 40 ? "#d97706" : "#dc2626";
           const guvenEtiket = pct >= 80 ? "Yüksek" : pct >= 60 ? "İyi" : pct >= 40 ? "Orta" : "Düşük";
           return `
-            <div class="flex flex-col items-center">
-              <svg width="104" height="60" viewBox="0 0 104 60" aria-label="Güven skoru %${pct}">
+            <div class="flex flex-col items-center shrink-0">
+              <svg width="104" height="56" viewBox="0 0 104 56" aria-label="Güven skoru %${pct}" overflow="visible">
                 <path d="M 12 52 A 40 40 0 0 1 92 52" fill="none" stroke="#e2e8f0" stroke-width="10" stroke-linecap="round"/>
                 <path d="M 12 52 A 40 40 0 0 1 92 52" fill="none" stroke="${guvenRenk}" stroke-width="10"
-                  stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C - fill}"
+                  stroke-linecap="round"
+                  stroke-dasharray="${C.toFixed(2)}"
+                  stroke-dashoffset="${dashOffset.toFixed(2)}"
                   style="transition:stroke-dashoffset .7s ease"/>
               </svg>
-              <div class="text-xl font-bold -mt-3" style="color:${guvenRenk}">%${pct}</div>
+              <div class="text-xl font-bold -mt-2" style="color:${guvenRenk}">%${pct}</div>
               <div class="text-[10px] text-slate-500 uppercase tracking-wide">${guvenEtiket} güven</div>
             </div>`;
         }
@@ -1334,9 +1397,9 @@ import { CHROME_STORE_URL } from "../config/launch";
                 <div class="absolute top-1 bottom-1 w-1 bg-imperial rounded-full shadow-sm" style="left:calc(${pMed}% - 2px)"></div>
               </div>
               <div class="flex justify-between text-[10px] text-slate-500 mt-1 px-0.5">
-                <span>Alt ${fmt(alt2)} ₺</span>
-                <span class="font-semibold text-imperial-700">Medyan ${fmt(med)} ₺</span>
-                <span>Üst ${fmt(ust2)} ₺</span>
+                <span>Alt ${fmt2(alt2)} ₺</span>
+                <span class="font-semibold text-imperial-700">Medyan ${fmt2(med)} ₺</span>
+                <span>Üst ${fmt2(ust2)} ₺</span>
               </div>
             </div>`;
         }
@@ -1392,17 +1455,17 @@ import { CHROME_STORE_URL } from "../config/launch";
             <div class="grid grid-cols-3 gap-2 mb-3">
               <div class="bg-slate-50 p-2.5 rounded-xl text-center">
                 <div class="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Alt</div>
-                <div class="text-base font-bold text-slate-700">${fmt(data.alt_tlm2 ?? 0)}</div>
+                <div class="text-base font-bold text-slate-700">${fmt2(data.alt_tlm2 ?? 0)}</div>
                 <div class="text-[9px] text-slate-400">₺/m²</div>
               </div>
               <div class="bg-imperial-50 p-2.5 rounded-xl text-center ring-2 ring-imperial-200">
                 <div class="text-[10px] text-imperial-700 font-semibold uppercase tracking-wide mb-0.5">Medyan</div>
-                <div class="text-lg font-bold text-imperial-800">${fmt(data.medyan_tlm2 ?? 0)}</div>
+                <div class="text-lg font-bold text-imperial-800">${fmt2(data.medyan_tlm2 ?? 0)}</div>
                 <div class="text-[9px] text-imperial-600">₺/m²</div>
               </div>
               <div class="bg-slate-50 p-2.5 rounded-xl text-center">
                 <div class="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Üst</div>
-                <div class="text-base font-bold text-slate-700">${fmt(data.ust_tlm2 ?? 0)}</div>
+                <div class="text-base font-bold text-slate-700">${fmt2(data.ust_tlm2 ?? 0)}</div>
                 <div class="text-[9px] text-slate-400">₺/m²</div>
               </div>
             </div>
@@ -1412,8 +1475,8 @@ import { CHROME_STORE_URL } from "../config/launch";
 
             <div class="text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-1 pt-2 border-t border-slate-100">
               ${data.radius_km ? `<span>📍 Yarıçap <strong>${data.radius_km} km</strong></span>` : ""}
-              <span>📊 Emsal <strong>${data.emsal_adet}</strong> ilan</span>
-              <span>🔑 Kota <strong>${data.kalan_kota}/20</strong></span>
+              <span>📊 Emsal <strong>${data.emsal_adet ?? 0}</strong> ilan</span>
+              ${data.kalan_kota != null ? `<span>🔑 Kota <strong>${data.kalan_kota}/20</strong></span>` : ""}
             </div>
           </div>
 
@@ -1836,6 +1899,97 @@ import { CHROME_STORE_URL } from "../config/launch";
       document.head.appendChild(s);
     }
     loadMapLibreThenInit();
+
+    // ── Mobil tab switcher ────────────────────────────────────────────────
+    // Sadece küçük ekranlarda (lg: altında) harita ↔ panel toggle yapar.
+    // lg+ ekranlarda her iki panel de görünür, toggle devre dışı.
+    (function initMobilTabs() {
+      const haritaPanel = document.getElementById("mob-harita");
+      const icerikPanel = document.getElementById("mob-panel");
+      const tabHarita = document.getElementById("mob-tab-harita");
+      const tabPanel = document.getElementById("mob-tab-panel");
+      if (!haritaPanel || !icerikPanel || !tabHarita || !tabPanel) return;
+
+      const AKTIF_TAB = "text-imperial-700 border-imperial-500 bg-imperial-50/50 font-semibold";
+      const PASIF_TAB = "text-slate-500 border-transparent font-medium";
+
+      function tabGoster(hedef: "harita" | "panel") {
+        // lg breakpoint (1024px) üzerindeyse dokunma
+        if (window.innerWidth >= 1024) return;
+
+        // className.replace ile ekleme/çıkarma güvenilmez — classList kullan
+        if (hedef === "harita") {
+          haritaPanel.style.display = "";
+          icerikPanel.style.display = "none";
+          // Aktif tab
+          tabHarita.classList.add("text-imperial-700", "border-imperial-500", "bg-imperial-50/50", "font-semibold");
+          tabHarita.classList.remove("text-slate-500", "border-transparent", "font-medium");
+          // Pasif tab
+          tabPanel.classList.add("text-slate-500", "border-transparent", "font-medium");
+          tabPanel.classList.remove("text-imperial-700", "border-imperial-500", "bg-imperial-50/50", "font-semibold");
+          tabHarita.setAttribute("aria-selected", "true");
+          tabPanel.setAttribute("aria-selected", "false");
+          // MapLibre harita boyutunu yenile (gizliyken resize kaçırabilir)
+          setTimeout(() => {
+            if (map) map.resize();
+          }, 50);
+        } else {
+          haritaPanel.style.display = "none";
+          icerikPanel.style.display = "";
+          // Aktif tab
+          tabPanel.classList.add("text-imperial-700", "border-imperial-500", "bg-imperial-50/50", "font-semibold");
+          tabPanel.classList.remove("text-slate-500", "border-transparent", "font-medium");
+          // Pasif tab
+          tabHarita.classList.add("text-slate-500", "border-transparent", "font-medium");
+          tabHarita.classList.remove("text-imperial-700", "border-imperial-500", "bg-imperial-50/50", "font-semibold");
+          tabPanel.setAttribute("aria-selected", "true");
+          tabHarita.setAttribute("aria-selected", "false");
+        }
+      }
+
+      tabHarita.addEventListener("click", () => tabGoster("harita"));
+      tabPanel.addEventListener("click", () => tabGoster("panel"));
+
+      // Sorgu tamamlandığında otomatik panel'e geç (mobilde)
+      document.addEventListener("cadastrum:sorgu-tamamlandi", () => {
+        if (window.innerWidth < 1024) tabGoster("panel");
+      });
+
+      // Harita tıklandığında panel'e geç (sonuç yüklenince)
+      const haritaEl = document.getElementById("sorgu-harita");
+      if (haritaEl) {
+        haritaEl.addEventListener("click", () => {
+          // 800ms sonra panel'e geç (fetch tamamlanmadan geçme)
+          if (window.innerWidth < 1024) {
+            setTimeout(() => tabGoster("panel"), 800);
+          }
+        });
+      }
+
+      // Resize'da lg+ görünüme geçince gizlenen paneli geri aç
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 1024) {
+          haritaPanel.style.display = "";
+          icerikPanel.style.display = "";
+        }
+      }, { passive: true });
+    })();
+
+    // ── Mobil harita yüksekliği — viewport-aware ──────────────────────────
+    function haritaYukseklikAyarla() {
+      const el = document.getElementById("mob-harita");
+      if (!el) return;
+      if (window.innerWidth < 1024) {
+        // Tab bar (~44px) + header (~130px) çıkar
+        el.style.height = `${window.innerHeight - 174}px`;
+        el.style.maxHeight = "none";
+      } else {
+        el.style.height = "";
+        el.style.maxHeight = "";
+      }
+    }
+    haritaYukseklikAyarla();
+    window.addEventListener("resize", haritaYukseklikAyarla, { passive: true });
 
     if (params.get("lat") && params.get("lng")) {
       setTimeout(() => {

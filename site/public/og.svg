@@ -15,7 +15,7 @@
   <circle cx="160" cy="520" r="180" fill="#D4A574" opacity="0.06"/>
   <text x="80" y="200" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#FFFFFF">Cadastrum</text>
   <text x="80" y="280" font-family="system-ui, sans-serif" font-size="36" font-weight="500" fill="url(#accent)">Arsa &amp; tarla yat1r1m analizi</text>
-  <text x="80" y="360" font-family="system-ui, sans-serif" font-size="28" fill="#C5D0E0">TKGM parsel · e-Plan imar · mahalle TL/m²</text>
+  <text x="80" y="360" font-family="system-ui, sans-serif" font-size="28" fill="#C5D0E0">TKGM parsel ï¿½ e-Plan imar ï¿½ mahalle TL/mï¿½</text>
   <rect x="80" y="420" width="280" height="4" rx="2" fill="url(#accent)"/>
   <text x="80" y="480" font-family="system-ui, sans-serif" font-size="22" fill="#9AABC2">cadastrum.com.tr</text>
 </svg>

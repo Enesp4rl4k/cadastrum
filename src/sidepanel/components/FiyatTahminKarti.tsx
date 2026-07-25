@@ -31,6 +31,7 @@ import { useLisans } from "../../lib/lisans";
 import { Card, Section } from "../ui/Card";
 import { HizliImarPrompt } from "./HizliImarPrompt";
 import { GuvenGostergesi } from "./GuvenGostergesi";
+import { FiyatAciklamasi } from "./FiyatAciklamasi";
 
 import type { MilliEmlakOzet } from "../../lib/milli-emlak";
 import { fmtTLm2 as fmtMEm2 } from "../../lib/milli-emlak";
@@ -730,6 +731,17 @@ export function FiyatTahminKarti({
               </span>
             </div>
           </div>
+        )}
+
+        {/* Açıklanabilir AI Değerleme — "Bu fiyat neden X?" */}
+        {tahmin && !dusukGuven && (
+          <FiyatAciklamasi
+            parsel={parsel}
+            tahmin={tahmin}
+            cevre={cevre}
+            egim={egim}
+            otomatik={proAi}
+          />
         )}
 
         {/* AI bölümü — cold start'ta daha vurgulu CTA */}

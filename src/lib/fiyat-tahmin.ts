@@ -1625,6 +1625,8 @@ export async function fiyatTahminEt(
   egim: EgimAnalizi | null = null,
   resmiImar: EPlanImarVerisi | null = null,
   tucbs: TucbsCdpSonuc | null = null,
+  /** Sentinel-2 NDVI ortalaması — tarla/bahçe fiyat çarpanı için opsiyonel */
+  ndviOrtalama: number | null = null,
 ): Promise<FiyatTahmini> {
   // Kullanıcının manuel girdiği emsalleri ek emsal olarak baseline hesabına dahil et
   const manuelVeri = await manuelVeriOku(parsel);
@@ -1876,6 +1878,36 @@ export async function fiyatTahminEt(
         carpan: tCarpan,
         not: taskinBilgi.not,
       });
+    }
+  }
+
+  // ── NDVI çarpanı (tarla/bahçe/bağ — opsiyonel, kullanıcı tetikli) ─────────
+  // fiyatTahminEt çağrısına ndviOrtalama geçilirse tarla verimliliği fiyata yansır.
+  // Arsa nitelikli parsellerde NDVI çarpanı uygulanmaz (arsa fiyatı vejetasyona bağlı değil).
+  if (ndviOrtalama !== null && Number.isFinite(ndviOrtalama)) {
+    const nitelikTarim = /tarla|bahçe|bahce|bağ|bag|zeytin|meyve/i.test(parsel.nitelik);
+    if (nitelikTarim) {
+      // ndviFiyatCarpani: 0.75 (çıplak toprak) – 1.25 (yoğun yeşillik)
+      let ndviC = 1.0;
+      if (ndviOrtalama < 0)    ndviC = 0.75;
+      else if (ndviOrtalama < 0.1) ndviC = 0.80;
+      else if (ndviOrtalama < 0.2) ndviC = 0.88;
+      else if (ndviOrtalama < 0.3) ndviC = 0.95;
+      else if (ndviOrtalama < 0.4) ndviC = 1.00;
+      else if (ndviOrtalama < 0.5) ndviC = 1.08;
+      else if (ndviOrtalama < 0.6) ndviC = 1.15;
+      else                          ndviC = 1.25;
+
+      if (ndviC !== 1.0) {
+        beklenenPerM2 = Math.round(beklenenPerM2 * ndviC);
+        bilesenler.push({
+          ad: `NDVI vejetasyon (${ndviOrtalama.toFixed(2)})`,
+          carpan: ndviC,
+          not: ndviC > 1
+            ? `Yoğun bitki örtüsü (NDVI ${ndviOrtalama.toFixed(2)}) → verimli tarım arazisi primi`
+            : `Seyrek bitki örtüsü (NDVI ${ndviOrtalama.toFixed(2)}) → tarımsal verimlilik düşük`,
+        });
+      }
     }
   }
 

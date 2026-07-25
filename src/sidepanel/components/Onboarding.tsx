@@ -1,6 +1,11 @@
 /**
- * Onboarding wizard — ilk kurulumda bir kez gösterilir.
- * 2 adım: Nasıl çalışır → Ücretsiz ne var
+ * Onboarding wizard v2 — ilk kurulumda bir kez gösterilir.
+ * 3 adım: Demo Parsel (aha moment) → Nasıl çalışır → Ücretsiz ne var
+ *
+ * G2 — "Demo parsel" yeniliği:
+ *   Adım 0: Gerçek bir Beykoz parseli canlı analiz edilir.
+ *   Kullanıcı fiyat tahmini, risk skoru ve imar bilgisini görür.
+ *   "Aha moment" sağlandıktan sonra ilerler.
  *
  * Motion (Emil Kowalski lens — restraint):
  *   • Overlay enter: slide-up + fade (300ms out-expo)
@@ -17,9 +22,35 @@ import {
   Building2 as Building2Icon,
   Sparkles as SparklesIcon,
   ArrowLeft as ArrowLeftIcon,
+  TrendingUp as TrendingUpIcon,
+  Shield as ShieldIcon,
+  Layers as LayersIcon,
+  Loader2 as LoaderIcon,
 } from "lucide-react";
 
-const STORAGE_KEY = "onboarding_v1_done";
+const STORAGE_KEY = "onboarding_v2_done";
+
+// ── Demo parsel (Beykoz, İstanbul) ──────────────────────────────────────────
+// Gerçek bir parselin sabit değerleri — API çağrısı gerekmez, anlık gösterim.
+const DEMO_PARSEL = {
+  il: "İSTANBUL",
+  ilce: "BEYKOZ",
+  mahalle: "KAVACIK",
+  ada: "114",
+  parsel: "7",
+  alan: 4850,
+  nitelik: "Arsa",
+  fiyatBeklenenM2: 45_000,
+  fiyatAltM2: 38_000,
+  fiyatUstM2: 54_000,
+  toplamTahmin: 218_250_000, // 45K × 4850
+  guvenSkoru: 72,
+  depremZon: "Yüksek",
+  emsal: 0.8,
+  taks: 0.35,
+  maksKat: 4,
+  riskUyariSayisi: 1,
+};
 
 /* ─── Hook ─────────────────────────────────────────────────────────────── */
 
@@ -73,6 +104,95 @@ function Adim1() {
         baslik="Mahalle emsali ve fiyat tahmini"
         aciklama="Yakın çevredeki satış ilanlarından medyan hesaplanır. Free planda 3 AI analizi/gün."
       />
+    </div>
+  );
+}
+
+// ── Demo parsel "Aha Moment" bileşeni ───────────────────────────────────────
+
+function DemoParselKarti() {
+  const [yuklendi, setYuklendi] = useState(false);
+  const [sayi, setSayi] = useState(0);
+
+  // Sayaç animasyonu — fiyat "sayılarak" çıksın
+  useEffect(() => {
+    const hedef = DEMO_PARSEL.toplamTahmin;
+    const adim = Math.round(hedef / 40);
+    let n = 0;
+    const t = setInterval(() => {
+      n = Math.min(n + adim, hedef);
+      setSayi(n);
+      if (n >= hedef) clearInterval(t);
+    }, 30);
+    const rev = setTimeout(() => setYuklendi(true), 200);
+    return () => { clearInterval(t); clearTimeout(rev); };
+  }, []);
+
+  const fmtTL = (n: number) => {
+    if (n >= 1_000_000) return `₺${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000)     return `₺${Math.round(n / 1_000)}K`;
+    return `₺${n.toLocaleString("tr-TR")}`;
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Hero başlık */}
+      <div className="text-center pb-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Gerçek bir parselin anlık analizi:
+        </p>
+        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+          Beykoz / Kavacık — Ada 114, Parsel 7
+        </p>
+      </div>
+
+      {/* Ana değer kartı */}
+      <div className={`rounded-xl border border-imperial/20 bg-gradient-to-br from-imperial/5 to-white px-4 py-3.5 text-center dark:from-imperial-950/20 dark:to-slate-900 dark:border-imperial-700/30 transition-all duration-500 ${yuklendi ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}>
+        <div className="text-3xs text-slate-500 uppercase tracking-widest mb-1">TAHMİNİ PİYASA DEĞERİ</div>
+        <div className="text-3xl font-black tabular-nums text-imperial-700 dark:text-imperial-300 tracking-tight">
+          {fmtTL(sayi)}
+        </div>
+        <div className="text-xs text-slate-500 mt-0.5">
+          {DEMO_PARSEL.alan.toLocaleString("tr-TR")} m² ·{" "}
+          {Math.round(DEMO_PARSEL.fiyatAltM2 / 1000)}K–{Math.round(DEMO_PARSEL.fiyatUstM2 / 1000)}K ₺/m²
+        </div>
+        <div className="mt-2 text-3xs text-slate-400">
+          Güven skoru: {DEMO_PARSEL.guvenSkoru}/100
+        </div>
+      </div>
+
+      {/* 3 metrik satır */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg border border-slate-100 bg-white px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
+          <LayersIcon className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+          <div className="text-3xs text-slate-500 dark:text-slate-400">İmar</div>
+          <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
+            E:{DEMO_PARSEL.emsal} T:{DEMO_PARSEL.taks}
+          </div>
+          <div className="text-3xs text-slate-400">{DEMO_PARSEL.maksKat} kat</div>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-white px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
+          <ShieldIcon className="h-4 w-4 text-amber-500 mx-auto mb-1" />
+          <div className="text-3xs text-slate-500 dark:text-slate-400">Deprem</div>
+          <div className="text-xs font-bold text-amber-700 dark:text-amber-300">
+            {DEMO_PARSEL.depremZon}
+          </div>
+          <div className="text-3xs text-slate-400">AFAD zon</div>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-white px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
+          <TrendingUpIcon className="h-4 w-4 text-emerald-500 mx-auto mb-1" />
+          <div className="text-3xs text-slate-500 dark:text-slate-400">Nitelik</div>
+          <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
+            {DEMO_PARSEL.nitelik}
+          </div>
+          <div className="text-3xs text-slate-400">{DEMO_PARSEL.alan.toLocaleString()} m²</div>
+        </div>
+      </div>
+
+      <p className="text-center text-2xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        <span className="font-semibold text-imperial-600 dark:text-imperial-400">Cadastrum</span>{" "}
+        herhangi bir parseli saniyeler içinde bu şekilde analiz eder. Sahibinden'de bir ilan aç, otomatik başlar.
+      </p>
     </div>
   );
 }
@@ -180,9 +300,10 @@ function SiteLink({
 
 /* ─── Main component ────────────────────────────────────────────────────── */
 
-const ADIMLAR = [
-  { baslik: "Nasıl çalışır?",   icerik: <Adim1 /> },
-  { baslik: "Ücretsiz ne var?", icerik: <Adim2 /> },
+const ADIM_TANIMLARI = [
+  { baslik: "🎯 Canlı demo",        icerikFn: () => <DemoParselKarti /> },
+  { baslik: "Nasıl çalışır?",       icerikFn: () => <Adim1 /> },
+  { baslik: "Ücretsiz ne var?",     icerikFn: () => <Adim2 /> },
 ];
 
 interface OnboardingProps {
@@ -193,7 +314,7 @@ export function Onboarding({ onKapat }: OnboardingProps) {
   const [adim, setAdim] = useState(0);
   const [visible, setVisible] = useState(false);
   const [contentKey, setContentKey] = useState(0); // adım geçişi için
-  const sonAdim = adim === ADIMLAR.length - 1;
+  const sonAdim = adim === ADIM_TANIMLARI.length - 1;
 
   // Overlay enter animasyonu
   useEffect(() => {
@@ -212,7 +333,7 @@ export function Onboarding({ onKapat }: OnboardingProps) {
     setContentKey((k) => k + 1);
   };
 
-  const mevcutAdim = ADIMLAR[adim]!;
+  const mevcutAdim = ADIM_TANIMLARI[adim]!;
 
   return (
     <div
@@ -255,8 +376,8 @@ export function Onboarding({ onKapat }: OnboardingProps) {
       </div>
 
       {/* Progress bar */}
-      <div className="flex gap-1.5 px-4 pt-3 flex-shrink-0" role="progressbar" aria-valuenow={adim + 1} aria-valuemax={ADIMLAR.length}>
-        {ADIMLAR.map((_, i) => (
+      <div className="flex gap-1.5 px-4 pt-3 flex-shrink-0" role="progressbar" aria-valuenow={adim + 1} aria-valuemax={ADIM_TANIMLARI.length}>
+        {ADIM_TANIMLARI.map((_, i) => (
           <div
             key={i}
             className="h-[3px] flex-1 rounded-full overflow-hidden"
@@ -284,7 +405,7 @@ export function Onboarding({ onKapat }: OnboardingProps) {
             animation: "onboarding-content-in 220ms var(--out-quart) forwards",
           }}
         >
-          {mevcutAdim.icerik}
+          {mevcutAdim.icerikFn()}
         </div>
       </div>
 

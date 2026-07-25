@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { SCRAPING_ENABLED } from "../lib/build-flags";
 import { ToastProvider } from "./components/Toast";
 import { KarsilastirmaProvider } from "../lib/karsilastirma-store";
+import { ParselStoreProvider } from "../lib/parsel-store";
 import { KarsilastirmaView } from "./views/KarsilastirmaView";
 import {
   Map as MapIcon,
@@ -14,6 +15,7 @@ import {
   Building2 as Building2Icon,
   MoreHorizontal as MoreIcon,
   GitCompare as CompareIcon,
+  Sparkles as SparklesIcon,
 } from "lucide-react";
 import { MapView } from "./views/MapView";
 import { FavorilerView } from "./views/FavorilerView";
@@ -22,6 +24,7 @@ import { AraView } from "./views/AraView";
 import { TopluView } from "./views/TopluView";
 import { BolgeView } from "./views/BolgeView";
 import { LabView } from "./views/LabView";
+import { AiHubView } from "./views/AiHubView";
 import { IlanKarti } from "./components/IlanKarti";
 import { KomutPaleti } from "./components/KomutPaleti";
 import { KvkkConsent, useKvkkConsentVerilmis } from "./components/KvkkConsent";
@@ -32,8 +35,9 @@ import HesapDurumu from "./components/HesapDurumu";
 import { useLisans, type Yetenek } from "../lib/lisans";
 import type { Parsel } from "../types/tkgm";
 import { Onboarding, useOnboardingGoster } from "./components/Onboarding";
+import { UpgradeModalProvider } from "./components/UpgradeModal";
 
-type Tab = "harita" | "ara" | "toplu" | "bolge" | "lab" | "favoriler" | "gecmis" | "bootstrap" | "karsilastirma";
+type Tab = "harita" | "ara" | "toplu" | "bolge" | "lab" | "favoriler" | "gecmis" | "bootstrap" | "karsilastirma" | "ai-hub";
 
 interface FlyToTarget {
   lat: number;
@@ -50,14 +54,15 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { id: "harita",         label: "Harita",   Icon: MapIcon },
-  { id: "ara",            label: "Ara",      Icon: SearchIcon },
-  { id: "favoriler",      label: "Radar",    Icon: StarIcon },
-  { id: "gecmis",         label: "Geçmiş",   Icon: HistoryIcon },
+  { id: "harita",         label: "Harita",      Icon: MapIcon },
+  { id: "ara",            label: "Ara",         Icon: SearchIcon },
+  { id: "favoriler",      label: "Radar",       Icon: StarIcon },
+  { id: "gecmis",         label: "Geçmiş",      Icon: HistoryIcon },
+  { id: "ai-hub",         label: "AI",          Icon: SparklesIcon },
   { id: "karsilastirma",  label: "Karşılaştır", Icon: CompareIcon },
-  { id: "toplu",          label: "Toplu",    Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },
-  { id: "bolge",          label: "Bölge",    Icon: LayoutGridIcon },
-  { id: "lab",            label: "Lab",      Icon: FlaskIcon, yetenek: "ai-fiyat" },
+  { id: "toplu",          label: "Toplu",       Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },
+  { id: "bolge",          label: "Bölge",       Icon: LayoutGridIcon },
+  { id: "lab",            label: "Lab",         Icon: FlaskIcon, yetenek: "ai-fiyat" },
   ...(SCRAPING_ENABLED
     ? [{ id: "bootstrap" as const, label: "Boot", Icon: FlaskIcon, adminGerekli: true }]
     : []),
@@ -71,11 +76,13 @@ const BootstrapView = SCRAPING_ENABLED
 
 export function App() {
   return (
-    <KarsilastirmaProvider>
-      <ToastProvider>
-        <AppInner />
-      </ToastProvider>
-    </KarsilastirmaProvider>
+    <ParselStoreProvider>
+      <KarsilastirmaProvider>
+        <ToastProvider>
+          <AppInner />
+        </ToastProvider>
+      </KarsilastirmaProvider>
+    </ParselStoreProvider>
   );
 }
 
@@ -105,6 +112,8 @@ function AppInner() {
 
   return (
     <div className="relative flex h-full flex-col" style={{ background: "var(--surface-0)" }}>
+      {/* Global upgrade modal — herhangi bir yerden upgradeModalAc() ile tetiklenir */}
+      <UpgradeModalProvider />
       {onboardingGoster && <Onboarding onKapat={onboardingKapat} />}
       <KomutPaleti
         onParselSec={(parsel) => {
@@ -265,6 +274,13 @@ function AppInner() {
               setTab("harita");
             }}
           />
+        )}
+        {tab === "ai-hub" && (
+          <ErrorBoundary etiket="AI Hub">
+            <AiHubView
+              girisYapildi={lisans.lisans.email !== null}
+            />
+          </ErrorBoundary>
         )}
       </main>
     </div>

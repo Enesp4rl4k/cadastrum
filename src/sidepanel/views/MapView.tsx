@@ -5,6 +5,8 @@ import { getParselByLatLng } from "../../lib/tkgm-api";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
 import { ParselDetay } from "../components/ParselDetay";
+import { useParselStore } from "../../lib/parsel-store";
+import { useAnalizLoop } from "../../lib/analiz-loop";
 import type { YakinNoktaMesafesi } from "../../lib/osm";
 import { BasemapSecici } from "../components/BasemapSecici";
 import {
@@ -56,7 +58,19 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const parselRef = useRef<Parsel | null>(null);
-  const [parsel, setParsel] = useState<Parsel | null>(null);
+  const [parsel, setParselLocal] = useState<Parsel | null>(null);
+
+  // Global store — parsel seçilince tüm katmanlar otomatik yüklenir
+  const { parselSec } = useParselStore();
+
+  /** Hem local state'i hem global store'u güncelleyen setter */
+  function setParsel(p: Parsel | null) {
+    setParselLocal(p);
+    parselSec(p);
+  }
+
+  // Analiz loop — parsel değişince Lv0→Lv1→Lv2 otomatik çalışır
+  useAnalizLoop(parsel);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [basemap, setBasemap] = useState<BasemapId>(() => loadSavedBasemap());

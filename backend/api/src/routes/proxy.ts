@@ -14,6 +14,7 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 const TUCBS_WMS_SLUGS = new Set([
   "csb_cdp_im_wms",
@@ -37,6 +38,10 @@ const TUCBS_WMS_SLUGS = new Set([
 ]);
 
 export const proxyRoutes = new Hono<{ Bindings: Env }>();
+
+// IP başına saatte 120 istek — ePlan/TUCBS/Wayback üçlüsü için
+// Kötü aktör tek IP'den flood yapamaz; normal kullanım (20-30/saat) rahatlıkla geçer
+proxyRoutes.use("*", rateLimitMiddleware(120, "proxy"));
 
 // ── e-Plan (imar) ─────────────────────────────────────────────────────────────
 // eplan.csb.gov.tr — misafir oturumu + kadastroParsel (eski e-plan.gov.tr/proxy kaldırıldı)
@@ -454,8 +459,125 @@ proxyRoutes.get("/wayback", async (c) => {
   }
 });
 
+// ── Sentinel-2 STAC proxy ────────────────────────────────────────────────────
+// GET /v1/proxy/sentinel-stac?bbox=minLng,minLat,maxLng,maxLat&baslangic=&bitis=&bulutEsigi=
+// Element84 Earth Search STAC → extension/site'e CORS sorunsuz iletir.
+// Worker cache: 6 saat (aynı bbox için tekrar arama yapma).
+
+proxyRoutes.get("/sentinel-stac", rateLimitMiddleware(30), async (c) => {
+  const bboxStr = c.req.query("bbox");
+  const baslangic = c.req.query("baslangic") ?? "";
+  const bitis = c.req.query("bitis") ?? "";
+  const bulutEsigi = parseInt(c.req.query("bulutEsigi") ?? "20");
+  const maks = Math.min(parseInt(c.req.query("maks") ?? "5"), 10);
+
+  if (!bboxStr) return c.json({ error: "bbox zorunlu" }, 400);
+  const bboxParts = bboxStr.split(",").map(Number);
+  if (bboxParts.length !== 4 || bboxParts.some(isNaN)) {
+    return c.json({ error: "bbox geçersiz — minLng,minLat,maxLng,maxLat" }, 400);
+  }
+  const [minLng, minLat, maxLng, maxLat] = bboxParts as [number, number, number, number];
+
+  // Koordinat sınır kontrolü
+  if (Math.abs(minLat) > 90 || Math.abs(maxLat) > 90 ||
+      Math.abs(minLng) > 180 || Math.abs(maxLng) > 180) {
+    return c.json({ error: "Koordinat sınırı dışında" }, 400);
+  }
+
+  // Bbox çok büyük mü? Max 0.5° (~55km) kare
+  if ((maxLng - minLng) > 0.5 || (maxLat - minLat) > 0.5) {
+    return c.json({ error: "bbox çok büyük (max 0.5°)" }, 400);
+  }
+
+  const stacUrl = "https://earth-search.aws.element84.com/v1/search";
+  const body = {
+    collections: ["sentinel-2-l2a"],
+    bbox: [minLng, minLat, maxLng, maxLat],
+    ...(baslangic && bitis ? { datetime: `${baslangic}/${bitis}` } : {}),
+    limit: maks,
+    query: { "eo:cloud_cover": { lte: bulutEsigi } },
+    sortby: [{ field: "datetime", direction: "desc" }],
+    fields: {
+      include: ["id", "properties.datetime", "properties.eo:cloud_cover",
+                "properties.platform", "assets"],
+    },
+  };
+
+  try {
+    const res = await fetch(stacUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12_000),
+    });
+
+    if (!res.ok) {
+      return c.json({ error: `STAC ${res.status}` }, 502);
+    }
+
+    const data = await res.json();
+    return c.json(data, 200, {
+      "Cache-Control": "public, max-age=21600", // 6 saat
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
+// ── TiTiler COG istatistik proxy ──────────────────────────────────────────────
+// GET /v1/proxy/titiler-stats?url=<cog_url>&bbox=minLng,minLat,maxLng,maxLat
+// TiTiler.xyz üzerinden COG band istatistiklerini çeker.
+// CORS proxy + Worker cache 24 saat (COG içeriği değişmez).
+
+proxyRoutes.get("/titiler-stats", rateLimitMiddleware(20), async (c) => {
+  const cogUrl = c.req.query("url");
+  const bboxStr = c.req.query("bbox");
+
+  if (!cogUrl || !bboxStr) {
+    return c.json({ error: "url ve bbox zorunlu" }, 400);
+  }
+
+  // URL güvenlik kontrolü — sadece bilinen CDN'ler
+  const izinliHosts = [
+    "sentinel-cogs.s3.us-west-2.amazonaws.com",
+    "earth-search.aws.element84.com",
+    "planetarycomputer.microsoft.com",
+    "sentinel2l2a01.blob.core.windows.net",
+  ];
+  let cogHost: string;
+  try {
+    cogHost = new URL(cogUrl).hostname;
+  } catch {
+    return c.json({ error: "Geçersiz COG URL" }, 400);
+  }
+
+  if (!izinliHosts.some((h) => cogHost === h || cogHost.endsWith(`.${h}`))) {
+    return c.json({ error: "COG host izin listesinde değil" }, 403);
+  }
+
+  const titilerUrl = `https://titiler.xyz/cog/statistics?url=${encodeURIComponent(cogUrl)}&bbox=${bboxStr}&bbox_crs=EPSG:4326&max_size=256`;
+
+  try {
+    const res = await fetch(titilerUrl, {
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!res.ok) {
+      return c.json({ error: `TiTiler ${res.status}` }, 502);
+    }
+
+    const data = await res.json();
+    return c.json(data, 200, {
+      "Cache-Control": "public, max-age=86400", // 24 saat — COG sabit
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
 // ── Sağlık ────────────────────────────────────────────────────────────────────
 
 proxyRoutes.get("/health", (c) =>
-  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz", "wayback"] }),
+  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz", "wayback", "sentinel-stac", "titiler-stats"] }),
 );

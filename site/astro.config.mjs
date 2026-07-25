@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import tailwind from "@astrojs/tailwind";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   site: "https://cadastrum.com.tr",
@@ -7,5 +8,13 @@ export default defineConfig({
   integrations: [tailwind({ applyBaseStyles: false })],
   build: {
     inlineStylesheets: "auto",
+  },
+  vite: {
+    resolve: {
+      alias: {
+        // Extension kaynak dosyalarına site'den erişim için
+        "@ext": fileURLToPath(new URL("../../src", import.meta.url)),
+      },
+    },
   },
 });

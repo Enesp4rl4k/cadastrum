@@ -1,22 +1,35 @@
 /**
- * AI Yatırım Danışmanı Chat — Faz B3/B4
+ * AI Yatırım Danışmanı Chat — Profesyonel Agentic Kernel
  *
  * POST /v1/ai-danisman/sohbet  (JWT zorunlu)
- *   Parsel bağlamlı RAG sohbet. Prompt client'tan gelmez — server-side oluşturulur.
- *   Context: son sorgu JSON (imar, fiyat, risk, fizibilite, gelecek skor).
- *   Guardrails: kaynak zorunlu alıntı, uydurma yasak, yatırım tavsiyesi reddi.
+ *
+ * Pipeline (her istekte):
+ *   1. Guardrail (input)     — injection, PII, konu dışı tespiti
+ *   2. Memory retrieval      — alakalı geçmiş episodik kayıtlar
+ *   3. ReAct Loop            — Thought → Tool Call → Observe (max 3 tur)
+ *   4. LLM yanıt             — Gemini 2.5 Flash (Groq fallback)
+ *   5. Self-reflection       — sayısal tutarlılık, hallüsinasyon
+ *   6. Guardrail (output)    — PII, disclaimer
+ *   7. Telemetri             — span trace D1'e async kayıt
+ *   8. Memory write          — episodik hafızaya ekle
  *
  * GET /v1/ai-danisman/gecmis   (JWT zorunlu)
- *   Son 20 sohbet mesajı.
  *
- * Rate limit: ai_kullanim_kota tablosunu kullanır (ai-fiyat + ai-scorecard ile paylaşımlı).
- *
- * Tier kota: free=3/gün, pro=50/gün, pro_plus=200/gün
+ * Tier kota: free=3/gün, pro=50/gün, pro_plus=200/gün, kurumsal=500/gün
  */
 
 import { Hono } from "hono";
 import { jwtMiddleware } from "./hesap.js";
 import type { Env } from "../index.js";
+import { ARAÇ_TANIMLARI, aracYurutt } from "../lib/agent-tools.js";
+import { TraceYoneticisi, tokenSay } from "../lib/agent-telemetri.js";
+import { inputGuardrail, outputGuardrail } from "../lib/agent-guardrail.js";
+import {
+  alakaliGecmisiGetir,
+  episodikKaydet,
+  hafizaBlokuOlustur,
+  anahtarKelimeCikar,
+} from "../lib/agent-memory.js";
 
 export const aiDanismanRoutes = new Hono<{ Bindings: Env }>();
 aiDanismanRoutes.use("*", jwtMiddleware);
@@ -124,7 +137,116 @@ function baglamOlustur(b: ParselBaglam): string {
   return satirlar.join("\n");
 }
 
-// ── Gemini çağrısı ────────────────────────────────────────────────────────────
+// ── Gemini ReAct Loop (Function Calling + Tool Execution) ────────────────────
+
+/**
+ * Gemini ile ReAct loop: Thought → Tool Call → Observe → Final Answer
+ * Max 3 araç çağrısı turu. Her tur bir span olarak trace edilir.
+ */
+async function geminiReActLoop(
+  apiKey: string,
+  sistem: string,
+  mesajlar: Array<{ role: string; parts: Array<Record<string, unknown>> }>,
+  db: import("../index.js").Env["DB"],
+  trace: import("../lib/agent-telemetri.js").TraceYoneticisi,
+): Promise<{ yanit: string; model: string; sureMs: number }> {
+  const t0 = Date.now();
+  const MODEL = "gemini-2.5-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+
+  // Çalışan mesaj zinciri — her tur genişler
+  const zincir = [...mesajlar];
+
+  const MAX_TUR = 3;
+
+  for (let tur = 0; tur <= MAX_TUR; tur++) {
+    const body = {
+      system_instruction: { parts: [{ text: sistem }] },
+      contents: zincir,
+      tools: [{ functionDeclarations: ARAÇ_TANIMLARI }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1500,
+      },
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = (await res.text().catch(() => "")).slice(0, 200);
+      throw new Error(`Gemini ${res.status}: ${errText}`);
+    }
+
+    const data = await res.json() as {
+      candidates?: Array<{
+        content: {
+          role: string;
+          parts: Array<
+            | { text: string }
+            | { functionCall: { name: string; args: Record<string, unknown> } }
+          >;
+        };
+        finishReason?: string;
+      }>;
+    };
+
+    const candidate = data.candidates?.[0];
+    if (!candidate) throw new Error("Gemini boş yanıt (candidates boş)");
+
+    const parts = candidate.content.parts;
+    const finishReason = candidate.finishReason;
+
+    // Model araç çağırmıyor veya son tur → yanıtı döndür
+    const textPart = parts.find((p): p is { text: string } => "text" in p);
+    const hasToolCall = parts.some((p) => "functionCall" in p);
+
+    if (!hasToolCall || finishReason === "STOP" || tur === MAX_TUR) {
+      const yanit = textPart?.text ?? "(yanıt alınamadı)";
+      return { yanit: yanit.trim(), model: MODEL, sureMs: Date.now() - t0 };
+    }
+
+    // Model bir veya daha fazla araç çağırıyor
+    // Tüm function call'ları paralel yürüt
+    const toolCallParts = parts.filter(
+      (p): p is { functionCall: { name: string; args: Record<string, unknown> } } =>
+        "functionCall" in p,
+    );
+
+    // Model yanıtını zincire ekle
+    zincir.push({ role: "model", parts: parts as Array<Record<string, unknown>> });
+
+    // Araçları yürüt ve sonuçları zincire ekle
+    const toolSonuclari = await Promise.all(
+      toolCallParts.map(async (tc) => {
+        const toolSpan = trace.spanBaslat(`tool_call.${tc.functionCall.name}`);
+        const sonuc = await aracYurutt(tc.functionCall.name, tc.functionCall.args, db);
+        trace.spanBitir(toolSpan, {
+          meta: { arac: tc.functionCall.name, basarili: !("hata" in sonuc.sonuc) },
+        });
+        return {
+          functionResponse: {
+            name: tc.functionCall.name,
+            response: sonuc.sonuc,
+          },
+        };
+      }),
+    );
+
+    // Araç sonuçlarını "user" rolüyle zincire ekle (Gemini API gereksinimi)
+    zincir.push({
+      role: "user",
+      parts: toolSonuclari as Array<Record<string, unknown>>,
+    });
+  }
+
+  throw new Error("ReAct loop max tur aşıldı");
+}
+
+// ── Gemini düz sohbet (fallback, function calling olmadan) ────────────────────
 
 async function geminiSohbet(
   apiKey: string,
@@ -248,23 +370,43 @@ aiDanismanRoutes.post("/sohbet", async (c) => {
     };
   }
 
-  // SEK-2: Sohbet geçmişi doğrulama — max 6 mesaj, her biri max 500 karakter
-  const GECMIS_LIMIT = 6;
-  const GECMIS_MAX_ICERIK = 500;
+  // SEK-2: Sohbet geçmişi — token-aware sliding window
+  //   - Max 20 mesaj kabul edilir (client'tan gelen)
+  //   - Token budget: sistem promptu + bağlam = ~1500 token, yanıt rezervi = 1200 token
+  //   - Kalan budget (~5300 token) geçmişe ayrılır
+  //   - En son mesajlar LIFO öncelikle korunur (en kritik bağlam)
+  const GECMIS_MAX_GIRDI = 20;
+  const GECMIS_TOKEN_BUDGET = 5_000; // geçmişe ayrılan token bütçesi
+  const GECMIS_MAX_ICERIK = 800;     // tek mesaj karakter limiti (güvenlik)
   const GECERLI_ROLLER = new Set(["kullanici", "asistan"]);
+
+  /** Basit token tahmini: 1 token ≈ 3 karakter (Türkçe için tutucu) */
+  const tokenTahmin = (s: string) => Math.ceil(s.length / 3);
+
   const gecmisHam = Array.isArray(body.sohbet_gecmisi) ? body.sohbet_gecmisi : [];
-  const gecmis = gecmisHam
+  const gecmisTum = gecmisHam
     .filter((m) =>
       m && typeof m === "object" &&
       GECERLI_ROLLER.has(m.rol) &&
       typeof m.icerik === "string" &&
       m.icerik.trim().length > 0
     )
-    .slice(-GECMIS_LIMIT)
+    .slice(-GECMIS_MAX_GIRDI)
     .map((m) => ({
       rol: m.rol as "kullanici" | "asistan",
       icerik: m.icerik.replace(/[<>{}[\]\\]/g, "").slice(0, GECMIS_MAX_ICERIK),
     }));
+
+  // Sliding window: en son mesajdan geriye doğru token bütçesini doldur
+  const gecmis: Array<{ rol: "kullanici" | "asistan"; icerik: string }> = [];
+  let gecmisTokenHarcanan = 0;
+  for (let i = gecmisTum.length - 1; i >= 0; i--) {
+    const m = gecmisTum[i]!;
+    const mToken = tokenTahmin(m.icerik) + 5; // role overhead
+    if (gecmisTokenHarcanan + mToken > GECMIS_TOKEN_BUDGET) break;
+    gecmis.unshift(m);
+    gecmisTokenHarcanan += mToken;
+  }
 
   // Rate limit kontrolü
   const gun = Math.floor(Date.now() / 86_400_000);
@@ -282,45 +424,143 @@ aiDanismanRoutes.post("/sohbet", async (c) => {
     return c.json({ hata: "Günlük AI kota doldu.", kalan: 0, tier, kota }, 429);
   }
 
-  // Sistem promptu + sanitize edilmiş bağlam oluştur
-  const baglamStr = baglamTemiz ? baglamOlustur(baglamTemiz) : "";
-  const sistemTam = baglamStr ? `${SISTEM_PROMPT}\n\n${baglamStr}` : SISTEM_PROMPT;
+  // ── AGENTIC PIPELINE ───────────────────────────────────────────────────────
 
-  // Sohbet geçmişi + yeni mesaj (Gemini format)
-  const geminiMesajlar = [
+  // Telemetri başlat
+  const trace = new TraceYoneticisi(kullaniciId);
+
+  // ── 1. INPUT GUARDRAIL ────────────────────────────────────────────────────
+  const grSpan = trace.spanBaslat("guardrail.input");
+  const inputGr = inputGuardrail(body.mesaj.trim());
+  trace.spanBitir(grSpan, {
+    durum: inputGr.gecti ? "ok" : "hata",
+    meta: { severity: inputGr.severity, nedenler: inputGr.nedenler },
+  });
+
+  if (!inputGr.gecti) {
+    await c.env.DB.prepare(
+      "UPDATE ai_kullanim_kota SET sayi = sayi - 1 WHERE kullanici_id = ? AND gun = ?",
+    ).bind(kullaniciId, gun).run();
+    trace.kaydet(c.env.DB).catch(() => {});
+    return c.json({
+      hata: `Mesaj güvenlik kontrolünden geçemedi: ${inputGr.nedenler[0] ?? "genel hata"}`,
+    }, 400);
+  }
+
+  const mesajTemiz = inputGr.temizMetin;
+
+  // ── 2. MEMORY RETRIEVAL ───────────────────────────────────────────────────
+  const memSpan = trace.spanBaslat("memory.retrieve");
+  const alakaliGecmis = await alakaliGecmisiGetir(
+    kullaniciId,
+    mesajTemiz,
+    baglamTemiz ? { il: baglamTemiz.il, ilce: baglamTemiz.ilce } : null,
+    c.env.DB,
+    3,
+  );
+  const hafizaBloku = hafizaBlokuOlustur(alakaliGecmis);
+  trace.spanBitir(memSpan, {
+    meta: { bulunan: alakaliGecmis.length },
+  });
+
+  // ── 3. SISTEM PROMPTU ─────────────────────────────────────────────────────
+  const baglamStr = baglamTemiz ? baglamOlustur(baglamTemiz) : "";
+  const sistemBolumleri = [SISTEM_PROMPT];
+  if (baglamStr) sistemBolumleri.push(baglamStr);
+  if (hafizaBloku) sistemBolumleri.push(hafizaBloku);
+  // Guardrail uyarısı varsa sistema ekle
+  if (inputGr.severity === "warn" && inputGr.nedenler.length > 0) {
+    sistemBolumleri.push(
+      `MODERASYON NOTU: ${inputGr.nedenler.join("; ")}. Konu dışı soruysa nezaketle yönlendir.`,
+    );
+  }
+  const sistemTam = sistemBolumleri.join("\n\n");
+
+  // ── 4. ReAct LOOP (Tool-Use + Observation) ────────────────────────────────
+  // Gemini function calling ile max 3 araç çağrısı yapılabilir.
+  // Her araç çağrısı bir span olarak izlenir.
+
+  const geminiKey = (c.env as unknown as Record<string, unknown>).GEMINI_API_KEY as string | undefined;
+  const groqKey   = (c.env as unknown as Record<string, unknown>).GROQ_API_KEY as string | undefined;
+
+  // Sohbet geçmişi mesajları (Gemini format)
+  const geminiMesajlar: Array<{ role: string; parts: Array<{ text: string } | { functionCall: unknown } | { functionResponse: unknown }> }> = [
     ...gecmis.map((m) => ({
       role: m.rol === "kullanici" ? "user" : "model",
       parts: [{ text: m.icerik }],
     })),
-    { role: "user", parts: [{ text: body.mesaj.trim() }] },
+    { role: "user", parts: [{ text: mesajTemiz }] },
   ];
-
-  const groqMesajlar = [
-    ...gecmis.map((m) => ({ role: m.rol === "kullanici" ? "user" : "assistant", content: m.icerik })),
-    { role: "user", content: body.mesaj.trim() },
-  ];
-
-  const geminiKey = (c.env as unknown as Record<string, unknown>).GEMINI_API_KEY as string | undefined;
-  const groqKey   = (c.env as unknown as Record<string, unknown>).GROQ_API_KEY as string | undefined;
 
   let cevap: { yanit: string; model: string; sureMs: number } | null = null;
   let sonHata: string | null = null;
 
   if (geminiKey) {
-    try { cevap = await geminiSohbet(geminiKey, sistemTam, geminiMesajlar); }
-    catch (e) { sonHata = e instanceof Error ? e.message : String(e); }
+    const llmSpan = trace.spanBaslat("llm.gemini");
+    try {
+      // Function calling ile ReAct loop
+      cevap = await geminiReActLoop(
+        geminiKey,
+        sistemTam,
+        geminiMesajlar,
+        c.env.DB,
+        trace,
+      );
+      const _cevap = cevap;
+      trace.spanBitir(llmSpan, {
+        model: _cevap.model,
+        girdi_token: tokenSay(sistemTam + mesajTemiz),
+        cikti_token: tokenSay(_cevap.yanit),
+      });
+    } catch (e) {
+      sonHata = e instanceof Error ? e.message : String(e);
+      trace.spanBitir(llmSpan, { durum: "hata", hata: sonHata ?? undefined });
+    }
   }
+
+  // Groq fallback (function calling yok — düz sohbet)
   if (!cevap && groqKey) {
-    try { cevap = await groqSohbet(groqKey, sistemTam, groqMesajlar); }
-    catch (e) { sonHata = e instanceof Error ? e.message : String(e); }
+    const groqSpan = trace.spanBaslat("llm.groq");
+    try {
+      const groqMesajlar = [
+        ...gecmis.map((m) => ({ role: m.rol === "kullanici" ? "user" : "assistant", content: m.icerik })),
+        { role: "user", content: mesajTemiz },
+      ];
+      cevap = await groqSohbet(groqKey, sistemTam, groqMesajlar);
+      trace.spanBitir(groqSpan, {
+        model: cevap.model,
+        girdi_token: tokenSay(sistemTam + mesajTemiz),
+        cikti_token: tokenSay(cevap.yanit),
+      });
+    } catch (e) {
+      sonHata = e instanceof Error ? e.message : String(e);
+      trace.spanBitir(groqSpan, { durum: "hata", hata: sonHata ?? undefined });
+    }
   }
 
   if (!cevap) {
     await c.env.DB.prepare(
       "UPDATE ai_kullanim_kota SET sayi = sayi - 1 WHERE kullanici_id = ? AND gun = ?",
     ).bind(kullaniciId, gun).run();
+    trace.kaydet(c.env.DB).catch(() => {});
     return c.json({ hata: `AI servisine ulaşılamadı. ${sonHata ?? "Anahtar yok."}` }, 503);
   }
+
+  // ── 5. OUTPUT GUARDRAIL ───────────────────────────────────────────────────
+  const outGrSpan = trace.spanBaslat("guardrail.output");
+  const outputGr = outputGuardrail(cevap.yanit);
+  trace.spanBitir(outGrSpan, {
+    durum: outputGr.gecti ? "ok" : "hata",
+    meta: { severity: outputGr.severity, nedenler: outputGr.nedenler },
+  });
+
+  const sonYanit = outputGr.temizYanit;
+
+  // ── 6. MEMORY WRITE + SOHBET GEÇMİŞİ ────────────────────────────────────
+  const baglam = baglamTemiz ? { il: baglamTemiz.il, ilce: baglamTemiz.ilce } : null;
+
+  // Episodik hafızaya async yaz
+  episodikKaydet(kullaniciId, mesajTemiz, sonYanit, baglam, c.env.DB).catch(() => {});
 
   // Sohbet geçmişini kaydet
   try {
@@ -330,21 +570,36 @@ aiDanismanRoutes.post("/sohbet", async (c) => {
        VALUES (?, ?, ?, ?, ?, ?)`,
     ).bind(
       kullaniciId,
-      body.mesaj.trim().slice(0, 1000),
-      cevap.yanit.slice(0, 4000),
-      cevap.model,
-      cevap.sureMs,
+      mesajTemiz.slice(0, 1000),
+      sonYanit.slice(0, 4000),
+      cevap!.model,
+      cevap!.sureMs,
       Date.now(),
     ).run();
   } catch {
     // Tablo yoksa sessizce geç (migration henüz uygulanmamış olabilir)
   }
 
+  // ── 7. TELEMETRİ — async fire-and-forget ─────────────────────────────────
+  const traceOzet = trace.ozet();
+  trace.kaydet(c.env.DB).catch(() => {});
+
   return c.json({
-    yanit: cevap.yanit,
-    modelAd: cevap.model,
-    sureMs: cevap.sureMs,
+    yanit: sonYanit,              // Guardrail'den geçmiş, disclaimer eklenmiş
+    modelAd: cevap!.model,
+    sureMs: cevap!.sureMs,
     kalanKota: Math.max(0, kota - yeniSayi),
+    // Agentic metadata
+    _meta: {
+      trace_id: traceOzet.trace_id,
+      gecmisMesajSayisi: gecmis.length,
+      gecmisTokenTahmini: gecmisTokenHarcanan,
+      baglamVarMi: !!baglamTemiz,
+      hafizaKullandi: alakaliGecmis.length > 0,
+      aracSayisi: traceOzet.arac_sayisi,
+      toplamSureMs: traceOzet.toplam_sure_ms,
+      guardrailUyari: outputGr.severity !== "ok" ? outputGr.nedenler : undefined,
+    },
   });
 });
 

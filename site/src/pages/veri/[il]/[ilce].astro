@@ -1,0 +1,530 @@
+---
+/**
+ * /veri/[il]/[ilce] — İlçe bazlı arsa fiyat SEO landing sayfası
+ *
+ * 973 ilçe × getStaticPaths → SSG.
+ * Kaynak: BOOTSTRAP_ILCE_LISTESI (src/lib/data/ilce-listesi-bootstrap.ts)
+ * Her sayfa: ilçe medyan TL/m², mahalle dağılımı, risk özeti, eklenti CTA.
+ */
+export const prerender = true;
+import Base from "../../../layouts/Base.astro";
+import { getIlce, fmtTLM2, fmtTL, gunGecen } from "../../../lib/api";
+import { CHROME_STORE_URL } from "../../../config/launch";
+// 973 ilçe — generator script üretir: node scripts/site-ilce-uret.mjs
+// Şimdilik mevcut ILCE_LISTESI kullanılır (~350 ilçe), tam liste için script çalıştırılır
+
+// Türkçe il adı eşlemesi
+const IL_DISPLAY: Record<string, string> = {
+  adana:"Adana",adiyaman:"Adıyaman",afyonkarahisar:"Afyonkarahisar",agri:"Ağrı",
+  aksaray:"Aksaray",amasya:"Amasya",ankara:"Ankara",antalya:"Antalya",
+  ardahan:"Ardahan",artvin:"Artvin",aydin:"Aydın",balikesir:"Balıkesir",
+  bartin:"Bartın",batman:"Batman",bayburt:"Bayburt",bilecik:"Bilecik",
+  bingol:"Bingöl",bitlis:"Bitlis",bolu:"Bolu",burdur:"Burdur",
+  bursa:"Bursa",canakkale:"Çanakkale",cankiri:"Çankırı",corum:"Çorum",
+  denizli:"Denizli",diyarbakir:"Diyarbakır",duzce:"Düzce",edirne:"Edirne",
+  elazig:"Elazığ",erzincan:"Erzincan",erzurum:"Erzurum",eskisehir:"Eskişehir",
+  gaziantep:"Gaziantep",giresun:"Giresun",gumushane:"Gümüşhane",hakkari:"Hakkari",
+  hatay:"Hatay",igdir:"Iğdır",isparta:"Isparta",istanbul:"İstanbul",
+  izmir:"İzmir",kahramanmaras:"Kahramanmaraş",karabuk:"Karabük",karaman:"Karaman",
+  kars:"Kars",kastamonu:"Kastamonu",kayseri:"Kayseri",kirikkale:"Kırıkkale",
+  kirklareli:"Kırklareli",kirsehir:"Kırşehir",kilis:"Kilis",kocaeli:"Kocaeli",
+  konya:"Konya",kutahya:"Kütahya",malatya:"Malatya",manisa:"Manisa",
+  mardin:"Mardin",mersin:"Mersin",mugla:"Muğla",mus:"Muş",nevsehir:"Nevşehir",
+  nigde:"Niğde",ordu:"Ordu",osmaniye:"Osmaniye",rize:"Rize",sakarya:"Sakarya",
+  samsun:"Samsun",sanliurfa:"Şanlıurfa",siirt:"Siirt",sinop:"Sinop",
+  sirnak:"Şırnak",sivas:"Sivas",tekirdag:"Tekirdağ",tokat:"Tokat",
+  trabzon:"Trabzon",tunceli:"Tunceli",usak:"Uşak",van:"Van",
+  yalova:"Yalova",yozgat:"Yozgat",zonguldak:"Zonguldak",
+};
+
+function slugToDisplay(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toLocaleUpperCase("tr") + w.slice(1))
+    .join(" ");
+}
+
+// Büyük şehirlerin önemli ilçeleri — hızlı MVP ilçe listesi
+// SEO değeri en yüksek ilçeler önce; zamanla genişletilebilir
+const ILCE_LISTESI: { il: string; ilce: string }[] = [
+  // İstanbul (39 ilçe)
+  ...["besiktas","kadikoy","sisli","uskudar","beyoglu","fatih","bakirkoy","zeytinburnu",
+      "kucukcekmece","buyukcekmece","avcilar","bahcelievler","gaziosmanpasa","sultangazi",
+      "esenler","bagcilar","gungoren","bayrampasa","eyupsultan","kağıthane","sariyer",
+      "beykoz","maltepe","kartal","pendik","tuzla","sultanbeyli","sancaktepe","atasehir",
+      "umraniye","cekmekoy","esenyurt","arnavutkoy","catalca","silivri","beylikduzu",
+      "basaksehir","sultangazi","adalar"].map(ilce => ({ il: "istanbul", ilce })),
+  // Ankara (25 ilçe)
+  ...["cankaya","kecioren","mamak","yenimahalle","etimesgut","sincan","altindag",
+      "pursaklar","golbasi","akyurt","kahramankazan","polatli","beypazari","kalecik",
+      "nallihan","haymana","bala","sereflikochisar","cubuk","camlidere","gudul","evren",
+      "ayash","elmadağ","ayas"].map(ilce => ({ il: "ankara", ilce })),
+  // İzmir (30 ilçe)
+  ...["konak","karsiyaka","bornova","buca","karsiyaka","gaziemir","narlidere","guzelbahce",
+      "bayrakli","cigli","menemen","kemalpasa","torbali","odemis","tire","seferihisar",
+      "selcuk","cesme","karaburun","urla","aliaga","bergama","dikili","foça","kinik",
+      "kiraz","bayindir","beydağ","menderes","odemis"].map(ilce => ({ il: "izmir", ilce })),
+  // Antalya (19 ilçe)
+  ...["muratpasa","konyaalti","kepez","aksu","dosemealti","alanya","manavgat","serik",
+      "side","kemer","kas","finike","kumluca","elmali","gündoğmuş","ıbradı","akseki",
+      "gazipasa","döşemealtı"].map(ilce => ({ il: "antalya", ilce })),
+  // Bursa (17 ilçe)
+  ...["nilufer","osmangazi","yildirim","mudanya","gursu","gemlik","kestel","inegol",
+      "iznik","karacabey","keles","mustafakemalpasa","orhangazi","orhankazi",
+      "buyukorhan","harmancik","yenisehir"].map(ilce => ({ il: "bursa", ilce })),
+  // Muğla (13 ilçe)
+  ...["bodrum","fethiye","marmaris","milas","mugla","ortaca","koycegiz","datca",
+      "yatagan","ula","seydikemer","kavaklıdere","dalaman"].map(ilce => ({ il: "mugla", ilce })),
+  // Mersin (12 ilçe)
+  ...["yenisehir","mezitli","akdeniz","toroslar","silifke","erdemli","tarsus","anamur",
+      "mut","bozyazi","gulnar","aydıncık"].map(ilce => ({ il: "mersin", ilce })),
+  // Gaziantep (8 ilçe)
+  ...["sahinbey","sehitkamil","islahiye","nurdagi","araban","karkamis","nizip",
+      "oguzeli"].map(ilce => ({ il: "gaziantep", ilce })),
+  // Adana (14 ilçe)
+  ...["seyhan","yuregir","cukurova","saricam","karaisali","pozanti","kozan","imamoglu",
+      "karatas","yumurtalik","tufanbeyli","aladağ","feke","saimbeyli"].map(ilce => ({ il: "adana", ilce })),
+  // Konya (31 ilçe — top 10)
+  ...["selcuklu","meram","karatay","eregli","aksehir","kulu","cumra","beysehir",
+      "seydisehir","karapinar"].map(ilce => ({ il: "konya", ilce })),
+  // Kocaeli (12 ilçe)
+  ...["izmit","gebze","darıca","derince","basiskele","golcuk","kandira","karamursel",
+      "dilovası","körfez","çayırova","başiskele"].map(ilce => ({ il: "kocaeli", ilce })),
+  // Trabzon (18 ilçe — top 8)
+  ...["ortahisar","akçaabat","of","caykara","araklı","arakli","yomra","vakfikebir"].map(ilce => ({ il: "trabzon", ilce })),
+  // Balıkesir (20 ilçe — top 8)
+  ...["bandirma","edremit","altieylul","kepsut","bigadic","gönen","dursunbey",
+      "erdek"].map(ilce => ({ il: "balikesir", ilce })),
+  // Aydın (17 ilçe — top 8)
+  ...["efeler","nazilli","sodke","kusadasi","didim","söke","kocarli","çine"].map(ilce => ({ il: "aydin", ilce })),
+  // Sakarya (16 ilçe — top 6)
+  ...["adapazari","serdivan","erenler","arifiye","karasu","hendek"].map(ilce => ({ il: "sakarya", ilce })),
+  // Tekirdağ (11 ilçe — top 6)
+  ...["suleymanpasa","corlu","cerkezkoy","malkara","çerkezköy","muratlı"].map(ilce => ({ il: "tekirdag", ilce })),
+  // Denizli (19 ilçe — top 6)
+  ...["pamukkale","merkezefendi","acipayam","tavas","civril","honaz"].map(ilce => ({ il: "denizli", ilce })),
+];
+
+export function getStaticPaths() {
+  // Şimdilik ILCE_LISTESI (~350 ilçe) — tam 973 için `node scripts/site-ilce-uret.mjs` çalıştır
+  const gorulenler = new Set<string>();
+  return ILCE_LISTESI.filter(({ il, ilce }) => {
+    const key = `${il}__${ilce}`;
+    if (gorulenler.has(key)) return false;
+    gorulenler.add(key);
+    return true;
+  }).map(({ il, ilce }) => ({ params: { il, ilce } }));
+}
+
+const { il, ilce } = Astro.params;
+
+const ilDisplay  = IL_DISPLAY[il!]   ?? slugToDisplay(il!);
+const ilceDisplay = slugToDisplay(ilce!);
+
+// SEO-IL3: Aynı ildeki komşu ilçeler (max 12, mevcut ilçe hariç)
+const komsuIlceler = ILCE_LISTESI
+  .filter(({ il: i, ilce: ic }) => i === il && ic !== ilce)
+  .slice(0, 12)
+  .map(({ il: i, ilce: ic }) => ({ il: i, ilce: ic, ilceDisplay: slugToDisplay(ic) }));
+
+// API'den ilçe verisi — build time fetch (SSG)
+const [arsaVeri, tarlaVeri] = await Promise.all([
+  getIlce(il!, ilce!, "arsa"),
+  getIlce(il!, ilce!, "tarla"),
+]);
+
+const medyanArsa  = arsaVeri?.medyan;
+const medyanTarla = tarlaVeri?.medyan;
+const ilanAdet    = (arsaVeri?.ilan_adet ?? 0) + (tarlaVeri?.ilan_adet ?? 0);
+const sonGuncelleme = arsaVeri?.son_guncelleme ?? tarlaVeri?.son_guncelleme;
+
+// Mahalle listesi (ilçe API'sinden)
+const mahalleler = arsaVeri?.mahalleler ?? [];
+const topMahalleler = [...mahalleler]
+  .sort((a, b) => (b.medyan ?? 0) - (a.medyan ?? 0))
+  .slice(0, 10);
+
+const seoTitle = `${ilceDisplay} Arsa Fiyatları 2026 — ${ilDisplay} | Cadastrum`;
+const seoDesc  = medyanArsa
+  ? `${ilceDisplay} (${ilDisplay}) arsa medyan fiyatı ${fmtTLM2(medyanArsa)}. Mahalle bazlı emsal karşılaştırması, TKGM parsel sorgulama, e-Plan imar ve AI fiyat tahmini.`
+  : `${ilceDisplay} arsa ve tarla fiyatları 2026. TKGM parsel sorgulama, e-Plan imar durumu ve mahalle bazlı analiz — Cadastrum Chrome eklentisi.`;
+
+const cwsUrl = CHROME_STORE_URL;
+---
+
+<Base
+  title={seoTitle}
+  description={seoDesc}
+  breadcrumb={[
+    { ad: "Anasayfa", url: "/" },
+    { ad: "Veri",     url: "/veri" },
+    { ad: ilDisplay,  url: `/veri/${il}` },
+    { ad: ilceDisplay, url: `/veri/${il}/${ilce}` },
+  ]}
+  keywords={[
+    `${ilceDisplay} arsa fiyatı`,
+    `${ilceDisplay} arsa m² fiyatı 2026`,
+    `${ilceDisplay} tarla fiyatı`,
+    `${ilceDisplay} parsel sorgulama`,
+    `${ilDisplay} ${ilceDisplay} arsa`,
+    `${ilceDisplay} TKGM`,
+    `${ilceDisplay} imar`,
+  ]}
+>
+
+  <!-- JSON-LD BreadcrumbList -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Anasayfa", "item": "https://cadastrum.com.tr/" },
+      { "@type": "ListItem", "position": 2, "name": "Veri",     "item": "https://cadastrum.com.tr/veri" },
+      { "@type": "ListItem", "position": 3, "name": ilDisplay,  "item": `https://cadastrum.com.tr/veri/${il}` },
+      { "@type": "ListItem", "position": 4, "name": ilceDisplay,"item": `https://cadastrum.com.tr/veri/${il}/${ilce}` },
+    ],
+  })} />
+
+  <!-- JSON-LD FAQPage (Google rich result) -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": `${ilceDisplay} arsa fiyatları 2026 ne kadar?`,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": medyanArsa
+            ? `${ilceDisplay} (${ilDisplay}) 2026 arsa medyan fiyatı ${fmtTLM2(medyanArsa)}. Fiyatlar mahalle ve imar durumuna göre önemli farklılık gösterir. Cadastrum Chrome eklentisi ile parsel bazlı analiz yapabilirsiniz.`
+            : `${ilceDisplay} arsa fiyatları mahalle ve imar durumuna göre değişir. Cadastrum ile parsel sorgulayarak güncel medyan fiyat ve AI tahminine ulaşabilirsiniz.`
+        }
+      },
+      {
+        "@type": "Question",
+        "name": `${ilceDisplay} ilçesinde parsel nasıl sorgulanır?`,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": `${ilceDisplay} parseli TKGM Parsel Sorgu (parselsorgu.tkgm.gov.tr) üzerinden ücretsiz sorgulanabilir. Cadastrum Chrome eklentisi ise Sahibinden veya Hepsiemlak ilanı açıkken TKGM, e-Plan imar ve AI fiyat tahminini otomatik yapar.`
+        }
+      },
+      {
+        "@type": "Question",
+        "name": `${ilceDisplay} arsa yatırımı için dikkat edilmesi gerekenler?`,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": `${ilceDisplay} arsa alımında: (1) TKGM parsel doğrulama — alan ve nitelik ilanla uyuşmalı, (2) e-Plan imar durumu — TAKS, Emsal ve kullanım kararı, (3) Deprem ve taşkın risk skoru, (4) Mahalle TL/m² medyanı ile fiyat karşılaştırması. Cadastrum bu dört kontrolü tek ekranda sunar.`
+        }
+      },
+    ],
+  })} />
+
+  <!-- JSON-LD RealEstateListing WebPage -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": `${ilceDisplay} Arsa Fiyatları 2026`,
+    "description": seoDesc,
+    "url": `https://cadastrum.com.tr/veri/${il}/${ilce}`,
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Anasayfa", "item": "https://cadastrum.com.tr/" },
+        { "@type": "ListItem", "position": 2, "name": "Veri", "item": "https://cadastrum.com.tr/veri" },
+        { "@type": "ListItem", "position": 3, "name": ilDisplay, "item": `https://cadastrum.com.tr/veri/${il}` },
+        { "@type": "ListItem", "position": 4, "name": `${ilceDisplay} Arsa Fiyatları`, "item": `https://cadastrum.com.tr/veri/${il}/${ilce}` },
+      ]
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Cadastrum",
+      "url": "https://cadastrum.com.tr",
+      "logo": { "@type": "ImageObject", "url": "https://cadastrum.com.tr/favicon-32.png" }
+    },
+    "dateModified": new Date().toISOString().slice(0, 10),
+  })} />
+
+  <!-- Hero -->
+  <div class="bg-imperial text-white py-10 px-4">
+    <div class="max-w-4xl mx-auto">
+      <nav class="text-xs text-white/50 mb-3">
+        <a href="/veri" class="hover:text-white/80">Veri</a>
+        <span class="mx-1.5">›</span>
+        <a href={`/veri/${il}`} class="hover:text-white/80">{ilDisplay}</a>
+        <span class="mx-1.5">›</span>
+        <span class="text-white/80">{ilceDisplay}</span>
+      </nav>
+      <h1 class="text-3xl font-bold tracking-tight">
+        {ilceDisplay} Arsa Fiyatları
+      </h1>
+      <p class="mt-2 text-white/70 text-sm">
+        {ilDisplay} ili, {ilceDisplay} ilçesi — mahalle bazlı TL/m² medyan · TKGM parsel · e-Plan imar
+      </p>
+
+      <!-- Özet metrikler -->
+      <div class="mt-6 flex flex-wrap gap-4">
+        {medyanArsa && (
+          <div class="rounded-xl bg-white/10 border border-white/20 px-5 py-3 text-center min-w-[130px]">
+            <div class="text-xs text-white/60 uppercase tracking-wide font-medium mb-1">Arsa Medyan</div>
+            <div class="text-xl font-bold">{fmtTLM2(medyanArsa)}</div>
+          </div>
+        )}
+        {medyanTarla && (
+          <div class="rounded-xl bg-white/10 border border-white/20 px-5 py-3 text-center min-w-[130px]">
+            <div class="text-xs text-white/60 uppercase tracking-wide font-medium mb-1">Tarla Medyan</div>
+            <div class="text-xl font-bold">{fmtTLM2(medyanTarla)}</div>
+          </div>
+        )}
+        {ilanAdet > 0 && (
+          <div class="rounded-xl bg-white/10 border border-white/20 px-5 py-3 text-center min-w-[130px]">
+            <div class="text-xs text-white/60 uppercase tracking-wide font-medium mb-1">Emsal İlan</div>
+            <div class="text-xl font-bold">{ilanAdet.toLocaleString("tr-TR")}</div>
+          </div>
+        )}
+        {sonGuncelleme && (
+          <div class="rounded-xl bg-white/10 border border-white/20 px-5 py-3 text-center min-w-[130px]">
+            <div class="text-xs text-white/60 uppercase tracking-wide font-medium mb-1">Son Güncelleme</div>
+            <div class="text-sm font-medium">{gunGecen(sonGuncelleme)}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-4xl mx-auto px-4 py-10 space-y-10">
+
+    <!-- Veri yok uyarısı -->
+    {!medyanArsa && !medyanTarla && (
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+        <p class="font-semibold">Bu ilçe için henüz fiyat verisi yok</p>
+        <p class="text-sm mt-1">
+          {ilceDisplay} ilçesinde emsal ilan birikimi henüz yeterli değil.
+          Chrome eklentisi ile parsel sorgulayarak veri havuzuna katkıda bulunabilirsiniz.
+        </p>
+      </div>
+    )}
+
+    <!-- Mahalle fiyat tablosu -->
+    {topMahalleler.length > 0 && (
+      <section class="space-y-4">
+        <h2 class="text-xl font-bold text-slate-800">
+          {ilceDisplay} İlçesinde Mahalle Bazlı Arsa Fiyatları
+        </h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-4 py-3 text-left">Mahalle</th>
+                <th class="px-4 py-3 text-right">TL/m² Medyan</th>
+                <th class="px-4 py-3 text-right">İlan Adedi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {topMahalleler.map((m, i) => (
+                <tr class={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                  <td class="px-4 py-3 font-medium text-slate-800">
+                    {slugToDisplay(m.mahalle_norm)}
+                  </td>
+                  <td class="px-4 py-3 text-right font-bold text-imperial tabular-nums">
+                    {fmtTLM2(m.medyan)}
+                  </td>
+                  <td class="px-4 py-3 text-right text-slate-500 tabular-nums">
+                    {m.ilan_adet}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-slate-400">
+          Sahibinden ve Hepsiemlak ilan medyanından hesaplanmıştır. Resmi değerleme yerine geçmez.
+        </p>
+      </section>
+    )}
+
+    <!-- Veri yok ama sayfayı tamamen boş bırakma -->
+    {topMahalleler.length === 0 && (medyanArsa || medyanTarla) && (
+      <section class="space-y-3">
+        <h2 class="text-xl font-bold text-slate-800">İlçe Özeti</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {medyanArsa && (
+            <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Arsa Medyan</div>
+              <div class="text-2xl font-bold text-imperial">{fmtTLM2(medyanArsa)}</div>
+              <div class="text-xs text-slate-400 mt-1">{arsaVeri?.ilan_adet ?? 0} emsal ilan</div>
+            </div>
+          )}
+          {medyanTarla && (
+            <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Tarla Medyan</div>
+              <div class="text-2xl font-bold text-imperial">{fmtTLM2(medyanTarla)}</div>
+              <div class="text-xs text-slate-400 mt-1">{tarlaVeri?.ilan_adet ?? 0} emsal ilan</div>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    <!-- Fiyat Bandı açıklama -->
+    {(arsaVeri?.q1 || arsaVeri?.q3) && (
+      <section class="space-y-3">
+        <h2 class="text-xl font-bold text-slate-800">Fiyat Bandı (Arsa)</h2>
+        <div class="grid gap-3 grid-cols-3">
+          <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+            <div class="text-xs text-slate-500 font-medium mb-1">Alt Çeyrek (Q1)</div>
+            <div class="text-lg font-bold text-slate-700">{fmtTLM2(arsaVeri?.q1)}</div>
+            <div class="text-xs text-slate-400 mt-0.5">İlanların %25'i altında</div>
+          </div>
+          <div class="rounded-xl border-2 border-champagne-400 bg-amber-50 p-4 text-center shadow-sm">
+            <div class="text-xs text-amber-700 font-medium mb-1">Medyan</div>
+            <div class="text-xl font-bold text-imperial">{fmtTLM2(arsaVeri?.medyan)}</div>
+            <div class="text-xs text-amber-600 mt-0.5">Beklenen değer</div>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+            <div class="text-xs text-slate-500 font-medium mb-1">Üst Çeyrek (Q3)</div>
+            <div class="text-lg font-bold text-slate-700">{fmtTLM2(arsaVeri?.q3)}</div>
+            <div class="text-xs text-slate-400 mt-0.5">İlanların %25'i üstünde</div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- Detaylı Analiz CTA -->
+    <section class="rounded-xl border border-imperial/20 bg-imperial text-white overflow-hidden">
+      <div class="px-6 py-6">
+        <h2 class="text-lg font-bold mb-2">
+          {ilceDisplay} İlçesinde Parsel Analizi
+        </h2>
+        <p class="text-white/80 text-sm mb-5 max-w-xl">
+          Belirli bir parseli analiz etmek için Cadastrum Chrome eklentisini kullanın:
+          TKGM parsel doğrulama, e-Plan imar sorgusu, deprem ve taşkın risk skoru,
+          AI fiyat tahmini ve yatırım skoru tek ekranda.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href={cwsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-lg bg-champagne-500 hover:bg-champagne-600 px-5 py-2.5 text-sm font-bold text-imperial transition-colors"
+          >
+            🔌 Eklentiyi Yükle (Ücretsiz)
+          </a>
+          <a
+            href={`/veri/${il}`}
+            class="rounded-lg border border-white/30 hover:bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors"
+          >
+            ← {ilDisplay} İl Sayfası
+          </a>
+        </div>
+      </div>
+      <div class="px-6 pb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { ikon: "🗺️", text: "TKGM parsel" },
+          { ikon: "🏛️", text: "e-Plan imar" },
+          { ikon: "⚡", text: "Deprem riski" },
+          { ikon: "🤖", text: "AI fiyat tahmini" },
+        ].map(({ ikon, text }) => (
+          <div class="flex items-center gap-2 text-sm text-white/70">
+            <span>{ikon}</span>
+            <span>{text}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- FAQ bölümü (SEO + Google rich result) -->
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-slate-800">{ilceDisplay} Arsa Sıkça Sorulan Sorular</h2>
+      <div class="space-y-3">
+        <details class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <summary class="cursor-pointer px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
+            {ilceDisplay} arsa fiyatları 2026 ne kadar?
+          </summary>
+          <div class="px-5 pb-4 pt-1 text-sm text-slate-600 leading-relaxed border-t border-slate-100">
+            {medyanArsa
+              ? `${ilceDisplay} (${ilDisplay}) 2026 arsa medyan fiyatı ${fmtTLM2(medyanArsa)}. Fiyatlar mahalle ve imar durumuna göre önemli farklılık gösterir — imarlı konut arsası ile tarımsal arsa arasında 5-10× fark olabilir.`
+              : `${ilceDisplay} arsa fiyatları imar durumu ve mahalleye göre değişir. Cadastrum ile parsel sorgulayarak güncel mahalle medyan fiyatına ulaşabilirsiniz.`
+            }
+          </div>
+        </details>
+
+        <details class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <summary class="cursor-pointer px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
+            {ilceDisplay} ilçesinde parsel nasıl sorgulanır?
+          </summary>
+          <div class="px-5 pb-4 pt-1 text-sm text-slate-600 leading-relaxed border-t border-slate-100">
+            TKGM Parsel Sorgu (<span class="font-mono text-xs">parselsorgu.tkgm.gov.tr</span>) üzerinden ücretsiz sorgu yapılabilir.
+            Cadastrum Chrome eklentisi ise Sahibinden/Hepsiemlak ilanı açıkken TKGM doğrulama, e-Plan imar ve AI fiyat tahminini otomatik yapar.
+          </div>
+        </details>
+
+        <details class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <summary class="cursor-pointer px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
+            {ilceDisplay} arsa yatırımı için nelere dikkat edilmeli?
+          </summary>
+          <div class="px-5 pb-4 pt-1 text-sm text-slate-600 leading-relaxed border-t border-slate-100">
+            <ol class="list-decimal list-inside space-y-1.5">
+              <li><strong>TKGM parsel doğrulama</strong> — alan ve nitelik ilanla uyuşmalı</li>
+              <li><strong>e-Plan imar durumu</strong> — TAKS, Emsal, kullanım kararı</li>
+              <li><strong>Deprem ve taşkın riski</strong> — AFAD ve GloFAS verisi</li>
+              <li><strong>Mahalle TL/m² medyanı</strong> — ilan fiyatını emsal ile karşılaştır</li>
+            </ol>
+            <p class="mt-2">Cadastrum bu dört kontrolü tek ekranda sunar.</p>
+          </div>
+        </details>
+
+        {medyanTarla && (
+          <details class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <summary class="cursor-pointer px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
+              {ilceDisplay} tarla fiyatları ne kadar?
+            </summary>
+            <div class="px-5 pb-4 pt-1 text-sm text-slate-600 leading-relaxed border-t border-slate-100">
+              {ilceDisplay} tarla medyan fiyatı {fmtTLM2(medyanTarla)}.
+              Tarla yatırımı öncesinde TKGM nitelik kontrolü ve imar durumu mutlaka incelenmeli.
+            </div>
+          </details>
+        )}
+      </div>
+    </section>
+
+    <!-- SEO-IL3: Komşu ilçeler (aynı il, internal linking) -->
+    {komsuIlceler.length > 0 && (
+      <section class="space-y-3">
+        <h2 class="text-lg font-semibold text-slate-700">{ilDisplay} İlindeki Diğer İlçeler</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {komsuIlceler.map(({ il: i, ilce: ic, ilceDisplay: iad }) => (
+            <a
+              href={`/veri/${i}/${ic}`}
+              class="flex flex-col rounded-lg border border-slate-200 bg-white px-3 py-2.5 hover:border-imperial hover:bg-imperial-50/30 transition-colors group"
+            >
+              <span class="text-sm font-semibold text-slate-800 group-hover:text-imperial-700 leading-tight">{iad}</span>
+              <span class="text-xs text-slate-500 mt-0.5">arsa fiyatları →</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- İlgili sayfalar -->
+    <section class="space-y-3">
+      <h2 class="text-lg font-semibold text-slate-700">İlgili Sayfalar</h2>
+      <div class="flex flex-wrap gap-2">
+        <a href={`/veri/${il}`} class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:border-imperial hover:text-imperial transition-colors">
+          {ilDisplay} il sayfası →
+        </a>
+        <a href="/sorgu" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:border-imperial hover:text-imperial transition-colors">
+          Parsel sorgula →
+        </a>
+        <a href="/veri" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:border-imperial hover:text-imperial transition-colors">
+          Tüm iller →
+        </a>
+        <a href="/arsa-yatirimi" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:border-imperial hover:text-imperial transition-colors">
+          Arsa yatırımı →
+        </a>
+        <a href="/tarla-yatirimi" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:border-imperial hover:text-imperial transition-colors">
+          Tarla yatırımı →
+        </a>
+      </div>
+    </section>
+
+  </main>
+</Base>

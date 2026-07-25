@@ -30,9 +30,10 @@ id = "e1e2bcac79554997a99fd3bd4b9bfc27"
 #   "0 3 * * *"   — günde bir, istatistik refresh + rate_limit/giris_denemesi cleanup
 #   "0 * * * *"   — saatlik, bildirim abonelik kontrolü (fiyat-degisimi/yeni-emsal)
 #   "0 2 1 * *"   — ayın 1'i  02:00 UTC, Sahibinden scraper (PerimeterX engeli beklenir, admin maili gider)
-#   "0 3 15 * *"  — ayın 15'i 03:00 UTC, Emlakjet scraper (bot bloğu yok — Worker'dan direkt çalışır)
+#   "0 3 * * *"   — günlük 03:00 UTC, Emlakjet scraper (bot bloğu yok — Worker'dan direkt çalışır)
+#                   Her gün 15 ilçe × arsa+tarla rotasyonu → 973 ilçe ~65 günde bir tam kapsam
 [triggers]
-crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *", "0 3 15 * *"]
+crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *"]
 
 [vars]
 ENVIRONMENT = "production"

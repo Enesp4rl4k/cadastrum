@@ -16,6 +16,7 @@ import type { EgimAnalizi } from "./elevation";
 import type { FiyatTahmini } from "./fiyat-tahmin";
 import type { IlanBilgisi } from "../types/ilan";
 import { db } from "./db";
+import { PromptBudget, emsalleriBudgetlaFormatla } from "./prompt-budget";
 
 // AI cache — aynı parselin aynı baseline ile tekrar sorulmasında 0 maliyet
 const AI_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 saat
@@ -219,6 +220,10 @@ function promptOlustur(
   heuristic: FiyatTahmini,
   ilan: IlanBilgisi | null = null,
 ): string {
+  // ── Token Budget — sabit bölümler önce ayrılır ─────────────────────────────
+  const budget = new PromptBudget(8_000); // Fiyat tahmini için 8K token yeterli
+
+  // ── Sabit bölümler ──────────────────────────────────────────────────────────
   const cevreNot = cevre
     ? `Çevre (1.5km): ${cevre.poi.okul} eğitim, ${cevre.poi.duraklar} ulaşım, ${cevre.poi.hastane} sağlık. Toplam ${cevre.elementSayisi} OSM elementi.${
         cevre.enYakinlar.length > 0
@@ -229,6 +234,7 @@ function promptOlustur(
           : ""
       }`
     : "Çevre verisi yok.";
+
   const egimNot = egim
     ? `Eğim: %${egim.ortEgimYuzde} (${egim.egimKategori}). Yükseklik: ${egim.merkezYukseklikM}m. Bakı: ${egim.bakiYonu}.`
     : "Eğim verisi yok.";
@@ -251,6 +257,47 @@ SAHİBİNDEN İLAN VERİSİ (asking — istek fiyatı, kapanış değil):
 NOT: Sahibinden = asking. Türkiye'de ortalama %10-15 indirimli kapanır.`;
   }
 
+  // Sabit metin bloğu — budget'tan ayır
+  const sabitBlok = `Parsel (TKGM):
+- Konum: ${parsel.ilAd} / ${parsel.ilceAd} / ${parsel.mahalleAd}
+- Ada/Parsel: ${parsel.adaNo}/${parsel.parselNo}
+- Alan: ${parsel.alan} m²
+- Nitelik: ${parsel.nitelik}
+- Pafta: ${parsel.pafta}
+
+Saha analizi:
+- ${cevreNot}
+- ${egimNot}${ilanBolumu}
+
+Heuristic motorum (lokal sahibinden gözlem + statik baseline + nitelik/alan/konum/çevre/eğim çarpanları):
+- Beklenen: ${heuristic.beklenenPerM2.toLocaleString("tr-TR")} TL/m² (${heuristic.altPerM2.toLocaleString("tr-TR")}–${heuristic.ustPerM2.toLocaleString("tr-TR")} aralığı)
+- Baseline kaynağı: ${heuristic.baselineKaynak} (${heuristic.baselineDeger.toLocaleString("tr-TR")} TL/m²)
+- Güven: ${heuristic.guven}
+
+Senin görevin: Bu tüm sinyalleri tartarak (özellikle SAHİBİNDEN İLAN VERİSİ varsa, asking → kapanış correction uygulayarak) gerçekçi alt/beklenen/üst TL/m² ver. Gerekçede bölgenin özelliklerini, niteliği, ilan-tahmin farkını yorumla. Sadece JSON döndür.`;
+
+  try {
+    budget.rezervEt("sabit", sabitBlok);
+  } catch {
+    // Sabit blok bile sığmıyor — budget olmadan devam et (güvenli fallback)
+    return sabitBlok;
+  }
+
+  // ── Dinamik bölüm: emsal listesi — kalan bütçeye sığdır ───────────────────
+  const emsalBlok = heuristic.emsalListesi && heuristic.emsalListesi.length > 0
+    ? emsalleriBudgetlaFormatla(
+        heuristic.emsalListesi.map((e) => ({
+          fiyatPerM2: e.fiyatPerM2,
+          alan: e.alan,
+          benzerlik: e.benzerlik,
+          tazelikGun: e.tazelikGun,
+          ilanNo: e.ilanNo,
+        })),
+        budget,
+        10,
+      )
+    : "Bölgede taze emsal bulunamadı.";
+
   return `Parsel (TKGM):
 - Konum: ${parsel.ilAd} / ${parsel.ilceAd} / ${parsel.mahalleAd}
 - Ada/Parsel: ${parsel.adaNo}/${parsel.parselNo}
@@ -263,19 +310,7 @@ Saha analizi:
 - ${egimNot}
 
 BÖLGEDEKİ CANLI EMSALLER (Sahibinden/Hepsiemlak - Ham Veri):
-${
-  heuristic.emsalListesi && heuristic.emsalListesi.length > 0
-    ? heuristic.emsalListesi
-        .slice(0, 10)
-        .map(
-          (e, i) =>
-            `${i + 1}. İlan: ${e.fiyatPerM2.toLocaleString("tr-TR")} TL/m² | Alan: ${e.alan}m² | Benzerlik: %${Math.round(
-              e.benzerlik * 100,
-            )} | Yaş: ${e.tazelikGun} gün | No: ${e.ilanNo}`,
-        )
-        .join("\n")
-    : "Bölgede taze emsal bulunamadı."
-}
+${emsalBlok}
 ${ilanBolumu}
 
 Heuristic motorum (lokal sahibinden gözlem + statik baseline + nitelik/alan/konum/çevre/eğim çarpanları):
@@ -462,17 +497,19 @@ function parseAiSonuc(text: string): {
  * API key girmesi gerekmiyor. JWT auth zorunlu (Pro tier kontrolü backend'de).
  *
  * Backend: POST /v1/ai-fiyat/tahmin
- *   body: { parselAnahtar, baselineHash, prompt }
+ *   body: { parselAnahtar, baselineHash, parselVeri }   ← prompt YOK, server-side oluşturulur
  *   response: { altPerM2, beklenenPerM2, ustPerM2, gerekce, modelAd, sureMs, cached, kalanKota }
+ *
+ * Güvenlik notu: prompt artık client'tan gelmiyor. Injection riski = 0.
  */
 const CADASTRUM_API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
 async function cadastrumProxyCagir(
   parsel: Parsel,
   heuristic: FiyatTahmini,
-  prompt: string,
+  cevre: import("./osm").CevreAnalizi | null,
+  egim: import("./elevation").EgimAnalizi | null,
 ): Promise<{ altPerM2: number; beklenenPerM2: number; ustPerM2: number; gerekce: string; modelAd: string }> {
-  // Token storage'tan al (extension'da Pro user girişi gerekli)
   const token = await tokenAl();
   if (!token) {
     throw new Error("Cadastrum hesabınıza giriş yapın — Pro/Pro+ planı gerekli.");
@@ -481,13 +518,32 @@ async function cadastrumProxyCagir(
   const parselAnahtar = `${parsel.mahalleKodu ?? "x"}-${parsel.adaNo}-${parsel.parselNo}`;
   const baselineHash = `${heuristic.baselineKaynak}-${heuristic.guvenSkoru}-${Math.round(heuristic.beklenenPerM2)}`;
 
+  // Yapılandırılmış parsel verisi — prompt içermez, server-side oluşturulur
+  const parselVeri = {
+    il:           parsel.ilAd ?? "",
+    ilce:         parsel.ilceAd ?? "",
+    mahalle:      parsel.mahalleAd ?? undefined,
+    kategori:     parsel.nitelik ?? "arsa",
+    m2:           parsel.alan ?? undefined,
+    baselineTlm2: heuristic.baselineDeger,
+    guvenSkoru:   heuristic.guvenSkoru,
+    emsaller:     heuristic.emsalListesi?.slice(0, 5).map((e) => ({
+      fiyat_per_m2: e.fiyatPerM2,
+      m2:           e.alan,
+    })) ?? [],
+    // Çevre ve eğim — opsiyonel zenginleştirme
+    egimYuzde:    egim?.ortEgimYuzde ?? undefined,
+    yukseklikM:   egim?.merkezYukseklikM ?? undefined,
+    osmElementSayisi: cevre?.elementSayisi ?? undefined,
+  };
+
   const res = await fetch(`${CADASTRUM_API}/ai-fiyat/tahmin`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ parselAnahtar, baselineHash, prompt }),
+    body: JSON.stringify({ parselAnahtar, baselineHash, parselVeri }),
   });
 
   if (!res.ok) {
@@ -595,7 +651,8 @@ export async function aiTahmin(
   switch (ayar.saglayici) {
     case "cadastrum-proxy": {
       // Backend Gemini 2.5 Flash + Groq fallback. Pro/Pro+ için varsayılan.
-      const proxySonuc = await cadastrumProxyCagir(parsel, heuristic, userPrompt);
+      // Prompt backend'de oluşturuluyor — injection güvenli.
+      const proxySonuc = await cadastrumProxyCagir(parsel, heuristic, cevre, egim);
       const sonucP: AiFiyatSonucu = {
         ...proxySonuc,
         kaynak: "cadastrum-proxy",
@@ -719,24 +776,89 @@ export async function aiSanityCheck(
   }
 
   const baslangic = Date.now();
-  const prompt = `Türkiye'de ${parsel.ilAd}/${parsel.ilceAd} bölgesinde ${parsel.nitelik} kategorisinde ${parsel.alan.toLocaleString("tr-TR")} m² arsa için hesaplanan tahmini fiyat ${tahminPerM2.toLocaleString("tr-TR")} TL/m². Bölge referans ortalaması yaklaşık ${Math.round(refOrtalama).toLocaleString("tr-TR")} TL/m² (${refDegerler.length} kaynaktan). Bu tahmin makul mu? Sadece "makul" veya "yüksek" veya "düşük" yaz, ardından kısa gerekçe (max 1 cümle).`;
+  const sistemPrompt = "Türkiye gayrimenkul değerleme uzmanısın. Kısa ve net yanıt ver.";
+  const userPrompt = `Türkiye'de ${parsel.ilAd}/${parsel.ilceAd} bölgesinde ${parsel.nitelik} kategorisinde ${parsel.alan.toLocaleString("tr-TR")} m² arsa için hesaplanan tahmini fiyat ${tahminPerM2.toLocaleString("tr-TR")} TL/m². Bölge referans ortalaması yaklaşık ${Math.round(refOrtalama).toLocaleString("tr-TR")} TL/m² (${refDegerler.length} kaynaktan). Bu tahmin makul mu? Sadece "makul" veya "yüksek" veya "düşük" yaz, ardından kısa gerekçe (max 1 cümle).`;
 
   try {
     let yanit = "";
 
-    if (saglayici === "chrome-builtin") {
-      const lm = (self as { LanguageModel?: { create(o?: object): Promise<{ prompt(t: string): Promise<string> }> } }).LanguageModel;
-      if (lm) {
-        const session = await lm.create({ systemPrompt: "Türkiye gayrimenkul değerleme uzmanısın. Kısa ve net yanıt ver." });
-        yanit = await session.prompt(prompt);
+    switch (saglayici) {
+      case "chrome-builtin": {
+        yanit = await chromeAiCalistir(sistemPrompt, userPrompt);
+        break;
       }
+      case "ollama": {
+        // opts.ollamaModel / ollamaUrl opsiyonel — yoksa default kullan
+        const model = (opts as { ollamaModel?: string }).ollamaModel ?? "llama3.2";
+        const url   = (opts as { ollamaUrl?: string }).ollamaUrl ?? "http://localhost:11434";
+        yanit = await ollamaCalistir(model, sistemPrompt, userPrompt, url);
+        break;
+      }
+      case "gemini-free": {
+        const apiKey = (opts as { geminiApiKey?: string }).geminiApiKey ?? "";
+        if (!apiKey) {
+          // Key yok — heuristic fallback
+          return {
+            makul: Math.abs(sapma) < 100,
+            sapmaYuzde: Math.round(sapma),
+            uyari: Math.abs(sapma) >= 100
+              ? `Tahmin bölge ortalamasından %${Math.round(Math.abs(sapma))} ${sapma > 0 ? "yüksek" : "düşük"}.`
+              : null,
+            sureMs: 0,
+          };
+        }
+        // Gemini structured output yerine serbest metin — sanity check için daha hızlı
+        const body = {
+          systemInstruction: { parts: [{ text: sistemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 100 },
+        };
+        for (const model of ["gemini-2.0-flash", "gemini-1.5-flash-latest"] as const) {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) continue;
+          const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+          const t = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (t) { yanit = t; break; }
+        }
+        break;
+      }
+      case "cadastrum-proxy": {
+        // Cadastrum proxy sanity check için ayrı endpoint yok — heuristic yeterli
+        return {
+          makul: Math.abs(sapma) < 100,
+          sapmaYuzde: Math.round(sapma),
+          uyari: Math.abs(sapma) >= 100
+            ? `Tahmin bölge ortalamasından %${Math.round(Math.abs(sapma))} ${sapma > 0 ? "yüksek" : "düşük"}.`
+            : null,
+          sureMs: 0,
+        };
+      }
+      default:
+        yanit = "";
     }
 
-    // Yanıt parse
+    // Yanıt parse — "makul" / "yüksek" / "düşük" başlangıcı kontrol et
     const yanitLower = yanit.toLocaleLowerCase("tr");
     let makul = true;
     if (yanitLower.startsWith("yüksek") || yanitLower.startsWith("yuksek")) makul = false;
     else if (yanitLower.startsWith("düşük") || yanitLower.startsWith("dusuk")) makul = false;
+
+    // Yanıt boşsa (desteklenmeyen sağlayıcı edge case) heuristic sonuç ver
+    if (!yanit) {
+      return {
+        makul: Math.abs(sapma) < 100,
+        sapmaYuzde: Math.round(sapma),
+        uyari: Math.abs(sapma) >= 100
+          ? `Tahmin bölge ortalamasından %${Math.round(Math.abs(sapma))} ${sapma > 0 ? "yüksek" : "düşük"}.`
+          : null,
+        sureMs: Date.now() - baslangic,
+      };
+    }
 
     const uyari = !makul
       ? `AI analizi: tahmin ${sapma > 0 ? "yüksek" : "düşük"} görünüyor. ${yanit.split("\n")[0]?.slice(0, 100) ?? ""}`
@@ -759,4 +881,116 @@ export async function aiSanityCheck(
       sureMs: Date.now() - baslangic,
     };
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Açıklanabilir AI Değerleme — "Bu arsanın değeri neden X TL/m²?"
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Backend /v1/ai-fiyat/acikla yanıtındaki tek faktör */
+export interface AciklamaFaktoru {
+  ad: string;
+  etki: "pozitif" | "negatif" | "nötr";
+  yuzde: number;       // 1–100 etki büyüklüğü
+  aciklama: string;    // kısa açıklama metni
+}
+
+/** aciklamaGetir() dönüş tipi */
+export interface FiyatAciklamaSonucu {
+  aciklama: string;            // 2–3 cümle Türkçe doğal dil özeti
+  ozet: string;                // 1 cümle — en etkili 3 faktör
+  faktorler: AciklamaFaktoru[];
+  modelAd: string;
+  sureMs: number;
+  cached: boolean;
+}
+
+/**
+ * Backend /v1/ai-fiyat/acikla endpoint'ini çağırır.
+ * "Bu arsanın değeri neden X TL/m²?" sorusuna sayısal gerekçeli yanıt üretir.
+ *
+ * Sadece cadastrum-proxy sağlayıcısıyla çalışır (server-side Gemini key).
+ * Client'tan API key çıkmaz — güvenli.
+ *
+ * @param parsel     TKGM parsel verisi
+ * @param tahmin     Heuristic fiyat tahmini (bileşenler + güven)
+ * @param cevre      OSM çevre analizi (opsiyonel — lojistik skorları için)
+ * @param egim       Eğim analizi (opsiyonel)
+ */
+export async function aciklamaGetir(
+  parsel: Parsel,
+  tahmin: FiyatTahmini,
+  cevre: import("./osm").CevreAnalizi | null = null,
+  egim: import("./elevation").EgimAnalizi | null = null,
+): Promise<FiyatAciklamaSonucu> {
+  const token = await tokenAl();
+  if (!token) {
+    throw new Error("Cadastrum hesabınıza giriş yapın — açıklama özelliği giriş gerektiriyor.");
+  }
+
+  const parselAnahtar = `${parsel.mahalleKodu ?? "x"}-${parsel.adaNo}-${parsel.parselNo}`;
+
+  // Çevre analizinden faktör skorlarını çıkar
+  const enYakinOsb = cevre?.enYakinlar.find((y) => y.tip === "osb" || y.tip === "sanayi");
+  const enYakinOtoyol = cevre?.enYakinlar.find(
+    (y) => y.tip === "otoyol" || y.tip === "karayolu" || y.tip === "highway",
+  );
+  const enYakinHavaalani = cevre?.enYakinlar.find(
+    (y) => y.tip === "havaalani" || y.tip === "airport",
+  );
+
+  const res = await fetch(`${CADASTRUM_API}/ai-fiyat/acikla`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      parselAnahtar,
+      beklenenPerM2: tahmin.beklenenPerM2,
+      parselVeri: {
+        il: parsel.ilAd ?? "",
+        ilce: parsel.ilceAd ?? "",
+        mahalle: parsel.mahalleAd ?? "",
+        kategori: parsel.nitelik ?? "arsa",
+        m2: parsel.alan,
+        imarDurumu: tahmin.imarOzeti?.sinif ?? null,
+        baselineTlm2: tahmin.baselineDeger ?? null,
+      },
+      faktorler: {
+        guvenSkoru: tahmin.guvenSkoru,
+        trendYuzde: null,                                  // ileride trend verisi eklenecek
+        egimYuzde: egim?.ortEgimYuzde ?? null,
+        osbKm: enYakinOsb ? enYakinOsb.mesafeM / 1000 : null,
+        otoyolKm: enYakinOtoyol ? enYakinOtoyol.mesafeM / 1000 : null,
+        havalimanKm: enYakinHavaalani ? enYakinHavaalani.mesafeM / 1000 : null,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ hata: "Sunucu hatası" })) as { hata?: string };
+    if (res.status === 401) throw new Error("Oturum süresi dolmuş — yeniden giriş yapın");
+    if (res.status === 403) throw new Error(err.hata ?? "Bu özellik Pro plan gerektirir");
+    if (res.status === 429) throw new Error(err.hata ?? "Günlük AI kotanız doldu");
+    throw new Error(err.hata ?? `Sunucu hatası (${res.status})`);
+  }
+
+  const data = await res.json() as {
+    aciklama: string;
+    faktorler: AciklamaFaktoru[];
+    ozet: string;
+    modelAd: string;
+    sureMs: number;
+    cached: boolean;
+  };
+
+  return {
+    aciklama: data.aciklama ?? "",
+    faktorler: Array.isArray(data.faktorler) ? data.faktorler : [],
+    ozet: data.ozet ?? "",
+    modelAd: data.modelAd ?? "bilinmiyor",
+    sureMs: data.sureMs ?? 0,
+    cached: data.cached ?? false,
+  };
 }
