@@ -14,6 +14,7 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { haversineM, turkiyeBboxIcinde, quantize3, kmToDegrees } from "../lib/geo.js";
 
 export const emsalSpatialRoutes = new Hono<{ Bindings: Env }>();
 
@@ -33,25 +34,6 @@ interface IlanRow {
   ilan_tarihi: number | null;
   dogrulama_sayisi?: number;
   guven_skoru?: number;
-}
-
-/** Haversine — Cloudflare Worker'da kullanılan, app-layer kesin filtre için. */
-function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6_371_000;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
-  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function quantize3(v: number): number {
-  return Math.round(v * 1000) / 1000;
-}
-
-function turkiyeBboxIcinde(lat: number, lng: number): boolean {
-  return lat > 35 && lat < 43 && lng > 25 && lng < 46;
 }
 
 // ── IDW + Çarpan Zinciri Yardımcıları ────────────────────────────────────────
@@ -154,8 +136,7 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
   }
 
   // Bbox prefilter — D1 index'i (kategori, lat, lng) kullanır
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  const { latDelta, lngDelta } = kmToDegrees(radiusKm, lat);
   const minLat = lat - latDelta;
   const maxLat = lat + latDelta;
   const minLng = lng - lngDelta;

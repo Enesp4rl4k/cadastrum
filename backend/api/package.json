@@ -13,7 +13,8 @@
     "db:migrate-local": "wrangler d1 execute cadastrum-db --local --file=src/db/schema.sql"
   },
   "dependencies": {
-    "hono": "^4.12.18"
+    "hono": "^4.12.18",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260509.1",

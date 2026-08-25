@@ -26,6 +26,7 @@
 import { Hono } from "hono";
 import { jwtMiddleware } from "./hesap.js";
 import type { Env } from "../index.js";
+import { log } from "../lib/logger.js";
 
 const aiFiyat = new Hono<{ Bindings: Env }>();
 aiFiyat.use("*", jwtMiddleware);
@@ -242,10 +243,23 @@ aiFiyat.post("/tahmin", async (c) => {
 
   // Body parse
   const body = await c.req.json<IstekGovde>().catch(() => null);
-  if (!body?.parselAnahtar || typeof body.parselAnahtar !== "string" || body.parselAnahtar.length > 200) {
+  // GÜVENLIK: parselAnahtar ve baselineHash yalnızca güvenli karakterler içermeli.
+  // Bu değerler D1 cache key ve log'a yazılıyor; injection / log-forging önlemi.
+  const SAFE_KEY_RE = /^[\w\-./: ]+$/;
+  if (
+    !body?.parselAnahtar ||
+    typeof body.parselAnahtar !== "string" ||
+    body.parselAnahtar.length > 200 ||
+    !SAFE_KEY_RE.test(body.parselAnahtar)
+  ) {
     return c.json({ hata: "Geçersiz parselAnahtar" }, 400);
   }
-  if (!body?.baselineHash || typeof body.baselineHash !== "string" || body.baselineHash.length > 100) {
+  if (
+    !body?.baselineHash ||
+    typeof body.baselineHash !== "string" ||
+    body.baselineHash.length > 100 ||
+    !SAFE_KEY_RE.test(body.baselineHash)
+  ) {
     return c.json({ hata: "Geçersiz baselineHash" }, 400);
   }
   if (!parselVeriDogrula(body.parselVeri)) {
@@ -330,7 +344,7 @@ aiFiyat.post("/tahmin", async (c) => {
       cevap = await geminiCagir(geminiKey, prompt);
     } catch (e) {
       sonHata = e instanceof Error ? e.message : String(e);
-      console.warn("[ai-fiyat] Gemini hata:", sonHata);
+      log.warn("ai-fiyat.gemini.hata", { hata: sonHata, kullaniciId });
     }
   }
 
@@ -339,14 +353,16 @@ aiFiyat.post("/tahmin", async (c) => {
       cevap = await groqCagir(groqKey, prompt);
     } catch (e) {
       sonHata = e instanceof Error ? e.message : String(e);
-      console.warn("[ai-fiyat] Groq hata:", sonHata);
+      log.warn("ai-fiyat.groq.hata", { hata: sonHata, kullaniciId });
     }
   }
 
   if (!cevap) {
-    // AI hata → refund
+    // AI hata → refund — ai_kullanim_kota tablosundan düş (ai_kullanim log tablosu DEĞİL)
+    // HATA DÜZELTMESİ: refund yanlış tabloya (ai_kullanim) yazılıyordu; doğru tablo
+    // ai_kullanim_kota — günlük bucket burada tutulur.
     await c.env.DB.prepare(
-      "UPDATE ai_kullanim SET sayi = sayi - 1 WHERE kullanici_id = ? AND gun = ?",
+      "UPDATE ai_kullanim_kota SET sayi = MAX(0, sayi - 1) WHERE kullanici_id = ? AND gun = ?",
     ).bind(kullaniciId, gun).run();
     return c.json(
       { hata: `AI servislerine ulaşılamadı. ${sonHata ?? "Anahtar yok."}` },

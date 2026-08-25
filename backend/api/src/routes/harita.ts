@@ -25,103 +25,7 @@
 
 import { Hono } from "hono";
 import type { Env } from "../index.js";
-
-// ── İl likidite statik verisi (TÜİK 2025) ────────────────────────────────────
-// D1'e gerek yok — statik tablo, yıllık güncellenir.
-const IL_LIKIDITE: Record<string, { yillikSatis: number; ipotekliOran: number; nufusM: number }> = {
-  "istanbul":{ yillikSatis:280262,ipotekliOran:0.18,nufusM:16.0 },
-  "ankara":{ yillikSatis:152534,ipotekliOran:0.22,nufusM:5.8 },
-  "izmir":{ yillikSatis:96998,ipotekliOran:0.20,nufusM:4.4 },
-  "antalya":{ yillikSatis:78000,ipotekliOran:0.15,nufusM:2.7 },
-  "bursa":{ yillikSatis:65000,ipotekliOran:0.21,nufusM:3.2 },
-  "adana":{ yillikSatis:38000,ipotekliOran:0.17,nufusM:2.3 },
-  "konya":{ yillikSatis:36000,ipotekliOran:0.18,nufusM:2.3 },
-  "gaziantep":{ yillikSatis:32000,ipotekliOran:0.16,nufusM:2.1 },
-  "kocaeli":{ yillikSatis:30000,ipotekliOran:0.20,nufusM:2.1 },
-  "mersin":{ yillikSatis:28000,ipotekliOran:0.16,nufusM:1.9 },
-  "kayseri":{ yillikSatis:22000,ipotekliOran:0.19,nufusM:1.4 },
-  "samsun":{ yillikSatis:19000,ipotekliOran:0.17,nufusM:1.4 },
-  "sanliurfa":{ yillikSatis:17000,ipotekliOran:0.13,nufusM:2.2 },
-  "diyarbakir":{ yillikSatis:16000,ipotekliOran:0.14,nufusM:1.8 },
-  "hatay":{ yillikSatis:15500,ipotekliOran:0.15,nufusM:1.7 },
-  "manisa":{ yillikSatis:18000,ipotekliOran:0.18,nufusM:1.5 },
-  "kahramanmaras":{ yillikSatis:12000,ipotekliOran:0.14,nufusM:1.2 },
-  "balikesir":{ yillikSatis:22000,ipotekliOran:0.18,nufusM:1.2 },
-  "aydin":{ yillikSatis:25000,ipotekliOran:0.17,nufusM:1.1 },
-  "tekirdag":{ yillikSatis:21000,ipotekliOran:0.21,nufusM:1.1 },
-  "sakarya":{ yillikSatis:18000,ipotekliOran:0.20,nufusM:1.0 },
-  "mugla":{ yillikSatis:32000,ipotekliOran:0.14,nufusM:1.1 },
-  "denizli":{ yillikSatis:16000,ipotekliOran:0.18,nufusM:1.1 },
-  "eskisehir":{ yillikSatis:17000,ipotekliOran:0.21,nufusM:0.9 },
-  "trabzon":{ yillikSatis:14000,ipotekliOran:0.16,nufusM:0.8 },
-  "ordu":{ yillikSatis:11000,ipotekliOran:0.16,nufusM:0.8 },
-  "malatya":{ yillikSatis:10500,ipotekliOran:0.15,nufusM:0.8 },
-  "erzurum":{ yillikSatis:9500,ipotekliOran:0.15,nufusM:0.8 },
-  "van":{ yillikSatis:8500,ipotekliOran:0.13,nufusM:1.1 },
-  "elazig":{ yillikSatis:9000,ipotekliOran:0.15,nufusM:0.6 },
-  "afyonkarahisar":{ yillikSatis:8500,ipotekliOran:0.16,nufusM:0.75 },
-  "yalova":{ yillikSatis:12000,ipotekliOran:0.20,nufusM:0.30 },
-  "canakkale":{ yillikSatis:11000,ipotekliOran:0.17,nufusM:0.55 },
-  "edirne":{ yillikSatis:9500,ipotekliOran:0.18,nufusM:0.43 },
-  "kirklareli":{ yillikSatis:7500,ipotekliOran:0.18,nufusM:0.36 },
-  "tokat":{ yillikSatis:7000,ipotekliOran:0.15,nufusM:0.6 },
-  "sivas":{ yillikSatis:8500,ipotekliOran:0.15,nufusM:0.65 },
-  "yozgat":{ yillikSatis:5500,ipotekliOran:0.14,nufusM:0.42 },
-  "amasya":{ yillikSatis:5000,ipotekliOran:0.16,nufusM:0.34 },
-  "corum":{ yillikSatis:6500,ipotekliOran:0.15,nufusM:0.52 },
-  "kastamonu":{ yillikSatis:5500,ipotekliOran:0.16,nufusM:0.39 },
-  "sinop":{ yillikSatis:4500,ipotekliOran:0.16,nufusM:0.22 },
-  "zonguldak":{ yillikSatis:7500,ipotekliOran:0.17,nufusM:0.59 },
-  "karabuk":{ yillikSatis:5500,ipotekliOran:0.17,nufusM:0.25 },
-  "bartin":{ yillikSatis:3500,ipotekliOran:0.16,nufusM:0.21 },
-  "duzce":{ yillikSatis:7500,ipotekliOran:0.18,nufusM:0.40 },
-  "bolu":{ yillikSatis:6500,ipotekliOran:0.18,nufusM:0.31 },
-  "bilecik":{ yillikSatis:4000,ipotekliOran:0.17,nufusM:0.23 },
-  "rize":{ yillikSatis:6500,ipotekliOran:0.16,nufusM:0.34 },
-  "giresun":{ yillikSatis:5500,ipotekliOran:0.16,nufusM:0.45 },
-  "artvin":{ yillikSatis:2500,ipotekliOran:0.15,nufusM:0.17 },
-  "gumushane":{ yillikSatis:1800,ipotekliOran:0.14,nufusM:0.14 },
-  "bayburt":{ yillikSatis:1251,ipotekliOran:0.13,nufusM:0.085 },
-  "erzincan":{ yillikSatis:4000,ipotekliOran:0.15,nufusM:0.24 },
-  "tunceli":{ yillikSatis:1300,ipotekliOran:0.12,nufusM:0.085 },
-  "bingol":{ yillikSatis:3500,ipotekliOran:0.13,nufusM:0.28 },
-  "mus":{ yillikSatis:3500,ipotekliOran:0.12,nufusM:0.40 },
-  "bitlis":{ yillikSatis:3000,ipotekliOran:0.12,nufusM:0.35 },
-  "hakkari":{ yillikSatis:1559,ipotekliOran:0.10,nufusM:0.27 },
-  "siirt":{ yillikSatis:3500,ipotekliOran:0.12,nufusM:0.33 },
-  "sirnak":{ yillikSatis:3500,ipotekliOran:0.11,nufusM:0.55 },
-  "batman":{ yillikSatis:5500,ipotekliOran:0.12,nufusM:0.61 },
-  "mardin":{ yillikSatis:6000,ipotekliOran:0.13,nufusM:0.86 },
-  "adiyaman":{ yillikSatis:5000,ipotekliOran:0.13,nufusM:0.64 },
-  "agri":{ yillikSatis:3000,ipotekliOran:0.12,nufusM:0.51 },
-  "aksaray":{ yillikSatis:4500,ipotekliOran:0.16,nufusM:0.42 },
-  "ardahan":{ yillikSatis:727,ipotekliOran:0.13,nufusM:0.097 },
-  "burdur":{ yillikSatis:4500,ipotekliOran:0.16,nufusM:0.27 },
-  "cankiri":{ yillikSatis:3000,ipotekliOran:0.16,nufusM:0.20 },
-  "igdir":{ yillikSatis:2200,ipotekliOran:0.13,nufusM:0.20 },
-  "isparta":{ yillikSatis:7500,ipotekliOran:0.16,nufusM:0.45 },
-  "karaman":{ yillikSatis:3500,ipotekliOran:0.16,nufusM:0.26 },
-  "kars":{ yillikSatis:2500,ipotekliOran:0.13,nufusM:0.28 },
-  "kilis":{ yillikSatis:2200,ipotekliOran:0.13,nufusM:0.15 },
-  "kirikkale":{ yillikSatis:4500,ipotekliOran:0.18,nufusM:0.28 },
-  "kirsehir":{ yillikSatis:3500,ipotekliOran:0.16,nufusM:0.24 },
-  "kutahya":{ yillikSatis:6500,ipotekliOran:0.16,nufusM:0.58 },
-  "nevsehir":{ yillikSatis:4500,ipotekliOran:0.16,nufusM:0.30 },
-  "nigde":{ yillikSatis:4000,ipotekliOran:0.15,nufusM:0.36 },
-  "osmaniye":{ yillikSatis:5500,ipotekliOran:0.14,nufusM:0.55 },
-  "usak":{ yillikSatis:4000,ipotekliOran:0.16,nufusM:0.38 },
-};
-
-function ilLikiditeSkoru(ilNorm: string): number {
-  const il = IL_LIKIDITE[ilNorm];
-  if (!il) return 0.5;
-  const oran = il.yillikSatis / (il.nufusM * 1_000_000);
-  if (oran > 0.025) return 1.0;
-  if (oran > 0.018) return 0.85;
-  if (oran > 0.013) return 0.70;
-  if (oran > 0.008) return 0.50;
-  return 0.30;
-}
+import { IL_LIKIDITE, ilLikiditeSkoru, IL_ALTYAPI_PUAN } from "../data/harita-data.js";
 
 export const haritaRoutes = new Hono<{ Bindings: Env }>();
 
@@ -288,17 +192,33 @@ haritaRoutes.get("/likidite", (c) => {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
 
-  const iller = Object.entries(IL_LIKIDITE).map(([ilNorm, veri]) => {
-    const skor = ilLikiditeSkoru(ilNorm);
-    // Tarla kategorisinde kırsal iller biraz daha likit — tarla alım-satımı kentsel değil
-    const kategoriDuzeltme = kategori === "tarla" && veri.nufusM < 0.5 ? 0.1 : 0;
+  // Tüm 81 il için veri üret — IL_LIKIDITE'de olmayanlar için fallback skor.
+  // harita-init.ts'deki IL_CENTROID ile eşleşmesi için tüm iller dahil edilmeli.
+  const TUM_ILLER_NORM = [
+    "adana","adiyaman","afyonkarahisar","agri","amasya","ankara","antalya","artvin",
+    "aydin","balikesir","bilecik","bingol","bitlis","bolu","burdur","bursa",
+    "canakkale","cankiri","corum","denizli","diyarbakir","edirne","elazig","erzincan",
+    "erzurum","eskisehir","gaziantep","giresun","gumushane","hakkari","hatay","isparta",
+    "mersin","istanbul","izmir","kars","kastamonu","kayseri","kirklareli","kirsehir",
+    "kocaeli","konya","kutahya","malatya","manisa","kahramanmaras","mardin","mugla",
+    "mus","nevsehir","nigde","ordu","rize","sakarya","samsun","siirt","sinop","sivas",
+    "tekirdag","tokat","trabzon","tunceli","sanliurfa","usak","van","yozgat","zonguldak",
+    "aksaray","bayburt","karaman","kirikkale","batman","sirnak","bartin","ardahan",
+    "igdir","yalova","karabuk","kilis","osmaniye","duzce",
+  ];
+
+  const iller = TUM_ILLER_NORM.map((ilNorm) => {
+    const veri = IL_LIKIDITE[ilNorm];
+    const skor = ilLikiditeSkoru(ilNorm); // fallback 0.5 eğer yoksa
+    // Tarla kategorisinde kırsal iller biraz daha likit
+    const kategoriDuzeltme = kategori === "tarla" && (veri?.nufusM ?? 0.5) < 0.5 ? 0.1 : 0;
     const nihai = Math.min(1.0, Math.round((skor + kategoriDuzeltme) * 100) / 100);
     return {
       il_norm: ilNorm,
       skor: nihai,
-      yillik_satis: veri.yillikSatis,
-      ipotekli_oran: veri.ipotekliOran,
-      nufus_m: veri.nufusM,
+      yillik_satis: veri?.yillikSatis ?? 0,
+      ipotekli_oran: veri?.ipotekliOran ?? 0.15,
+      nufus_m: veri?.nufusM ?? 0.3,
       etiket: nihai >= 0.85 ? "Çok Aktif" : nihai >= 0.70 ? "Aktif" : nihai >= 0.50 ? "Normal" : "Düşük",
     };
   });
@@ -400,9 +320,123 @@ haritaRoutes.get("/trend", async (c) => {
   );
 });
 
+// ── Gelişen Bölgeler — Bölge Gelişim Skoru (statik + D1 fiyat momentum) ────────
+/**
+ * GET /v1/harita/gelisen-bolgeler
+ *
+ * İl bazlı bölge gelişim skoru — site harita katmanı için choropleth verisi.
+ * 3 boyut: likidite trendi + fiyat momentum + altyapı yakınlığı.
+ *
+ * Statik tablolar: IL_LIKIDITE (harita.ts) + IL_ALTYAPI (bu endpoint)
+ * D1'den: son 6 ay vs önceki 6 ay fiyat değişimi (zaten /harita/trend'de var)
+ *
+ * Cache: 24 saat (günlük yeterli)
+ */
+
+
+
+haritaRoutes.get("/gelisen-bolgeler", async (c) => {
+  // D1'den son 12 ay fiyat trendini çek (birleşik il bazlı)
+  const simdi = Date.now();
+  const son12AyTs = simdi - 365 * 86_400_000;
+
+  const fiyatRows = await c.env.DB.prepare(
+    `SELECT il_norm,
+            AVG(CASE WHEN ay_ts >= ? THEN medyan ELSE NULL END) AS son6_ort,
+            AVG(CASE WHEN ay_ts < ? AND ay_ts >= ? THEN medyan ELSE NULL END) AS once6_ort,
+            COUNT(*) AS kayit_sayi
+     FROM (
+       SELECT mz.il_norm,
+              (julianday(mz.yil||'-'||printf('%02d',mz.ay)||'-01') - 2440587.5) * 86400000 AS ay_ts,
+              mz.medyan
+       FROM mahalle_zaman_serisi mz
+       WHERE mz.kategori = 'arsa' AND mz.yil >= ?
+       GROUP BY mz.il_norm, mz.yil, mz.ay
+       ORDER BY mz.yil DESC, mz.ay DESC
+     )
+     GROUP BY il_norm`,
+  ).bind(
+    simdi - 180 * 86_400_000,  // son 6 ay başlangıcı
+    simdi - 180 * 86_400_000,  // önceki 6 ay sonu
+    simdi - 365 * 86_400_000,  // önceki 6 ay başlangıcı
+    new Date().getFullYear() - 2,
+  ).all<{ il_norm: string; son6_ort: number | null; once6_ort: number | null; kayit_sayi: number }>();
+
+  type FiyatRow = { il_norm: string; son6_ort: number | null; once6_ort: number | null; kayit_sayi: number };
+  const fiyatMap = new Map<string, FiyatRow>(
+    (fiyatRows.results ?? [] as FiyatRow[]).map((r) => [r.il_norm, r] as [string, FiyatRow])
+  );
+
+  // Her il için 3 boyutlu skor hesapla
+  const sonuclar: Array<{
+    il_norm: string;
+    skor: number;
+    sinif: "yuksek" | "orta" | "izle";
+    fiyat_momentum: number;
+    likidite_skoru: number;
+    altyapi_skoru: number;
+    etiket: string;
+  }> = [];
+
+  for (const [ilNorm, likidite] of Object.entries(IL_LIKIDITE as Record<string, { yillikSatis: number; ipotekliOran: number; nufusM: number }>)) {
+    const fiyat = fiyatMap.get(ilNorm);
+    const altyapi = IL_ALTYAPI_PUAN[ilNorm] ?? 30;
+
+    // Boyut 1: Fiyat momentum (0–40) — son 6 ay vs önceki 6 ay
+    let fiyatMomentum = 20; // neutral fallback
+    if (fiyat?.son6_ort && fiyat?.once6_ort && fiyat.once6_ort > 0) {
+      const degisim = (fiyat.son6_ort - fiyat.once6_ort) / fiyat.once6_ort;
+      // -50% ile +100% arasını 0-40'a normalize
+      fiyatMomentum = Math.max(0, Math.min(40, Math.round((degisim + 0.5) / 1.5 * 40)));
+    }
+
+    // Boyut 2: Likidite skoru (0–35) — yıllık satış hacmi log normalize
+    const logSatis = Math.log10(Math.max(likidite.yillikSatis, 100));
+    const likiditeSkor = Math.round(Math.min(35, (logSatis / 5.5) * 35));
+
+    // Boyut 3: Altyapı skoru (0–25) — statik tablo
+    const altyapiSkor = Math.round((altyapi / 100) * 25);
+
+    const toplamSkor = fiyatMomentum + likiditeSkor + altyapiSkor;
+
+    const sinif: "yuksek" | "orta" | "izle" =
+      toplamSkor >= 70 ? "yuksek"
+      : toplamSkor >= 50 ? "orta"
+      : "izle";
+
+    const etiket =
+      sinif === "yuksek" ? "🔥 Yüksek Potansiyel"
+      : sinif === "orta" ? "📈 Orta Potansiyel"
+      : "👀 İzle";
+
+    sonuclar.push({
+      il_norm: ilNorm,
+      skor: toplamSkor,
+      sinif,
+      fiyat_momentum: fiyatMomentum,
+      likidite_skoru: likiditeSkor,
+      altyapi_skoru: altyapiSkor,
+      etiket,
+    });
+  }
+
+  sonuclar.sort((a, b) => b.skor - a.skor);
+
+  return c.json(
+    { iller: sonuclar, guncelleme: new Date().toISOString() },
+    200,
+    { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" },
+  );
+});
+
 // ── Seed durumu (debug/admin) ──────────────────────────────────────────────────
 
 haritaRoutes.get("/seed-status", async (c) => {
+  const secret = c.req.query("secret") || c.req.header("X-Admin-Secret") || c.req.header("Authorization")?.replace("Bearer ", "");
+  if (c.env.ENVIRONMENT !== "development" && (!secret || secret !== c.env.SEED_SECRET && secret !== c.env.STATS_SECRET)) {
+    return c.json({ error: "Yetkisiz erişim" }, 401);
+  }
+
   const [ilceCount, tipYilCount, sonSeed] = await Promise.all([
     c.env.DB.prepare(
       `SELECT COUNT(DISTINCT ilce_kodu) AS n FROM tkgm_analiz_ozet`

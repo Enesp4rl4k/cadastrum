@@ -15,11 +15,11 @@ import { IL_DEPREM } from "./data/deprem-zonlari";
 export type NlKategori = "arsa" | "tarla" | "konut";
 
 export interface NlSorgu {
-  /** Hammetin */
+  /** Ham metin */
   ham: string;
   /** Tespit edilen il (normalize edilmiş) */
   ilNorm?: string | null;
-  /** Tespit edilen ilçe (normalize edilmiş, basit eşleştirme yapılır) */
+  /** Tespit edilen ilçe (normalize edilmiş) */
   ilceNorm?: string | null;
   /** Kategori */
   kategori?: NlKategori;
@@ -35,6 +35,37 @@ export interface NlSorgu {
   sahilYakini?: boolean;
   /** Düşük deprem riski ister mi */
   dusukDepremRiski?: boolean;
+
+  // ── Yeni niteleme ifadeleri ────────────────────────────────────────────────
+  /** Yola cephe/yakın arsa */
+  yolaCephe?: boolean;
+  /** İmarlı parsel */
+  imarli?: boolean;
+  /** İmar bilgisi belirsiz/istenmiyor */
+  imarsiz?: boolean;
+  /** Düz arazi (eğim yok) */
+  duzArazi?: boolean;
+  /** Tarım arazisi ama sulama imkânı olan */
+  sulamaImkani?: boolean;
+  /** Köşe parsel */
+  koseParsel?: boolean;
+  /** Acil/hızlı satış */
+  aceleSatis?: boolean;
+  /** Yatırım amaçlı (spekülatif/gelir amaçlı) */
+  yatirimAmacli?: boolean;
+  /** Kira getirisi önemli (konut için) */
+  kiraGetirisi?: boolean;
+  /** Yüksek imar (KAKS/emsal yüksek) */
+  yuksekImar?: boolean;
+  /** Manzaralı parsel */
+  manzarali?: boolean;
+  /** Orman/sit/kısıt riski istenmiyor */
+  kisitsiz?: boolean;
+  /** Tapu müstakil isteniyor (hisseli değil) */
+  mustakilTapu?: boolean;
+  /** Elektrik/altyapı mevcut */
+  altyapiMevcut?: boolean;
+
   /** Tespit edilen anahtar kelimeler (debug) */
   bulunan: string[];
 }
@@ -143,8 +174,8 @@ export function nlParse(metin: string): NlSorgu {
     }
   }
 
-  // m² eşikleri — "1000m² üstü", "500 m2 alt", "min 1000 m²", "max 5000 m²"
-  const m2Match = [...t.matchAll(/(\d+(?:\.\d+)?)\s*m[²2]?/g)];
+  // m² eşikleri — "1000m² üstü", "500 m2 alt", "min 1000 m²", "1000 metrekare"
+  const m2Match = [...t.matchAll(/(\d+(?:\.\d+)?)\s*(?:m[²2]?|metrekare|dönüm|donum)/g)];
   for (const m of m2Match) {
     const sayi = parseFloat(m[1]!);
     if (!Number.isFinite(sayi)) continue;
@@ -195,7 +226,7 @@ export function nlParse(metin: string): NlSorgu {
     }
   }
 
-  // Modifier'lar
+  // ── Temel modifier'lar ────────────────────────────────────────────────────
   if (/\bsahile?\s+yakin|\bdenize?\s+yakin|\bsahil\s+manzaral/.test(t)) {
     sonuc.sahilYakini = true;
     bulunan.push("modifier:sahil");
@@ -205,5 +236,129 @@ export function nlParse(metin: string): NlSorgu {
     bulunan.push("modifier:dusuk-deprem");
   }
 
+  // ── Yeni niteleme ifadeleri ────────────────────────────────────────────────
+
+  // Yola cephe
+  if (/\byola\s+cephe|\byol\s+cepheli|\bcadde\s+cepheli|\basfalt\s+yakin/.test(t)) {
+    sonuc.yolaCephe = true;
+    bulunan.push("modifier:yola-cephe");
+  }
+
+  // İmarlı / imarsız
+  if (/\bimarli\b|\bimari\s+var|\bkonut\s+imar|\binsaat\s+izni/.test(t)) {
+    sonuc.imarli = true;
+    bulunan.push("modifier:imarli");
+  }
+  if (/\bimarsiz\b|\bimar\s+yok|\btar[ıi]m\s+d[ıi][sş][ıi]/.test(t)) {
+    sonuc.imarsiz = true;
+    bulunan.push("modifier:imarsiz");
+  }
+
+  // Yüksek imar
+  if (/\byuksek\s+imar|\byuksek\s+emsal|\byuksek\s+kaks|\b[3-9]\s*kat\s+izin/.test(t)) {
+    sonuc.yuksekImar = true;
+    bulunan.push("modifier:yuksek-imar");
+  }
+
+  // Düz arazi
+  if (/\bduz\s+arazi|\bduz\s+arsa|\begim\s+yok|\btesviye\s+yok|\bduz\b/.test(t)) {
+    sonuc.duzArazi = true;
+    bulunan.push("modifier:duz-arazi");
+  }
+
+  // Sulama imkânı (tarımsal)
+  if (/\bsulama\s+imkani|\bsulama\s+var|\bsulanan|\bgolet|\bkanal\s+kenar/.test(t)) {
+    sonuc.sulamaImkani = true;
+    bulunan.push("modifier:sulama-imkani");
+  }
+
+  // Köşe parsel
+  if (/\bkose\s+parsel|\bkosebasi|\bok\s+cepheli/.test(t)) {
+    sonuc.koseParsel = true;
+    bulunan.push("modifier:kose-parsel");
+  }
+
+  // Acil satış
+  if (/\bacil\s+sat[ıi][sş]|\bhizli\s+sat[ıi][sş]|\bsahibinden\s+acil|\bvazgec/.test(t)) {
+    sonuc.aceleSatis = true;
+    bulunan.push("modifier:acil-satis");
+  }
+
+  // Yatırım amaçlı
+  if (/\byat[ıi]r[ıi]m\s+amacl|\byat[ıi]r[ıi]ml[ıi]|\bfiyat\s+artacak|\bpotansiyel/.test(t)) {
+    sonuc.yatirimAmacli = true;
+    bulunan.push("modifier:yatirim-amacli");
+  }
+
+  // Kira getirisi
+  if (/\bkira\s+getir|\bkira\s+gelir|\bkiraya\s+ver|\bkira\s+amacl/.test(t)) {
+    sonuc.kiraGetirisi = true;
+    bulunan.push("modifier:kira-getirisi");
+  }
+
+  // Manzaralı
+  if (/\bmanzaral[ıi]|\bdeniz\s+manzar|\bdoga\s+manzar|\bval[ıi]\s+manzar/.test(t)) {
+    sonuc.manzarali = true;
+    bulunan.push("modifier:manzarali");
+  }
+
+  // Kısıtsız (orman/sit/kısıt yok)
+  if (/\bkis[ıi]ts[ıi]z|\bsor[ıi]n\s+yok|\borman\s+yok|\bsit\s+yok|\btemiz\s+tapu/.test(t)) {
+    sonuc.kisitsiz = true;
+    bulunan.push("modifier:kisitsiz");
+  }
+
+  // Müstakil tapu (hisseli değil)
+  if (/\bmustakil\s+tapu|\bhissesiz|\btam\s+tapu|\bbagims[ıi]z\s+tapu/.test(t)) {
+    sonuc.mustakilTapu = true;
+    bulunan.push("modifier:mustakil-tapu");
+  }
+
+  // Altyapı mevcut
+  if (/\baltyapi\s+(mevcut|var|hazir)|\belektrik\s+(mevcut|var|cekili)|\bsu\s+(mevcut|var|cekili)/.test(t)) {
+    sonuc.altyapiMevcut = true;
+    bulunan.push("modifier:altyapi-mevcut");
+  }
+
   return sonuc;
+}
+
+/**
+ * NlSorgu'yu insan okunabilir açıklamaya çevir (UI için).
+ * Kullanıcıya "şunları aradım" özeti göstermek için.
+ */
+export function nlSorguAcikla(sorgu: NlSorgu): string[] {
+  const parcalar: string[] = [];
+
+  if (sorgu.ilNorm) parcalar.push(`📍 ${sorgu.ilNorm}`);
+  if (sorgu.ilceNorm) parcalar.push(`/ ${sorgu.ilceNorm}`);
+  if (sorgu.kategori) parcalar.push(`🏷️ ${sorgu.kategori}`);
+  if (sorgu.minM2 && sorgu.maksM2) parcalar.push(`📐 ${sorgu.minM2}–${sorgu.maksM2} m²`);
+  else if (sorgu.minM2) parcalar.push(`📐 min ${sorgu.minM2} m²`);
+  else if (sorgu.maksM2) parcalar.push(`📐 maks ${sorgu.maksM2} m²`);
+
+  if (sorgu.minFiyat && sorgu.maksFiyat) {
+    parcalar.push(`💰 ${(sorgu.minFiyat/1_000_000).toFixed(1)}M–${(sorgu.maksFiyat/1_000_000).toFixed(1)}M ₺`);
+  } else if (sorgu.maksFiyat) {
+    parcalar.push(`💰 max ${(sorgu.maksFiyat/1_000_000).toFixed(1)}M ₺`);
+  } else if (sorgu.minFiyat) {
+    parcalar.push(`💰 min ${(sorgu.minFiyat/1_000_000).toFixed(1)}M ₺`);
+  }
+
+  if (sorgu.imarli) parcalar.push("✅ İmarlı");
+  if (sorgu.yuksekImar) parcalar.push("🏗️ Yüksek imar");
+  if (sorgu.yolaCephe) parcalar.push("🛣️ Yola cephe");
+  if (sorgu.duzArazi) parcalar.push("⬜ Düz arazi");
+  if (sorgu.sulamaImkani) parcalar.push("💧 Sulama imkânı");
+  if (sorgu.koseParsel) parcalar.push("📐 Köşe parsel");
+  if (sorgu.sahilYakini) parcalar.push("🌊 Sahil yakını");
+  if (sorgu.manzarali) parcalar.push("🏔️ Manzaralı");
+  if (sorgu.dusukDepremRiski) parcalar.push("🟢 Düşük deprem riski");
+  if (sorgu.kisitsiz) parcalar.push("✅ Kısıtsız");
+  if (sorgu.mustakilTapu) parcalar.push("📜 Müstakil tapu");
+  if (sorgu.altyapiMevcut) parcalar.push("⚡ Altyapı mevcut");
+  if (sorgu.aceleSatis) parcalar.push("⚡ Acil satış");
+  if (sorgu.kiraGetirisi) parcalar.push("💵 Kira getirisi");
+
+  return parcalar;
 }

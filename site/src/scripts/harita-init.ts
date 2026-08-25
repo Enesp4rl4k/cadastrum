@@ -15,7 +15,10 @@
  *   İlçe bazında OSB yakınlığı + havalimanı yakınlığı + tapu yoğunluğu birleşimi
  */
 
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const API_BASE: string = (typeof (import.meta as any).env !== "undefined"
+  ? (import.meta as any).env.PUBLIC_API_BASE
+  : undefined) ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
 // ─── Fiyat choropleth renk paleti (TL/m² log skala) ──────────────────────────
 // Logaritmik interpolasyon: 500 TL/m² (kırsal) → 100.000 TL/m² (İstanbul merkez)
@@ -378,7 +381,7 @@ function likiditRenk(skor: number): string {
 }
 
 async function likiditVerisiCek(kategori: "arsa" | "tarla"): Promise<IlLikiditeSonuc[]> {
-  const cacheKey = `likidite-v1:${kategori}`;
+  const cacheKey = `likidite-v2:${kategori}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
@@ -658,6 +661,174 @@ async function trendToggle(kategori: "arsa" | "tarla" = "arsa") {
   }
   trendKatmanAcik = true;
   trendKatmanGorunurluk(true);
+}
+
+// ── Gelişen Bölgeler choropleth ────────────────────────────────────────────────
+
+interface GelIlSonuc {
+  il_norm: string;
+  skor: number;
+  sinif: "yuksek" | "orta" | "izle";
+  etiket: string;
+  fiyat_momentum: number;
+  likidite_skoru: number;
+  altyapi_skoru: number;
+}
+
+let gelAcik = false;
+let gelVerisi: GelIlSonuc[] = [];
+
+function gelSkorRenk(skor: number): string {
+  if (skor >= 70) return "#16a34a"; // yeşil — yüksek
+  if (skor >= 60) return "#22c55e";
+  if (skor >= 50) return "#84cc16"; // sarı-yeşil — orta
+  if (skor >= 40) return "#eab308"; // sarı — izle
+  return "#94a3b8";                  // gri — düşük
+}
+
+async function gelVerisiCek(): Promise<GelIlSonuc[]> {
+  const cacheKey = "gelisen-bolgeler-v1";
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { veri, ts } = JSON.parse(cached) as { veri: GelIlSonuc[]; ts: number };
+      if (Date.now() - ts < 86_400_000) return veri; // 24 saat
+    }
+  } catch {}
+  const res = await fetch(`${API_BASE}/harita/gelisen-bolgeler`);
+  if (!res.ok) throw new Error(`gelisen-bolgeler HTTP ${res.status}`);
+  const data = await res.json() as { iller: GelIlSonuc[] };
+  const veri = data.iller ?? [];
+  try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
+  return veri;
+}
+
+function gelKatmanEkle(veri: GelIlSonuc[]) {
+  if (!harita) return;
+
+  const skorMap = new Map(veri.map((d) => [d.il_norm, d]));
+  const features: GeoJSON.Feature[] = [];
+
+  for (const [ilNorm, centroid] of Object.entries(IL_CENTROID)) {
+    const bilgi = skorMap.get(ilNorm);
+    if (!bilgi || bilgi.skor === 0) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [centroid[1], centroid[0]] },
+      properties: {
+        il_norm: ilNorm,
+        skor: bilgi.skor,
+        sinif: bilgi.sinif,
+        etiket: bilgi.etiket,
+        renk: gelSkorRenk(bilgi.skor),
+        boyut: Math.round(8 + (bilgi.skor / 100) * 22), // 8–30px
+      },
+    });
+  }
+
+  const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
+  const srcId = "gelisen-src";
+  const src = harita.getSource(srcId) as import("maplibre-gl").GeoJSONSource | undefined;
+  if (src) { src.setData(geojson); return; }
+
+  harita.addSource(srcId, { type: "geojson", data: geojson });
+
+  harita.addLayer({
+    id: "gelisen-circle",
+    type: "circle",
+    source: srcId,
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"],
+        4, ["get", "boyut"],
+        6, ["+", ["get", "boyut"], 8],
+        8, ["+", ["get", "boyut"], 16],
+      ],
+      "circle-color": ["get", "renk"],
+      "circle-opacity": 0.82,
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "rgba(255,255,255,0.7)",
+    },
+  });
+
+  harita.addLayer({
+    id: "gelisen-label",
+    type: "symbol",
+    source: srcId,
+    minzoom: 5,
+    layout: {
+      "text-field": ["concat", ["get", "skor"], " puan"],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 5, 8, 8, 11],
+      "text-offset": [0, 2.0],
+      "text-anchor": "top",
+      "text-allow-overlap": false,
+      "text-optional": true,
+    },
+    paint: {
+      "text-color": "#f0fdf4",
+      "text-halo-color": "#14532d",
+      "text-halo-width": 1.5,
+    },
+  });
+
+  harita.on("click", "gelisen-circle", (e) => {
+    const p = e.features?.[0]?.properties as Record<string, unknown> | undefined;
+    if (!p || !MLPopup || !harita) return;
+    const ilNorm = String(p["il_norm"]);
+    const ilAd = ilNorm.charAt(0).toUpperCase() + ilNorm.slice(1);
+    const skor = Number(p["skor"]);
+    const renk = String(p["renk"]);
+    const etiket = String(p["etiket"]);
+    new MLPopup({ closeButton: true, maxWidth: "260px" })
+      .setLngLat(e.lngLat)
+      .setHTML(`
+        <div style="font-family:Inter,sans-serif;padding:2px 4px;min-width:220px">
+          <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px">${ilAd}</div>
+          <div style="font-size:20px;font-weight:800;color:${renk};margin-bottom:4px">
+            ${skor} puan
+          </div>
+          <div style="font-size:13px;font-weight:600;color:${renk};margin-bottom:8px">${etiket}</div>
+          <div style="font-size:10px;color:#64748b">
+            <div>Fiyat momentum: <strong>${Number(p["fiyat_momentum"])}/40</strong></div>
+            <div>Likidite: <strong>${Number(p["likidite_skoru"])}/35</strong></div>
+            <div>Altyapı: <strong>${Number(p["altyapi_skoru"])}/25</strong></div>
+          </div>
+          <div style="margin-top:8px;text-align:right">
+            <a href="/veri/${ilNorm}" style="color:#16a34a;font-size:9px;text-decoration:none">
+              Detaylı veri sayfası →
+            </a>
+          </div>
+        </div>
+      `)
+      .addTo(harita);
+  });
+
+  harita.on("mouseenter", "gelisen-circle", () => { if (harita) harita.getCanvas().style.cursor = "pointer"; });
+  harita.on("mouseleave", "gelisen-circle", () => { if (harita) harita.getCanvas().style.cursor = ""; });
+}
+
+function gelKatmanGorunurluk(gorünür: boolean) {
+  if (!harita) return;
+  const vis = gorünür ? "visible" : "none";
+  if (harita.getLayer("gelisen-circle")) harita.setLayoutProperty("gelisen-circle", "visibility", vis);
+  if (harita.getLayer("gelisen-label"))  harita.setLayoutProperty("gelisen-label",  "visibility", vis);
+}
+
+async function gelToggle() {
+  if (!harita) return;
+  if (gelVerisi.length === 0) {
+    try {
+      gelVerisi = await gelVerisiCek();
+      gelKatmanEkle(gelVerisi);
+    } catch (e) {
+      console.warn("[gelisen-bolgeler] veri alınamadı:", e);
+      return;
+    }
+  } else {
+    gelKatmanEkle(gelVerisi);
+  }
+  gelAcik = true;
+  gelKatmanGorunurluk(true);
 }
 
 function fiyatLegendGuncelle() {
@@ -957,17 +1128,25 @@ function layerEkleVeyaGuncelle(maxSayi: number) {
     maxzoom: 16,
     paint: {
       "heatmap-weight": ["interpolate", ["linear"], ["get", "sayi"], 0, 0, max, 1],
-      "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 10, 1.5, 16, 3],
+      "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 10, 1.2, 15, 2],
       "heatmap-color": [
         "interpolate", ["linear"], ["heatmap-density"],
         0,    "rgba(255,254,179,0)",
         0.15, "rgba(255,254,179,0.55)",
-        0.4,  "rgba(253,174,97,0.78)",
-        0.7,  "rgba(240,59,32,0.88)",
+        0.40, "rgba(253,174,97,0.78)",
+        0.70, "rgba(240,59,32,0.88)",
         1,    "rgba(189,0,38,0.96)",
       ],
-      "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 7, 10, 20, 16, 45],
-      "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0.85, 16, 0.2],
+      // Yakınlaştırınca radius AZALIR — noktalar daralır, konumlar netleşir
+      "heatmap-radius": [
+        "interpolate", ["linear"], ["zoom"],
+        5,  20,   // uzakta geniş
+        8,  14,   // orta
+        11, 10,   // yakın
+        14,  6,   // parsel zoom
+        16,  4,   // tam yakın — sıkı nokta
+      ],
+      "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.85, 15, 0.15],
     },
   });
 
@@ -1618,7 +1797,8 @@ export async function initHarita() {
     const link = document.createElement("link");
     link.id = "maplibre-css";
     link.rel = "stylesheet";
-    link.href = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css";
+    // jsDelivr daha kararlı — unpkg zaman zaman yavaş
+    link.href = "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css";
     document.head.appendChild(link);
   }
 
@@ -1698,6 +1878,25 @@ export async function initHarita() {
     const btn = (e.target as HTMLElement).closest("[data-katman]") as HTMLElement | null;
     if (!btn?.dataset["katman"]) return;
     void katmanToggle(btn.dataset["katman"]);
+  });
+
+  // ── Gelişen Bölgeler katman toggle ───────────────────────────────────────
+  const gelBtn = document.getElementById("gelisen-katman-btn") as HTMLButtonElement | null;
+
+  gelBtn?.addEventListener("click", async () => {
+    const acik = gelBtn.getAttribute("aria-pressed") === "true";
+    if (acik) {
+      gelBtn.setAttribute("aria-pressed", "false");
+      gelBtn.classList.remove("bg-slate-600", "text-white", "border-emerald-400");
+      gelBtn.classList.add("text-slate-400");
+      gelAcik = false;
+      gelKatmanGorunurluk(false);
+    } else {
+      gelBtn.setAttribute("aria-pressed", "true");
+      gelBtn.classList.add("bg-slate-600", "text-white", "border-emerald-400");
+      gelBtn.classList.remove("text-slate-400");
+      await gelToggle();
+    }
   });
 
   // ── Fiyat choropleth toggle ──────────────────────────────────────────────

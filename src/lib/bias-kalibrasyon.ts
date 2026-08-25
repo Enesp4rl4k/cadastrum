@@ -10,7 +10,8 @@
  * Fallback: hata varsa carpan = 1.0 (no-op).
  */
 
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API } from "./api-constants";
+const API_BASE = BACKEND_API;
 const CACHE_KEY = "biasKalibrasyonCache";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 

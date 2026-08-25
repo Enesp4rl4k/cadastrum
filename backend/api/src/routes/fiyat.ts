@@ -222,6 +222,14 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
      ORDER BY il_norm`,
   ).bind(kategori).all<{ il_norm: string; medyan: number; ilan_adet: number }>();
 
+  // PERF: O(n²)'den O(n)'e — ai lookup önceden Map'e alındı.
+  // Eski: her ilNorm için aiRows.results.find() → 81 il × N mahalle = yüzlerce karşılaştırma.
+  // Yeni: aiRows tek geçişte Map'e alınır, lookup O(1).
+  const aiMap = new Map<string, { medyan: number; ilan_adet: number }>();
+  for (const r of (aiRows.results ?? [])) {
+    aiMap.set(r.il_norm, { medyan: r.medyan, ilan_adet: r.ilan_adet });
+  }
+
   const sonuc: Array<{
     il_norm: string;
     medyan: number;
@@ -229,18 +237,15 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
     kaynak: "ilan" | "ai-baseline";
   }> = [];
 
-  // Merge: ilan verisi varsa önce o, yoksa AI
-  const tumIller = new Set([
-    ...ilanMap.keys(),
-    ...(aiRows.results ?? []).map(r => r.il_norm),
-  ]);
+  // Merge: ilan verisi varsa önce o (≥5 ilan), yoksa AI baseline
+  const tumIller = new Set([...ilanMap.keys(), ...aiMap.keys()]);
 
   for (const ilNorm of tumIller) {
     const ilan = ilanMap.get(ilNorm);
     if (ilan && ilan.ilan_adet >= 5) {
       sonuc.push({ il_norm: ilNorm, medyan: Math.round(ilan.medyan), ilan_adet: ilan.ilan_adet, kaynak: "ilan" });
     } else {
-      const ai = (aiRows.results ?? []).find(r => r.il_norm === ilNorm);
+      const ai = aiMap.get(ilNorm);
       if (ai && ai.medyan > 0) {
         sonuc.push({ il_norm: ilNorm, medyan: Math.round(ai.medyan), ilan_adet: ai.ilan_adet, kaynak: "ai-baseline" });
       }

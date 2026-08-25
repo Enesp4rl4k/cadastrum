@@ -29,7 +29,7 @@ import { publicApiRoutes } from "./routes/public-api.js";
 import { proxyRoutes } from "./routes/proxy.js";
 import { scraperRoutes, scraperRunBaslat, emlakjetCronBaslat } from "./routes/scraper.js";
 import { emailGonder } from "./routes/auth.js";
-import { istatistikRefresh } from "./routes/istatistik.js";
+import { istatistikRefresh, ilanArchiveEt } from "./routes/istatistik.js";
 import { validationRoutes } from "./routes/validation.js";
 import { authRoutes } from "./routes/auth.js";
 import { hesapRoutes } from "./routes/hesap.js";
@@ -43,8 +43,17 @@ import { tcmbRoutes } from "./routes/tcmb.js";
 import { raporRoutes } from "./routes/rapor.js";
 import { telemetriRoutes } from "./routes/telemetri.js";
 import { haritaRoutes } from "./routes/harita.js";
+import { seedRoutes } from "./routes/seed.js";
+import { ajan as ajanRoutes } from "./routes/ai-ajan.js";
+import { portfoyRoutes } from "./routes/portfoy.js";
+import { endeksRoutes } from "./routes/endeks.js";
+import { uyduRoutes } from "./routes/uydu.js";
+import { apiV2Routes } from "./routes/api-v2.js";
+import { takipRoutes, parselTakipCalistir } from "./routes/takip.js";
 import { rateLimitMiddleware, rateLimitTemizle } from "./lib/rate-limit.js";
 import { bearerYetkilendir, cspHeader } from "./lib/security.js";
+import { pipelineHealthKontrol, pipelineAlarmEmailGonder } from "./routes/pipeline-health.js";
+import { sentryMiddleware } from "./lib/sentry.js";
 
 export interface Env {
   DB: D1Database;
@@ -68,7 +77,35 @@ export interface Env {
   ENVIRONMENT: string;
 }
 
-const app = new Hono<{ Bindings: Env }>();
+/**
+ * Hono context Variables — JWT middleware tarafından set edilen değerler.
+ * jwtMiddleware (hesap.ts) bu alanları c.set() ile yazar;
+ * route handler'lar c.get() ile okur.
+ *
+ * Bu tip tanımı sayesinde tüm route dosyalarındaki `c.get("kullaniciId" as any)`
+ * kalıpları tip güvenli `c.get("kullaniciId")` hâline gelebilir.
+ * Mevcut `as any` cast'leri bu PR'da kaldırılmıyor (kapsam kontrolü),
+ * ancak yeni kod bu tipten yararlanabilir.
+ */
+export interface AppVariables {
+  kullaniciId: number;
+  tier: string;
+  jwtPayload: {
+    sub: number;
+    email: string;
+    tier: string;
+    adm?: number;
+    iat: number;
+    exp: number;
+  };
+  /** Admin route'larında set edilir */
+  adminId?: number;
+}
+
+export const app = new Hono<{ Bindings: Env }>();
+
+// Sentry hata izleme — SENTRY_DSN env var varsa etkinleşir, yoksa no-op
+app.use("/*", sentryMiddleware);
 
 // CORS — extension + Cloudflare Pages site + localhost dev
 // S4: null origin → reject (Postman/cURL'den gelince "*" dönmemeli)
@@ -89,7 +126,10 @@ app.use("/*", cors({
   },
   // DELETE/PATCH/PUT: hesap yönetimi ve gelecekteki CRUD endpoint'leri için gerekli.
   allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowHeaders: ["Content-Type", "Authorization"],
+  // Kurumsal Public API, tarayıcı istemcilerinden X-API-Key ile çağrılabiliyor.
+  // Bu başlık burada izinli değilse, geçerli anahtarı olan istek bile preflight'ta
+  // engellenir.
+  allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   maxAge: 86400,
 }));
 
@@ -99,6 +139,28 @@ app.use("/*", async (c, next) => {
   c.header("Content-Security-Policy", cspHeader());
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
+});
+
+// Standart 404 & Hata Yakalama (Unhandled Exception Guard)
+app.notFound((c) => {
+  return c.json({
+    success: false,
+    error: {
+      code: "NOT_FOUND",
+      message: `İstenen endpoint bulunamadı: ${c.req.method} ${c.req.path}`,
+    },
+  }, 404);
+});
+
+app.onError((err, c) => {
+  console.error(`[unhandled-error] ${c.req.method} ${c.req.path}:`, err);
+  return c.json({
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: c.env.ENVIRONMENT === "development" ? (err.message || String(err)) : "Sunucu hatası oluştu",
+    },
+  }, 500);
 });
 
 // Health check
@@ -207,182 +269,70 @@ app.route("/v1/newsletter", newsletterRoutes);
 app.route("/v1/tcmb", tcmbRoutes);
 
 // Paylaşılabilir yatırımcı raporu (public shareable link)
+// POST sıkı rate limit: rapor.ts içindeki middleware (5/saat) + global buradaki (30/saat)
+app.use("/v1/rapor", rateLimitMiddleware(30, "rapor"));
 app.route("/v1/rapor", raporRoutes);
 
 // Hata telemetrisi (observability — extension + backend runtime hataları)
 app.route("/v1/telemetri", telemetriRoutes);
 
-// Cron / manuel istatistik yenileme
-// S1: secret artık URL param değil, Authorization: Bearer header'ında
-// S3: timing-safe karşılaştırma
+// Cron / manuel istatistik yenileme (Bearer STATS_SECRET)
 app.post("/v1/istatistik/refresh", async (c) => {
   const yetki = await bearerYetkilendir(
     c.req.header("Authorization"),
     c.env.STATS_SECRET,
   );
-  if (!yetki) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
   const result = await istatistikRefresh(c.env.DB);
   return c.json(result);
 });
-// Backward-compat: eski GET + query param desteği kaldırıldı (güvenlik)
 
-// AI baseline seed — extension'ın yerel mahalle-baseline.ts'inin server kopyası
-// S3: timing-safe secret karşılaştırma
-app.post("/v1/baseline/seed", async (c) => {
+// Pipeline health check (Bearer STATS_SECRET)
+app.get("/v1/admin/pipeline-health", async (c) => {
   const yetki = await bearerYetkilendir(
     c.req.header("Authorization"),
-    c.env.SEED_SECRET,
+    c.env.STATS_SECRET,
   );
-  if (!yetki) {
-    return c.json({ error: "Unauthorized" }, 401);
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const sonuc = await pipelineHealthKontrol(c.env.DB);
+  if (c.req.query("email") === "1" && !sonuc.saglikli) {
+    sonuc.emailGonderildi = await pipelineAlarmEmailGonder(c.env, sonuc);
   }
-  const body = await c.req.json<{ rows: Array<{
-    il_norm: string; ilce_norm: string; mahalle_norm: string; kategori: string;
-    tlm2: number; guven?: number; kaynak?: string; yakalandi?: number;
-  }> }>().catch(() => null);
-  if (!body?.rows || !Array.isArray(body.rows)) {
-    return c.json({ error: "Geçersiz body" }, 400);
-  }
-  let inserted = 0;
-  for (const r of body.rows) {
-    if (!r.il_norm || !r.ilce_norm || !r.mahalle_norm || !r.kategori || !r.tlm2 || r.tlm2 <= 0) continue;
-    try {
-      await c.env.DB.prepare(
-        `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(il_norm, ilce_norm, mahalle_norm, kategori) DO UPDATE SET
-           tlm2 = excluded.tlm2, guven = excluded.guven, kaynak = excluded.kaynak, yakalandi = excluded.yakalandi`,
-      ).bind(
-        r.il_norm, r.ilce_norm, r.mahalle_norm, r.kategori,
-        r.tlm2, r.guven ?? 30, r.kaynak ?? "knn-smoothing", r.yakalandi ?? Date.now(),
-      ).run();
-      inserted++;
-    } catch {
-      // Skip malformed rows
-    }
-  }
-  return c.json({ inserted, requested: body.rows.length });
+  return c.json(sonuc, sonuc.saglikli ? 200 : 503);
 });
 
-/**
- * POST /v1/ilan/batch-seed
- * Emlakjet manuel scrape çıktısını (emlakjet-data-turkiye.sql içindeki ilanları)
- * JSON chunk'lar halinde D1'a yükler.
- *
- * Neden gerekli:
- *   wrangler d1 execute --file=emlakjet-data-turkiye.sql bazen timeout veya
- *   boyut limitine takılıyor. Bu endpoint chunk'larla göndermeyi sağlar.
- *
- * Body: {
- *   rows: Array<{
- *     ilan_no: string;       // "ej_12345678"
- *     il_norm: string;
- *     ilce_norm: string;
- *     mahalle_norm?: string | null;
- *     fiyat_per_m2: number;
- *     m2?: number | null;
- *     kategori: string;      // "arsa" | "tarla"
- *     lat?: number | null;
- *     lng?: number | null;
- *   }>;
- * }
- * Auth: Bearer SEED_SECRET
- * Max rows per request: 500 (D1 batch limit için güvenli)
- */
-const GECERLI_ILAN_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik"]);
+// AI Ajan — Fırsat Avcısı + Portföy Optimizasyonu + Bölge Analizi (JWT auth, Gemini)
+app.use("/v1/ai-ajan/firsat",         rateLimitMiddleware(10, "ai-ajan-firsat"));
+app.use("/v1/ai-ajan/portfoy-optimize", rateLimitMiddleware(5, "ai-ajan-portfoy")); // DB-heavy
+app.use("/v1/ai-ajan/bolge-analiz",   rateLimitMiddleware(20, "ai-ajan-bolge")); // hafif
+app.route("/v1/ai-ajan", ajanRoutes);
 
-app.post("/v1/ilan/batch-seed", async (c) => {
-  const yetki = await bearerYetkilendir(
-    c.req.header("Authorization"),
-    c.env.SEED_SECRET,
-  );
-  if (!yetki) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+// Portföy — sunucu taraflı kayıtlı parsel listesi (JWT, Pro tier için sınırsız)
+app.use("/v1/portfoy/*", rateLimitMiddleware(60, "portfoy"));
+app.route("/v1/portfoy", portfoyRoutes);
 
-  const body = await c.req.json<{
-    rows: Array<{
-      ilan_no: string;
-      il_norm: string;
-      ilce_norm: string;
-      mahalle_norm?: string | null;
-      fiyat_per_m2: number;
-      m2?: number | null;
-      kategori: string;
-      lat?: number | null;
-      lng?: number | null;
-    }>;
-  }>().catch(() => null);
+// Uydu görüntü & AI analizi (Copernicus + Gemini Vision)
+app.use("/v1/uydu/*", rateLimitMiddleware(10, "uydu"));
+app.route("/v1/uydu", uyduRoutes);
 
-  if (!body?.rows || !Array.isArray(body.rows)) {
-    return c.json({ error: "Geçersiz body — rows dizisi gerekli" }, 400);
-  }
-  if (body.rows.length > 500) {
-    return c.json({ error: "Maksimum 500 satır/istek. Chunk'layarak gönderin." }, 400);
-  }
+// Cadastrum Fiyat Endeksi — public, rate limit 30/saat
+app.route("/v1/api/endeks", endeksRoutes);
 
-  const ts = Date.now();
-  let inserted = 0;
-  let skipped = 0;
-  let hatali = 0;
+// Kurumsal API v2 — POST /v2/degerle, /v2/batch, GET /v2/batch/:id
+// X-API-Key zorunlu (cdrm_ prefix), token bazlı rate limit
+app.use("/v2/degerle", rateLimitMiddleware(60, "api-v2-degerle"));
+app.use("/v2/batch",   rateLimitMiddleware(5, "api-v2-batch"));
+app.route("/v2", apiV2Routes);
 
-  for (const r of body.rows) {
-    // Zorunlu alan kontrolü
-    if (
-      !r.ilan_no || typeof r.ilan_no !== "string" || r.ilan_no.length > 50 ||
-      !r.il_norm || typeof r.il_norm !== "string" || r.il_norm.length > 50 ||
-      !r.ilce_norm || typeof r.ilce_norm !== "string" || r.ilce_norm.length > 50 ||
-      !r.kategori || !GECERLI_ILAN_KATEGORI.has(r.kategori) ||
-      typeof r.fiyat_per_m2 !== "number" || r.fiyat_per_m2 <= 0 || r.fiyat_per_m2 > 1_000_000_000
-    ) {
-      hatali++;
-      continue;
-    }
+// Parsel değişiklik takibi (JWT zorunlu)
+app.use("/v1/takip/*", rateLimitMiddleware(30, "takip"));
+app.route("/v1/takip", takipRoutes);
 
-    // Koordinat sınır kontrolü (Türkiye bbox)
-    const lat = r.lat ?? null;
-    const lng = r.lng ?? null;
-    if (lat !== null && (lat < 35 || lat > 43)) { hatali++; continue; }
-    if (lng !== null && (lng < 25 || lng > 46)) { hatali++; continue; }
-
-    try {
-      const result = await c.env.DB.prepare(
-        `INSERT OR IGNORE INTO ilanlar
-         (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
-          fiyat_per_m2, m2, kategori, para_birimi, yakalanma_tarihi,
-          lat, lng, koord_kaynagi, aktif)
-         VALUES ('emlakjet', ?, ?, ?, ?, ?, ?, ?, 'TL', ?, ?, ?, ?, 1)`,
-      ).bind(
-        r.ilan_no,
-        r.il_norm,
-        r.ilce_norm,
-        r.mahalle_norm ?? null,
-        r.fiyat_per_m2,
-        r.m2 ?? null,
-        r.kategori,
-        ts,
-        lat,
-        lng,
-        lat !== null ? "mahalle-merkez" : null,
-      ).run();
-      // INSERT OR IGNORE: changes=0 ise zaten vardı (skip)
-      if ((result.meta.changes ?? 0) > 0) inserted++;
-      else skipped++;
-    } catch {
-      hatali++;
-    }
-  }
-
-  return c.json({
-    ok: true,
-    requested: body.rows.length,
-    inserted,
-    skipped,
-    hatali,
-  });
-});
+// Seed & istatistik endpoint'leri — routes/seed.ts (SRP refactor)
+// /v1/baseline/seed   POST  → AI mahalle baseline yükle
+// /v1/ilan/batch-seed POST  → Emlakjet toplu ilan yükle
+// /v1/istatistik/sayim GET  → D1 sayım raporu
+app.route("/v1", seedRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 app.onError((err, c) => {
@@ -409,7 +359,27 @@ export default {
         const r = await istatistikRefresh(env.DB);
         console.log("[cron-daily] istatistik:", r);
 
-        // 2) rate_limit tablosu temizliği (48 saatten eski satırlar)
+        // 2) Pipeline health check — D1 satır sayısı kontrol + alarm email
+        try {
+          const health = await pipelineHealthKontrol(env.DB);
+          console.log("[cron-daily] pipeline-health:", health.saglikli ? "OK" : `ALARM (${health.alarmSayisi} kontrol başarısız)`);
+          if (!health.saglikli) {
+            const emailGonderildi = await pipelineAlarmEmailGonder(env, health);
+            console.log("[cron-daily] alarm email:", emailGonderildi ? "gönderildi" : "gönderilemedi");
+          }
+        } catch (e) {
+          console.error("[cron-daily] pipeline-health hatası:", e);
+        }
+
+        // 2) İlan archive — 18 ay+ eski ilanları archive_ilanlar'a taşı
+        try {
+          const ar = await ilanArchiveEt(env.DB);
+          console.log("[cron-daily] ilan-archive:", ar.tasınan, "satır taşındı,", ar.sure_ms, "ms");
+        } catch (e) {
+          console.error("[cron-daily] ilan-archive hatası:", e);
+        }
+
+        // 3) rate_limit tablosu temizliği (48 saatten eski satırlar)
         const rl = await rateLimitTemizle(env.DB);
         console.log("[cron-daily] rate_limit temizlendi:", rl);
 
@@ -502,6 +472,20 @@ export default {
         // İstatistikleri hemen güncelle
         const ist = await istatistikRefresh(env.DB);
         console.log("[cron-emlakjet] istatistik refresh:", ist);
+      })());
+    } else if (cron === "0 4 1 * *") {
+      // Aylık Cadex Fiyat Endeksi hesaplama — ayın 1'i 04:00 UTC
+      ctx.waitUntil((async () => {
+        const { endeksHesapla } = await import("./routes/endeks.js");
+        const r = await endeksHesapla(env.DB);
+        console.log("[cron-endeks] hesaplandi:", r.hesaplanan, "satır");
+      })());
+    } else if (cron === "0 5 * * 1") {
+      // Haftalık parsel polygon takip — Pazartesi 05:00 UTC
+      ctx.waitUntil((async () => {
+        const baseUrl = "https://cadastrum-api.cadastrum-tr.workers.dev";
+        const r = await parselTakipCalistir(env, baseUrl, 100);
+        console.log("[cron-haftalik] parsel-takip:", r);
       })());
     } else {
       console.warn("[cron] beklenmeyen schedule:", cron);

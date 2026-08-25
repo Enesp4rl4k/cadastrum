@@ -192,7 +192,7 @@ export async function cevreAnaliziGetir(
   if (!data) {
     if (bosData) {
       data = bosData;
-      console.warn(`[arsa-overpass] tüm mirror'lar boş döndü — bölge gerçekten seyrek olabilir (${lastError})`);
+      // Tüm mirror'lar boş döndü — bölge seyrek olabilir, boş data ile devam
     } else {
       throw new Error(`Overpass servisleri yanıt vermiyor (${lastError})`);
     }

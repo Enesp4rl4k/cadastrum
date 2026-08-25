@@ -52,7 +52,7 @@ export function AnalizTrend({
       const stamp = new Date().toISOString().slice(0, 10);
       downloadBlob(blob, `tkgm-trend-ilce${ilceKodu}-${stamp}.png`);
     } catch (e) {
-      console.error(e);
+      // Sessiz başarısız — export kritik değil
     } finally {
       setExportLoading(false);
     }

@@ -109,24 +109,28 @@ export const IL_TASKIN: Record<string, TaskinBilgi> = {
   "usak":          { risk: "dusuk", not: "Ege iç" },
 };
 
-/** İl bazlı taşkın risk getir */
+/**
+ * İl bazlı taşkın risk getir.
+ * Bilinmeyen il → null döner (caller fiyata etki uygulamaz).
+ * Kasıtlı fallback yok — veri yoksa nötr kabul et, yanlış -%5 uygulamaktansa daha doğru.
+ */
 export function taskinRiskiGetir(ilNorm: string | null | undefined): TaskinBilgi | null {
   if (!ilNorm) return null;
-  return IL_TASKIN[ilNorm] ?? { risk: "orta", not: "Veri yok, orta varsayım" };
+  return IL_TASKIN[ilNorm] ?? null;
 }
 
 /**
  * Taşkın risk fiyat çarpanı.
  * Yüksek → -%5 (alıcı kaçınır)
- * Orta → -%1
- * Düşük → +%1 (premium)
+ * Orta  → nötr (1.0) — taşkın riski listing fiyatına zaten yansımış varsayımı
+ * Düşük → +%1 (düşük risk bölgesi hafif premi)
  */
 export function taskinCarpani(risk: TaskinRiski | null): number {
   if (!risk) return 1.0;
   const map: Record<TaskinRiski, number> = {
     "yuksek": 0.95,
-    "orta": 0.99,
-    "dusuk": 1.01,
+    "orta":   1.00,
+    "dusuk":  1.01,
   };
   return map[risk];
 }

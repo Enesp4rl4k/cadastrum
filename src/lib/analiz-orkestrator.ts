@@ -45,15 +45,17 @@ export function ilerlemeYuzde(ilerleme: AnalizIlerleme): number {
 
 /** Tüm katmanların beklenen listesi — statik tanım */
 export const KATMAN_TANIMLARI: Omit<KatmanBilgi, "durum" | "sure">[] = [
-  { id: "tkgm",        ad: "Parsel Bilgisi",        ikon: "🗺️" },
-  { id: "eplan",       ad: "İmar Durumu",            ikon: "📋" },
-  { id: "osm",         ad: "Çevre & POI",            ikon: "📍" },
-  { id: "egim",        ad: "Eğim & Yükseklik",       ikon: "⛰️" },
-  { id: "deprem",      ad: "Deprem Riski",            ikon: "🌍" },
-  { id: "taskin",      ad: "Taşkın & Sel",            ikon: "💧" },
-  { id: "heyelan",     ad: "Heyelan Duyarlılık",      ikon: "🏔️" },
-  { id: "milli-emlak", ad: "Milli Emlak İhaleleri",   ikon: "🏛️" },
-  { id: "fiyat",       ad: "Fiyat Tahmini",           ikon: "💰" },
+  { id: "tkgm",         ad: "Parsel Bilgisi",          ikon: "🗺️" },
+  { id: "eplan",        ad: "İmar Durumu",              ikon: "📋" },
+  { id: "osm",          ad: "Çevre & POI",              ikon: "📍" },
+  { id: "egim",         ad: "Eğim & Yükseklik",         ikon: "⛰️" },
+  { id: "deprem",       ad: "Deprem Riski",              ikon: "🌍" },
+  { id: "taskin",       ad: "Taşkın & Sel",              ikon: "💧" },
+  { id: "heyelan",      ad: "Heyelan Duyarlılık",        ikon: "🏔️" },
+  { id: "arazi",        ad: "Arazi Örtüsü",              ikon: "🌿" },
+  { id: "hava",         ad: "Hava Kalitesi",             ikon: "🌬️" },
+  { id: "milli-emlak",  ad: "Milli Emlak İhaleleri",     ikon: "🏛️" },
+  { id: "fiyat",        ad: "Fiyat Tahmini",             ikon: "💰" },
 ];
 
 /**

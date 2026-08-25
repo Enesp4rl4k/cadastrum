@@ -16,7 +16,7 @@ import { tumSkorlariHesapla, type Skor, type SkorBilinmiyor } from "./skor";
 import { riskOzetSkoru, type RiskUyarisi, type RiskSeviye } from "./risk-uyarilari";
 
 /** Backend shareable-link API tabanı (paylaş butonu buraya POST eder). */
-const RAPOR_API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API as RAPOR_API_BASE } from "./api-constants";
 /** Büyüme döngüsü: paylaşılan rapor → markalı CTA → site → kurulum. */
 const SITE_URL = "https://cadastrum.com.tr";
 const ESRI_IMAGERY =

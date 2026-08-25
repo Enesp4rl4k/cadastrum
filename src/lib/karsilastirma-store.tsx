@@ -13,7 +13,10 @@ import type { Parsel } from "../types/tkgm";
 import type { EPlanImarVerisi } from "./eplan";
 import type { FiyatTahmini } from "./fiyat-tahmin";
 
+/** Karşılaştırma modu: max 3 parsel yan yana */
 export const MAX_KARSILASTIRMA = 3;
+/** Portföy modu: max 10 parsel, tablo görünümü */
+export const MAX_PORTFOY = 10;
 
 export interface KarsilastirmaKayit {
   /** Benzersiz key — mahalle:ada:parsel */

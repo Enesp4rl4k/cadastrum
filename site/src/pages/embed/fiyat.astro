@@ -1,0 +1,465 @@
+---
+/**
+ * /embed/fiyat — iframe-friendly fiyat widget'ı (SSG + client-side fetch)
+ *
+ * Kullanım:
+ *   <iframe
+ *     src="https://cadastrum.com.tr/embed/fiyat?il=istanbul&ilce=besiktas&mahalle=levent"
+ *     width="340" height="220" frameborder="0" style="border:none;border-radius:12px">
+ *   </iframe>
+ *
+ * Query parametreleri:
+ *   il       — İl adı (zorunlu)
+ *   ilce     — İlçe adı (zorunlu)
+ *   mahalle  — Mahalle adı (opsiyonel — daha hassas sonuç)
+ *   kategori — arsa | tarla | konut (varsayılan: arsa)
+ *   tema     — light | dark (varsayılan: light)
+ *   link     — 0 = "cadastrum.com.tr" bağlantısını gizle (varsayılan: 1)
+ *
+ * API response mapping:
+ *   /v1/fiyat/mahalle → { medyan, q1, q3, ilan_adet, son_guncelleme, trend[] }
+ *   /v1/fiyat/ilce    → { medyan, q1, q3, ilan_adet, son_guncelleme, mahalleler[] }
+ */
+
+export const prerender = true;
+---
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastrum Fiyat Widget</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #ffffff;
+      --border:     #e2e8f0;
+      --text:       #0f172a;
+      --muted:      #94a3b8;
+      --subtle:     #f8fafc;
+      --accent:     #1B2A4A;
+      --accent-lt:  #EEF1F8;
+      --blue:       #2563eb;
+      --green:      #16a34a;
+      --red:        #dc2626;
+      --badge-bg:   #eff6ff;
+      --badge-tx:   #1d4ed8;
+      --bar-bg:     #e2e8f0;
+      --bar-fill:   #1B2A4A;
+    }
+
+    .dark {
+      --bg:         #0f172a;
+      --border:     #1e293b;
+      --text:       #f1f5f9;
+      --muted:      #64748b;
+      --subtle:     #0f172a;
+      --accent:     #60a5fa;
+      --accent-lt:  #1e3a5f;
+      --blue:       #60a5fa;
+      --green:      #4ade80;
+      --red:        #f87171;
+      --badge-bg:   #1e3a5f;
+      --badge-tx:   #93c5fd;
+      --bar-bg:     #1e293b;
+      --bar-fill:   #3b82f6;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .widget {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 160px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px 10px;
+      gap: 0;
+      background: var(--bg);
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .lokasyon {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--badge-bg);
+      color: var(--badge-tx);
+      border-radius: 20px;
+      padding: 2px 8px;
+      text-transform: capitalize;
+      white-space: nowrap;
+    }
+
+    /* ── Ana fiyat ── */
+    .fiyat-ana {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.025em;
+      line-height: 1;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .trend-ok {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .trend-ok.yukselis { color: var(--green); }
+    .trend-ok.dusus    { color: var(--red); }
+    .trend-ok.stabil   { color: var(--muted); }
+
+    .fiyat-altyazi {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── Q1/Q3 aralık çubuğu ── */
+    .aralik-wrap {
+      margin-bottom: 10px;
+    }
+    .aralik-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9.5px;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .aralik-bar {
+      position: relative;
+      height: 5px;
+      background: var(--bar-bg);
+      border-radius: 3px;
+      overflow: visible;
+    }
+    .aralik-fill {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: var(--bar-fill);
+      border-radius: 3px;
+      opacity: 0.35;
+    }
+    .aralik-medyan {
+      position: absolute;
+      top: -3px;
+      width: 3px;
+      height: 11px;
+      background: var(--accent);
+      border-radius: 2px;
+      transform: translateX(-50%);
+    }
+
+    /* ── Meta satır ── */
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 9.5px;
+      color: var(--muted);
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .meta-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .meta-dot.gercek  { background: var(--green); }
+    .meta-dot.ai      { background: #f59e0b; }
+    .meta-dot.eksik   { background: var(--muted); }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .footer-sol {
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .footer-link {
+      font-size: 9px;
+      color: var(--muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .footer-link:hover { text-decoration: underline; }
+
+    /* ── Loading / Error ── */
+    .merkez {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      padding: 8px;
+    }
+    .skeleton {
+      background: var(--border);
+      border-radius: 4px;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+  </style>
+</head>
+<body>
+  <div class="widget" id="widget">
+    <!-- Header -->
+    <div class="header">
+      <div class="lokasyon" id="lokasyon-el" title="">—</div>
+      <span class="badge" id="kategori-el">arsa</span>
+    </div>
+
+    <!-- İçerik — JS ile doldurulur -->
+    <div id="icerik" class="merkez">
+      <div class="skeleton" style="height:22px;width:130px;"></div>
+    </div>
+
+    <!-- Footer — her zaman görünür -->
+    <div class="footer" id="footer-el">
+      <span class="footer-sol" id="footer-tarih"></span>
+      <a id="footer-link" class="footer-link" href="https://cadastrum.com.tr/sorgu" target="_blank" rel="noopener noreferrer">
+        <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
+          <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+        </svg>
+        cadastrum.com.tr
+      </a>
+    </div>
+  </div>
+
+  <script>
+    import { PUBLIC_API_BASE } from "../../lib/config";
+
+    // ── Query parametreleri ──
+    const params    = new URLSearchParams(location.search);
+    const il        = (params.get("il")       ?? "").trim().toLowerCase();
+    const ilce      = (params.get("ilce")     ?? "").trim().toLowerCase();
+    const mahalle   = (params.get("mahalle")  ?? "").trim().toLowerCase();
+    const kategori  = params.get("kategori")  ?? "arsa";
+    const tema      = params.get("tema") === "dark" ? "dark" : "light";
+    const linkGoster = params.get("link") !== "0";
+
+    // ── Tema ──
+    if (tema === "dark") document.body.classList.add("dark");
+
+    // ── Lokasyon adı ──
+    function kap(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
+    const lokParts = [mahalle ? kap(mahalle) : null, kap(ilce), kap(il)].filter(Boolean);
+    const lokasyon = lokParts.join(", ") || "—";
+    const lokEl    = document.getElementById("lokasyon-el")!;
+    lokEl.textContent = lokasyon;
+    lokEl.title       = lokasyon;
+    document.getElementById("kategori-el")!.textContent = kategori;
+
+    // Footer link
+    if (!linkGoster) {
+      document.getElementById("footer-link")!.style.display = "none";
+    } else {
+      const sorguUrl = `https://cadastrum.com.tr/sorgu?il=${encodeURIComponent(il)}&ilce=${encodeURIComponent(ilce)}${mahalle ? `&mahalle=${encodeURIComponent(mahalle)}` : ""}&kategori=${encodeURIComponent(kategori)}`;
+      (document.getElementById("footer-link") as HTMLAnchorElement).href = sorguUrl;
+    }
+
+    // ── Format yardımcıları ──
+    function fmtTLm2(n: number): string {
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M ₺/m²`;
+      if (n >= 1_000)     return `${Math.round(n / 1_000)} bin ₺/m²`;
+      return `${n.toLocaleString("tr-TR")} ₺/m²`;
+    }
+    function fmtKisa(n: number): string {
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+      if (n >= 1_000)     return `${Math.round(n / 1_000)}K`;
+      return n.toLocaleString("tr-TR");
+    }
+    function fmtTarih(ts: number): string {
+      if (!ts) return "";
+      return new Date(ts).toLocaleDateString("tr-TR", { month: "short", year: "numeric" });
+    }
+
+    // ── Trend hesapla (son 2 ay varsa) ──
+    function trendHesapla(trend: Array<{ medyan: number }>): number | null {
+      if (!trend || trend.length < 2) return null;
+      const son = trend[trend.length - 1]!.medyan;
+      const once = trend[trend.length - 2]!.medyan;
+      if (!once) return null;
+      return Math.round(((son - once) / once) * 100);
+    }
+
+    // ── UI doldur ──
+    function uiDoldur(data: {
+      medyan: number;
+      q1?: number | null;
+      q3?: number | null;
+      ilan_adet?: number | null;
+      son_guncelleme?: number | null;
+      kaynak?: string;
+      trend?: Array<{ medyan: number }>;
+    }) {
+      const { medyan, q1, q3, ilan_adet, son_guncelleme, kaynak, trend } = data;
+      const icEl = document.getElementById("icerik")!;
+
+      // Trend ok
+      const trendYuzde = trendHesapla(trend ?? []);
+      let trendHtml = "";
+      if (trendYuzde !== null) {
+        const cls = trendYuzde > 2 ? "yukselis" : trendYuzde < -2 ? "dusus" : "stabil";
+        const sembol = trendYuzde > 2 ? "▲" : trendYuzde < -2 ? "▼" : "→";
+        trendHtml = `<span class="trend-ok ${cls}" title="Son ay değişim">${sembol} %${Math.abs(trendYuzde)}</span>`;
+      }
+
+      // Q1-Q3 bant çubuğu
+      let bantHtml = "";
+      if (q1 && q3 && q3 > q1) {
+        const MIN_VAL = q1 * 0.7;
+        const MAX_VAL = q3 * 1.3;
+        const range   = MAX_VAL - MIN_VAL;
+        const q1pct   = ((q1 - MIN_VAL) / range * 100).toFixed(1);
+        const q3pct   = ((q3 - MIN_VAL) / range * 100).toFixed(1);
+        const mpct    = ((medyan - MIN_VAL) / range * 100).toFixed(1);
+        const fillW   = (Number(q3pct) - Number(q1pct)).toFixed(1);
+
+        bantHtml = `
+          <div class="aralik-wrap">
+            <div class="aralik-label">
+              <span>${fmtKisa(q1)}</span>
+              <span style="color:var(--muted);font-size:9px">Fiyat aralığı (Q1–Q3)</span>
+              <span>${fmtKisa(q3)}</span>
+            </div>
+            <div class="aralik-bar">
+              <div class="aralik-fill" style="left:${q1pct}%;width:${fillW}%"></div>
+              <div class="aralik-medyan" style="left:${mpct}%"></div>
+            </div>
+          </div>`;
+      }
+
+      // Veri kaynağı dot
+      const kaynakDot = kaynak === "ilan-istatistik" || kaynak === "ilan"
+        ? `<span class="meta-dot gercek" title="Gerçek ilan verisi"></span>`
+        : kaynak === "ai-baseline" || kaynak === "ai-aggregate"
+          ? `<span class="meta-dot ai" title="AI tahmin"></span>`
+          : `<span class="meta-dot eksik"></span>`;
+
+      const ilanMetin = ilan_adet ? `${ilan_adet} ilan ·` : "";
+      const tarihMetin = son_guncelleme ? fmtTarih(son_guncelleme) : "";
+
+      icEl.className = ""; // .merkez kaldır
+      icEl.innerHTML = `
+        <div class="fiyat-ana">
+          ${fmtTLm2(medyan)}
+          ${trendHtml}
+        </div>
+        <div class="fiyat-altyazi">Medyan birim fiyat</div>
+        ${bantHtml}
+        <div class="meta">
+          ${kaynakDot}
+          <span>${ilanMetin} ${tarihMetin}</span>
+        </div>`;
+    }
+
+    // ── API fetch ──
+    async function yukle() {
+      if (!il || !ilce) {
+        document.getElementById("icerik")!.textContent = "il ve ilce parametresi zorunlu";
+        return;
+      }
+
+      try {
+        let apiUrl: string;
+        if (mahalle) {
+          apiUrl = `${PUBLIC_API_BASE}/fiyat/mahalle/${encodeURIComponent(il)}/${encodeURIComponent(ilce)}/${encodeURIComponent(mahalle)}?kategori=${encodeURIComponent(kategori)}`;
+        } else {
+          apiUrl = `${PUBLIC_API_BASE}/fiyat/ilce/${encodeURIComponent(il)}/${encodeURIComponent(ilce)}?kategori=${encodeURIComponent(kategori)}`;
+        }
+
+        const res = await fetch(apiUrl, { signal: AbortSignal.timeout(8_000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json() as {
+          medyan?: number | null;
+          q1?: number | null;
+          q3?: number | null;
+          ilan_adet?: number | null;
+          son_guncelleme?: number | null;
+          kaynak?: string;
+          trend?: Array<{ medyan: number }>;
+          // ilçe fallback — mahalleler listesi
+          mahalleler?: Array<{ medyan: number }>;
+        };
+
+        // ilçe endpoint medyan_tl_m2 değil, medyan döndürüyor
+        const medyan = data.medyan ?? null;
+
+        if (!medyan || medyan <= 0) {
+          document.getElementById("icerik")!.innerHTML =
+            `<span style="color:var(--muted)">Veri henüz yok</span>`;
+          return;
+        }
+
+        uiDoldur({
+          medyan,
+          q1:              data.q1             ?? null,
+          q3:              data.q3             ?? null,
+          ilan_adet:       data.ilan_adet      ?? null,
+          son_guncelleme:  data.son_guncelleme ?? null,
+          kaynak:          data.kaynak         ?? "bilinmiyor",
+          trend:           data.trend          ?? [],
+        });
+
+        // Footer tarih
+        const tarihEl = document.getElementById("footer-tarih");
+        if (tarihEl && data.son_guncelleme) {
+          tarihEl.textContent = `Güncelleme: ${fmtTarih(data.son_guncelleme)}`;
+        }
+
+      } catch (err) {
+        const isTimeout = err instanceof Error && err.name === "TimeoutError";
+        document.getElementById("icerik")!.innerHTML =
+          `<span style="color:var(--muted)">${isTimeout ? "Zaman aşımı" : "Bağlantı hatası"}</span>`;
+      }
+    }
+
+    void yukle();
+  </script>
+</body>
+</html>

@@ -10,15 +10,23 @@ import { LEMON_PRO_VARIANT, LEMON_PROPLUS_VARIANT } from "../lib/config";
 // Free tier CTA — launched ise Chrome Store, değilse kayıt
 const cwsUrl = LAUNCHED ? CHROME_STORE_URL : "/kayit";
 
-// LemonSqueezy checkout URL üret. Variant ID set edilmemişse /kayit'a düşer
-// (kullanıcı önce kayıt olur, sonra /hesap'tan upgrade alır).
+// LemonSqueezy checkout URL üret.
+// Variant ID set edilmemişse hesap oluşturma sayfasına yönlendir.
+// Not: Variant ID olmadan doğrudan checkout açılmaz — önce kayıt, sonra upgrade.
 const LEMON_STORE = "cadastrum"; // LemonSqueezy store slug
 function lemonUrl(variant: string): string {
-  if (!variant) return "/kayit?planlama=upgrade";
-  return `https://${LEMON_STORE}.lemonsqueezy.com/buy/${variant}?embed=1`;
+  if (!variant || variant.trim() === "") {
+    // Variant ID henüz eklenmemiş — kayıt sayfasına yönlendir
+    return "/kayit?planlama=upgrade&kaynak=fiyat";
+  }
+  // Embed checkout (popup) — daha iyi UX
+  return `https://${LEMON_STORE}.lemonsqueezy.com/buy/${variant}?embed=1&logo=0&discount=0`;
 }
 const PRO_URL = lemonUrl(LEMON_PRO_VARIANT);
 const PROPLUS_URL = lemonUrl(LEMON_PROPLUS_VARIANT);
+// Checkout aktif mi? (Variant ID varsa)
+const proCheckoutAktif = !!LEMON_PRO_VARIANT;
+const proplusCheckoutAktif = !!LEMON_PROPLUS_VARIANT;
 
 const tiers = [
   {
@@ -121,7 +129,7 @@ const sssKisa = [
 
 <Base
   title="Fiyatlandırma — Cadastrum"
-  description="Cadastrum tier'ları: ücretsiz başlangıç, Pro ₺299/ay, Pro+ ₺699/ay ve Kurumsal ₺4.999+. Yıllık 2 ay ücretsiz. 7 gün koşulsuz iade."
+  description="Cadastrum tier'ları: ücretsiz başlangıç, Pro ₺499/ay, Pro+ ₺999/ay ve Kurumsal ₺5.999+. Yıllık 2 ay ücretsiz. 7 gün deneme, iptal istediğinde."
 >
   <!-- Header -->
   <section class="border-b border-slate-100 bg-slate-50">

@@ -14,7 +14,7 @@ import {
 } from "./data/tucbs-wms-endpoints";
 import { kodIleSiniflandir } from "./data/tucbs-kullanim-kodlari";
 
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API as API_BASE } from "./api-constants";
 const CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Sorgulanacak WMS katmanları: renk + sit + endüstri */

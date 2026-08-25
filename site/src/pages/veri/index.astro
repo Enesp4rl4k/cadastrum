@@ -99,6 +99,81 @@ const ALL_ILLER = [
     </div>
   </section>
 
+  <!-- ══════════════════════════════════════
+       CADASTRUM FİYAT ENDEKSİ
+  ══════════════════════════════════════ -->
+  <section class="bg-white py-12 md:py-16 border-b border-slate-100">
+    <div class="max-w-6xl mx-auto px-4">
+
+      <!-- Başlık -->
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+        <div>
+          <div class="text-xs uppercase tracking-wider text-imperial-500 font-semibold mb-2">Piyasa Analizi</div>
+          <h2 class="font-display text-3xl md:text-4xl font-bold text-imperial-700">
+            Cadastrum Fiyat Endeksi
+          </h2>
+          <p class="text-slate-500 text-sm mt-1.5 max-w-xl">
+            Aylık güncellenen ilan verilerinden hesaplanan Türkiye geneli arsa/tarla fiyat eğrisi.
+            İlk nokta 100 kabul edilerek normalize edilir.
+          </p>
+        </div>
+
+        <!-- Kontroller -->
+        <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <!-- Kategori -->
+          <div class="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+            <button id="kat-arsa"  data-kat="arsa"  class="endeks-kat-btn px-3 py-1.5 bg-imperial text-white">Arsa</button>
+            <button id="kat-tarla" data-kat="tarla" class="endeks-kat-btn px-3 py-1.5 bg-white text-slate-500 hover:bg-slate-50">Tarla</button>
+            <button id="kat-konut" data-kat="konut" class="endeks-kat-btn px-3 py-1.5 bg-white text-slate-500 hover:bg-slate-50">Konut</button>
+          </div>
+          <!-- İl seçici -->
+          <select id="endeks-il-sec"
+            class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none focus:border-imperial">
+            <option value="">Türkiye Geneli</option>
+            <option value="istanbul">İstanbul</option>
+            <option value="ankara">Ankara</option>
+            <option value="izmir">İzmir</option>
+            <option value="antalya">Antalya</option>
+            <option value="mugla">Muğla</option>
+            <option value="bursa">Bursa</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Grafik konteyner -->
+      <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 md:p-6">
+
+        <!-- Skeleton / Grafik -->
+        <div id="endeks-grafik-wrap" class="relative w-full" style="min-height:240px">
+          <!-- Loading state -->
+          <div id="endeks-yukleniyor" class="flex items-center justify-center h-60 gap-3 text-slate-400 text-sm">
+            <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            Endeks verisi yükleniyor…
+          </div>
+          <!-- SVG grafik — JS ile doldurulur -->
+          <svg id="endeks-svg" class="hidden w-full" viewBox="0 0 800 260" preserveAspectRatio="none"
+               aria-label="Cadastrum fiyat endeksi çizgi grafiği" role="img">
+          </svg>
+          <!-- Boş state -->
+          <div id="endeks-bos" class="hidden flex items-center justify-center h-60 text-slate-400 text-sm">
+            Bu dönem için henüz veri yok.
+          </div>
+        </div>
+
+        <!-- Lejant satırı -->
+        <div id="endeks-lejant" class="flex flex-wrap items-center gap-4 mt-4 text-xs text-slate-500"></div>
+
+      </div>
+
+      <!-- KPI satırı — JS ile doldurulur -->
+      <div id="endeks-kpi" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4"></div>
+
+    </div>
+  </section>
+
   <!-- FEATURED CITIES -->
   <section class="bg-slate-50 py-12 md:py-16">
     <div class="max-w-6xl mx-auto px-4">
@@ -221,6 +296,306 @@ const ALL_ILLER = [
 </Base>
 
 <script>
+  import { PUBLIC_API_BASE } from "../../lib/config";
+
+  // ══════════════════════════════════════════════════════════════
+  // CADASTRUM FİYAT ENDEKSİ — grafik mantığı
+  // ══════════════════════════════════════════════════════════════
+
+  // Renkler — her seri için sabit palet
+  const SERI_RENKLER = ["#1B2A4A", "#2563eb", "#16a34a", "#d97706", "#9333ea"];
+
+  interface EndeksNokta {
+    donem: string;
+    yil: number;
+    ay: number;
+    medyan_tl_m2: number;
+    endeks: number | null;
+    ilan_adet: number;
+  }
+
+  interface EndeksData {
+    il: string | null;
+    kategori: string;
+    noktalar: EndeksNokta[];
+    baz_donem: string | null;
+    son_guncelleme: number;
+  }
+
+  // State
+  let aktifKategori = "arsa";
+  let aktifIl = "";
+  const endeksCache = new Map<string, EndeksData>();
+
+  function fmtTLm2(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M ₺/m²`;
+    if (n >= 1_000)     return `${Math.round(n / 1_000)}K ₺/m²`;
+    return `${n.toLocaleString("tr-TR")} ₺/m²`;
+  }
+
+  function ayAd(ay: number): string {
+    return ["", "Oca", "Şub", "Mar", "Nis", "May", "Haz",
+            "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"][ay] ?? String(ay);
+  }
+
+  async function endeksVeriCek(il: string, kategori: string): Promise<EndeksData | null> {
+    const cacheKey = `endeks:${il}:${kategori}`;
+    if (endeksCache.has(cacheKey)) return endeksCache.get(cacheKey)!;
+
+    const params = new URLSearchParams({ kategori });
+    if (il) params.set("il", il);
+    try {
+      const res = await fetch(`${PUBLIC_API_BASE}/api/endeks?${params}`, {
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as EndeksData;
+      endeksCache.set(cacheKey, data);
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  function svgCizgiGrafik(
+    konteyner: SVGSVGElement,
+    seriler: Array<{ noktalar: EndeksNokta[]; renk: string; etiket: string }>,
+  ) {
+    konteyner.innerHTML = "";
+
+    if (seriler.length === 0 || seriler[0]!.noktalar.length === 0) return;
+
+    const W = 800, H = 260, padL = 52, padR = 16, padT = 20, padB = 36;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    // Tüm endeks değerleri — min/max hesabı için
+    const tumDegerler = seriler.flatMap(s => s.noktalar.map(n => n.endeks ?? 0)).filter(Boolean);
+    if (tumDegerler.length === 0) return;
+
+    const minVal = Math.min(...tumDegerler) * 0.97;
+    const maxVal = Math.max(...tumDegerler) * 1.03;
+    const valRange = maxVal - minVal || 1;
+
+    // Tüm serilerdeki ortak zaman eksenini çıkar
+    const zamanlar = seriler[0]!.noktalar.map(n => n.donem);
+    const n = zamanlar.length;
+    if (n < 2) return;
+
+    // NS yardımcısı
+    const ns = "http://www.w3.org/2000/svg";
+    const el = (tag: string, attrs: Record<string, string | number>) => {
+      const e = document.createElementNS(ns, tag);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+      return e;
+    };
+
+    // Arka plan
+    konteyner.appendChild(el("rect", { x: 0, y: 0, width: W, height: H, fill: "#f8fafc", rx: 4 }));
+
+    // Y-ekseni grid + etiket
+    const ySteps = 5;
+    for (let i = 0; i <= ySteps; i++) {
+      const val = minVal + (valRange / ySteps) * i;
+      const y = padT + plotH - (i / ySteps) * plotH;
+      const grid = el("line", { x1: padL, y1: y, x2: padL + plotW, y2: y, stroke: "#e2e8f0", "stroke-width": 1 });
+      konteyner.appendChild(grid);
+      const txt = el("text", { x: padL - 5, y: y + 4, "text-anchor": "end", "font-size": 9, fill: "#94a3b8", "font-family": "Inter,sans-serif" });
+      txt.textContent = val.toFixed(0);
+      konteyner.appendChild(txt);
+    }
+
+    // X-ekseni etiketleri — her 2 ayda bir
+    const xStep = n > 1 ? plotW / (n - 1) : plotW;
+    seriler[0]!.noktalar.forEach((nokta, i) => {
+      if (i % 2 !== 0 && i !== n - 1) return;
+      const x = padL + i * xStep;
+      const txt = el("text", {
+        x, y: H - 6,
+        "text-anchor": "middle", "font-size": 9,
+        fill: "#94a3b8", "font-family": "Inter,sans-serif",
+      });
+      txt.textContent = `${ayAd(nokta.ay)} ${String(nokta.yil).slice(2)}`;
+      konteyner.appendChild(txt);
+    });
+
+    // 100 referans çizgisi
+    const ref100Y = padT + plotH - ((100 - minVal) / valRange) * plotH;
+    if (ref100Y > padT && ref100Y < padT + plotH) {
+      const refLine = el("line", { x1: padL, y1: ref100Y, x2: padL + plotW, y2: ref100Y, stroke: "#cbd5e1", "stroke-width": 1, "stroke-dasharray": "4 3" });
+      konteyner.appendChild(refLine);
+      const refTxt = el("text", { x: padL + 3, y: ref100Y - 3, "font-size": 8, fill: "#94a3b8", "font-family": "Inter,sans-serif" });
+      refTxt.textContent = "100";
+      konteyner.appendChild(refTxt);
+    }
+
+    // Her seri için çizgi + noktalar
+    seriler.forEach((seri) => {
+      if (seri.noktalar.length < 2) return;
+
+      const points = seri.noktalar.map((nokta, i) => {
+        const x = padL + i * xStep;
+        const val = nokta.endeks ?? 100;
+        const y = padT + plotH - ((val - minVal) / valRange) * plotH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+
+      // Gölge alanı (fill)
+      const ilkX = padL;
+      const sonX = padL + (n - 1) * xStep;
+      const altY = padT + plotH;
+      const fillPoints = `${ilkX},${altY} ${points} ${sonX},${altY}`;
+      const alan = el("polygon", {
+        points: fillPoints,
+        fill: seri.renk,
+        "fill-opacity": seriler.length === 1 ? "0.08" : "0.04",
+      });
+      konteyner.appendChild(alan);
+
+      // Çizgi
+      const polyline = el("polyline", {
+        points,
+        fill: "none",
+        stroke: seri.renk,
+        "stroke-width": 2.5,
+        "stroke-linejoin": "round",
+        "stroke-linecap": "round",
+      });
+      konteyner.appendChild(polyline);
+
+      // Noktalar — sadece son ve ilk nokta
+      [0, seri.noktalar.length - 1].forEach((i) => {
+        const nokta = seri.noktalar[i]!;
+        const x = padL + i * xStep;
+        const val = nokta.endeks ?? 100;
+        const y = padT + plotH - ((val - minVal) / valRange) * plotH;
+        konteyner.appendChild(el("circle", { cx: x, cy: y, r: 4, fill: "white", stroke: seri.renk, "stroke-width": 2 }));
+
+        // Değer etiketi — sadece son noktada
+        if (i === seri.noktalar.length - 1) {
+          const badge = el("text", {
+            x: x - 5, y: y - 8,
+            "text-anchor": "end", "font-size": 10,
+            fill: seri.renk, "font-weight": "700",
+            "font-family": "Inter,sans-serif",
+          });
+          badge.textContent = `${val.toFixed(1)}`;
+          konteyner.appendChild(badge);
+        }
+      });
+    });
+  }
+
+  function kpiDoldur(data: EndeksData) {
+    const el = document.getElementById("endeks-kpi");
+    if (!el || data.noktalar.length === 0) { if (el) el.innerHTML = ""; return; }
+
+    const son = data.noktalar[data.noktalar.length - 1]!;
+    const ilk = data.noktalar[0]!;
+    const degisim = ilk.medyan_tl_m2 > 0 ? ((son.medyan_tl_m2 - ilk.medyan_tl_m2) / ilk.medyan_tl_m2 * 100) : 0;
+    const degisimRenk = degisim > 0 ? "text-emerald-700" : degisim < 0 ? "text-red-700" : "text-slate-600";
+    const endeksDegisim = (son.endeks ?? 100) - 100;
+    const ayFarki = data.noktalar.length;
+
+    el.innerHTML = `
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500 mb-1">Son Medyan</div>
+        <div class="text-xl font-bold text-imperial-700">${fmtTLm2(son.medyan_tl_m2)}</div>
+        <div class="text-xs text-slate-400 mt-0.5">${ayAd(son.ay)} ${son.yil}</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500 mb-1">İlk Medyan</div>
+        <div class="text-xl font-bold text-slate-700">${fmtTLm2(ilk.medyan_tl_m2)}</div>
+        <div class="text-xs text-slate-400 mt-0.5">${ayAd(ilk.ay)} ${ilk.yil}</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500 mb-1">${ayFarki} Aylık Değişim</div>
+        <div class="text-xl font-bold ${degisimRenk}">
+          ${degisim >= 0 ? "+" : ""}${degisim.toFixed(1)}%
+        </div>
+        <div class="text-xs text-slate-400 mt-0.5">Endeks: ${endeksDegisim >= 0 ? "+" : ""}${endeksDegisim.toFixed(1)} puan</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500 mb-1">Toplam Veri</div>
+        <div class="text-xl font-bold text-slate-700">${son.ilan_adet.toLocaleString("tr-TR")}</div>
+        <div class="text-xs text-slate-400 mt-0.5">son ay ilan</div>
+      </div>`;
+  }
+
+  async function endeksGrafiginiGuncelle() {
+    const yukleniyorEl = document.getElementById("endeks-yukleniyor")!;
+    const svgEl = document.getElementById("endeks-svg") as SVGSVGElement | null;
+    const bosEl = document.getElementById("endeks-bos")!;
+    const lejantEl = document.getElementById("endeks-lejant")!;
+
+    yukleniyorEl.classList.remove("hidden");
+    svgEl?.classList.add("hidden");
+    bosEl.classList.add("hidden");
+
+    try {
+      const data = await endeksVeriCek(aktifIl, aktifKategori);
+
+      yukleniyorEl.classList.add("hidden");
+
+      if (!data || data.noktalar.length === 0) {
+        bosEl.classList.remove("hidden");
+        document.getElementById("endeks-kpi")!.innerHTML = "";
+        lejantEl.innerHTML = "";
+        return;
+      }
+
+      // Grafik çiz
+      if (svgEl) {
+        svgEl.classList.remove("hidden");
+        const ilAd = aktifIl ? aktifIl.charAt(0).toUpperCase() + aktifIl.slice(1) : "Türkiye Geneli";
+        svgCizgiGrafik(svgEl, [
+          { noktalar: data.noktalar, renk: SERI_RENKLER[0]!, etiket: ilAd },
+        ]);
+      }
+
+      // KPI
+      kpiDoldur(data);
+
+      // Lejant
+      const ilAd = aktifIl ? aktifIl.charAt(0).toUpperCase() + aktifIl.slice(1) : "Türkiye Geneli";
+      lejantEl.innerHTML = `
+        <span class="inline-flex items-center gap-1.5">
+          <span class="inline-block w-6 h-0.5 rounded" style="background:${SERI_RENKLER[0]}"></span>
+          <span class="font-medium text-slate-700">${ilAd}</span>
+        </span>
+        <span class="text-slate-400">·</span>
+        <span>Baz dönem: <strong>${data.baz_donem ?? "—"}</strong> = 100</span>
+        <span class="ml-auto text-slate-400">Kaynak: Cadastrum crowdsource + scraper</span>`;
+
+    } catch {
+      yukleniyorEl.classList.add("hidden");
+      bosEl.classList.remove("hidden");
+    }
+  }
+
+  // ── Kontrol event listener'ları ──
+  document.querySelectorAll<HTMLButtonElement>(".endeks-kat-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      aktifKategori = btn.dataset["kat"] ?? "arsa";
+      document.querySelectorAll<HTMLButtonElement>(".endeks-kat-btn").forEach((b) => {
+        const aktif = b.dataset["kat"] === aktifKategori;
+        b.className = aktif
+          ? "endeks-kat-btn px-3 py-1.5 bg-imperial text-white text-xs font-semibold"
+          : "endeks-kat-btn px-3 py-1.5 bg-white text-slate-500 hover:bg-slate-50 text-xs font-semibold";
+      });
+      void endeksGrafiginiGuncelle();
+    });
+  });
+
+  document.getElementById("endeks-il-sec")?.addEventListener("change", (e) => {
+    aktifIl = (e.target as HTMLSelectElement).value;
+    void endeksGrafiginiGuncelle();
+  });
+
+  // Sayfa yüklenince başlat
+  void endeksGrafiginiGuncelle();
+
+  // ══════════════════════════════════════════════════════════════
   // İl arama (client-side filter)
   const search = document.getElementById("il-search");
   const cards = document.querySelectorAll(".il-card");

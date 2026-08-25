@@ -17,6 +17,7 @@ import { db, type IlanGozlem } from "../../lib/db";
 import { fmtTLM2 } from "../../lib/fiyat-tahmin";
 import { normalizeYerAdi } from "../../lib/tkgm-api";
 import { Section } from "../ui/Card";
+import { havuzuKalifiyeEt, type KalifikasyonOzeti } from "../../lib/emsal-kalifikasyon";
 
 interface Props {
   parsel: Parsel;
@@ -29,11 +30,13 @@ interface Props {
 export function EmsalMukayeseKarti({ parsel }: Props) {
   const [mukayeseler, setMukayeseler] = useState<EmsalMukayese[] | null>(null);
   const [acikIdx, setAcikIdx] = useState<number | null>(null);
+  const [kalifikasyonOzeti, setKalifikasyonOzeti] = useState<KalifikasyonOzeti | null>(null);
 
   useEffect(() => {
     let iptal = false;
     (async () => {
       const ilceNorm = parsel.ilceAd ? normalizeYerAdi(parsel.ilceAd) : "";
+      const ilNorm = parsel.ilAd ? normalizeYerAdi(parsel.ilAd) : "_default";
       if (!ilceNorm) {
         if (!iptal) setMukayeseler([]);
         return;
@@ -44,13 +47,24 @@ export function EmsalMukayeseKarti({ parsel }: Props) {
         const kIlceNorm = k.ilceNorm ?? (k.ilceAd ? normalizeYerAdi(k.ilceAd) : "");
         return kIlceNorm === ilceNorm && k.fiyat != null && k.m2 != null;
       });
+
+      // Kalifikasyon özeti — kaç ilan elendi?
+      const tarımsalMi = /tarla|bahçe|bahce|bağ|bag|zeytin/iu.test(parsel.nitelik ?? "");
+      const { ozet: kOzet } = havuzuKalifiyeEt(
+        ilceyeUygun,
+        parsel.alan ?? 0,
+        ilNorm,
+        tarımsalMi ? "tarla" : "arsa",
+      );
+      if (!iptal) setKalifikasyonOzeti(kOzet);
+
       const top = topEmsallerSec(parsel, ilceyeUygun, 8);
       if (!iptal) setMukayeseler(top);
     })();
     return () => {
       iptal = true;
     };
-  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu, parsel.alan, parsel.nitelik, parsel.ilAd]);
 
   const ozet = useMemo(
     () => (mukayeseler && mukayeseler.length > 0 ? mukayeseOzet(mukayeseler) : null),
@@ -135,6 +149,24 @@ export function EmsalMukayeseKarti({ parsel }: Props) {
             <div className="mt-1.5 text-3xs text-slate-500 italic">
               Ortalama düzeltme: %{(ozet.ortalamaDuzeltmeYuzde * 100).toFixed(1)} (4 boyut bileşik)
             </div>
+          </div>
+        )}
+
+        {/* Kalifikasyon Özeti — kaç ilan elendi */}
+        {kalifikasyonOzeti && kalifikasyonOzeti.diskalifiye > 0 && (
+          <div className="rounded-md border border-amber-200 bg-amber-50/60 px-2.5 py-1.5 text-3xs dark:border-amber-800 dark:bg-amber-950/20">
+            <span className="font-medium text-amber-800 dark:text-amber-300">
+              ⚠️ {kalifikasyonOzeti.diskalifiye} ilan kalifikasyonu geçemedi
+            </span>
+            <span className="text-amber-700 dark:text-amber-400">
+              {" "}(toplam {kalifikasyonOzeti.toplam} ilandan {kalifikasyonOzeti.kabul} geçerli emsal).
+              {" "}
+              {Object.entries(kalifikasyonOzeti.diskalifikasyonDagilimi)
+                .sort(([, a], [, b]) => (Number(b) - Number(a)))
+                .slice(0, 2)
+                .map(([neden, sayi]) => `${neden}: ${sayi}`)
+                .join(", ")}
+            </span>
           </div>
         )}
 

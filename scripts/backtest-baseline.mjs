@@ -184,7 +184,7 @@ function yuzdelik(arr, p) {
 
 /** SQL'den ham ilanları (mahalle + segment + tlm2 + m2) parse et. */
 export function hamIlanlar() {
-  const re = /'(?:emlakjet|extension)','ej_[^']+','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)'/g;
+  const re = /'(?:emlakjet|extension)','ej_[^']+','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)','[^']+',(\d+)/g;
   const out = [];
   for (const p of SQL_DOSYALAR) {
     const metin = readFileSync(p, "utf8");
@@ -193,8 +193,9 @@ export function hamIlanlar() {
       const mah = m[3].trim();
       if (mah === "NULL") continue;
       const tlm2 = parseInt(m[4], 10), m2 = parseInt(m[5], 10);
+      const tarih = parseInt(m[7], 10) || 0;
       if (tlm2 < 100 || tlm2 > 5_000_000 || m2 < 50) continue;
-      out.push({ key: `${m[1]}__${m[2]}__${mah.replace(/^'|'$/g, "")}`, tlm2, m2, kategori: m[6] });
+      out.push({ key: `${m[1]}__${m[2]}__${mah.replace(/^'|'$/g, "")}`, tlm2, m2, kategori: m[6], tarih });
     }
   }
   return out;
@@ -238,11 +239,20 @@ export function mahalleIciLOO(segment, minIlan = 4) {
     const q1 = yuzdelik(tlm2ler, 0.25), q3 = yuzdelik(tlm2ler, 0.75), iqr = q3 - q1;
     const temiz = ilanlar.filter((i) => i.tlm2 >= q1 - 1.5 * iqr && i.tlm2 <= q3 + 1.5 * iqr);
     if (temiz.length < minIlan) continue;
+    
+    // Temporal Holdout: Eskilerle eğit, yenileri tahmin et
+    temiz.sort((a, b) => a.tarih - b.tarih);
+    const splitIdx = Math.max(1, Math.floor(temiz.length * 0.8)); // En az 1 train ilan olsun
+    const train = temiz.slice(0, splitIdx);
+    const test = temiz.slice(splitIdx);
+    
+    if (train.length === 0 || test.length === 0) continue;
+    
     mahalleSayi++;
-    for (let i = 0; i < temiz.length; i++) {
-      const kalan = temiz.filter((_, j) => j !== i).map((x) => x.tlm2);
-      const tahmin = median(kalan);
-      apeler.push(Math.abs(tahmin - temiz[i].tlm2) / temiz[i].tlm2);
+    const tahmin = median(train.map(x => x.tlm2));
+    
+    for (const t of test) {
+      apeler.push(Math.abs(tahmin - t.tlm2) / t.tlm2);
       ilanSayi++;
     }
   }
@@ -300,7 +310,7 @@ function main() {
     const r = mahalleIciLOO(segment);
     if (!r) { console.log(`[${segment}] yeterli çok-ilanlı mahalle yok.`); continue; }
     rapor.mahalleIci[segment] = r;
-    console.log(`🏘️  ${segment.toUpperCase()}  (${r.mahalleSayi} mahalle, ${r.ilanSayi} ilan LOO)`);
+    console.log(`🏘️  ${segment.toUpperCase()}  (${r.mahalleSayi} mahalle, ${r.ilanSayi} ilan Temporal Holdout)`);
     console.log(`   medyan APE %${r.medyanApe} | MAPE %${r.mape} | ±%10 içinde ${r.within10}% | ±%20 içinde ${r.within20}%\n`);
   }
 

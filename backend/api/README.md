@@ -11,7 +11,7 @@ GET  /v1/fiyat/ilce/:il/:ilce?kategori=arsa
 GET  /v1/fiyat/il/:il?kategori=arsa
 POST /v1/ilan          # Tek ilan kaydı (rate-limited: 100/saat/IP)
 POST /v1/ilan/batch    # Toplu (max 100, scraper Bearer auth ile)
-GET  /v1/istatistik/refresh?secret=XXX  # Manuel refresh
+POST /v1/istatistik/refresh             # Authorization: Bearer <STATS_SECRET>
 ```
 
 ## Lokal geliştirme
@@ -36,11 +36,18 @@ npm run db:create
 # 3. Schema yükle
 npm run db:migrate
 
-# 4. Secret kaydet (scraper batch auth için)
+# 4. Zorunlu secret'ları kaydet
 npx wrangler secret put SCRAPER_API_SECRET
-# Random string gir (örn: openssl rand -hex 32 ile üret)
+npx wrangler secret put SEED_SECRET
+npx wrangler secret put STATS_SECRET
+npx wrangler secret put JWT_SECRET
+# Her biri farklı, rastgele bir değer olmalı (örn. openssl rand -hex 32 ile üret).
 
-# 5. Deploy
+# 5. (Önerilir) yüksek trafikte KV rate limit etkinleştir
+npx wrangler kv:namespace create RATE_LIMIT_KV
+# Dönen gerçek id ile wrangler.toml'a [[kv_namespaces]] binding'ini ekle.
+
+# 6. Deploy
 npm run deploy
 # Output: https://cadastrum-api.<account>.workers.dev
 

@@ -298,10 +298,7 @@ export async function trendProjesyonGetir(
   mahalle: string,
   kategori: FiyatTrendi["kategori"] = "tum",
 ): Promise<TrendProjesyonSonuc | null> {
-  const API_BASE =
-    typeof chrome !== "undefined"
-      ? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"
-      : "/v1";
+  const { BACKEND_API: API_BASE } = await import("./api-constants");
 
   const ilNorm      = normalizeYerAdi(il) ?? "";
   const ilceNorm    = normalizeYerAdi(ilce) ?? "";

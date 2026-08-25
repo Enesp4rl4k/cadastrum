@@ -15,6 +15,73 @@ import { istatistikOzetiHesapla } from "../lib/istatistik.js";
 const PENCERE_GUN = 90;
 const GUN_MS = 86_400_000;
 
+/** 18 ay = 540 gün — bu kadar eski ilanlar archive_ilanlar'a taşınır */
+const ARCHIVE_GUN = 540;
+const ARCHIVE_BATCH = 500; // her cron'da max taşınan satır
+
+/**
+ * İlan archive işlemi — 18 aydan eski ilanları `archive_ilanlar`'a taşır.
+ * D1 row count'u kontrol altında tutar (~10M ücretsiz limit).
+ *
+ * Algoritma (güvenli):
+ *   1. archive_ilanlar mevcut mu kontrol et (migration uygulanmadıysa geç)
+ *   2. 18 ay öncesi ilanlardan ID listesi al (max ARCHIVE_BATCH)
+ *   3. INSERT INTO archive_ilanlar SELECT ... WHERE id IN (...)
+ *   4. DELETE FROM ilanlar WHERE id IN (...)
+ *   5. archive_log'a kayıt yaz
+ */
+export async function ilanArchiveEt(db: D1Database): Promise<{ tasınan: number; sure_ms: number }> {
+  const basladi = Date.now();
+  const sinir = basladi - ARCHIVE_GUN * GUN_MS;
+
+  try {
+    // 1. archive_ilanlar tablosu var mı?
+    const tablo = await db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='archive_ilanlar'`,
+    ).first<{ name: string }>();
+    if (!tablo) return { tasınan: 0, sure_ms: 0 };
+
+    // 2. Eski ilan ID'lerini al
+    const eskiler = await db.prepare(
+      `SELECT id FROM ilanlar WHERE yakalanma_tarihi < ? ORDER BY yakalanma_tarihi ASC LIMIT ?`,
+    ).bind(sinir, ARCHIVE_BATCH).all<{ id: number }>();
+
+    const idler = (eskiler.results ?? []).map((r) => r.id);
+    if (idler.length === 0) return { tasınan: 0, sure_ms: Date.now() - basladi };
+
+    const idPlaceholder = idler.map(() => "?").join(",");
+
+    // 3. archive_ilanlar'a kopyala
+    await db.prepare(
+      `INSERT OR IGNORE INTO archive_ilanlar
+         (id, kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2,
+          m2, para_birimi, kategori, imar_durumu, yakalanma_tarihi, ilan_tarihi, aktif, archive_tarihi)
+       SELECT id, kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2,
+              m2, para_birimi, kategori, imar_durumu, yakalanma_tarihi, ilan_tarihi, aktif, ?
+       FROM ilanlar WHERE id IN (${idPlaceholder})`,
+    ).bind(basladi, ...idler).run();
+
+    // 4. Kaynak tablodan sil
+    await db.prepare(
+      `DELETE FROM ilanlar WHERE id IN (${idPlaceholder})`,
+    ).bind(...idler).run();
+
+    const sureMs = Date.now() - basladi;
+
+    // 5. Log yaz (graceful — tablo yoksa sessizce geç)
+    await db.prepare(
+      `INSERT INTO archive_log (calistirilan, tasınan_adet, en_eski_id, sure_ms)
+       VALUES (?, ?, ?, ?)`,
+    ).bind(basladi, idler.length, idler[0] ?? null, sureMs).run().catch(() => {});
+
+    return { tasınan: idler.length, sure_ms: sureMs };
+  } catch (e) {
+    // archive_ilanlar tablosu oluşturulmamışsa sessizce geç
+    console.warn("[archive] hata (migration uygulanmadı mı?):", e instanceof Error ? e.message : String(e));
+    return { tasınan: 0, sure_ms: Date.now() - basladi };
+  }
+}
+
 export interface RefreshSonuc {
   basladi: number;
   bitti: number;
@@ -43,36 +110,46 @@ export async function istatistikRefresh(db: D1Database): Promise<RefreshSonuc> {
     db.prepare("DELETE FROM admin_log WHERE ts < ?").bind(basladi - 365 * 86_400_000).run().catch(() => {}),
   ]);
 
-  // 1. Aktif ilanları çek (90 gün penceresi)
-  const ilanlar = await db.prepare(
-    `SELECT il_norm, ilce_norm, mahalle_norm, kategori, fiyat_per_m2
-     FROM ilanlar
-     WHERE aktif = 1 AND yakalanma_tarihi >= ?`,
-  ).bind(minTarih).all<{
-    il_norm: string;
-    ilce_norm: string;
-    mahalle_norm: string | null;
-    kategori: string;
-    fiyat_per_m2: number;
-  }>();
+  // 1. İlleri çek (Chunking by province to prevent OOM)
+  const iller = await db.prepare(
+    `SELECT DISTINCT il_norm FROM ilanlar WHERE aktif = 1 AND yakalanma_tarihi >= ?`
+  ).bind(minTarih).all<{il_norm: string}>();
 
-  const tum = ilanlar.results ?? [];
-
-  // 2. Mahalle gruplaması
   type Group = Record<string, number[]>;
   const mahalleGrup: Group = {};
   const ilceGrup: Group = {};
   const ilGrup: Group = {};
+  let tumIlanSayisi = 0;
 
-  for (const r of tum) {
-    if (r.mahalle_norm) {
-      const k = `${r.il_norm}|${r.ilce_norm}|${r.mahalle_norm}|${r.kategori}`;
-      (mahalleGrup[k] ??= []).push(r.fiyat_per_m2);
+  for (const row of (iller.results ?? [])) {
+    const il = row.il_norm;
+    if (!il) continue;
+    
+    // Her il için ilanları ayrı ayrı çekiyoruz
+    const ilanlarIl = await db.prepare(
+      `SELECT ilce_norm, mahalle_norm, kategori, fiyat_per_m2
+       FROM ilanlar
+       WHERE aktif = 1 AND yakalanma_tarihi >= ? AND il_norm = ?`
+    ).bind(minTarih, il).all<{
+      ilce_norm: string;
+      mahalle_norm: string | null;
+      kategori: string;
+      fiyat_per_m2: number;
+    }>();
+
+    const ilanlarListe = ilanlarIl.results ?? [];
+    tumIlanSayisi += ilanlarListe.length;
+
+    for (const r of ilanlarListe) {
+      if (r.mahalle_norm) {
+        const k = `${il}|${r.ilce_norm}|${r.mahalle_norm}|${r.kategori}`;
+        (mahalleGrup[k] ??= []).push(r.fiyat_per_m2);
+      }
+      const ki = `${il}|${r.ilce_norm}|${r.kategori}`;
+      (ilceGrup[ki] ??= []).push(r.fiyat_per_m2);
+      const kil = `${il}|${r.kategori}`;
+      (ilGrup[kil] ??= []).push(r.fiyat_per_m2);
     }
-    const ki = `${r.il_norm}|${r.ilce_norm}|${r.kategori}`;
-    (ilceGrup[ki] ??= []).push(r.fiyat_per_m2);
-    const kil = `${r.il_norm}|${r.kategori}`;
-    (ilGrup[kil] ??= []).push(r.fiyat_per_m2);
   }
 
   const now = Date.now();
@@ -176,6 +253,6 @@ export async function istatistikRefresh(db: D1Database): Promise<RefreshSonuc> {
     mahalleAdet,
     ilceAdet,
     ilAdet,
-    toplamIlan: tum.length,
+    toplamIlan: tumIlanSayisi,
   };
 }

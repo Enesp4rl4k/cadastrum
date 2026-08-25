@@ -1,0 +1,39 @@
+{
+  "name": "@cadastrum/nexus-mcp",
+  "version": "0.1.0",
+  "description": "Intelligent, Self-Healing Model Context Protocol (MCP) Gateway and Proxy for AI Agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "nexus-mcp": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/cli.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "agentic-ai",
+    "self-healing",
+    "gateway",
+    "proxy",
+    "openapi"
+  ],
+  "author": "Cadastrum AI",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}

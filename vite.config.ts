@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react(), crx({ manifest })],
+  // Sentry opsiyonel bağımlılık — kurulmamışsa build warning'ini bastır
+  resolve: {
+    alias: {},
+  },
   define: {
     "import.meta.env.VITE_SCRAPING_ENABLED": JSON.stringify(scrapingEnabled ? "true" : "false"),
   },

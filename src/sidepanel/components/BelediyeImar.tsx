@@ -57,12 +57,35 @@ export function BelediyeImar({ ilAd, ilceAd, adaNo, parselNo, ePlanVerisi }: Pro
         />
       </div>
 
-      {ePlanVerisi && (
-        <div className="rounded border border-emerald-300 bg-emerald-50 p-1.5 text-[10px] text-emerald-900 dark:border-emerald-500/60 dark:bg-emerald-950/30 dark:text-emerald-200">
-          <div className="font-semibold">Resmi e-Plan özeti alındı</div>
-          <div className="mt-0.5">{ePlanOzet(ePlanVerisi)}</div>
-        </div>
-      )}
+      {ePlanVerisi && (() => {
+        const gunFarki = Math.floor((Date.now() - ePlanVerisi.yakalandiAt) / 86_400_000);
+        const eskiMi = gunFarki > 90;
+        const tarihStr = new Date(ePlanVerisi.yakalandiAt).toLocaleDateString("tr-TR", {
+          day: "numeric", month: "short", year: "numeric",
+        });
+        return (
+          <div className={`rounded border p-1.5 text-[10px] ${eskiMi
+            ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/60 dark:bg-amber-950/30 dark:text-amber-200"
+            : "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/60 dark:bg-emerald-950/30 dark:text-emerald-200"
+          }`}>
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="font-semibold">Resmi e-Plan özeti alındı</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${eskiMi
+                ? "bg-amber-200 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+                : "bg-emerald-200 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200"
+              }`}>
+                {eskiMi ? `⚠ ${gunFarki}g önce` : `✓ ${gunFarki}g önce`}
+              </span>
+            </div>
+            <div className="mt-0.5">{ePlanOzet(ePlanVerisi)}</div>
+            {eskiMi && (
+              <div className="mt-1 text-[9px] font-medium text-amber-800 dark:text-amber-300">
+                ⚠ Bu veri {tarihStr} tarihinde yakalandı — imar değişmiş olabilir, e-Plan'dan teyit edin.
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="rounded bg-white p-1.5 text-[10px] text-amber-800 dark:bg-slate-800 dark:text-amber-200">
         💡 <strong>Pro tip:</strong> Resmi e-Plan veya belediye e-imar ekranında

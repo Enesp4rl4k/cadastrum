@@ -4,6 +4,8 @@ import {
   CloudRain as CloudRainIcon,
   Droplets as DropletsIcon,
   Sprout as SproutIcon,
+  Wind as WindIcon,
+  Leaf as LeafIcon,
 } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
 import { depremRiskiHesapla, depremRengiSinif, type DepremRiski } from "../../lib/afad-deprem";
@@ -17,20 +19,32 @@ import { normalizeYerAdi } from "../../lib/tkgm-api";
 import { Section } from "../ui/Card";
 import { useLisans } from "../../lib/lisans";
 import { PaywallKilit } from "./PaywallKilit";
+import { araziOrtusuGetir, type AraziOrtusuSonuc, type AraziKategori } from "../../lib/arazi-ortusu";
+import { havaKalitesiGetir, type HavaKalitesiSonuc, type HavaKalitesiKategori } from "../../lib/hava-kalitesi";
 
 interface Props {
   parsel: Parsel;
+  /** Heyelan verisi hesaplandığında fiyat motoruna iletmek için */
+  onHeyelanChange?: (heyelan: HeyelanVerisi | null) => void;
+  /** Koordinat bazlı taşkın verisi hesaplandığında fiyat motoruna iletmek için */
+  onTaskinKoordChange?: (taskin: TaskinKoordSonuc | null) => void;
 }
 
 /**
  * Doğal Veri Kartı — AFAD deprem + iklim + toprak.
  * Tüm veriler Cadastrum içinde, kullanıcıyı dış kaynağa yönlendirme yok.
  */
-export function DogalVeriKarti({ parsel }: Props) {
+export function DogalVeriKarti({ parsel, onHeyelanChange, onTaskinKoordChange }: Props) {
   const [iklim, setIklim] = useState<IklimVerisi | null>(null);
   const [iklimYukleniyor, setIklimYukleniyor] = useState(true);
   const [toprak, setToprak] = useState<ToprakVerisi | null>(null);
   const [toprakYukleniyor, setToprakYukleniyor] = useState(true);
+  // Arazi örtüsü (ESA WorldCover / CORINE)
+  const [araziOrtusu, setAraziOrtusu] = useState<AraziOrtusuSonuc | null>(null);
+  const [araziYukleniyor, setAraziYukleniyor] = useState(true);
+  // Hava kalitesi (Copernicus CAMS)
+  const [havaKalitesi, setHavaKalitesi] = useState<HavaKalitesiSonuc | null>(null);
+  const [havaYukleniyor, setHavaYukleniyor] = useState(true);
   const lisans = useLisans();
   // İklim + toprak Pro özelliği. Deprem her tier'da.
   const proAcik = lisans.can("tarim-modulu") || lisans.can("ai-fiyat");
@@ -82,16 +96,20 @@ export function DogalVeriKarti({ parsel }: Props) {
     ).then((v) => {
       if (!iptal) {
         setTaskinKoord(v);
+        onTaskinKoordChange?.(v);
         setTaskinYukleniyor(false);
       }
     }).catch(() => {
-      if (!iptal) setTaskinYukleniyor(false);
+      if (!iptal) {
+        onTaskinKoordChange?.(null);
+        setTaskinYukleniyor(false);
+      }
     });
     return () => {
       iptal = true;
       ctrl.abort();
     };
-  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng, onTaskinKoordChange]);
 
   // Heyelan fetch — OpenLandMap MERIT slope
   useEffect(() => {
@@ -105,16 +123,20 @@ export function DogalVeriKarti({ parsel }: Props) {
     ).then((v) => {
       if (!iptal) {
         setHeyelan(v);
+        onHeyelanChange?.(v);
         setHeyelanYukleniyor(false);
       }
     }).catch(() => {
-      if (!iptal) setHeyelanYukleniyor(false);
+      if (!iptal) {
+        onHeyelanChange?.(null);
+        setHeyelanYukleniyor(false);
+      }
     });
     return () => {
       iptal = true;
       ctrl.abort();
     };
-  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng, onHeyelanChange]);
 
   useEffect(() => {
     if (!proAcik) return; // Free tier'da iklim/toprak fetch etme — gereksiz API çağrısı
@@ -151,6 +173,30 @@ export function DogalVeriKarti({ parsel }: Props) {
     };
   }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng, proAcik]);
 
+  // Arazi örtüsü fetch — ESA WorldCover / CORINE (tüm tier'larda, cache'li)
+  useEffect(() => {
+    let iptal = false;
+    setAraziYukleniyor(true);
+    araziOrtusuGetir(parsel.merkezNokta.lat, parsel.merkezNokta.lng)
+      .then((v) => {
+        if (!iptal) { setAraziOrtusu(v); setAraziYukleniyor(false); }
+      })
+      .catch(() => { if (!iptal) setAraziYukleniyor(false); });
+    return () => { iptal = true; };
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
+
+  // Hava kalitesi fetch — Open-Meteo CAMS (tüm tier'larda, cache'li)
+  useEffect(() => {
+    let iptal = false;
+    setHavaYukleniyor(true);
+    havaKalitesiGetir(parsel.merkezNokta.lat, parsel.merkezNokta.lng)
+      .then((v) => {
+        if (!iptal) { setHavaKalitesi(v); setHavaYukleniyor(false); }
+      })
+      .catch(() => { if (!iptal) setHavaYukleniyor(false); });
+    return () => { iptal = true; };
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
+
   return (
     <Section
       title="Doğal Veri Katmanı"
@@ -170,6 +216,12 @@ export function DogalVeriKarti({ parsel }: Props) {
 
         {/* Heyelan duyarlılık — OpenLandMap slope, tüm tier'larda */}
         <HeyelanBolumu heyelan={heyelan} yukleniyor={heyelanYukleniyor} />
+
+        {/* Arazi Örtüsü — ESA WorldCover (tüm tier) */}
+        <AraziOrtusuBolumu yukleniyor={araziYukleniyor} arazi={araziOrtusu} />
+
+        {/* Hava Kalitesi — Copernicus CAMS (tüm tier) */}
+        <HavaKalitesiBolumu yukleniyor={havaYukleniyor} hava={havaKalitesi} />
 
         {/* İklim + Toprak — Pro özelliği */}
         {proAcik ? (
@@ -559,6 +611,154 @@ function HeyelanBolumu({
       </p>
       <p className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
         Kaynak: OpenLandMap MERIT DEM 250m (slope %) — koordinat bazlı
+      </p>
+    </div>
+  );
+}
+
+// ─── Arazi Örtüsü Bölümü ─────────────────────────────────────────────────────
+
+function AraziOrtusuBolumu({
+  arazi,
+  yukleniyor,
+}: {
+  arazi: AraziOrtusuSonuc | null;
+  yukleniyor: boolean;
+}) {
+  if (yukleniyor) {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
+        <div className="flex items-center gap-1.5">
+          <LeafIcon className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+          <span className="text-2xs font-semibold text-slate-600 dark:text-slate-300">Arazi Örtüsü</span>
+        </div>
+        <div className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+          ESA WorldCover / CORINE yükleniyor…
+        </div>
+      </div>
+    );
+  }
+
+  if (!arazi || arazi.kategori === "bilinmiyor") {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
+        <div className="flex items-center gap-1.5">
+          <LeafIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+          <span className="text-2xs font-semibold text-slate-500">Arazi Örtüsü</span>
+        </div>
+        <p className="text-3xs italic text-slate-400 mt-1">Veri alınamadı</p>
+      </div>
+    );
+  }
+
+  const kategoriBg: Record<AraziKategori, string> = {
+    "kentsel":     "bg-slate-100 border-slate-300",
+    "tarimsal":    "bg-emerald-50 border-emerald-200",
+    "ormanlik":    "bg-green-50 border-green-300",
+    "mera":        "bg-lime-50 border-lime-300",
+    "su":          "bg-blue-50 border-blue-300",
+    "sulak-alan":  "bg-teal-50 border-teal-300",
+    "cıplak":      "bg-amber-50 border-amber-200",
+    "bilinmiyor":  "bg-slate-50 border-slate-200",
+  };
+  const kategoriEmoji: Record<AraziKategori, string> = {
+    "kentsel": "🏙️", "tarimsal": "🌾", "ormanlik": "🌲", "mera": "🌿",
+    "su": "💧", "sulak-alan": "🪷", "cıplak": "🏜️", "bilinmiyor": "❓",
+  };
+
+  const bg = kategoriBg[arazi.kategori] ?? "bg-slate-50 border-slate-200";
+  const emoji = kategoriEmoji[arazi.kategori] ?? "🗺️";
+
+  return (
+    <div className={`rounded-md border ${bg} p-2.5 dark:border-slate-600 dark:bg-slate-900`}>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="flex items-center gap-1.5">
+          <LeafIcon className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+          <span className="text-2xs font-semibold text-slate-700 dark:text-slate-200">Arazi Örtüsü</span>
+        </div>
+        <span className="text-3xs font-bold text-slate-600 dark:text-slate-300">
+          {emoji} {arazi.esaSinifAdi ?? arazi.kategori}
+        </span>
+      </div>
+      <p className="text-3xs text-slate-600 dark:text-slate-300">{arazi.aciklama}</p>
+      <p className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+        Kaynak: {arazi.kaynak === "esa-worldcover" ? "ESA WorldCover 2021 (10m)" : arazi.kaynak === "corine-wms" ? "CORINE 2018 (100m)" : arazi.kaynak}
+      </p>
+    </div>
+  );
+}
+
+// ─── Hava Kalitesi Bölümü ─────────────────────────────────────────────────────
+
+function HavaKalitesiBolumu({
+  hava,
+  yukleniyor,
+}: {
+  hava: HavaKalitesiSonuc | null;
+  yukleniyor: boolean;
+}) {
+  if (yukleniyor) {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
+        <div className="flex items-center gap-1.5">
+          <WindIcon className="h-3.5 w-3.5 text-sky-500" aria-hidden="true" />
+          <span className="text-2xs font-semibold text-slate-600 dark:text-slate-300">Hava Kalitesi</span>
+        </div>
+        <div className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+          Copernicus CAMS yükleniyor…
+        </div>
+      </div>
+    );
+  }
+
+  if (!hava || hava.kategori === "bilinmiyor") {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-900">
+        <div className="flex items-center gap-1.5">
+          <WindIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+          <span className="text-2xs font-semibold text-slate-500">Hava Kalitesi</span>
+        </div>
+        <p className="text-3xs italic text-slate-400 mt-1">Veri alınamadı</p>
+      </div>
+    );
+  }
+
+  const kategoriBg: Record<HavaKalitesiKategori, string> = {
+    "temiz":      "bg-emerald-50 border-emerald-200",
+    "orta":       "bg-amber-50 border-amber-200",
+    "kirli":      "bg-orange-50 border-orange-300",
+    "cok-kirli":  "bg-red-50 border-red-300",
+    "bilinmiyor": "bg-slate-50 border-slate-200",
+  };
+  const kategoriRenk: Record<HavaKalitesiKategori, string> = {
+    "temiz": "text-emerald-700", "orta": "text-amber-700",
+    "kirli": "text-orange-700", "cok-kirli": "text-red-700", "bilinmiyor": "text-slate-500",
+  };
+
+  const bg = kategoriBg[hava.kategori];
+  const renk = kategoriRenk[hava.kategori];
+
+  return (
+    <div className={`rounded-md border ${bg} p-2.5 dark:border-slate-600 dark:bg-slate-900`}>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="flex items-center gap-1.5">
+          <WindIcon className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+          <span className="text-2xs font-semibold text-slate-700 dark:text-slate-200">Hava Kalitesi</span>
+        </div>
+        <span className={`text-3xs font-bold uppercase tracking-wide ${renk}`}>
+          {hava.kategori === "temiz" ? "Temiz" : hava.kategori === "orta" ? "Orta" : hava.kategori === "kirli" ? "Kirli" : "Çok Kirli"}
+        </span>
+      </div>
+      {hava.pm25Yillik != null && (
+        <div className="grid grid-cols-3 gap-1.5 mb-1">
+          <KpiBox label="PM2.5" value={`${hava.pm25Yillik} µg`} />
+          {hava.no2Yillik != null && <KpiBox label="NO₂" value={`${hava.no2Yillik} µg`} />}
+          {hava.aqi != null && <KpiBox label="AQI" value={String(hava.aqi)} />}
+        </div>
+      )}
+      <p className={`text-3xs leading-snug ${renk} opacity-90 dark:text-slate-200`}>{hava.aciklama}</p>
+      <p className="text-3xs italic text-slate-500 mt-1 dark:text-slate-400">
+        Kaynak: Open-Meteo CAMS — yıllık ortalama
       </p>
     </div>
   );

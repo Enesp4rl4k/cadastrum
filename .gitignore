@@ -15,6 +15,7 @@ site/dist.zip
 console.error(e.message
 .impeccable/
 .claude/
+.*analytics.json
 
 # Secret içeren deploy scriptleri — gitignore'd
 DEPLOY-SITE-SECRET.bat

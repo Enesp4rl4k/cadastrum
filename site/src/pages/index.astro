@@ -26,14 +26,26 @@ const SEHIR_SORGULAR = [
   { il: "kocaeli",   ilce: "gebze",      label: "Kocaeli",   ilceLabel: "Gebze",     fallback: "—" },
 ];
 
+// Promise.allSettled: bir şehir API timeout/hata verse diğerleri etkilenmesin.
+// Ayrıca global 6 saniyelik çit: build-time'ı uzatmasın.
+const GLOBAL_TIMEOUT_MS = 6000;
+const globalTimeout = new Promise<null>((res) => setTimeout(() => res(null), GLOBAL_TIMEOUT_MS));
+
 const sehirFiyatlari = await Promise.all(
   SEHIR_SORGULAR.map(async (s) => {
-    const veri = await getIlce(s.il, s.ilce, "arsa");
-    return {
-      ...s,
-      fiyat: veri?.medyan ? fmtTLM2(veri.medyan) : s.fallback,
-      varVeri: !!veri?.medyan,
-    };
+    try {
+      const veri = await Promise.race([
+        getIlce(s.il, s.ilce, "arsa"),
+        globalTimeout,
+      ]);
+      return {
+        ...s,
+        fiyat: veri?.medyan ? fmtTLM2(veri.medyan) : s.fallback,
+        varVeri: !!(veri?.medyan),
+      };
+    } catch {
+      return { ...s, fiyat: s.fallback, varVeri: false };
+    }
   })
 );
 
@@ -53,7 +65,7 @@ const features = [
   {
     label: "Piyasa",
     title: "Mahalle bazlı emsal fiyat",
-    desc: "Sahibinden ve Hepsiemlak ilanlarından mahalle medyanı. Aykırı değerler IQR ile temizlenir, eski ilanlar dışarıda bırakılır.",
+    desc: "Sahibinden, Hepsiemlak ve Emlakjet ilanlarından mahalle medyanı. Aykırı değerler IQR ile temizlenir, eski ilanlar dışarıda bırakılır.",
     accent: "bg-accent-success/10 text-accent-success",
   },
   {
@@ -114,8 +126,9 @@ const features = [
             </h1>
 
             <p class="hero-lede">
-              Sahibinden ve Hepsiemlak ilanlarını TKGM kaydıyla eşleştirir, e-Plan imar durumunu çeker,
-              mahalle emsalinden gerçekçi bir fiyat aralığı çıkarır. Hepsi yan panelde, ilan açıkken.
+              Sahibinden, Hepsiemlak ve Emlakjet ilanlarını TKGM kaydıyla eşleştirir, e-Plan imar durumunu çeker,
+              mahalle emsalinden gerçekçi bir fiyat aralığı çıkarır. AI skoru, risk analizi ve yatırım raporu —
+              hepsi yan panelde, ilan açıkken.
             </p>
 
             {LAUNCHED ? (
@@ -807,7 +820,7 @@ const features = [
     const btn = heroForm.querySelector("button[type=submit]") as HTMLButtonElement;
     if (btn) { btn.disabled = true; btn.textContent = "..."; }
     try {
-      const r = await fetch("https://cadastrum-api.cadastrum-tr.workers.dev/v1/newsletter/abone-ol", {
+      const r = await fetch(`${import.meta.env.PUBLIC_API_BASE ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"}/newsletter/abone-ol`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, kaynak: "hero" }),
@@ -840,7 +853,7 @@ const features = [
   // Waitlist sayım — canlı social proof
   async function guncelleSayim() {
     try {
-      const r = await fetch("https://cadastrum-api.cadastrum-tr.workers.dev/v1/newsletter/sayim");
+      const r = await fetch(`${import.meta.env.PUBLIC_API_BASE ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"}/newsletter/sayim`);
       const j = await r.json();
       // Tabandan başla — gerçek sayı + base ekleyebiliriz isteğe bağlı
       const toplam = Math.min(100, Math.max(0, j.toplam ?? 0));

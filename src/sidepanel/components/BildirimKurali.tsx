@@ -11,14 +11,13 @@ import { useState } from "react";
 import { Bell as BellIcon, BellRing as BellRingIcon } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
 import { useLisans } from "../../lib/lisans";
+import { BACKEND_API } from "../../lib/api-constants";
 
 interface Props {
   parsel: Parsel;
 }
 
 type Durum = "idle" | "yukleniyor" | "basarili" | "hata" | "yetki-yok";
-
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
 async function tokenAl(): Promise<string | null> {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
@@ -50,7 +49,7 @@ export function BildirimKurali({ parsel }: Props) {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/bildirim/abone`, {
+      const res = await fetch(`${BACKEND_API}/bildirim/abone`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -72,14 +71,12 @@ export function BildirimKurali({ parsel }: Props) {
         if (res.status === 403) {
           setDurum("yetki-yok");
         } else {
-          console.warn("[bildirim] hata:", j);
           setDurum("hata");
         }
         return;
       }
       setDurum("basarili");
-    } catch (e) {
-      console.warn("[bildirim] network:", e);
+    } catch {
       setDurum("hata");
     }
   }

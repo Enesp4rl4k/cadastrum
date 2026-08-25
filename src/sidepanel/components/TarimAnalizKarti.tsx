@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Sprout as SproutIcon,
   Loader2 as LoaderIcon,
@@ -17,6 +17,9 @@ import {
 import type { Parsel } from "../../types/tkgm";
 import { Section, Row } from "../ui/Card";
 import { fmtTL } from "../../lib/fiyat-tahmin";
+import { tarimselDegerHesapla } from "../../lib/tarimsal-deger-motoru";
+import { toprakVerisiGetir } from "../../lib/toprak";
+import { sulamaAltyapisiniGetir } from "../../lib/sulama";
 
 interface Props {
   parsel: Parsel;
@@ -26,6 +29,31 @@ export function TarimAnalizKarti({ parsel }: Props) {
   const [analiz, setAnaliz] = useState<TarimAnalizi | null>(null);
   const [yukleniyor, setYukleniyor] = useState(false);
   const [hata, setHata] = useState<string | null>(null);
+  // Ek veri katmanları — tarimsal-deger-motoru için
+  const [toprak, setToprak] = useState<import("../../lib/toprak").ToprakVerisi | null>(null);
+  const [sulama, setSulama] = useState<import("../../lib/sulama").SulamaAltyapisi | null>(null);
+
+  // Toprak + sulama verisini arka planda çek
+  useEffect(() => {
+    let iptal = false;
+    toprakVerisiGetir(parsel.merkezNokta.lat, parsel.merkezNokta.lng)
+      .then((v) => { if (!iptal) setToprak(v); }).catch(() => {});
+    sulamaAltyapisiniGetir(parsel.merkezNokta.lat, parsel.merkezNokta.lng)
+      .then((v) => { if (!iptal) setSulama(v); }).catch(() => {});
+    return () => { iptal = true; };
+  }, [parsel.merkezNokta.lat, parsel.merkezNokta.lng]);
+
+  // Tarımsal değer motoru — toprak + sulama + iklim sentezi
+  const tarimDeger = useMemo(() => {
+    if (!analiz) return null;
+    return tarimselDegerHesapla({
+      alanM2: parsel.alan ?? 0,
+      nitelik: parsel.nitelik ?? "Tarla",
+      toprak,
+      sulama,
+      tarimAnaliz: analiz,
+    });
+  }, [analiz, toprak, sulama, parsel.alan, parsel.nitelik]);
 
   useEffect(() => {
     setAnaliz(null);
@@ -209,6 +237,34 @@ export function TarimAnalizKarti({ parsel }: Props) {
             })}
           </div>
         </div>
+
+        {/* Tarımsal Değer Motoru Özeti — yeni */}
+        {tarimDeger && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2 space-y-1 dark:border-emerald-800 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between">
+              <span className="text-2xs font-semibold text-emerald-800 dark:text-emerald-200">
+                🌱 Verimlilik Skoru
+              </span>
+              <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                {tarimDeger.verimliliSkoru}<span className="text-xs font-normal opacity-60">/100</span>
+              </span>
+            </div>
+            <div className="text-3xs text-emerald-700 dark:text-emerald-300">{tarimDeger.ozet}</div>
+            {tarimDeger.toplamYillikGeliTL != null && (
+              <div className="text-3xs text-slate-600 dark:text-slate-400">
+                Tahmini yıllık gelir: <strong>{fmtTL(tarimDeger.toplamYillikGeliTL)}</strong>
+              </div>
+            )}
+            {tarimDeger.riskler.length > 0 && (
+              <ul className="text-3xs text-amber-700 dark:text-amber-400 list-disc list-inside space-y-0.5">
+                {tarimDeger.riskler.map((r, i) => <li key={i}>{r}</li>)}
+              </ul>
+            )}
+            <div className="text-3xs font-medium text-emerald-700 dark:text-emerald-300 border-t border-emerald-200 dark:border-emerald-800 pt-1">
+              Fiyat çarpanı: <strong>×{tarimDeger.fiyatCarpani.toFixed(2)}</strong>
+            </div>
+          </div>
+        )}
 
         <p className="text-3xs italic text-slate-500">
           Veri: {analiz.iklim.veriKaynagi} ({analiz.iklim.donemBaslangic} →{" "}

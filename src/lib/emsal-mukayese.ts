@@ -60,8 +60,9 @@ const AYLIK_ENFLASYON = 0.015;
 /**
  * Alan farkı düzeltmesi: büyük arsa m² primi düşer (10000m² 1000m²'den daha az/m²).
  * Logaritmik damping — 2x büyüme ≈ %5 indirim, 5x büyüme ≈ %15 indirim.
+ * @internal export: test edilebilirlik için
  */
-function alanDuzeltme(parselAlan: number, emsalAlan: number | null): EmsalDuzeltme {
+export function alanDuzeltme(parselAlan: number, emsalAlan: number | null): EmsalDuzeltme {
   if (!emsalAlan || emsalAlan <= 0 || parselAlan <= 0) {
     return { carpan: 0, not: "Alan bilinmiyor — düzeltme yapılmadı" };
   }
@@ -92,8 +93,9 @@ function alanDuzeltme(parselAlan: number, emsalAlan: number | null): EmsalDuzelt
 /**
  * Tarih düzeltmesi: enflasyona göre eski ilanları bugüne projekte et.
  * 6 ay önce 100 TL/m² ilan → bugün ~%9 daha pahalı.
+ * @internal export: test edilebilirlik için
  */
-function tarihDuzeltme(yasGun: number): EmsalDuzeltme {
+export function tarihDuzeltme(yasGun: number): EmsalDuzeltme {
   if (yasGun <= 7) return { carpan: 0, not: "İlan güncel, düzeltme yok" };
   const ayFarki = yasGun / 30;
   const carpan = ayFarki * AYLIK_ENFLASYON;
@@ -180,11 +182,12 @@ function lokasyonDuzeltme(
  * Mantık: emsal "Arsa" hedef "Tarla" ise emsal fiyat aşağı düzeltilir (-%70 civarı).
  * Tersi ise yukarı düzeltilir.
  */
-function nitelikKategori(nitelik: string): "arsa" | "tarla" | "bahce" | "zeytin" | "yapili" | "diger" {
+/** @internal export: test edilebilirlik için */
+export function nitelikKategori(nitelik: string): "arsa" | "tarla" | "bahce" | "zeytin" | "yapili" | "diger" {
   const t = nitelik.toLocaleLowerCase("tr");
   if (/mesken|bina|işyeri|isyeri/.test(t)) return "yapili";
   if (/zeytin/.test(t)) return "zeytin";
-  if (/bahçe|bahce|bağ\b|bag\b/u.test(t)) return "bahce";
+  if (/bahçe|bahce|bağ|bag\b/u.test(t)) return "bahce";
   if (/tarla/.test(t)) return "tarla";
   if (/arsa/.test(t)) return "arsa";
   return "diger";

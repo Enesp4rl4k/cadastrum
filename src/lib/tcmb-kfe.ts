@@ -154,10 +154,7 @@ async function evdsFetch(
       headers: { "key": apiKey, "Accept": "application/json" },
       signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) {
-      console.warn(`[tcmb-kfe] HTTP ${res.status} for ${seriKodu}`);
-      return null;
-    }
+    if (!res.ok) return null;
     const data = await res.json() as {
       items?: Array<Record<string, string | number>>;
       totalCount?: number;
@@ -177,8 +174,7 @@ async function evdsFetch(
       result.push({ tarih: fromEvdsDate(tarih), deger: sayi });
     }
     return result.length > 0 ? result : null;
-  } catch (e) {
-    console.warn(`[tcmb-kfe] fetch hata:`, e);
+  } catch {
     return null;
   }
 }

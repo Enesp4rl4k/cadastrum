@@ -82,7 +82,8 @@ function buildGrid(items, getLat, getLng, hucreBoy = 0.1) {
 }
 
 function gridKomsular(grid, lat, lng, mesafeKm) {
-  const dehucre = Math.ceil(mesafeKm / 8 / grid.hucreBoy); // ~8km lat, 1° = 111km
+  // 1° lat/lng = ~111 km. Using 111 gives accurate grid cell span.
+  const dehucre = Math.ceil(mesafeKm / (111 * grid.hucreBoy));
   const cellLat = Math.floor(lat / grid.hucreBoy);
   const cellLng = Math.floor(lng / grid.hucreBoy);
   const idxler = [];
@@ -225,12 +226,13 @@ async function main() {
       distler.sort((a, b) => a.d - b.d);
       const top = distler.slice(0, K);
 
-      // Inverse distance weighted average + güven ağırlığı
+      // Gaussian Kernel + güven ağırlığı (Sigma = 5km bant genişliği)
       let toplamAgirlik = 0;
       let toplamFiyat = 0;
       let aiKomsuVar = false;
+      const SIGMA = 5;
       for (const { d, seed } of top) {
-        const agirlik = (1 / Math.max(d, 0.1) ** 2) * (seed.guven / 100);
+        const agirlik = Math.exp(-(d ** 2) / (2 * SIGMA ** 2)) * (seed.guven / 100);
         toplamAgirlik += agirlik;
         toplamFiyat += seed.fiyat * agirlik;
         if (seed.kaynak === "ai") aiKomsuVar = true;

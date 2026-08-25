@@ -103,17 +103,57 @@ function parselDOM(debug = false): IlanBilgisi {
   );
 
   // --- Fiyat ---
-  const fiyatStr = txt(
-    ".fz-list-price-cont",
-    "p.fz24-text.price",
-    'span[class*="price"]',
-    'div[class*="price"]',
-    'p[class*="price"]',
-    'h3[class*="price"]',
-    '[data-testid="price"]',
-    ".price",
-    ".det-price",
-  );
+  // ÖNEMLİ: Bilgi tablosundaki "Metrekare Birim Fiyatı" alanını yanlışlıkla
+  // yakalamamak için selector sırası önemli — önce spesifik, sonra genel.
+  // `span[class*="price"]` gibi geniş selector'lar bilgi tablosundaki fiyat
+  // span'larını da yakalar. Ana fiyat her zaman büyük, sayfa üst kısmındaki
+  // özel fiyat bloğundadır.
+  const fiyatStr = (() => {
+    // 1. Önce spesifik Hepsiemlak fiyat selector'ları
+    const spesifik = txt(
+      ".fz-list-price-cont",
+      "p.fz24-text.price",
+      '[data-testid="price"]',
+      '[data-testid="listing-price"]',
+      ".det-price",
+      '[class*="listing-price-value"]',
+      '[class*="listingPriceValue"]',
+      '[class*="price__value"]',
+      '[class*="priceValue"]',
+      '[class*="PriceValue"]',
+      '[class*="detail-price"]',
+      '[class*="detailPrice"]',
+      '[class*="advert-price"]',
+      '[class*="AdvertPrice"]',
+    );
+    if (spesifik) return spesifik;
+
+    // 2. Geniş selector'larla — ama sadece konteyner element düzeyinde,
+    // içinde çok fazla alt element olan büyük div'leri atla
+    for (const sel of [
+      'h3[class*="price"]',
+      'p[class*="price"]',
+      'div[class*="price"]',
+      'span[class*="price"]',
+      ".price",
+    ] as const) {
+      try {
+        const candidates = Array.from(document.querySelectorAll<HTMLElement>(sel));
+        for (const el of candidates) {
+          // Çok sayıda çocuk element içeriyorsa (bilgi tablosu satırı olabilir) atla
+          if (el.querySelectorAll("*").length > 5) continue;
+          const t = el.textContent?.trim();
+          if (!t) continue;
+          // Fiyat string'i TL veya ₺ veya $ içermeli ve yeterince büyük olmalı
+          if (!/TL|₺|\$|EUR|€/i.test(t)) continue;
+          // Kısa bir fiyat değeri olmalı — çok uzun metinler bilgi satırıdır
+          if (t.length > 30) continue;
+          return t;
+        }
+      } catch { /* skip */ }
+    }
+    return null;
+  })();
   const { fiyat, paraBirimi } = parseFiyat(fiyatStr);
 
   // --- Bilgi tablosu (özellikler listesi) ---
@@ -429,7 +469,7 @@ function breadcrumbCikar(): { il: string | null; ilce: string | null; mahalle: s
     };
   }
 
-  // 2) Bilinen Hepsiemlak lokasyon class'ları
+  // 2) Bilinen Hepsiemlak lokasyon class'ları — separator ile parse
   const lokSel = [
     ".det-area-info",
     ".detail-info-location",
@@ -439,13 +479,30 @@ function breadcrumbCikar(): { il: string | null; ilce: string | null; mahalle: s
     'span[class*="location"]',
     '[data-testid*="location"]',
     "h2.fontRR.fz14-text",
+    // 2024+ Hepsiemlak Next.js sınıf adları
+    '[class*="advert-location"]',
+    '[class*="AdvertLocation"]',
+    '[class*="listing-location"]',
+    '[class*="listingLocation"]',
+    '[class*="property-location"]',
+    '[class*="detail-location"]',
+    '[class*="detailLocation"]',
+    '[class*="location-text"]',
+    '[class*="locationText"]',
+    // Fiyat bloğunun altındaki "İl / İlçe / Mahalle" satırı
+    'p[class*="location"]',
+    'span[class*="city"]',
   ];
   for (const sel of lokSel) {
     try {
       const el = document.querySelector(sel);
       const metin = el?.textContent?.trim();
       if (metin && metin.length > 2) {
-        const parcalar = metin.split(/\s*[/»›,]\s*/).map((s) => s.trim()).filter(Boolean);
+        // Separator: / veya › veya > veya ,
+        const parcalar = metin
+          .split(/\s*[/»›>,]\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean);
         if (parcalar.length >= 2) {
           return {
             il: parcalar[0] ?? null,
@@ -457,13 +514,50 @@ function breadcrumbCikar(): { il: string | null; ilce: string | null; mahalle: s
     } catch { /* skip */ }
   }
 
-  // 3) Breadcrumb nav
+  // 2b) Fiyat yanında "Balıkesir / Ayvalık / 150 Evler Mah." formatındaki satır —
+  // Hepsiemlak'ın 2024+ layout'unda fiyat bloğuyla aynı container'da.
+  // Tüm p ve span elementlerinde "/" içeren lokasyon metni ara.
+  const tumElemenler = document.querySelectorAll<HTMLElement>("p, span, div");
+  for (const el of tumElemenler) {
+    // Yalnızca doğrudan text node içerenleri al (nested element varsa atla)
+    const children = Array.from(el.childNodes);
+    const directText = children
+      .filter((n) => n.nodeType === Node.TEXT_NODE)
+      .map((n) => n.textContent?.trim() ?? "")
+      .join("").trim();
+    const metin = directText || (el.textContent?.trim() ?? "");
+
+    // "/" separator ile il/ilçe/mahalle kalıbı: min 10, max 80 karakter
+    if (metin.length < 8 || metin.length > 100) continue;
+    if (!metin.includes("/")) continue;
+
+    const parcalar = metin
+      .split(/\s*\/\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parcalar.length >= 2 && parcalar.length <= 5) {
+      // İl adı kontrolü: her parça en az 2 karakter, rakamla başlamayan
+      const gecerli = parcalar.every((p) => p.length >= 2 && !/^\d/.test(p));
+      if (gecerli) {
+        return {
+          il: parcalar[0] ?? null,
+          ilce: parcalar[1] ?? null,
+          mahalle: parcalar[2] ?? null,
+        };
+      }
+    }
+  }
+
+  // 3) Breadcrumb nav — hem nav/ol/ul bazlı hem de > / separator bazlı
   const bcSel = [
     ".breadcrumb a",
     'nav[aria-label="breadcrumb"] a',
     'div[class*="readcrumb"] a',
     'ul[class*="readcrumb"] a',
     'ol[class*="readcrumb"] a',
+    '[class*="BreadCrumb"] a',
+    '[class*="breadCrumb"] a',
+    '[class*="bread-crumb"] a',
   ];
   for (const sel of bcSel) {
     try {
@@ -472,6 +566,35 @@ function breadcrumbCikar(): { il: string | null; ilce: string | null; mahalle: s
         .filter((t): t is string => !!t && t.length > 0 && !GECERSİZ.has(t));
       if (links.length >= 2) {
         const son = links.slice(-3);
+        return {
+          il: son.length >= 3 ? (son[0] ?? null) : null,
+          ilce: son[son.length >= 3 ? 1 : 0] ?? null,
+          mahalle: son[son.length - 1] ?? null,
+        };
+      }
+    } catch { /* skip */ }
+  }
+
+  // 3b) Separator-bazlı breadcrumb — "Balıkesir / Ayvalık / 150 Evler" veya ">" ile ayrılmış
+  const sepSel = [
+    '[class*="breadcrumb"]',
+    '[class*="BreadCrumb"]',
+    '[class*="bread-crumb"]',
+    'nav[aria-label*="read"]',
+    '[class*="location-path"]',
+    '[class*="locationPath"]',
+  ];
+  for (const sel of sepSel) {
+    try {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const metin = el.textContent?.trim() ?? "";
+      const parcalar = metin
+        .split(/\s*[/›>»·|]\s*/)
+        .map((s) => s.trim())
+        .filter((t) => t.length > 0 && !GECERSİZ.has(t));
+      if (parcalar.length >= 2) {
+        const son = parcalar.slice(-3);
         return {
           il: son.length >= 3 ? (son[0] ?? null) : null,
           ilce: son[son.length >= 3 ? 1 : 0] ?? null,
@@ -691,17 +814,38 @@ function aciklamadanAdaParselCikar(
  */
 function urldenLokasyon(): { il: string | null; ilce: string | null; mahalle: string | null } {
   const path = location.pathname.replace(/^\/en\//, "/").replace(/^\/tr\//, "/");
-  // /<lokasyon-slug>-(satilik|kiralik) → location-slug
-  const m = /\/([a-z0-9-]+?)-(?:satilik|kiralik)(?:\/|$)/i.exec(path);
-  if (!m || !m[1]) return { il: null, ilce: null, mahalle: null };
-  const parts = m[1].split("-").filter(Boolean);
-  if (parts.length < 2) return { il: null, ilce: null, mahalle: null };
   const cap = (s: string) => s.charAt(0).toLocaleUpperCase("tr") + s.slice(1);
-  return {
-    il: cap(parts[0] ?? ""),
-    ilce: cap(parts[1] ?? ""),
-    mahalle: parts.length >= 3 ? parts.slice(2).map(cap).join(" ") : null,
-  };
+
+  // Format 1: /<lokasyon-slug>-(satilik|kiralik)/<tip>/<id>
+  // Örn: /balıkesir-ayvalik-150-evler-zeytinlik-satilik/arsa/128380-901
+  const m1 = /\/([a-z0-9-]+?)-(?:satilik|kiralik)(?:\/|$)/i.exec(path);
+  if (m1?.[1]) {
+    const parts = m1[1].split("-").filter(Boolean);
+    if (parts.length >= 2) {
+      return {
+        il: cap(parts[0] ?? ""),
+        ilce: cap(parts[1] ?? ""),
+        mahalle: parts.length >= 3 ? parts.slice(2).map(cap).join(" ") : null,
+      };
+    }
+  }
+
+  // Format 2: /<tip-slug>/<id>  (kısa URL — sadece tip ve id var, lokasyon yok)
+  // Örn: /zeytinlik/128380-901  → lokasyon yok, null dön
+  // Format 3: /arsa-<il>-<ilce>... gibi diğer varyantlar
+  const m3 = /\/(?:arsa|tarla|konut|villa|daire|isyeri|ofis)-([a-z0-9-]+?)(?:\/|$)/i.exec(path);
+  if (m3?.[1]) {
+    const parts = m3[1].split("-").filter(Boolean);
+    if (parts.length >= 2) {
+      return {
+        il: cap(parts[0] ?? ""),
+        ilce: cap(parts[1] ?? ""),
+        mahalle: parts.length >= 3 ? parts.slice(2).map(cap).join(" ") : null,
+      };
+    }
+  }
+
+  return { il: null, ilce: null, mahalle: null };
 }
 
 /**

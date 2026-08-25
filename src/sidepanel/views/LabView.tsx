@@ -5,9 +5,10 @@ import {
   type AnalizTip,
   ANALIZ_TIPI_ETIKETLERI,
   YIL_SECENEKLERI,
-  prefetchAnalizSerisi,
   tkgmAnalizGetir,
 } from "../../lib/tkgm-analiz";
+import { useLisans } from "../../lib/lisans";
+import { FirsatAvciPanel } from "../components/FirsatAvciPanel";
 import { compactSayi } from "../../lib/viz";
 import {
   HEAT_TIP_RENKLERI as TIP_RENKLERI,
@@ -34,10 +35,8 @@ import {
 } from "../../lib/basemaps";
 
 interface Props {
-  /** Side panel'dan ön-yüklenmiş ilçe (parsel açıkken) */
   initialIlceKodu?: number | null;
   initialIlceAd?: string | null;
-  /** Top 10 hotspot'ta bir parsele tıklanınca side panel'a aktar */
   onParselSec?: (parsel: Parsel) => void;
 }
 
@@ -45,10 +44,8 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const noktalarRef = useRef<AnalizNoktasi[]>([]);
-  // Standalone — kullanıcı seçici ile değiştirebilsin (initial varsa onu kullan)
   const [ilceKodu, setIlceKodu] = useState<number | null>(initialIlceKodu ?? null);
   const [ilceAd, setIlceAd] = useState<string | null>(initialIlceAd ?? null);
-  // Initial prop değişirse state'i güncelle
   useEffect(() => {
     if (initialIlceKodu != null) {
       setIlceKodu(initialIlceKodu);
@@ -71,10 +68,8 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
   yilRef.current = yil;
   noktalarRef.current = noktalar;
 
-  // Bölgedeki sahibinden gözlem sayısı (TKGM × ilan join için)
   const ilanIlceSayisi = useLiveIlanSayisi(ilceAd);
 
-  // Init map
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -94,7 +89,6 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Basemap swap + heatmap'i yeniden çiz (ilk render'da skip)
   const oncekiBasemap = useRef(basemap);
   useEffect(() => {
     if (oncekiBasemap.current === basemap) return;
@@ -110,7 +104,6 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basemap]);
 
-  // İlçe değişince mahalle listesini çek (geometry ile birlikte)
   useEffect(() => {
     if (ilceKodu == null) {
       setMahalleler([]);
@@ -126,9 +119,6 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
       .catch(() => {});
   }, [ilceKodu]);
 
-  // Analiz tip / yıl / ilçe değişince noktaları çek + haritaya yansıt.
-  // Prefetch (25 sorgu) kaldırıldı — çok pahalı, TKGM günlük limit hızlı dolar.
-  // Yıl scrubber'ı oynattıkça lazy load + cache yardım eder.
   useEffect(() => {
     if (ilceKodu == null) return;
     ctrlRef.current?.abort();
@@ -141,27 +131,18 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
         if (ctrl.signal.aborted) return;
         setNoktalar(data);
         applyHeatmap(mapRef.current, data, analizTip, { fitBounds: true });
-        // İlk yüklemede haritayı bbox'a uçur (tüm ilçe)
         if (data.length > 0 && mapRef.current) {
           const lats = data.map((n) => n.enlem);
           const lngs = data.map((n) => n.boylam);
-          const minLat = Math.min(...lats);
-          const maxLat = Math.max(...lats);
-          const minLng = Math.min(...lngs);
-          const maxLng = Math.max(...lngs);
           mapRef.current.fitBounds(
-            [
-              [minLng, minLat],
-              [maxLng, maxLat],
-            ],
+            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
             { padding: 30, maxZoom: 14, duration: 800 },
           );
         }
       })
-      .catch((e) => {
-        if (e?.name === "AbortError") return;
+      .catch((e: unknown) => {
+        if ((e as Error)?.name === "AbortError") return;
         const msg = e instanceof Error ? e.message : String(e);
-        console.error("[arsa-lab] hata:", msg);
         setError(msg);
         setNoktalar([]);
       })
@@ -195,11 +176,9 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
     [noktalarFiltered],
   );
 
-  // Mahalle filtresi değişince heatmap'i yeniden uygula
   useEffect(() => {
     if (noktalar.length === 0) return;
     applyHeatmap(mapRef.current, noktalarFiltered, analizTip, { fitBounds: true });
-    // Filtrelenmiş noktalar için fitBounds
     if (noktalarFiltered.length > 0 && mapRef.current) {
       const lats = noktalarFiltered.map((n) => n.enlem);
       const lngs = noktalarFiltered.map((n) => n.boylam);
@@ -215,22 +194,15 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secilenMahalleKodu, noktalarFiltered]);
 
-  // Yıl playback — ▶ basınca her 1.2sn'de yıl artar, sonuna gelince durur
   function oynatmayiBaslat() {
-    if (oynatiliyor) {
-      durdur();
-      return;
-    }
+    if (oynatiliyor) { durdur(); return; }
     setOynatiliyor(true);
     const minYil = Math.min(...YIL_SECENEKLERI);
     const maxYil = Math.max(...YIL_SECENEKLERI);
     if (yilRef.current >= maxYil) setYil(minYil);
     playRef.current = window.setInterval(() => {
       const next = yilRef.current + 1;
-      if (next > maxYil) {
-        durdur();
-        return;
-      }
+      if (next > maxYil) { durdur(); return; }
       setYil(next);
     }, 1200);
   }
@@ -258,25 +230,15 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
       <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
         <div className="text-3xl">🔬</div>
         <div className="max-w-[280px]">
-          <strong className="text-sm text-slate-800 dark:text-slate-100">
-            Analiz Lab
-          </strong>
+          <strong className="text-sm text-slate-800 dark:text-slate-100">Analiz Lab</strong>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Doğrudan bir ilçe seç, TKGM resmi alım-satım yoğunluk verilerini
-            ekrana getir. Ya da Harita'dan bir parsel açarsan o parselin ilçesi
-            otomatik yüklenir.
+            Doğrudan bir ilçe seç, TKGM resmi alım-satım yoğunluk verilerini ekrana getir.
+            Ya da Harita'dan bir parsel açarsan o parselin ilçesi otomatik yüklenir.
           </p>
         </div>
         <div className="w-full max-w-[280px] rounded-lg border border-slate-200 bg-white p-3 shadow-card dark:border-slate-700 dark:bg-slate-800">
-          <div className="mb-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-            İlçe seç:
-          </div>
-          <IlceSecici
-            onSec={(sec) => {
-              setIlceKodu(sec.ilceKodu);
-              setIlceAd(sec.ilceAd);
-            }}
-          />
+          <div className="mb-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">İlçe seç:</div>
+          <IlceSecici onSec={(sec) => { setIlceKodu(sec.ilceKodu); setIlceAd(sec.ilceAd); }} />
         </div>
       </div>
     );
@@ -284,7 +246,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
 
   return (
     <div className="flex h-full flex-col">
-      {/* Üst bar — ilçe + tip butonları */}
+      {/* Üst bar */}
       <div className="border-b border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-tkgm-ink dark:text-slate-100">
@@ -296,13 +258,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
             )}
             <button
               type="button"
-              onClick={() => {
-                setIlceKodu(null);
-                setIlceAd(null);
-                setNoktalar([]);
-                setMahalleler([]);
-                setSecilenMahalleKodu(null);
-              }}
+              onClick={() => { setIlceKodu(null); setIlceAd(null); setNoktalar([]); setMahalleler([]); setSecilenMahalleKodu(null); }}
               className="cursor-pointer rounded px-1.5 py-0.5 text-[9px] font-normal text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
               title="Farklı ilçe seç"
             >
@@ -321,9 +277,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
             >
               <option value="">Tüm ilçe</option>
               {mahalleler.map((m) => (
-                <option key={m.mahalleKodu} value={m.mahalleKodu}>
-                  {m.mahalleAdi}
-                </option>
+                <option key={m.mahalleKodu} value={m.mahalleKodu}>{m.mahalleAdi}</option>
               ))}
             </select>
           </div>
@@ -337,11 +291,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
                 type="button"
                 onClick={() => setAnalizTip(t)}
                 className="rounded border px-2 py-0.5 text-[10px] font-medium transition"
-                style={{
-                  borderColor: TIP_RENKLERI[t],
-                  background: aktif ? TIP_RENKLERI[t] : "white",
-                  color: aktif ? "white" : TIP_RENKLERI[t],
-                }}
+                style={{ borderColor: TIP_RENKLERI[t], background: aktif ? TIP_RENKLERI[t] : "white", color: aktif ? "white" : TIP_RENKLERI[t] }}
               >
                 {ANALIZ_TIPI_ETIKETLERI[t]}
               </button>
@@ -350,7 +300,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
         </div>
       </div>
 
-      {/* Ana alan: harita üstte, paneller altta */}
+      {/* Harita */}
       <div className="relative flex-[2] min-h-[200px]">
         <div ref={mapEl} className="h-full w-full" />
         <BasemapSecici active={basemap} onChange={setBasemap} />
@@ -366,7 +316,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
         </div>
       </div>
 
-      {/* Yıl scrubber + KPI + trend + top10 */}
+      {/* Panel */}
       <div className="flex-[3] overflow-y-auto border-t border-slate-200 bg-slate-50 p-2 text-xs">
         {error && (
           <div className="mb-2 rounded-md border-2 border-red-300 bg-red-50 p-2 text-2xs text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -374,7 +324,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
             <div className="mt-0.5">{error}</div>
             {/limit|günlük|403/i.test(error) && (
               <div className="mt-1 italic text-2xs text-red-600 dark:text-red-400">
-                Çözüm: Yarın 00:00'da limit sıfırlanır. VPN ile IP değiştirebilirsin (Cloudflare WARP ücretsiz).
+                Çözüm: Yarın 00:00'da limit sıfırlanır. VPN ile IP değiştirebilirsin.
               </div>
             )}
           </div>
@@ -382,21 +332,17 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
 
         {!loading && !error && noktalar.length === 0 && ilceKodu != null && (
           <div className="mb-2 rounded-md border border-slate-200 bg-white p-2 text-2xs dark:border-slate-700 dark:bg-slate-800">
-            <div className="font-medium text-slate-700 dark:text-slate-300">
-              Bu ilçe + tip + yıl kombinasyonunda kayıt yok
-            </div>
+            <div className="font-medium text-slate-700 dark:text-slate-300">Bu ilçe + tip + yıl kombinasyonunda kayıt yok</div>
             <div className="mt-0.5 text-3xs text-slate-500">
               TKGM bu ilçede {yil} yılında "{ANALIZ_TIPI_ETIKETLERI[analizTip]}" tipinde işlem kaydı bulamadı. Farklı yıl/tip dene.
             </div>
           </div>
         )}
 
-        {/* Yıl scrubber + playback */}
+        {/* Yıl scrubber */}
         <div className="mb-2 rounded border border-slate-200 bg-white p-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-tkgm-muted">
-              Yıl
-            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-tkgm-muted">Yıl</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -414,10 +360,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
             min={Math.min(...YIL_SECENEKLERI)}
             max={Math.max(...YIL_SECENEKLERI)}
             value={yil}
-            onChange={(e) => {
-              setYil(Number(e.target.value));
-              durdur();
-            }}
+            onChange={(e) => { setYil(Number(e.target.value)); durdur(); }}
             className="mt-1 w-full accent-purple-600"
           />
           <div className="flex justify-between text-[9px] text-tkgm-muted">
@@ -426,30 +369,22 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
           </div>
         </div>
 
-        {/* Sahibinden join — opsiyonel */}
+        {/* Sahibinden join */}
         {ilanIlceSayisi.adet > 0 && (
           <div className="mb-2 rounded border-2 border-orange-200 bg-orange-50 p-2 text-[11px]">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-orange-800">
-                💰 Bölge fiyat × yoğunluk
-              </span>
-              <span className="text-[10px] text-orange-700">
-                {ilanIlceSayisi.adet} sahibinden ilanı kayıtlı
-              </span>
+              <span className="font-semibold text-orange-800">💰 Bölge fiyat × yoğunluk</span>
+              <span className="text-[10px] text-orange-700">{ilanIlceSayisi.adet} sahibinden ilanı kayıtlı</span>
             </div>
             {ilanIlceSayisi.ortPerM2 > 0 && (
               <div className="mt-1 grid grid-cols-2 gap-x-3">
                 <KpiKart label="Ort. TL/m²" v={ilanIlceSayisi.ortPerM2.toLocaleString("tr-TR")} />
-                <KpiKart
-                  label="Bölge değeri (tahmin)"
-                  v={`${compactSayi(ozet.toplam * ilanIlceSayisi.ortPerM2 * 100)} TL`}
-                />
+                <KpiKart label="Bölge değeri (tahmin)" v={`${compactSayi(ozet.toplam * ilanIlceSayisi.ortPerM2 * 100)} TL`} />
               </div>
             )}
             <div className="mt-1 text-[10px] italic text-orange-700">
-              {ozet.toplam} işlem × {ilanIlceSayisi.ortPerM2.toLocaleString("tr-TR")} TL/m² ortalaması ≈
-              {" "}
-              {compactSayi(ozet.toplam * ilanIlceSayisi.ortPerM2 * 100)} TL döngü hacmi tahmini (parsel başı 100m² varsayımı).
+              {ozet.toplam} işlem × {ilanIlceSayisi.ortPerM2.toLocaleString("tr-TR")} TL/m² ≈{" "}
+              {compactSayi(ozet.toplam * ilanIlceSayisi.ortPerM2 * 100)} TL döngü hacmi tahmini
             </div>
           </div>
         )}
@@ -468,10 +403,7 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
             ilceKodu={ilceKodu}
             tipler={[1, 2, 3, 4, 5]}
             seciliYil={yil}
-            onYilSec={(y, t) => {
-              setYil(y);
-              setAnalizTip(t);
-            }}
+            onYilSec={(y, t) => { setYil(y); setAnalizTip(t); }}
           />
         </div>
 
@@ -482,6 +414,17 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
             analizTip={analizTip}
             yil={yil}
           />
+        </div>
+
+        {/* Fırsat Avcısı — AI Ajan */}
+        <div className="mb-2 rounded border border-violet-200 bg-white dark:border-violet-800/50 dark:bg-slate-900">
+          <div className="flex items-center justify-between px-2 py-1.5 border-b border-violet-100 dark:border-violet-800/30">
+            <span className="text-[10px] font-semibold text-violet-800 dark:text-violet-300 flex items-center gap-1">
+              🤖 Fırsat Avcısı
+            </span>
+            <span className="text-[9px] text-slate-400">AI · Pro</span>
+          </div>
+          <FirsatAvciPanel />
         </div>
 
         {/* Top 10 hotspot */}
@@ -499,17 +442,10 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
                     <div className="flex items-center justify-between gap-1">
                       <button
                         type="button"
-                        onClick={() => {
-                          mapRef.current?.flyTo({
-                            center: [n.boylam, n.enlem],
-                            zoom: 18,
-                          });
-                        }}
+                        onClick={() => mapRef.current?.flyTo({ center: [n.boylam, n.enlem], zoom: 18 })}
                         className="flex-1 text-left hover:underline"
                       >
-                        <span className="font-mono text-[9px] text-tkgm-muted">
-                          #{i + 1} parselId {n.parselId}
-                        </span>
+                        <span className="font-mono text-[9px] text-tkgm-muted">#{i + 1} parselId {n.parselId}</span>
                       </button>
                       <span className="font-bold text-purple-700">{n.sayi}</span>
                       <button
@@ -536,33 +472,26 @@ export function LabView({ initialIlceKodu, initialIlceAd, onParselSec }: Props) 
   );
 }
 
-/** Aktif ilçedeki sahibinden ilan istatistiği — useLiveQuery wrapper */
+/** Aktif ilçedeki sahibinden ilan istatistiği */
 import { useLiveQuery } from "dexie-react-hooks";
 
-function useLiveIlanSayisi(ilceAd: string | null): {
-  adet: number;
-  ortPerM2: number;
-} {
+function useLiveIlanSayisi(ilceAd: string | null): { adet: number; ortPerM2: number } {
   const data = useLiveQuery(
     async () => {
       if (!ilceAd) return [];
       const ilceNorm = normalizeYerAdi(ilceAd);
       const kayitlar = await db.ilanGozlem.toArray();
       return kayitlar.filter((k) => {
-        const kayitIlceNorm =
-          k.ilceNorm ?? (k.ilceAd ? normalizeYerAdi(k.ilceAd) : null);
+        const kayitIlceNorm = k.ilceNorm ?? (k.ilceAd ? normalizeYerAdi(k.ilceAd) : null);
         return kayitIlceNorm === ilceNorm;
       });
     },
     [ilceAd],
   );
   return useMemo(() => {
-    const list = (data ?? []).filter(
-      (k) => k.fiyatPerM2 != null && k.fiyatPerM2 > 0 && k.paraBirimi === "TL",
-    );
+    const list = (data ?? []).filter((k) => k.fiyatPerM2 != null && k.fiyatPerM2 > 0 && k.paraBirimi === "TL");
     if (list.length === 0) return { adet: data?.length ?? 0, ortPerM2: 0 };
-    const ort =
-      list.reduce((s, k) => s + (k.fiyatPerM2 ?? 0), 0) / list.length;
+    const ort = list.reduce((s, k) => s + (k.fiyatPerM2 ?? 0), 0) / list.length;
     return { adet: data?.length ?? 0, ortPerM2: Math.round(ort) };
   }, [data]);
 }
@@ -570,11 +499,8 @@ function useLiveIlanSayisi(ilceAd: string | null): {
 function KpiKart({ label, v }: { label: string; v: string }) {
   return (
     <div className="rounded border border-slate-200 bg-white p-1.5">
-      <div className="text-[9px] uppercase tracking-wide text-tkgm-muted">
-        {label}
-      </div>
+      <div className="text-[9px] uppercase tracking-wide text-tkgm-muted">{label}</div>
       <div className="text-base font-bold leading-none text-tkgm-ink">{v}</div>
     </div>
   );
 }
-

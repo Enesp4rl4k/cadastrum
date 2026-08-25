@@ -19,39 +19,63 @@ database_id = "6d8b1c0c-6cb7-420c-92a2-0dabe5735ae9"
 binding = "TUCBS_TILES"
 bucket_name = "cadastrum-tucbs-tiles"
 
-# KV Rate Limit — D1 write yerine KV (çok daha hızlı, write-light)
-# Deploy öncesi oluştur: wrangler kv:namespace create "RATE_LIMIT_KV"
-# Çıktıdaki id'yi buraya yaz.
-[[kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-
+# KV Rate Limit — isteğe bağlı hızlandırma
+#
+# Uygulama RATE_LIMIT_KV olmadan D1 fallback ile güvenle çalışır. Yer tutucu bir
+# namespace id'si ise `wrangler deploy` komutunu tamamen bloke eder; bu nedenle
+# KV kurulana kadar binding tanımlanmıyor. KV etkinleştirildiğinde aşağıdaki üç
+# satırı gerçek namespace id'siyle ekleyin:
+#
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "<wrangler kv:namespace create RATE_LIMIT_KV çıktısındaki id>"
 # Cron Triggers:
 #   "0 3 * * *"   — günde bir, istatistik refresh + rate_limit/giris_denemesi cleanup
 #   "0 * * * *"   — saatlik, bildirim abonelik kontrolü (fiyat-degisimi/yeni-emsal)
 #   "0 2 1 * *"   — ayın 1'i  02:00 UTC, Sahibinden scraper (PerimeterX engeli beklenir, admin maili gider)
 #   "0 3 15 * *"  — ayın 15'i 03:00 UTC, Emlakjet scraper (bot bloğu yok — Worker'dan direkt çalışır)
+#   "0 5 * * 1"   — Pazartesi 05:00 UTC, parsel polygon değişiklik takibi
 [triggers]
-crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *", "0 3 15 * *"]
+crons = ["0 3 * * *", "0 * * * *", "0 2 1 * *", "0 3 15 * *", "0 5 * * 1"]
 
 [vars]
 ENVIRONMENT = "production"
 RATE_LIMIT_PER_HOUR = "100"
+# SENTRY_DSN:
+#   - Boş string = Sentry devre dışı (no-op, güvenli — üretimde hata izleme yok)
+#   - Aktif etmek için: wrangler secret put SENTRY_DSN
+#     → sentry.io → proje → Settings → Client Keys → DSN değerini yapıştır
+#   - Secret olarak set edince bu [vars] satırı override edilir.
+#   - @sentry/cloudflare paketi kurulmamışsa yine no-op (sentry.ts lazy import).
+SENTRY_DSN = ""
 
-# Secrets — deploy öncesi tüm secret'ları set et:
+# ── Secrets — deploy öncesi tüm secret'ları set et ──────────────────────────
 #
-#   wrangler secret put SCRAPER_API_SECRET   ← scraper ingest (/v1/ilan, /v1/scraper)
-#   wrangler secret put SEED_SECRET          ← baseline seed (/v1/baseline/seed)  [YENİ]
-#   wrangler secret put STATS_SECRET         ← istatistik refresh (/v1/istatistik/refresh)  [YENİ]
-#   wrangler secret put JWT_SECRET
-#   wrangler secret put RESEND_API_KEY
-#   wrangler secret put LEMON_WEBHOOK_SECRET
-#   wrangler secret put GEMINI_API_KEY
-#   wrangler secret put GROQ_API_KEY
+# ZORUNLU (bunlar olmadan kritik işlevler çalışmaz):
+#   wrangler secret put JWT_SECRET              ← openssl rand -hex 32
+#   wrangler secret put SCRAPER_API_SECRET      ← openssl rand -hex 32
+#   wrangler secret put SEED_SECRET             ← openssl rand -hex 32
+#   wrangler secret put STATS_SECRET            ← openssl rand -hex 32
+#   wrangler secret put LEMON_WEBHOOK_SECRET    ← LemonSqueezy webhook → Settings → Webhooks → Signing Secret
 #
-# NOT: Her secret farklı ve rastgele olmalı.
-# Üretmek için: openssl rand -hex 32
+# LEMON VARIANT ID'LERİ (abonelik tier ataması için — app.lemonsqueezy.com → Products → Variants):
+#   wrangler secret put LEMON_VARIANT_PRO_AYLIK       ← Pro Aylık plan variant ID (sayısal)
+#   wrangler secret put LEMON_VARIANT_PRO_YILLIK      ← Pro Yıllık plan variant ID (sayısal)
+#   wrangler secret put LEMON_VARIANT_PRO_PLUS_AYLIK  ← Pro+ Aylık plan variant ID (sayısal)
+#   wrangler secret put LEMON_VARIANT_PRO_PLUS_YILLIK ← Pro+ Yıllık plan variant ID (sayısal)
+#   wrangler secret put LEMON_VARIANT_KURUMSAL        ← Kurumsal plan variant ID (sayısal)
 #
-# KV NAMESPACE OLUŞTURMA:
+# ÖNERİLEN:
+#   wrangler secret put RESEND_API_KEY          ← resend.com API key (email bildirimleri)
+#   wrangler secret put GEMINI_API_KEY          ← aistudio.google.com API key (AI fiyat)
+#   wrangler secret put GROQ_API_KEY            ← console.groq.com API key (AI fallback)
+#
+# OPSİYONEL:
+#   wrangler secret put SENTRY_DSN              ← sentry.io → proje → Settings → DSN
+#   wrangler secret put TCMB_EVDS_KEY           ← evds2.tcmb.gov.tr (KFE endeksi)
+#
+# NOT: Her secret farklı ve rastgele olmalı → openssl rand -hex 32
+#
+# KV NAMESPACE OLUŞTURMA (henüz yapılmadıysa):
 #   wrangler kv:namespace create "RATE_LIMIT_KV"
 #   → çıktıdaki id'yi [[kv_namespaces]] id alanına yaz

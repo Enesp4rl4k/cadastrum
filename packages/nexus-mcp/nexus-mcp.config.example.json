@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "NexusMCP Agent Gateway",
+  "version": "0.1.0",
+  "sources": [
+    {
+      "name": "cadastrum_api",
+      "specPathOrUrl": "./backend/api/openapi.yaml",
+      "baseUrl": "https://api.cadastrum.co",
+      "auth": {
+        "type": "bearer",
+        "token": "sk_live_demo_123"
+      },
+      "timeoutMs": 15000
+    }
+  ]
+}

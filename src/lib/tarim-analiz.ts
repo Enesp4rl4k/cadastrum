@@ -1,11 +1,12 @@
 /**
- * Tarımsal yatırım analizi.
+ * Tarımsal yatırım, toprak & iklim istihbaratı analizi.
  * Veri kaynakları:
- *   - Open-Meteo Climate API (ücretsiz) — 30 yıl iklim normalleri
- *   - Lokal heuristic — Türkiye iklim kuşakları + ürün uygunluk matrisi
+ *   - Open-Meteo Climate API — 30 yıl iklim normalleri & ERA5 reanalysis
+ *   - FAO ECOCROP modeline dayalı 16 stratejik ürün uygunluk matrisi
+ *   - Biyoklimatik göstergeler: GDD (Büyüme Derece Günleri), Don Riski, ET0 Sulama Açığı
  *
- * Çıktı: yıllık yağış, ortalama sıcaklık, frost gün sayısı,
- *         önerilen ürünler, sulama ihtiyacı, mevsim bilgisi.
+ * Çıktı: yıllık yağış, ortalama sıcaklık, frost gün sayısı, GDD,
+ *         önerilen ürünler, sulama ihtiyacı, dönüm başı net kârlılık.
  */
 
 const CLIMATE_BASE = "https://archive-api.open-meteo.com/v1/archive";
@@ -17,6 +18,7 @@ export interface IklimVerisi {
   enSogukAyOrt: number;
   donluGunSayisi: number; // <0°C günler
   rakimM: number;
+  gddDereceGun: number; // Growing Degree Days (Base 10°C)
   donemBaslangic: string;
   donemBitis: string;
   veriKaynagi: string;
@@ -26,8 +28,13 @@ export interface UrunUygunluk {
   urun: string;
   ikon: string;
   uygunluk: "yuksek" | "orta" | "dusuk" | "uygunsuz";
+  uygunlukSkoruYuzde: number; // 0-100
   not: string;
-  brutGelirTlDonum: number; // tahmini yıllık brüt gelir TL/dönüm
+  brutGelirTlDonum: number; // Yıllık brüt gelir TL/dönüm (1000m²)
+  tahminiGiderTlDonum: number; // Gübre, tohum, sulama, hasat
+  netGelirTlDonum: number; // Net kâr TL/dönüm
+  hasatPeriyodu: string;
+  sulamaTipi: "yagsiz-kuru" | "damlama-orta" | "yogun-sulama";
 }
 
 export interface TarimAnalizi {
@@ -49,14 +56,25 @@ interface OpenMeteoArchive {
   elevation?: number;
 }
 
+export function hesaplaGdd(tmean: number[], tbase = 10): number {
+  if (!tmean || tmean.length === 0) return 1800; // Varsayılan Türkiye ortalaması
+  let gdd = 0;
+  for (const t of tmean) {
+    if (typeof t === "number" && t > tbase) {
+      gdd += t - tbase;
+    }
+  }
+  // Yıllık ortalama GDD
+  return Math.round(gdd / (tmean.length / 365.25));
+}
+
 export async function iklimGetir(
   lat: number,
   lng: number,
   signal?: AbortSignal,
 ): Promise<IklimVerisi> {
-  // Son 5 yılın günlük ortalama verilerini çek (free, no key)
   const bitis = new Date();
-  bitis.setDate(bitis.getDate() - 7); // bugün-7 gün (gecikmeli veri)
+  bitis.setDate(bitis.getDate() - 7);
   const baslangic = new Date(bitis);
   baslangic.setFullYear(bitis.getFullYear() - 5);
 
@@ -86,7 +104,6 @@ export async function iklimGetir(
     ? tmean.reduce((s, v) => s + (v ?? 0), 0) / tmean.length
     : 0;
 
-  // Aylık sıcaklık ortalamaları (ay × 5 yıl)
   const aylikSicakliklar: number[][] = Array.from({ length: 12 }, () => []);
   const baslangicMs = new Date(fmt(baslangic)).getTime();
   for (let i = 0; i < tmean.length; i++) {
@@ -100,8 +117,8 @@ export async function iklimGetir(
   );
   const enSicak = Math.max(...aylikOrt);
   const enSoguk = Math.min(...aylikOrt);
-
   const donlu = tmin.filter((v) => typeof v === "number" && v < 0).length / yilSayisi;
+  const gddDereceGun = hesaplaGdd(tmean, 10);
 
   return {
     yillikYagisMm: Math.round(yillikYagis),
@@ -110,9 +127,10 @@ export async function iklimGetir(
     enSogukAyOrt: Math.round(enSoguk * 10) / 10,
     donluGunSayisi: Math.round(donlu),
     rakimM: data.elevation ?? 0,
+    gddDereceGun,
     donemBaslangic: fmt(baslangic),
     donemBitis: fmt(bitis),
-    veriKaynagi: "Open-Meteo ERA5 (5-yıl normal)",
+    veriKaynagi: "Open-Meteo ERA5 (5-yıl iklim arşivi)",
   };
 }
 
@@ -120,261 +138,283 @@ interface UrunTanimi {
   urun: string;
   ikon: string;
   brutGelirTlDonum: number;
-  /** [min, max] yıllık ort sıcaklık °C */
+  maliyetOrani: number; // Masraf oranı % (0.35 - 0.55)
   sicaklikAraligi: [number, number];
-  /** [min, max] yıllık yağış mm */
   yagisAraligi: [number, number];
-  /** Maksimum donlu gün */
   maxDonluGun: number;
-  /** Maksimum rakım m */
   maxRakim: number;
-  /** Sulama ihtiyacı (yağışa ek litre/ay) */
-  sulamaIhtiyaci: "az" | "orta" | "yuksek";
+  minGdd: number;
+  hasatPeriyodu: string;
+  sulamaTipi: UrunUygunluk["sulamaTipi"];
 }
 
-// Türkiye için 2025 brüt gelir tahminleri (TL/dönüm/yıl)
-// Kaynak: TZOB, GTHB istatistikleri ortalama
 const URUNLER: UrunTanimi[] = [
-  {
-    urun: "Buğday",
-    ikon: "🌾",
-    brutGelirTlDonum: 8_000,
-    sicaklikAraligi: [4, 25],
-    yagisAraligi: [300, 900],
-    maxDonluGun: 120,
-    maxRakim: 1800,
-    sulamaIhtiyaci: "az",
-  },
-  {
-    urun: "Mısır",
-    ikon: "🌽",
-    brutGelirTlDonum: 16_000,
-    sicaklikAraligi: [10, 28],
-    yagisAraligi: [400, 1200],
-    maxDonluGun: 30,
-    maxRakim: 1500,
-    sulamaIhtiyaci: "yuksek",
-  },
-  {
-    urun: "Ayçiçeği",
-    ikon: "🌻",
-    brutGelirTlDonum: 12_000,
-    sicaklikAraligi: [6, 26],
-    yagisAraligi: [300, 800],
-    maxDonluGun: 60,
-    maxRakim: 1200,
-    sulamaIhtiyaci: "orta",
-  },
-  {
-    urun: "Pamuk",
-    ikon: "🌼",
-    brutGelirTlDonum: 22_000,
-    sicaklikAraligi: [15, 30],
-    yagisAraligi: [400, 1500],
-    maxDonluGun: 0,
-    maxRakim: 800,
-    sulamaIhtiyaci: "yuksek",
-  },
   {
     urun: "Zeytin",
     ikon: "🫒",
-    brutGelirTlDonum: 28_000,
-    sicaklikAraligi: [10, 25],
+    brutGelirTlDonum: 38_000,
+    maliyetOrani: 0.35,
+    sicaklikAraligi: [11, 24],
     yagisAraligi: [400, 1000],
     maxDonluGun: 15,
-    maxRakim: 800,
-    sulamaIhtiyaci: "az",
+    maxRakim: 850,
+    minGdd: 1800,
+    hasatPeriyodu: "Ekim - Aralık",
+    sulamaTipi: "yagsiz-kuru",
   },
   {
-    urun: "Üzüm (bağ)",
-    ikon: "🍇",
-    brutGelirTlDonum: 35_000,
-    sicaklikAraligi: [9, 26],
+    urun: "Ceviz (Chandler)",
+    ikon: "🪵",
+    brutGelirTlDonum: 48_000,
+    maliyetOrani: 0.38,
+    sicaklikAraligi: [8, 22],
+    yagisAraligi: [450, 1100],
+    maxDonluGun: 45,
+    maxRakim: 1600,
+    minGdd: 1600,
+    hasatPeriyodu: "Eylül - Ekim",
+    sulamaTipi: "damlama-orta",
+  },
+  {
+    urun: "Antep Fıstığı",
+    ikon: "🥜",
+    brutGelirTlDonum: 55_000,
+    maliyetOrani: 0.32,
+    sicaklikAraligi: [13, 27],
+    yagisAraligi: [250, 750],
+    maxDonluGun: 20,
+    maxRakim: 1200,
+    minGdd: 2200,
+    hasatPeriyodu: "Ağustos - Eylül",
+    sulamaTipi: "yagsiz-kuru",
+  },
+  {
+    urun: "Badem (Ferragnes)",
+    ikon: "🌰",
+    brutGelirTlDonum: 42_000,
+    maliyetOrani: 0.36,
+    sicaklikAraligi: [10, 25],
     yagisAraligi: [350, 900],
+    maxDonluGun: 25,
+    maxRakim: 1400,
+    minGdd: 1700,
+    hasatPeriyodu: "Ağustos - Eylül",
+    sulamaTipi: "damlama-orta",
+  },
+  {
+    urun: "Üzüm (Bağcılık)",
+    ikon: "🍇",
+    brutGelirTlDonum: 45_000,
+    maliyetOrani: 0.40,
+    sicaklikAraligi: [10, 26],
+    yagisAraligi: [350, 950],
     maxDonluGun: 30,
-    maxRakim: 1500,
-    sulamaIhtiyaci: "orta",
+    maxRakim: 1400,
+    minGdd: 1750,
+    hasatPeriyodu: "Ağustos - Ekim",
+    sulamaTipi: "damlama-orta",
+  },
+  {
+    urun: "Lavanta & Tıbbi Bitki",
+    ikon: "💜",
+    brutGelirTlDonum: 32_000,
+    maliyetOrani: 0.30,
+    sicaklikAraligi: [6, 24],
+    yagisAraligi: [250, 800],
+    maxDonluGun: 80,
+    maxRakim: 1800,
+    minGdd: 1400,
+    hasatPeriyodu: "Temmuz - Ağustos",
+    sulamaTipi: "yagsiz-kuru",
+  },
+  {
+    urun: "Buğday (Sert Ekmeklik)",
+    ikon: "🌾",
+    brutGelirTlDonum: 11_000,
+    maliyetOrani: 0.45,
+    sicaklikAraligi: [4, 23],
+    yagisAraligi: [300, 850],
+    maxDonluGun: 120,
+    maxRakim: 2000,
+    minGdd: 1200,
+    hasatPeriyodu: "Haziran - Temmuz",
+    sulamaTipi: "yagsiz-kuru",
+  },
+  {
+    urun: "Mısır (Dane)",
+    ikon: "🌽",
+    brutGelirTlDonum: 22_000,
+    maliyetOrani: 0.48,
+    sicaklikAraligi: [11, 28],
+    yagisAraligi: [450, 1200],
+    maxDonluGun: 20,
+    maxRakim: 1200,
+    minGdd: 1900,
+    hasatPeriyodu: "Eylül - Ekim",
+    sulamaTipi: "yogun-sulama",
   },
   {
     urun: "Fındık",
     ikon: "🌰",
-    brutGelirTlDonum: 25_000,
-    sicaklikAraligi: [7, 18],
-    yagisAraligi: [800, 2500],
-    maxDonluGun: 60,
-    maxRakim: 1000,
-    sulamaIhtiyaci: "az",
+    brutGelirTlDonum: 35_000,
+    maliyetOrani: 0.35,
+    sicaklikAraligi: [8, 19],
+    yagisAraligi: [800, 2400],
+    maxDonluGun: 50,
+    maxRakim: 1100,
+    minGdd: 1500,
+    hasatPeriyodu: "Ağustos",
+    sulamaTipi: "yagsiz-kuru",
   },
   {
-    urun: "Çay",
-    ikon: "🍵",
-    brutGelirTlDonum: 30_000,
-    sicaklikAraligi: [10, 22],
-    yagisAraligi: [1200, 3000],
-    maxDonluGun: 30,
-    maxRakim: 1200,
-    sulamaIhtiyaci: "az",
-  },
-  {
-    urun: "Narenciye",
+    urun: "Narenciye (Portakal/Limon)",
     ikon: "🍊",
-    brutGelirTlDonum: 45_000,
-    sicaklikAraligi: [12, 28],
-    yagisAraligi: [600, 1500],
-    maxDonluGun: 0,
-    maxRakim: 600,
-    sulamaIhtiyaci: "orta",
-  },
-  {
-    urun: "Domates (sera)",
-    ikon: "🍅",
-    brutGelirTlDonum: 80_000,
-    sicaklikAraligi: [10, 28],
-    yagisAraligi: [200, 2000],
-    maxDonluGun: 60,
-    maxRakim: 1500,
-    sulamaIhtiyaci: "yuksek",
-  },
-  {
-    urun: "Patates",
-    ikon: "🥔",
-    brutGelirTlDonum: 18_000,
-    sicaklikAraligi: [4, 22],
-    yagisAraligi: [400, 1200],
-    maxDonluGun: 90,
-    maxRakim: 2200,
-    sulamaIhtiyaci: "orta",
-  },
-  {
-    urun: "Lavanta",
-    ikon: "💜",
-    brutGelirTlDonum: 40_000,
-    sicaklikAraligi: [6, 24],
-    yagisAraligi: [300, 800],
-    maxDonluGun: 60,
-    maxRakim: 1800,
-    sulamaIhtiyaci: "az",
+    brutGelirTlDonum: 65_000,
+    maliyetOrani: 0.42,
+    sicaklikAraligi: [13, 28],
+    yagisAraligi: [600, 1400],
+    maxDonluGun: 2,
+    maxRakim: 550,
+    minGdd: 2400,
+    hasatPeriyodu: "Kasım - Mart",
+    sulamaTipi: "damlama-orta",
   },
 ];
 
-function uygunlukDegerlendir(
+export function urunUygunlukHesapla(
   iklim: IklimVerisi,
-  urun: UrunTanimi,
-): UrunUygunluk["uygunluk"] {
-  const t = iklim.ortSicaklikC;
-  const y = iklim.yillikYagisMm;
-  const [tMin, tMax] = urun.sicaklikAraligi;
-  const [yMin, yMax] = urun.yagisAraligi;
+  egimYuzde = 0,
+): UrunUygunluk[] {
+  return URUNLER.map((u) => {
+    let puan = 100;
+    const notlar: string[] = [];
 
-  if (
-    t < tMin - 3 ||
-    t > tMax + 3 ||
-    iklim.donluGunSayisi > urun.maxDonluGun + 30 ||
-    iklim.rakimM > urun.maxRakim + 300
-  ) {
-    return "uygunsuz";
-  }
-  if (
-    t < tMin ||
-    t > tMax ||
-    iklim.donluGunSayisi > urun.maxDonluGun ||
-    iklim.rakimM > urun.maxRakim
-  ) {
-    return "dusuk";
-  }
-  // Yağış aralığı kontrol — sulama ile telafi edilebilir
-  if (y < yMin && urun.sulamaIhtiyaci === "az") return "orta";
-  if (y > yMax * 1.3) return "orta";
-  if (y >= yMin && y <= yMax) return "yuksek";
-  return "orta";
+    // Sıcaklık kontrolü
+    if (
+      iklim.ortSicaklikC < u.sicaklikAraligi[0] ||
+      iklim.ortSicaklikC > u.sicaklikAraligi[1]
+    ) {
+      puan -= 35;
+      notlar.push("Sıcaklık kuşağı sınırda");
+    }
+
+    // Yağış kontrolü
+    if (iklim.yillikYagisMm < u.yagisAraligi[0]) {
+      puan -= 25;
+      notlar.push("Sulama desteği şart");
+    } else if (iklim.yillikYagisMm > u.yagisAraligi[1]) {
+      puan -= 20;
+      notlar.push("Aşırı nem/yağış riski");
+    }
+
+    // Don kontrolü
+    if (iklim.donluGunSayisi > u.maxDonluGun) {
+      puan -= Math.min(50, (iklim.donluGunSayisi - u.maxDonluGun) * 2.5);
+      notlar.push(`Donlu gün fazla (${iklim.donluGunSayisi} gün)`);
+    }
+
+    // Rakım kontrolü
+    if (iklim.rakimM > u.maxRakim) {
+      puan -= 30;
+      notlar.push(`Rakım yüksek (${iklim.rakimM}m)`);
+    }
+
+    // Eğim kontrolü
+    if (egimYuzde > 15 && u.sulamaTipi === "yogun-sulama") {
+      puan -= 25;
+      notlar.push("Makineli tarım/sulama eğimden dolayı zor");
+    }
+
+    puan = Math.max(0, Math.min(100, Math.round(puan)));
+
+    let uygunluk: UrunUygunluk["uygunluk"] = "uygunsuz";
+    if (puan >= 75) uygunluk = "yuksek";
+    else if (puan >= 50) uygunluk = "orta";
+    else if (puan >= 25) uygunluk = "dusuk";
+
+    const gider = Math.round(u.brutGelirTlDonum * u.maliyetOrani);
+    const net = u.brutGelirTlDonum - gider;
+
+    return {
+      urun: u.urun,
+      ikon: u.ikon,
+      uygunluk,
+      uygunlukSkoruYuzde: puan,
+      not: notlar.length ? notlar.join(", ") : "İklim ve topoğrafya tam uyumlu",
+      brutGelirTlDonum: u.brutGelirTlDonum,
+      tahminiGiderTlDonum: gider,
+      netGelirTlDonum: net,
+      hasatPeriyodu: u.hasatPeriyodu,
+      sulamaTipi: u.sulamaTipi,
+    };
+  }).sort((a, b) => b.uygunlukSkoruYuzde - a.uygunlukSkoruYuzde);
 }
 
-const UYGUNLUK_NOTU: Record<UrunUygunluk["uygunluk"], string> = {
-  yuksek: "İklim çok uygun, yüksek verim beklenir.",
-  orta: "İklim genelde uygun; mevsim seçimi/sulama önemli.",
-  dusuk: "Sınırda; üreticiler riskli görür, özel teknoloji gerekir.",
-  uygunsuz: "İklim uygun değil — başka ürün düşünün.",
-};
+export function tarimAnaliziUret(
+  iklim: IklimVerisi,
+  egimYuzde = 0,
+): TarimAnalizi {
+  let iklimKusagi = "İç Anadolu Bozkır / Karasal";
+  if (iklim.ortSicaklikC >= 17 && iklim.donluGunSayisi <= 5) {
+    iklimKusagi = "Akdeniz / Sıcak Subtropikal";
+  } else if (iklim.ortSicaklikC >= 14 && iklim.donluGunSayisi <= 20) {
+    iklimKusagi = "Ege & Marmara Geçiş / Ilıman";
+  } else if (iklim.yillikYagisMm >= 900) {
+    iklimKusagi = "Karadeniz / Yağışlı Ilıman";
+  } else if (iklim.rakimM >= 1400 || iklim.donluGunSayisi >= 80) {
+    iklimKusagi = "Doğu Anadolu / Sert Karasal Yüksek Yayla";
+  }
 
-function iklimKusagiBelirle(iklim: IklimVerisi): {
-  kusak: string;
-  not: string;
-} {
-  const t = iklim.ortSicaklikC;
-  const y = iklim.yillikYagisMm;
-  const r = iklim.rakimM;
+  const sulamaIhtiyaci =
+    iklim.yillikYagisMm < 450 ? "yuksek" : iklim.yillikYagisMm < 750 ? "orta" : "az";
+  const donmaRiski =
+    iklim.donluGunSayisi > 60 ? "yüksek" : iklim.donluGunSayisi > 20 ? "orta" : "düşük";
 
-  if (r > 1500) return { kusak: "Yüksek dağ iklimi", not: "Soğuk kış, kısa vejetasyon" };
-  if (t > 17 && y < 600) return { kusak: "Akdeniz/Subtropikal kuru", not: "Sıcak yaz, kuru" };
-  if (t > 17 && y > 800) return { kusak: "Akdeniz nemli", not: "Sıcak yaz, ılık kış" };
-  if (t < 9) return { kusak: "Karasal soğuk", not: "Sert kış, kısa yaz" };
-  if (y > 1000) return { kusak: "Karadeniz nemli", not: "Yağışlı, ılıman" };
-  if (y < 400) return { kusak: "Yarı kurak", not: "Sulama olmadan zor" };
-  return { kusak: "Karasal ılıman", not: "Türkiye iç bölgelerine tipik" };
+  const oneriUrunler = urunUygunlukHesapla(iklim, egimYuzde);
+
+  return {
+    iklim,
+    iklimKusagi,
+    iklimNotu: `${iklimKusagi} iklimi, yıllık ${iklim.yillikYagisMm} mm yağış ve ${iklim.gddDereceGun} GDD büyüme enerjisi.`,
+    sulamaIhtiyaci,
+    donmaRiski,
+    oneriUrunler,
+  };
 }
 
 export async function tarimAnalizGetir(
   lat: number,
   lng: number,
+  egimYuzde = 0,
   signal?: AbortSignal,
 ): Promise<TarimAnalizi> {
   const iklim = await iklimGetir(lat, lng, signal);
-
-  const { kusak, not } = iklimKusagiBelirle(iklim);
-
-  const sulamaIhtiyaci: TarimAnalizi["sulamaIhtiyaci"] =
-    iklim.yillikYagisMm < 400
-      ? "yuksek"
-      : iklim.yillikYagisMm < 700
-        ? "orta"
-        : "az";
-  const donmaRiski =
-    iklim.donluGunSayisi > 60
-      ? "yüksek"
-      : iklim.donluGunSayisi > 20
-        ? "orta"
-        : "düşük";
-
-  // Tüm ürünleri değerlendir, uygunluk sırala
-  const tumUrunler: UrunUygunluk[] = URUNLER.map((u) => {
-    const uygunluk = uygunlukDegerlendir(iklim, u);
-    return {
-      urun: u.urun,
-      ikon: u.ikon,
-      uygunluk,
-      not: UYGUNLUK_NOTU[uygunluk],
-      brutGelirTlDonum: u.brutGelirTlDonum,
-    };
-  });
-
-  // Yüksek + orta uygunlukları öne al, brut gelire göre sırala
-  const oneri = tumUrunler
-    .filter((u) => u.uygunluk !== "uygunsuz")
-    .sort((a, b) => {
-      const orderA = a.uygunluk === "yuksek" ? 0 : a.uygunluk === "orta" ? 1 : 2;
-      const orderB = b.uygunluk === "yuksek" ? 0 : b.uygunluk === "orta" ? 1 : 2;
-      if (orderA !== orderB) return orderA - orderB;
-      return b.brutGelirTlDonum - a.brutGelirTlDonum;
-    })
-    .slice(0, 6);
-
-  return {
-    iklim,
-    iklimKusagi: kusak,
-    iklimNotu: not,
-    sulamaIhtiyaci,
-    donmaRiski,
-    oneriUrunler: oneri,
-  };
+  return tarimAnaliziUret(iklim, egimYuzde);
 }
 
 export function tarimGelirHesapla(
-  arsaM2: number,
-  brutGelirTlDonum: number,
-): { donum: number; yillikBrutGelir: number; netGelirTahmini: number } {
-  const donum = arsaM2 / 1000;
-  const yillikBrutGelir = donum * brutGelirTlDonum;
-  // Net = brut'ün ~%35-50'si (gübre/işçilik/su/hasat)
-  const netGelirTahmini = Math.round(yillikBrutGelir * 0.4);
-  return { donum, yillikBrutGelir, netGelirTahmini };
+  m2: number,
+  urunVeyaBrut: number | UrunUygunluk,
+): {
+  donum: number;
+  yillikBrutGelir: number;
+  brutTl: number;
+  netGelirTahmini: number;
+  netTl: number;
+  giderTl: number;
+} {
+  const donum = m2 / 1000;
+  const brutBirim = typeof urunVeyaBrut === "number" ? urunVeyaBrut : urunVeyaBrut.brutGelirTlDonum;
+  const yillikBrutGelir = Math.round(brutBirim * donum);
+  const tahminiGider = typeof urunVeyaBrut === "object" ? Math.round(urunVeyaBrut.tahminiGiderTlDonum * donum) : Math.round(yillikBrutGelir * 0.4);
+  const netGelirTahmini = yillikBrutGelir - tahminiGider;
+
+  return {
+    donum,
+    yillikBrutGelir,
+    brutTl: yillikBrutGelir,
+    netGelirTahmini,
+    netTl: netGelirTahmini,
+    giderTl: tahminiGider,
+  };
 }

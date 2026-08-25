@@ -209,6 +209,7 @@ export function terrainEkle(map: MapLibreMap, exaggeration = 1.5): void {
   if (!map.getSource(TERRAIN_SRC_ID)) {
     map.addSource(TERRAIN_SRC_ID, {
       type: "raster-dem",
+      // MapLibre demotiles — ücretsiz, API key gerektirmez, küresel kapsam
       url: "https://demotiles.maplibre.org/terrain-tiles/tiles.json",
       tileSize: 256,
     });
@@ -227,6 +228,16 @@ export function terrainEkle(map: MapLibreMap, exaggeration = 1.5): void {
         "sky-atmosphere-sun-intensity": 15,
       },
     });
+  }
+}
+
+/**
+ * Terrain exaggeration'ı dinamik olarak güncelle.
+ * 3D dijital twin slider'ı için — terrain kaldırmadan sadece yükseklik çarpanını değiştirir.
+ */
+export function terrainExaggerationGuncelle(map: MapLibreMap, exaggeration: number): void {
+  if (map.getSource(TERRAIN_SRC_ID)) {
+    map.setTerrain({ source: TERRAIN_SRC_ID, exaggeration });
   }
 }
 

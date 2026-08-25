@@ -1,0 +1,59 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cadastrum-embedding-worker
+  namespace: cadastrum
+  labels:
+    app: cadastrum-embedding-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cadastrum-embedding-worker
+  template:
+    metadata:
+      labels:
+        app: cadastrum-embedding-worker
+    spec:
+      containers:
+        - name: worker
+          image: cadastrum-api:latest
+          command: ["node", "-e", "console.log('Embedding worker ready.')"]
+          envFrom:
+            - configMapRef:
+                name: cadastrum-config
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cadastrum-scraper-cron
+  namespace: cadastrum
+spec:
+  schedule: "0 */6 * * *" # Her 6 saatte bir çalışır
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: scraper
+              image: cadastrum-scraper:latest
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - configMapRef:
+                    name: cadastrum-config
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "2"
+                  memory: "3Gi"

@@ -71,6 +71,66 @@ export async function getIl(
   }
 }
 
+export interface TopluOzetItem {
+  il_norm: string;
+  medyan: number;
+  ilan_adet: number;
+  kaynak: "ilan" | "ai-baseline";
+}
+
+export interface TopluOzetVeri {
+  kategori: string;
+  ilSayisi: number;
+  iller: TopluOzetItem[];
+  guncelleme: string;
+}
+
+/**
+ * Tüm illerin medyan TL/m² özeti — harita choropleth için.
+ * Build-time SSR: 5 saniyelik timeout (CDN kenarında 2 saat cache).
+ */
+export async function getTopluOzet(
+  kategori: Kategori = "arsa",
+): Promise<TopluOzetVeri | null> {
+  try {
+    const url = `${API_BASE}/fiyat/toplu-ozet?kategori=${kategori}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export interface TrendVeri {
+  gecmis: Array<{ yil: number; ay: number; medyan: number; ilan_adet: number }>;
+  projeksiyon: Array<{ yil: number; ay: number; tahmin: number; guven_alt: number; guven_ust: number }>;
+  yillikDegisimYuzde: number;
+  trend: "yukseliyor" | "dusuyor" | "duruyor";
+  r2: number;
+  aylikEgimTlm2: number;
+  seviye: "mahalle" | "ilce" | "il";
+}
+
+/**
+ * Mahalle fiyat trendi + 6 aylık OLS projeksiyonu.
+ */
+export async function getTrend(
+  il: string,
+  ilce: string,
+  mahalle: string,
+  kategori: Kategori = "arsa",
+): Promise<TrendVeri | null> {
+  try {
+    const url = `${API_BASE}/fiyat/trend/${encodeURIComponent(il)}/${encodeURIComponent(ilce)}/${encodeURIComponent(mahalle)}?kategori=${kategori}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Slug → Türkçe başlık. "kadikoy" → "Kadıköy"
  * Kabaca capital + il/ilçe data tablomuzdan eşleştirme.

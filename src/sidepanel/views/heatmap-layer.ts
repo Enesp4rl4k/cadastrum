@@ -54,51 +54,59 @@ export function applyHeatmap(
     } else {
       map.addSource(HEAT_SRC, { type: "geojson", data });
 
-      // Düşük zoom'da heatmap (bulut)
+      // Düşük zoom'da heatmap (bulut) — radius yakınlaştırınca KÜÇÜLÜR (daralır, yayılmaz)
       map.addLayer({
         id: HEAT_LAYER_CLOUD,
         type: "heatmap",
         source: HEAT_SRC,
-        maxzoom: 16,
+        maxzoom: 15,
         paint: {
           "heatmap-weight": [
             "interpolate", ["linear"], ["get", "sayi"], 0, 0, maxSayi, 1,
           ],
           "heatmap-intensity": [
-            "interpolate", ["linear"], ["zoom"], 8, 1, 16, 3,
+            "interpolate", ["linear"], ["zoom"], 5, 0.5, 10, 1.2, 15, 2,
           ],
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],
-            0, "rgba(255,254,179,0)",
-            0.2, "rgba(255,254,179,0.6)",
-            0.5, "rgba(253,174,97,0.8)",
-            1, "rgba(215,25,28,0.9)",
+            0,    "rgba(255,254,179,0)",
+            0.15, "rgba(255,254,179,0.55)",
+            0.40, "rgba(253,174,97,0.78)",
+            0.70, "rgba(240,59,32,0.88)",
+            1,    "rgba(189,0,38,0.96)",
           ],
+          // Uzakta geniş blob, yakınlaştırınca daraltılmış nokta
           "heatmap-radius": [
-            "interpolate", ["linear"], ["zoom"], 8, 8, 16, 30,
+            "interpolate", ["linear"], ["zoom"],
+            5,  20,   // çok uzakta geniş yayılım
+            8,  14,   // orta uzaklık
+            11, 10,   // yakın
+            14,  6,   // parsel zoom — dar nokta
           ],
           "heatmap-opacity": [
-            "interpolate", ["linear"], ["zoom"], 14, 0.8, 16, 0.3,
+            "interpolate", ["linear"], ["zoom"], 13, 0.85, 15, 0.1,
           ],
         },
       });
 
-      // Yüksek zoom'da circle (parsel detayı)
+      // Yüksek zoom'da circle (parsel nokta detayı) — 12'den itibaren görün
       map.addLayer({
         id: HEAT_LAYER,
         type: "circle",
         source: HEAT_SRC,
-        minzoom: 14,
+        minzoom: 12,
         paint: {
           "circle-radius": [
-            "interpolate", ["linear"], ["get", "sayi"],
-            1, 4,
-            10, 14,
+            "interpolate", ["linear"], ["zoom"],
+            12, ["interpolate", ["linear"], ["get", "sayi"], 1, 3, 10, 7],
+            16, ["interpolate", ["linear"], ["get", "sayi"], 1, 5, 10, 16],
           ],
           "circle-color": renk,
-          "circle-opacity": 0.7,
-          "circle-stroke-width": 1,
-          "circle-stroke-color": "white",
+          "circle-opacity": [
+            "interpolate", ["linear"], ["zoom"], 12, 0.4, 14, 0.75, 16, 0.9,
+          ],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "rgba(255,255,255,0.8)",
         },
       });
     }

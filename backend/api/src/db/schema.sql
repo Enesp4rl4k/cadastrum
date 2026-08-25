@@ -100,17 +100,22 @@ CREATE TABLE IF NOT EXISTS mahalle_baseline_ai (
 
 -- ── Kullanıcılar (auth) ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS kullanicilar (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  email        TEXT NOT NULL UNIQUE,
-  ad           TEXT,
-  pw_hash      TEXT NOT NULL,            -- PBKDF2-SHA256 hex
-  pw_salt      TEXT NOT NULL,            -- random salt hex
-  tier         TEXT NOT NULL DEFAULT 'free' CHECK(tier IN ('free','pro','pro_plus','kurumsal')),
-  tier_bitis   INTEGER,                  -- abonelik bitiş ts (null=süresiz/free)
-  olusturuldu  INTEGER NOT NULL,
-  son_giris    INTEGER,
-  admin        INTEGER NOT NULL DEFAULT 0,
-  durum        TEXT NOT NULL DEFAULT 'aktif'    -- 'aktif' | 'banli' | 'dondurulmus'
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  email               TEXT NOT NULL UNIQUE,
+  ad                  TEXT,
+  pw_hash             TEXT NOT NULL,            -- PBKDF2-SHA256 hex
+  pw_salt             TEXT NOT NULL,            -- random salt hex
+  tier                TEXT NOT NULL DEFAULT 'free' CHECK(tier IN ('free','pro','pro_plus','kurumsal')),
+  tier_bitis          INTEGER,                  -- abonelik bitiş ts (null=süresiz/free)
+  olusturuldu         INTEGER NOT NULL,
+  son_giris           INTEGER,
+  admin               INTEGER NOT NULL DEFAULT 0,
+  durum               TEXT NOT NULL DEFAULT 'aktif',    -- 'aktif' | 'banli' | 'dondurulmus'
+  email_dogrulandi    INTEGER NOT NULL DEFAULT 0,
+  dogrulama_kod       TEXT,
+  dogrulama_son       INTEGER,
+  sifre_sifirla_token TEXT,
+  sifre_sifirla_son   INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_kullanici_email ON kullanicilar(email);
 
@@ -153,3 +158,60 @@ CREATE TABLE IF NOT EXISTS hata_log (
 );
 CREATE INDEX IF NOT EXISTS idx_hata_ts ON hata_log(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_hata_kaynak ON hata_log(kaynak, ts DESC);
+
+-- ── AI Fiyat Cache ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ai_fiyat_cache (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  parsel_anahtar  TEXT NOT NULL,
+  baseline_hash   TEXT NOT NULL,
+  model           TEXT NOT NULL,
+  alt_per_m2      REAL NOT NULL,
+  beklenen_per_m2 REAL NOT NULL,
+  ust_per_m2      REAL NOT NULL,
+  gerekce         TEXT NOT NULL,
+  sure_ms         INTEGER NOT NULL,
+  olusturuldu     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_fiyat_cache_lookup ON ai_fiyat_cache(parsel_anahtar, baseline_hash, olusturuldu DESC);
+
+-- ── AI Kullanım Kota ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ai_kullanim_kota (
+  kullanici_id  INTEGER NOT NULL,
+  gun           INTEGER NOT NULL,
+  sayi          INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (kullanici_id, gun),
+  FOREIGN KEY (kullanici_id) REFERENCES kullanicilar(id) ON DELETE CASCADE
+);
+-- ── Cadex Fiyat Endeksi ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS fiyat_endeksi (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  il_norm     TEXT NOT NULL,
+  kategori    TEXT NOT NULL DEFAULT 'arsa',
+  yil         INTEGER NOT NULL,
+  ay          INTEGER NOT NULL,
+  medyan      INTEGER NOT NULL,
+  adet        INTEGER NOT NULL DEFAULT 0,
+  baz_endeks  REAL,
+  hesaplandi  INTEGER DEFAULT (unixepoch()),
+  UNIQUE(il_norm, kategori, yil, ay)
+);
+CREATE INDEX IF NOT EXISTS idx_endeks_il_kat ON fiyat_endeksi(il_norm, kategori, yil, ay);
+CREATE INDEX IF NOT EXISTS idx_endeks_donem  ON fiyat_endeksi(yil, ay);
+
+-- ── API v2 Batch Jobs ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS api_jobs (
+  id            TEXT PRIMARY KEY,
+  api_key_hash  TEXT NOT NULL,
+  durum         TEXT NOT NULL DEFAULT 'bekliyor',
+  istek_sayisi  INTEGER NOT NULL DEFAULT 0,
+  tamamlanan    INTEGER NOT NULL DEFAULT 0,
+  hata_sayisi   INTEGER NOT NULL DEFAULT 0,
+  sonuc_json    TEXT,
+  webhook_url   TEXT,
+  olusturuldu   INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  tamamlandi_ts INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_api_jobs_key   ON api_jobs(api_key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_jobs_durum ON api_jobs(durum, olusturuldu);
+
+

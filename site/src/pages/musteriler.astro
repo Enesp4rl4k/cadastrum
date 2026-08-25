@@ -46,7 +46,8 @@ import Base from "../layouts/Base.astro";
   </div>
 
   <script>
-    const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+    import { PUBLIC_API_BASE } from "../lib/config";
+    const API_BASE = PUBLIC_API_BASE;
     const liste = document.getElementById("liste") as HTMLDivElement;
     const bos = document.getElementById("bos") as HTMLDivElement;
     const authUyari = document.getElementById("auth-uyari") as HTMLDivElement;

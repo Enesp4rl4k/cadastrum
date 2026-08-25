@@ -7,7 +7,7 @@
  *   - Yaklaşan verisi: 1 saat TTL (daha dinamik)
  */
 
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API as API_BASE } from "./api-constants";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_TTL_YAKLASAN_MS = 60 * 60 * 1000; // 1 saat
 const CACHE_PREFIX = "milli_emlak__";

@@ -110,8 +110,9 @@ export function BootstrapView() {
     }
     setRefreshDurum("yukleniyor");
     try {
+      const { BACKEND_API } = await import("../../lib/api-constants");
       const res = await fetch(
-        `https://cadastrum-api.cadastrum-tr.workers.dev/v1/istatistik/refresh?secret=${encodeURIComponent(scraperSecret)}`,
+        `${BACKEND_API}/istatistik/refresh?secret=${encodeURIComponent(scraperSecret)}`,
       );
       setRefreshDurum(res.ok ? "tamam" : "hata");
     } catch {

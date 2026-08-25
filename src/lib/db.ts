@@ -41,8 +41,8 @@ export interface SorguGecmisi {
 
 export interface IlanGozlem {
   id?: number;
-  /** İlan kaynağı — sahibinden, hepsiemlak vb. */
-  kaynak?: "sahibinden" | "hepsiemlak";
+  /** İlan kaynağı — sahibinden, hepsiemlak, emlakjet vb. */
+  kaynak?: "sahibinden" | "hepsiemlak" | "emlakjet";
   ilanNo: string | null;
   url: string;
   baslik: string | null;
@@ -165,6 +165,44 @@ export interface HaftalikNokta {
   ilanAdet: number;
 }
 
+/**
+ * Kullanıcı gerçek satış fiyatı kaydı — feedback loop için temel veri.
+ *
+ * Kullanıcı bir parseli satın aldıktan/sattıktan sonra gerçek fiyatı girer.
+ * Bu veri:
+ *   1. Backend'e gönderilerek D1'de `gercek_satislar` tablosuna eklenir
+ *   2. Bias kalibrasyon scriptine girdi olarak kullanılır
+ *   3. Gelecekte mahalle bazlı model eğitimi için kullanılabilir
+ *
+ * Mahremiyete dikkat: Koordinat 0.01° (~1km) yuvarlama ile saklanır.
+ */
+export interface GercekFiyatKaydi {
+  id?: number;
+  /** Parsel kimliği: `${mahalleKodu}/${adaNo}/${parselNo}` */
+  parselKey: string;
+  ilAd: string;
+  ilceAd: string;
+  mahalleAd: string;
+  /** Gerçek satış fiyatı (TL) */
+  gercekFiyatTL: number;
+  /** Parsel alanı m² */
+  alanM2: number;
+  /** Hesaplanan TL/m² */
+  gercekPerM2: number;
+  /** Kullanıcının heuristic motorun tahminini mi gördüğü */
+  tahminGorulduMu: boolean;
+  /** Heuristic motorun tahmini (varsa, TL/m²) */
+  heuristicTahminPerM2: number | null;
+  /** Kayıt türü: satis=satın aldım, satış=sattım, kira=kira bilgisi */
+  tip: "satin-alindi" | "satildi" | "bilgi";
+  /** Giriş zamanı */
+  girisTarihi: number;
+  /** Backend'e gönderildi mi? */
+  backendSenkronlandi: boolean;
+  /** Opsiyonel not */
+  not?: string | null;
+}
+
 export interface TaskinRiskCache {
   /** `taskin|lat|lng` formatında composite key */
   key: string;
@@ -172,6 +210,38 @@ export interface TaskinRiskCache {
   maxDebi: number | null;
   not: string;
   kaynak: "open-meteo-glofas" | "il-tablo-fallback";
+  fetchedAt: number;
+}
+
+/**
+ * Arazi örtüsü cache — ESA WorldCover / CORINE Land Cover sonuçları.
+ * TTL: 90 gün (arazi sınıflandırması yıllarda değişir).
+ * Key: `arazi|lat|lng` (0.01° hassasiyet ≈ 1 km).
+ */
+export interface AraziOrtusuCache {
+  key: string;
+  kategori: import("./arazi-ortusu").AraziKategori;
+  esaSinifKodu?: number;
+  esaSinifAdi?: string;
+  corineSinifKodu?: number;
+  aciklama: string;
+  kaynak: "esa-worldcover" | "corine-wms" | "cache" | "bilinmiyor";
+  fetchedAt: number;
+}
+
+/**
+ * Hava kalitesi cache — Copernicus Atmosphere Monitoring Service sonuçları.
+ * TTL: 7 gün (hava kalitesi mevsimsel değişir ama günlük güncelleme şart değil).
+ * Key: `hava|lat|lng` (0.1° hassasiyet ≈ 10 km, CAMS grid çözünürlüğüyle uyumlu).
+ */
+export interface HavaKalitesiCache {
+  key: string;
+  pm25Yillik: number | null;    // µg/m³ — yıllık ortalama PM2.5
+  no2Yillik: number | null;     // µg/m³ — yıllık ortalama NO2
+  o3Yillik: number | null;      // µg/m³ — yıllık ortalama O3
+  aqi: number | null;           // Hesaplanan hava kalitesi indeksi (0-500)
+  kategori: "temiz" | "orta" | "kirli" | "cok-kirli" | "bilinmiyor";
+  aciklama: string;
   fetchedAt: number;
 }
 
@@ -246,6 +316,9 @@ class ArsaDB extends Dexie {
   mahalleAlias!: Table<MahalleAliasKayit, string>;
   fiyatTrendi!: Table<FiyatTrendi, string>;
   taskinRiskCache!: Table<TaskinRiskCache, string>;
+  araziOrtusuCache!: Table<AraziOrtusuCache, string>;
+  havaKalitesiCache!: Table<HavaKalitesiCache, string>;
+  gercekFiyatlar!: EntityTable<GercekFiyatKaydi, "id">;
 
   constructor() {
     super("ArsaTKGM");
@@ -495,6 +568,49 @@ class ArsaDB extends Dexie {
           }
           if (kayit.etiket === undefined) kayit.etiket = null;
         });
+    });
+    // v18: Arazi örtüsü cache (ESA WorldCover/CORINE) + Hava kalitesi cache (CAMS).
+    // Her ikisi de koordinat bazlı, 90 gün / 7 gün TTL.
+    this.version(18).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi, etiket",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+      fiyatTrendi: "&key, fetchedAt",
+      taskinRiskCache: "&key, fetchedAt",
+      araziOrtusuCache: "&key, fetchedAt",
+      havaKalitesiCache: "&key, fetchedAt",
+    });
+    // v19: Kullanıcı gerçek satış fiyatı feedback loop.
+    // gercekFiyatlar: parselKey bazlı, backend senkron tracking ile.
+    this.version(19).stores({
+      favoriler: "++id, mahalleKodu, [adaNo+parselNo], eklenmeTarihi, etiket",
+      gecmis: "++id, zaman",
+      ilanGozlem:
+        "++id, &[kaynak+ilanNo], ilanNo, kaynak, ilAd, ilceAd, mahalleAd, ilNorm, ilceNorm, mahalleNorm, zaman, [lat+lng], [kaynak+zaman], [ilceNorm+mahalleNorm], [ilceNorm+zaman]",
+      tkgmAnalizCache: "&[ilceKodu+analizTip+yil], ilceKodu, fetchedAt",
+      parselCache: "&key, fetchedAt",
+      bolgeTaramalari: "++id, ad, olusmaTarihi",
+      aiFiyatCache: "&key, fetchedAt",
+      osmCevreCache: "&key, fetchedAt",
+      depremRiskCache: "&key, fetchedAt",
+      detayKuyrugu: "&ilanNo, durum, eklenmeTs, [durum+eklenmeTs]",
+      mahalleAlias: "&key, ilNorm, ilceNorm, mahalleNorm, mahalleKodu, guncellenme",
+      tucbsCdpCache: "&key, fetchedAt",
+      fiyatTrendi: "&key, fetchedAt",
+      taskinRiskCache: "&key, fetchedAt",
+      araziOrtusuCache: "&key, fetchedAt",
+      havaKalitesiCache: "&key, fetchedAt",
+      gercekFiyatlar: "++id, parselKey, ilAd, ilceAd, girisTarihi, backendSenkronlandi",
     });
   }
 }

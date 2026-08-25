@@ -261,7 +261,8 @@ const icerik = IL_ICERIK[il!] ?? null;
 
 <script define:vars={{ il, ilDisplay }}>
   // @ts-nocheck
-  const API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+  import { PUBLIC_API_BASE } from "../lib/config";
+  const API = PUBLIC_API_BASE;
   let kategori = new URLSearchParams(location.search).get("kategori") || "arsa";
 
   function fmtTLM2(n) {

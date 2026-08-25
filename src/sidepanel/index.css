@@ -331,9 +331,6 @@ html.dark .hover\:bg-orange-100:hover:not([class*="dark:hover:bg-"]){ background
     to   { left: 180%; }
   }
 
-  /* Legacy alias */
-  .btn-tkgm-dogrula { @apply btn-cta; }
-
   /* ── Field stagger reveal ── */
   .field-reveal {
     opacity: 0;
@@ -556,4 +553,45 @@ html.dark .bg-dot-pattern {
 .separator {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--surface-3), transparent);
+}
+
+/* =============================================================================
+ * BOTTOM SHEET ANIMATIONS
+ * ============================================================================= */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Sheet ilk açılışta yukarı gelir */
+  @keyframes sheet-peek-in {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* Sheet kapanırken aşağı kayar */
+  @keyframes sheet-close-out {
+    from { transform: translateY(0);    opacity: 1; }
+    to   { transform: translateY(100%); opacity: 0; }
+  }
+
+  /* Drag handle pulse — sürükleme sırasında */
+  @keyframes handle-pulse {
+    0%   { transform: scaleX(1);    opacity: 1; }
+    50%  { transform: scaleX(1.4);  opacity: 0.7; }
+    100% { transform: scaleX(1);    opacity: 1; }
+  }
+
+  /* Sheet backdrop fade-in */
+  @keyframes backdrop-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* İpucu pill — haritada nokta yok iken */
+  @keyframes hint-float {
+    0%   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+    50%  { transform: translateX(-50%) translateY(-4px); opacity: 0.85; }
+    100% { transform: translateX(-50%) translateY(0);    opacity: 1; }
+  }
+  .hint-float {
+    animation: hint-float 3s var(--out-quart) infinite;
+  }
 }

@@ -334,6 +334,32 @@ export function parseTkgmAlan(raw: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Shoelace (Gauss) formula ile polygon koordinatlarından yaklaşık m² alan hesapla.
+ * WGS84 koordinatlar → ortalama lat üzerinden düzlem projeksiyon.
+ * Hata payı: küçük parseller için ~%1-2, büyük parseller için ihmal edilebilir.
+ */
+function geometridenAlanHesapla(ring: number[][]): number {
+  if (ring.length < 3) return 0;
+  const RAD = Math.PI / 180;
+  const avgLat = ring.reduce((s, c) => s + (c[1] ?? 0), 0) / ring.length;
+  const cosLat = Math.cos(avgLat * RAD);
+  // 1 derece enlem ≈ 111_319 m, 1 derece boylam ≈ 111_319 × cosLat m
+  const mPerDegLat = 111_319;
+  const mPerDegLng = 111_319 * cosLat;
+
+  let area = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const j = (i + 1) % ring.length;
+    const xi = (ring[i]![0] ?? 0) * mPerDegLng;
+    const yi = (ring[i]![1] ?? 0) * mPerDegLat;
+    const xj = (ring[j]![0] ?? 0) * mPerDegLng;
+    const yj = (ring[j]![1] ?? 0) * mPerDegLat;
+    area += xi * yj - xj * yi;
+  }
+  return Math.abs(area / 2);
+}
+
 function parseParselFeature(
   data: RawParselFeature,
   fallback: { mahalleKodu?: number; adaNo?: number; parselNo?: number } = {},
@@ -345,7 +371,7 @@ function parseParselFeature(
   const props = (data.properties ?? {}) as Record<string, unknown>;
   const geom = data.geometry ?? {};
 
-  const alan = parseTkgmAlan(props.alan);
+  const alanApiRaw = parseTkgmAlan(props.alan);
 
   let centerLat = 0;
   let centerLng = 0;
@@ -370,6 +396,28 @@ function parseParselFeature(
     centerLat = ring.reduce((s, c) => s + (c[1] ?? 0), 0) / ring.length;
   }
 
+  // Geometri tabanlı alan doğrulaması — API alanı ile geometri alanı arasında 50x'ten fazla fark varsa
+  // geometriyi kullan (TKGM bazen farklı birimde/bozuk alan gönderebiliyor)
+  const geoAlan = ring.length >= 3 ? geometridenAlanHesapla(ring) : 0;
+  let alan = alanApiRaw;
+  if (
+    geoAlan > 0 &&
+    alanApiRaw > 0 &&
+    (geoAlan / alanApiRaw > 50 || alanApiRaw / geoAlan > 50)
+  ) {
+    console.warn("[TKGM] Alan tutarsızlığı — geometri kullanıldı:", {
+      raw: props.alan,
+      apiAlan: alanApiRaw,
+      geoAlan: Math.round(geoAlan),
+      adaNo: props.adaNo,
+      parselNo: props.parselNo,
+    });
+    alan = Math.round(geoAlan);
+  } else if (alanApiRaw === 0 && geoAlan > 0) {
+    // API 0 döndürdüyse geometri kullan
+    alan = Math.round(geoAlan);
+  }
+
   const gittigiRaw = props.gittigiParselListe;
   const gittigiParseller = parseGittigiParseller(gittigiRaw);
 
@@ -387,7 +435,7 @@ function parseParselFeature(
     ilceKodu: Number(props.ilceId ?? 0) || null,
     adaNo: Number(props.adaNo ?? fallback.adaNo ?? 0),
     parselNo: Number(props.parselNo ?? fallback.parselNo ?? 0),
-    alan: Number.isFinite(alan) ? alan : 0,
+    alan: Number.isFinite(alan) && alan > 0 ? alan : (geoAlan > 0 ? Math.round(geoAlan) : 0),
     nitelik: String(props.nitelik ?? ""),
     pafta: String(props.pafta ?? ""),
     ilAd: String(props.ilAd ?? ""),
@@ -432,8 +480,8 @@ function parseGittigiParseller(raw: unknown): string[] {
 }
 
 const PARSEL_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 gün
-/** v2: lat/lng endpoint EN ondalık alan parse düzeltmesi — eski 26008 cache'lerini atla */
-const PARSEL_CACHE_VER = "v2";
+/** v3: alan < 5 m² debug log eklendi + cache geçersizleştirme */
+const PARSEL_CACHE_VER = "v3";
 
 export async function parselCacheGet(key: string): Promise<Parsel | null> {
   try {

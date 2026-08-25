@@ -20,6 +20,8 @@ import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { Env } from "../index.js";
 import { jwtMiddleware, tierGerekli } from "./hesap.js";
+import { kmToDegrees, turkiyeBboxIcinde } from "../lib/geo.js";
+import { log } from "../lib/logger.js";
 
 export const publicApiRoutes = new Hono<{ Bindings: Env }>();
 
@@ -61,19 +63,17 @@ const apiKeyMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, next) =
     return c.json({ error: "Invalid or revoked token" }, 401);
   }
 
-  // Rate limit
+  // Rate limit — atomik UPSERT RETURNING (TOCTOU race yok)
   const dakika = Math.floor(Date.now() / 60000);
-  const r = await c.env.DB.prepare(
-    `SELECT istek_sayisi FROM api_token_rate WHERE token_id = ? AND dakika = ?`,
+  const rr = await c.env.DB.prepare(
+    `INSERT INTO api_token_rate (token_id, dakika, istek_sayisi) VALUES (?, ?, 1)
+     ON CONFLICT(token_id, dakika) DO UPDATE SET istek_sayisi = istek_sayisi + 1
+     RETURNING istek_sayisi`,
   ).bind(tok.id, dakika).first<{ istek_sayisi: number }>();
-  const mevcut = r?.istek_sayisi ?? 0;
-  if (mevcut >= tok.rate_limit_per_min) {
+  const yeniSayi = rr?.istek_sayisi ?? 1;
+  if (yeniSayi > tok.rate_limit_per_min) {
     return c.json({ error: "Rate limit exceeded" }, 429);
   }
-  await c.env.DB.prepare(
-    `INSERT INTO api_token_rate (token_id, dakika, istek_sayisi) VALUES (?, ?, 1)
-     ON CONFLICT(token_id, dakika) DO UPDATE SET istek_sayisi = istek_sayisi + 1`,
-  ).bind(tok.id, dakika).run();
 
   await c.env.DB.prepare(`UPDATE api_tokens SET son_kullanim = ? WHERE id = ?`)
     .bind(Date.now(), tok.id).run();
@@ -148,14 +148,12 @@ publicApiRoutes.get("/fiyat/mahalle/:il/:ilce/:mahalle", apiKeyMiddleware, async
 publicApiRoutes.get("/emsal/spatial", apiKeyMiddleware, async (c) => {
   const lat = parseFloat(c.req.query("lat") ?? "");
   const lng = parseFloat(c.req.query("lng") ?? "");
-  const radiusKm = parseFloat(c.req.query("radius_km") ?? "5");
+  const radiusKm = Math.min(parseFloat(c.req.query("radius_km") ?? "5"), 20);
   const kategori = c.req.query("kategori") ?? "arsa";
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return c.json({ error: "Geçersiz lat/lng" }, 400);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !turkiyeBboxIcinde(lat, lng)) {
+    return c.json({ error: "Geçersiz lat/lng (Türkiye bbox dışı)" }, 400);
   }
-  // İç emsal-spatial endpoint'iyle aynı bbox+haversine
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  const { latDelta, lngDelta } = kmToDegrees(radiusKm, lat);
   const yasEsigi = Date.now() - 365 * 86_400_000;
   const rows = await c.env.DB.prepare(
     `SELECT id, fiyat_per_m2, m2, lat, lng, yakalanma_tarihi
@@ -175,14 +173,81 @@ publicApiRoutes.get("/emsal/spatial", apiKeyMiddleware, async (c) => {
   });
 });
 
+// Deprem PGA değerleri — 81 il için statik tablo (AFAD TDTH kaynaklı)
+// Backend'e kopyalandı ki extension lib import gerekmeden dönebilsin.
+const IL_PGA: Record<string, number> = {
+  adana: 0.35, adiyaman: 0.40, afyonkarahisar: 0.25, agri: 0.30, aksaray: 0.20,
+  amasya: 0.20, ankara: 0.15, antalya: 0.25, ardahan: 0.25, artvin: 0.30,
+  aydin: 0.35, balikesir: 0.30, bartin: 0.15, batman: 0.30, bayburt: 0.30,
+  bilecik: 0.30, bingol: 0.45, bitlis: 0.35, bolu: 0.40, burdur: 0.30,
+  bursa: 0.30, canakkale: 0.35, cankiri: 0.20, corum: 0.20, denizli: 0.35,
+  diyarbakir: 0.30, duzce: 0.45, edirne: 0.10, elazig: 0.40, erzincan: 0.50,
+  erzurum: 0.35, eskisehir: 0.20, gaziantep: 0.35, giresun: 0.30, gumushane: 0.30,
+  hakkari: 0.35, hatay: 0.40, igdir: 0.30, isparta: 0.25, istanbul: 0.35,
+  izmir: 0.40, kahramanmaras: 0.45, karabuk: 0.15, karaman: 0.15, kars: 0.30,
+  kastamonu: 0.15, kayseri: 0.20, kilis: 0.35, kirikkale: 0.15, kirklareli: 0.10,
+  kirsehir: 0.20, kocaeli: 0.40, konya: 0.15, kutahya: 0.25, malatya: 0.40,
+  manisa: 0.35, mardin: 0.30, mersin: 0.25, mugla: 0.30, mus: 0.40,
+  nevsehir: 0.15, nigde: 0.15, ordu: 0.25, osmaniye: 0.35, rize: 0.30,
+  sakarya: 0.40, samsun: 0.20, sanliurfa: 0.30, siirt: 0.35, sinop: 0.15,
+  sirnak: 0.35, sivas: 0.25, tekirdag: 0.15, tokat: 0.25, trabzon: 0.25,
+  tunceli: 0.45, usak: 0.30, van: 0.40, yalova: 0.40, yozgat: 0.20, zonguldak: 0.15,
+};
+
+function pgaToZon(pga: number): string {
+  if (pga >= 0.40) return "Z1";
+  if (pga >= 0.20) return "Z2";
+  if (pga >= 0.10) return "Z3";
+  return "Z4";
+}
+
+function pgaToFiyatCarpani(pga: number): number {
+  if (pga >= 0.40) return 0.88;
+  if (pga >= 0.30) return 0.94;
+  if (pga >= 0.20) return 0.97;
+  if (pga >= 0.10) return 1.00;
+  return 1.04;
+}
+
 publicApiRoutes.get("/risk/deprem", apiKeyMiddleware, async (c) => {
-  const il = (c.req.query("il") ?? "").toLocaleLowerCase("tr");
-  // Statik tablo — backend'de IL_DEPREM clone'u var (data dosyası import edilebilir)
-  // Buradan extension lib'inden import edilmediği için endpoint statik il listesinden döner
-  return c.json({ il, not: "Detay extension içi: src/lib/data/deprem-zonlari.ts" });
+  const il = (c.req.query("il") ?? "").toLocaleLowerCase("tr")
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c").trim();
+  const pga = IL_PGA[il];
+  if (pga === undefined) {
+    return c.json({ error: "İl bulunamadı (normalize: küçük harf, TR→Latin)" }, 404);
+  }
+  return c.json({
+    il,
+    pga,
+    zon: pgaToZon(pga),
+    fiyat_carpani: pgaToFiyatCarpani(pga),
+    aciklama: `PGA ${pga}g — ${pgaToZon(pga)} bölgesi`,
+  });
 });
 
+// Taşkın risk tablosu — il bazlı (Open-Meteo GloFAS il agregesi)
+const IL_TASKIN: Record<string, { risk: "yuksek" | "orta" | "dusuk"; carpan: number }> = {
+  rize: { risk: "yuksek", carpan: 0.88 }, artvin: { risk: "yuksek", carpan: 0.90 },
+  giresun: { risk: "yuksek", carpan: 0.92 }, ordu: { risk: "orta", carpan: 0.96 },
+  trabzon: { risk: "orta", carpan: 0.96 }, kastamonu: { risk: "orta", carpan: 0.97 },
+  sinop: { risk: "orta", carpan: 0.97 }, bartin: { risk: "orta", carpan: 0.97 },
+  zonguldak: { risk: "orta", carpan: 0.97 }, duzce: { risk: "orta", carpan: 0.96 },
+  bolu: { risk: "orta", carpan: 0.97 }, sakarya: { risk: "orta", carpan: 0.96 },
+  samsun: { risk: "orta", carpan: 0.97 }, hatay: { risk: "orta", carpan: 0.96 },
+  adana: { risk: "orta", carpan: 0.97 }, mersin: { risk: "orta", carpan: 0.97 },
+};
+
 publicApiRoutes.get("/risk/taskin", apiKeyMiddleware, async (c) => {
-  const il = (c.req.query("il") ?? "").toLocaleLowerCase("tr");
-  return c.json({ il, not: "Detay extension içi: src/lib/data/taskin-risk.ts" });
+  const il = (c.req.query("il") ?? "").toLocaleLowerCase("tr")
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c").trim();
+  const bilgi = IL_TASKIN[il] ?? { risk: "dusuk", carpan: 1.0 };
+  return c.json({
+    il,
+    risk: bilgi.risk,
+    fiyat_carpani: bilgi.carpan,
+    aciklama: `${bilgi.risk === "yuksek" ? "Yüksek" : bilgi.risk === "orta" ? "Orta" : "Düşük"} taşkın riski`,
+    kaynak: "il-tablo",
+  });
 });

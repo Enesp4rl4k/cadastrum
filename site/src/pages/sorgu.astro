@@ -3,8 +3,8 @@ export const prerender = true;
 import Base from "../layouts/Base.astro";
 ---
 
-<!-- MapLibre GL JS — CDN, build'e girmiyor -->
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
+<!-- MapLibre GL JS — jsDelivr CDN (daha kararlı) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 
 <Base title="Parsel Sorgu — Cadastrum" description="Haritaya tıkla, parselin TL değer aralığını, emsal sayısını ve güven seviyesini anında gör.">
 
@@ -28,6 +28,76 @@ import Base from "../layouts/Base.astro";
           Free: 20 sorgu/saat
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       AI AJAN — NL Fırsat Arama Bölümü
+  ══════════════════════════════════════ -->
+  <div class="border-b border-slate-200 bg-gradient-to-r from-imperial-50/60 to-slate-50">
+    <div class="container-prose py-4">
+
+      <!-- Başlık satırı -->
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-imperial/10 text-imperial text-xs font-semibold">
+          <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+          </svg>
+          AI Fırsat Arama
+        </span>
+        <span class="text-xs text-slate-500">Doğal dil ile bölge ve kriter bazlı parsel ara</span>
+        <span class="ml-auto text-xs text-slate-400 hidden sm:block">Pro üyelik gerektirir</span>
+      </div>
+
+      <!-- Arama input + buton -->
+      <div class="flex gap-2">
+        <div class="relative flex-1">
+          <input
+            type="text"
+            id="nl-input"
+            placeholder={`Örn: "Beykoz'da 500m² üstü imarlı arsa" veya "Ankara'da 2M altı tarla"`}
+            class="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-imperial/20 focus:border-imperial placeholder-slate-400 transition-colors"
+            autocomplete="off"
+            maxlength="200"
+            aria-label="Doğal dil parsel arama"
+          />
+          <!-- Temizle butonu -->
+          <button
+            type="button"
+            id="nl-temizle"
+            class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            aria-label="Aramayı temizle"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+        <button
+          type="button"
+          id="nl-ara-btn"
+          class="px-5 py-3 bg-imperial text-white rounded-xl text-sm font-semibold hover:bg-imperial-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 whitespace-nowrap shadow-sm"
+          aria-label="AI ile ara"
+        >
+          <svg id="nl-ara-ikon" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+          </svg>
+          <span id="nl-ara-label">Ara</span>
+        </button>
+      </div>
+
+      <!-- Örnek sorgular -->
+      <div class="flex flex-wrap gap-2 mt-2.5" id="nl-ornek-wrap">
+        <span class="text-xs text-slate-400 self-center">Örnek:</span>
+        <button type="button" data-nl-ornek="İzmir'de 2M altı imarlı arsa" class="nl-ornek-btn text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-imperial hover:text-imperial transition-colors">İzmir'de 2M altı imarlı arsa</button>
+        <button type="button" data-nl-ornek="Ankara'da 1000m² üstü tarla 5M altı" class="nl-ornek-btn text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-imperial hover:text-imperial transition-colors">Ankara'da 1000m² tarla</button>
+        <button type="button" data-nl-ornek="Bursa'da sahil yakını arsa" class="nl-ornek-btn text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-imperial hover:text-imperial transition-colors">Bursa'da sahil yakını arsa</button>
+        <button type="button" data-nl-ornek="İstanbul'da düşük depremli imarlı arsa" class="nl-ornek-btn text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-imperial hover:text-imperial transition-colors">İstanbul düşük deprem riski</button>
+      </div>
+
+      <!-- Sonuç alanı — başlangıçta gizli -->
+      <div id="nl-sonuc" class="hidden mt-4"></div>
+
     </div>
   </div>
 
@@ -265,7 +335,7 @@ import Base from "../layouts/Base.astro";
     import { fizibiliteHesapla, varsayilanInsaatMaliyeti } from "../lib/fizibilite";
 
     // ── Helpers ──
-    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const $ = <T extends Element>(id: string) => document.getElementById(id) as unknown as T;
     const fmt  = (n: number) => n.toLocaleString("tr-TR");
     const fmtK = (n: number) => Math.abs(n) >= 1_000_000
       ? (n / 1_000_000).toFixed(2) + " M ₺"
@@ -287,6 +357,7 @@ import Base from "../layouts/Base.astro";
     const sonucBos    = $<HTMLDivElement>("sonuc-bos");
     const sonucSkeleton = $<HTMLDivElement>("sonuc-skeleton");
     const sonucIcerik = $<HTMLDivElement>("sonuc-icerik");
+    const sonuc = sonucIcerik;
 
     // ── State ──
     let map: any = null;
@@ -300,7 +371,7 @@ import Base from "../layouts/Base.astro";
 
       map = new ml.Map({
         container: "sorgu-harita",
-        style: "https://tiles.openfreemap.org/styles/positron",
+        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         center: [35.2433, 38.9637], // Türkiye merkezi
         zoom: 5.5,
         attributionControl: false,
@@ -685,6 +756,320 @@ import Base from "../layouts/Base.astro";
       `;
     });
 
+    // ══════════════════════════════════════════════════════════════
+    // NL AJAN — AI Fırsat Arama mantığı
+    // ══════════════════════════════════════════════════════════════
+
+    const nlInput    = $<HTMLInputElement>("nl-input");
+    const nlAraBtn   = $<HTMLButtonElement>("nl-ara-btn");
+    const nlAraLabel = $<HTMLSpanElement>("nl-ara-label");
+    const nlAraIkon  = $<SVGElement>("nl-ara-ikon");
+    const nlTemizle  = $<HTMLButtonElement>("nl-temizle");
+    const nlSonuc    = $<HTMLDivElement>("nl-sonuc");
+
+    // Temizle butonu göster/gizle
+    nlInput.addEventListener("input", () => {
+      nlTemizle.classList.toggle("hidden", nlInput.value.length === 0);
+    });
+    nlTemizle.addEventListener("click", () => {
+      nlInput.value = "";
+      nlTemizle.classList.add("hidden");
+      nlSonuc.classList.add("hidden");
+      nlSonuc.innerHTML = "";
+      // Haritadan NL pinleri kaldır
+      nlPinleriTemizle();
+    });
+
+    // Örnek sorgu butonları
+    document.querySelectorAll<HTMLButtonElement>(".nl-ornek-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const ornek = btn.dataset["nlOrnek"];
+        if (!ornek) return;
+        nlInput.value = ornek;
+        nlTemizle.classList.remove("hidden");
+        nlAra();
+      });
+    });
+
+    nlAraBtn.addEventListener("click", () => nlAra());
+    nlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") nlAra(); });
+
+    // NL pin layer yönetimi
+    const NL_PINS: Array<{ marker: any; popup: any }> = [];
+
+    function nlPinleriTemizle() {
+      NL_PINS.forEach(({ marker, popup }) => {
+        try { marker.remove(); } catch {}
+        try { popup.remove(); } catch {}
+      });
+      NL_PINS.length = 0;
+    }
+
+    function fmtTLKisa(n: number): string {
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + " M ₺";
+      if (n >= 1_000)     return (n / 1_000).toFixed(0) + " bin ₺";
+      return n.toLocaleString("tr-TR") + " ₺";
+    }
+
+    async function nlAra() {
+      const sorgu = nlInput.value.trim();
+      if (!sorgu) {
+        nlInput.focus();
+        return;
+      }
+
+      // Auth kontrolü
+      const token = tokenAl();
+      if (!token) {
+        nlSonuc.classList.remove("hidden");
+        nlSonuc.innerHTML = `
+          <div class="flex items-start gap-3 bg-imperial-50 border border-imperial-200 rounded-xl p-4">
+            <svg class="h-5 w-5 text-imperial flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+              <p class="text-sm font-semibold text-imperial-800">Giriş yapmanız gerekiyor</p>
+              <p class="text-xs text-imperial-700 mt-0.5">AI Fırsat Arama özelliği Pro üyelik gerektirir.</p>
+              <div class="flex gap-2 mt-3">
+                <a href="/giris?dön=${encodeURIComponent(location.pathname + location.search)}" class="px-3 py-1.5 bg-imperial text-white rounded-lg text-xs font-semibold hover:bg-imperial-700 transition-colors">Giriş Yap</a>
+                <a href="/kayit" class="px-3 py-1.5 border border-imperial text-imperial rounded-lg text-xs font-semibold hover:bg-imperial-50 transition-colors">Üye Ol</a>
+              </div>
+            </div>
+          </div>`;
+        return;
+      }
+
+      // Yükleniyor durumu
+      nlAraBtn.disabled = true;
+      nlAraLabel.textContent = "Aranıyor…";
+      nlAraIkon.innerHTML = `<path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>`;
+      nlAraIkon.setAttribute("class", "h-4 w-4 animate-spin");
+
+      nlSonuc.classList.remove("hidden");
+      nlSonuc.innerHTML = `
+        <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+          <svg class="h-5 w-5 animate-spin text-imperial flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          AI emsaller analiz ediyor…
+        </div>`;
+
+      try {
+        const res = await fetch(`${PUBLIC_API_BASE}/ai-ajan/firsat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ sorgu }),
+          signal: AbortSignal.timeout(30_000),
+        });
+
+        const data = await res.json() as {
+          sonuclar?: Array<{
+            tip: string;
+            fiyat_per_m2?: number;
+            toplam_tl?: number;
+            m2?: number | null;
+            konum: string;
+            mesafe_m?: number;
+            kaynak: string;
+            puan?: number;
+            not?: string;
+            lat?: number;
+            lng?: number;
+          }>;
+          ozet?: string;
+          sorgulanan_kaynaklar?: Array<{ kaynak: string; basarili: boolean; sonuc_sayisi: number }>;
+          uyarilar?: string[];
+          error?: string;
+        };
+
+        // Hata durumu
+        if (!res.ok || data.error) {
+          const hataMsg = data.error ?? `HTTP ${res.status}`;
+          const proHata = res.status === 403;
+          nlSonuc.innerHTML = `
+            <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+              <p class="text-sm font-semibold text-red-800">${proHata ? "Pro üyelik gerekli" : "Arama hatası"}</p>
+              <p class="text-xs text-red-700 mt-1">${proHata ? "AI Fırsat Arama özelliği Pro veya üzeri abonelik gerektirir." : hataMsg}</p>
+              ${proHata ? `<a href="/kayit?plan=pro" class="inline-block mt-2 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 transition-colors">Pro'ya Yükselt</a>` : ""}
+            </div>`;
+          return;
+        }
+
+        const sonuclar = data.sonuclar ?? [];
+        const ozet = data.ozet ?? "";
+        const uyarilar = data.uyarilar ?? [];
+
+        // Haritaya pinleri ekle (koordinat varsa)
+        nlPinleriTemizle();
+        const ml = (window as any).maplibregl;
+        if (map && ml) {
+          const koordinatliSonuclar = sonuclar.filter((s) => s.lat && s.lng);
+          if (koordinatliSonuclar.length > 0) {
+            // Haritayı bölgeye sığdır
+            const bounds = new ml.LngLatBounds();
+            koordinatliSonuclar.forEach((s, idx) => {
+              if (!s.lat || !s.lng) return;
+
+              // Özel pin rengi — emsal=mavi, milli_emlak=turuncu, bolge=yeşil
+              const pinRenk = s.tip === "milli_emlak" ? "#d97706" : s.tip === "bolge" ? "#059669" : "#1B2A4A";
+
+              // Popup içeriği
+              const popupHtml = `
+                <div style="font-family:Inter,sans-serif;min-width:180px;padding:2px 4px">
+                  <div style="font-size:11px;font-weight:700;color:#1B2A4A;margin-bottom:4px">${s.konum}</div>
+                  ${s.fiyat_per_m2 ? `<div style="font-size:16px;font-weight:800;color:${pinRenk}">${(s.fiyat_per_m2).toLocaleString("tr-TR")} ₺/m²</div>` : ""}
+                  ${s.toplam_tl ? `<div style="font-size:11px;color:#64748b">${fmtTLKisa(s.toplam_tl)}</div>` : ""}
+                  ${s.m2 ? `<div style="font-size:10px;color:#94a3b8">Alan: ${s.m2.toLocaleString("tr-TR")} m²</div>` : ""}
+                  <div style="font-size:9px;color:#94a3b8;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">${s.kaynak}</div>
+                  ${s.not ? `<div style="font-size:9px;color:#64748b;margin-top:2px;font-style:italic">${s.not}</div>` : ""}
+                </div>`;
+
+              const popup = new ml.Popup({ closeButton: true, maxWidth: "240px", offset: [0, -10] })
+                .setHTML(popupHtml);
+
+              const el = document.createElement("div");
+              el.style.cssText = `
+                width:28px;height:28px;border-radius:50%;
+                background:${pinRenk};color:white;
+                display:flex;align-items:center;justify-content:center;
+                font-size:11px;font-weight:700;cursor:pointer;
+                border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);
+                font-family:Inter,sans-serif;
+              `;
+              el.textContent = String(idx + 1);
+              el.title = s.konum;
+
+              const marker = new ml.Marker({ element: el })
+                .setLngLat([s.lng, s.lat])
+                .setPopup(popup)
+                .addTo(map);
+
+              NL_PINS.push({ marker, popup });
+              bounds.extend([s.lng, s.lat]);
+            });
+
+            // Haritayı tüm pinleri gösterecek şekilde sığdır
+            map.fitBounds(bounds, { padding: 60, maxZoom: 13, duration: 1000 });
+          }
+        }
+
+        // Boş sonuç
+        if (sonuclar.length === 0) {
+          nlSonuc.innerHTML = `
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p class="text-sm font-semibold text-amber-900">Sonuç bulunamadı</p>
+              <p class="text-xs text-amber-800 mt-1">Kriterleri genişletmeyi veya farklı bir bölge aramayı deneyin.</p>
+              ${uyarilar.length > 0 ? `<p class="text-xs text-amber-700 mt-2">⚠ ${uyarilar[0]}</p>` : ""}
+            </div>`;
+          return;
+        }
+
+        // Kaynak özeti — hangi kaynaklar sorgulandı
+        const kaynaklar = data.sorgulanan_kaynaklar ?? [];
+        const kaynakHtml = kaynaklar.length > 0 ? `
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            ${kaynaklar.map((k) => `
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${k.basarili ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}">
+                ${k.basarili ? "✓" : "—"} ${k.kaynak} ${k.basarili ? `(${k.sonuc_sayisi})` : ""}
+              </span>`).join("")}
+          </div>` : "";
+
+        // Sonuç listesi HTML
+        const sonucListeHtml = sonuclar.map((s, idx) => {
+          const tipRenk = s.tip === "milli_emlak" ? "border-amber-200 bg-amber-50" : s.tip === "bolge" ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white";
+          const tipEtiket = s.tip === "milli_emlak" ? `<span class="px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 font-medium">Milli Emlak</span>` :
+                            s.tip === "bolge"        ? `<span class="px-1.5 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-800 font-medium">Bölge</span>` :
+                                                       `<span class="px-1.5 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 font-medium">Emsal</span>`;
+
+          return `
+            <div class="flex gap-3 p-3 rounded-xl border ${tipRenk} hover:shadow-sm transition-shadow cursor-pointer nl-sonuc-kart" data-idx="${idx}">
+              <div class="flex-shrink-0 w-6 h-6 rounded-full bg-imperial text-white flex items-center justify-center text-xs font-bold">${idx + 1}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2 flex-wrap">
+                  <span class="text-sm font-semibold text-slate-800 capitalize truncate">${s.konum}</span>
+                  ${tipEtiket}
+                </div>
+                <div class="flex items-baseline gap-3 mt-1 flex-wrap">
+                  ${s.fiyat_per_m2 ? `<span class="text-base font-bold text-imperial">${s.fiyat_per_m2.toLocaleString("tr-TR")} ₺/m²</span>` : ""}
+                  ${s.toplam_tl ? `<span class="text-xs text-slate-500">${fmtTLKisa(s.toplam_tl)}</span>` : ""}
+                  ${s.m2 ? `<span class="text-xs text-slate-400">${s.m2.toLocaleString("tr-TR")} m²</span>` : ""}
+                </div>
+                ${s.not ? `<p class="text-xs text-slate-500 mt-0.5 italic truncate">${s.not}</p>` : ""}
+              </div>
+              ${s.puan != null ? `<div class="flex-shrink-0 text-center"><div class="text-lg font-bold text-imperial">${s.puan}</div><div class="text-3xs text-slate-400">puan</div></div>` : ""}
+            </div>`;
+        }).join("");
+
+        nlSonuc.innerHTML = `
+          <div class="space-y-2">
+            <!-- Özet -->
+            ${ozet ? `
+              <div class="bg-imperial-50 border border-imperial-200 rounded-xl p-3">
+                <div class="flex items-start gap-2">
+                  <svg class="h-4 w-4 text-imperial flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                  <p class="text-xs text-imperial-800 leading-relaxed">${ozet}</p>
+                </div>
+              </div>` : ""}
+
+            <!-- Kaynak özeti -->
+            ${kaynakHtml}
+
+            <!-- Uyarılar -->
+            ${uyarilar.length > 0 ? `
+              <div class="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                ${uyarilar.map((u) => `<p class="text-xs text-amber-800">⚠ ${u}</p>`).join("")}
+              </div>` : ""}
+
+            <!-- Sonuç sayısı başlığı -->
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-600">${sonuclar.length} sonuç</span>
+              <button type="button" id="nl-haritaya-git" class="text-xs text-imperial hover:underline">Haritada gör →</button>
+            </div>
+
+            <!-- Kart listesi -->
+            ${sonucListeHtml}
+          </div>`;
+
+        // "Haritada gör" butonu
+        document.getElementById("nl-haritaya-git")?.addEventListener("click", () => {
+          document.getElementById("sorgu-harita")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        // Kart tıklandığında haritadaki ilgili pin'i aç + haritaya git
+        document.querySelectorAll<HTMLElement>(".nl-sonuc-kart").forEach((kart) => {
+          kart.addEventListener("click", () => {
+            const idx = parseInt(kart.dataset["idx"] ?? "0", 10);
+            const pin = NL_PINS[idx];
+            if (pin) {
+              pin.marker.togglePopup();
+              const lngLat = pin.marker.getLngLat();
+              map?.flyTo({ center: [lngLat.lng, lngLat.lat], zoom: 13, duration: 800 });
+              document.getElementById("sorgu-harita")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          });
+        });
+
+      } catch (err) {
+        const isTimeout = err instanceof Error && err.name === "TimeoutError";
+        nlSonuc.innerHTML = `
+          <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
+            ❌ ${isTimeout ? "AI yanıt vermedi (30 sn zaman aşımı). Daha kısa bir sorgu deneyin." : String(err)}
+          </div>`;
+      } finally {
+        nlAraBtn.disabled = false;
+        nlAraLabel.textContent = "Ara";
+        nlAraIkon.setAttribute("class", "h-4 w-4");
+        nlAraIkon.innerHTML = `<path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>`;
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // URL param'lardan otomatik doldur (rapor → sorgu round-trip için)
     const params = new URLSearchParams(location.search);
     if (params.get("lat")) latInput.value = params.get("lat")!;

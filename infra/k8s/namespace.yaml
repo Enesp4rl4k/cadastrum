@@ -1,0 +1,7 @@
+﻿apiVersion: v1
+kind: Namespace
+metadata:
+  name: cadastrum
+  labels:
+    app.kubernetes.io/name: cadastrum
+    environment: production

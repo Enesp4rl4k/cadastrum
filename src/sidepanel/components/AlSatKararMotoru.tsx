@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { YatirimSkoru, YatirimBoyutu } from "../../lib/yatirim-skoru";
 import type { FiyatTahmini } from "../../lib/fiyat-tahmin";
+import { firsatSkoruHesapla, type FirsatSeviyesi } from "../../lib/firsat-skoru";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,10 @@ interface Props {
   skor: YatirimSkoru;
   fiyat?: FiyatTahmini | null;
   trendYillikDegisim?: number | null;
+  /** İlan fiyatı (TL) — asking price. Fırsat skoru için gerekli. */
+  ilanFiyatiTL?: number | null;
+  /** Parsel alanı m² — fırsat skoru için */
+  alanM2?: number;
 }
 
 // ─── Karar motoru fonksiyonu ──────────────────────────────────────────────────
@@ -50,7 +55,13 @@ function boyutBul(boyutlar: YatirimBoyutu[], ad: string): number {
   return boyutlar.find(b => b.ad === ad)?.skor ?? 50;
 }
 
-function kararHesapla(skor: YatirimSkoru, fiyat: FiyatTahmini | null | undefined, trendYillikDegisim: number | null | undefined): KararSonuc {
+function kararHesapla(
+  skor: YatirimSkoru,
+  fiyat: FiyatTahmini | null | undefined,
+  trendYillikDegisim: number | null | undefined,
+  ilanFiyatiTL?: number | null,
+  alanM2?: number,
+): KararSonuc {
   const fiyatAvantaj = boyutBul(skor.boyutlar, "Fiyat avantajı");
   const likidite     = boyutBul(skor.boyutlar, "Likidite");
   const lojistik     = boyutBul(skor.boyutlar, "Lojistik");
@@ -63,8 +74,23 @@ function kararHesapla(skor: YatirimSkoru, fiyat: FiyatTahmini | null | undefined
   // Fırsat skoru: fiyat avantajı + imar + büyüme ortalaması
   const firsatSkoru = Math.round((fiyatAvantaj + imarPotansiyel + buyumeTrendi) / 3);
 
+  // Fırsat skoru entegrasyonu — ilan fiyatı varsa gerçek fırsat hesabı
+  let firsatBadge = "";
+  if (fiyat && ilanFiyatiTL && ilanFiyatiTL > 0 && alanM2 && alanM2 > 0) {
+    const fs = firsatSkoruHesapla({ ilanFiyatiTL, alanM2, tahmin: fiyat });
+    const seviyeEmoji: Record<FirsatSeviyesi, string> = {
+      "cok-yuksek": "🔥", "yuksek": "⭐", "orta": "👀", "dusuk": "⚠️", "yok": "",
+    };
+    if (fs.pozitifFark && fs.guvenilir) {
+      firsatBadge = `${seviyeEmoji[fs.seviye]} Fırsat skoru ${fs.toplamPuan}/100 — ${fs.ozet}`;
+    }
+  }
+
   // Gerekçe listesi
   const gerekceler: KararSonuc["gerekceler"] = [];
+  if (firsatBadge) {
+    gerekceler.push({ tip: "pozitif", metin: firsatBadge });
+  }
 
   if (fiyatAvantaj >= 70) gerekceler.push({ tip: "pozitif", metin: "Bölge medyanının altında fiyat — cazip giriş noktası" });
   else if (fiyatAvantaj >= 50) gerekceler.push({ tip: "notr", metin: "Fiyat bölge ortalaması civarında" });
@@ -150,10 +176,10 @@ function guvenEtiket(g: KararSonuc["guven"]): string {
 
 // ─── Ana Bileşen ──────────────────────────────────────────────────────────────
 
-export function AlSatKararMotoru({ skor, fiyat, trendYillikDegisim }: Props) {
+export function AlSatKararMotoru({ skor, fiyat, trendYillikDegisim, ilanFiyatiTL, alanM2 }: Props) {
   const sonuc = useMemo(
-    () => kararHesapla(skor, fiyat, trendYillikDegisim),
-    [skor, fiyat, trendYillikDegisim],
+    () => kararHesapla(skor, fiyat, trendYillikDegisim, ilanFiyatiTL, alanM2),
+    [skor, fiyat, trendYillikDegisim, ilanFiyatiTL, alanM2],
   );
 
   const r = kararRenk(sonuc.karar);

@@ -9,10 +9,14 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 export const raporRoutes = new Hono<{ Bindings: Env }>();
 
-const MAX_HTML = 768 * 1024;        // 768KB güvenlik sınırı
+// POST için sıkı rate limit: 5/saat (bir kullanıcı saatte 5'ten fazla rapor oluşturmaz)
+raporRoutes.post("/", rateLimitMiddleware(5, "rapor-post"));
+
+const MAX_HTML = 512 * 1024;        // 512KB güvenlik sınırı (768'den düşürüldü)
 const VARSAYILAN_TTL_GUN = 90;
 const MAKS_TTL_GUN = 365;
 
@@ -31,11 +35,15 @@ raporRoutes.post("/", async (c) => {
     return c.json({ error: "html zorunlu" }, 400);
   }
   if (body.html.length > MAX_HTML) {
-    return c.json({ error: "html çok büyük (>768KB)" }, 413);
+    return c.json({ error: "html çok büyük (>512KB)" }, 413);
   }
-  // Basit içerik doğrulaması — sadece tam HTML dokümanı kabul et
+  // Güvenlik: sadece extension/site'dan gelen tam HTML dokümanı kabul et
   if (!/^\s*<!DOCTYPE html>/i.test(body.html)) {
     return c.json({ error: "geçersiz html (DOCTYPE bekleniyor)" }, 400);
+  }
+  // Güvenlik: harici script kaynağı yasak (sadece inline OK — Cadastrum raporu)
+  if (/<script\s[^>]*src\s*=/i.test(body.html)) {
+    return c.json({ error: "dış script kaynağı yasak" }, 400);
   }
 
   const id = kisaId();
@@ -78,5 +86,9 @@ raporRoutes.get("/:id", async (c) => {
     /* sayaç kritik değil */
   }
 
+  // CSP header — rapor sayfasının XSS saldırısı yapamaması için
+  c.header("Content-Security-Policy",
+    "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https:; frame-ancestors 'none'"
+  );
   return c.html(row.html);
 });

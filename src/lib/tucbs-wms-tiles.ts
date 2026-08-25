@@ -4,7 +4,7 @@
 
 import { TUCBS_WMS_BASE } from "./data/tucbs-wms-endpoints";
 
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API as API_BASE } from "./api-constants";
 
 /** WMS GetMap — katman 2 (ARAZIKULLANIMI RENK) */
 export const CDP_WMS_LAYER_ID = "2";

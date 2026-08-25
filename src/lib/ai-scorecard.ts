@@ -49,10 +49,7 @@ export interface ScorecardSonuc {
   ozet: string;
 }
 
-const API_BASE =
-  typeof chrome !== "undefined"
-    ? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"
-    : "/v1";
+import { BACKEND_API as API_BASE } from "./api-constants";
 
 export interface ScorecardTalepSonuc extends ScorecardSonuc {
   modelAd: string;

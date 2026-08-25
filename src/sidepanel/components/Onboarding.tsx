@@ -7,7 +7,7 @@
  *   • Adım geçişi: content fade + translateY(6px) (220ms out-quart)
  *   • prefers-reduced-motion: instant
  */
-import { useState, useEffect, useRef } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import {
   ExternalLink as ExternalLinkIcon,
   CheckCircle2 as CheckIcon,
@@ -17,6 +17,7 @@ import {
   Building2 as Building2Icon,
   Sparkles as SparklesIcon,
   ArrowLeft as ArrowLeftIcon,
+  Star as StarIcon,
 } from "lucide-react";
 
 const STORAGE_KEY = "onboarding_v1_done";
@@ -80,10 +81,23 @@ function Adim1() {
 function Adim2() {
   const ucretsizler = [
     "Sınırsız TKGM parsel sorgusu",
-    "e-Plan imar durumu (TAKS, KAKS, Emsal)",
-    "Deprem risk skoru (AFAD PGA)",
-    "Mahalle bazlı emsal fiyat",
+    "e-Plan imar durumu (TAKS, KAKS, Emsal, Kat)",
+    "Deprem risk skoru (AFAD PGA koordinat bazlı)",
+    "Taşkın & heyelan duyarlılık analizi",
+    "Mahalle bazlı emsal fiyat + ilan karşılaştırma",
     "3 AI fiyat tahmini / gün",
+    "5 parsel portföy kaydı",
+  ];
+
+  const proOzellikler = [
+    "Sınırsız AI fiyat tahmini (Gemini 2.5 Flash)",
+    "Sentinel-2 uydu görüntüsü + AI arazi analizi",
+    "PDF / UDES değerleme raporu",
+    "Toplu parsel karşılaştırma",
+    "Sınırsız portföy + çoklu cihaz senkron",
+    "Fiyat değişim & imar alarm bildirimleri",
+    "AI Fırsat Avcısı (doğal dil parsel arama)",
+    "Kira getirisi & mortgage hesabı",
   ];
 
   return (
@@ -92,7 +106,7 @@ function Adim2() {
         <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-2.5">
           Free planda her zaman ücretsiz:
         </p>
-        <ul className="space-y-2">
+        <ul className="space-y-1.5">
           {ucretsizler.map((m) => (
             <li key={m} className="flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-400">
               <CheckIcon className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" aria-hidden="true" />
@@ -103,20 +117,25 @@ function Adim2() {
       </div>
 
       <div className="rounded-xl border border-tkgm-primary/20 bg-tkgm-primary/5 p-3.5">
-        <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="flex items-center gap-1.5 mb-2">
           <SparklesIcon className="h-3.5 w-3.5 text-tkgm-primary" aria-hidden="true" />
           <p className="text-xs font-semibold text-tkgm-primary">Pro'da ek özellikler:</p>
         </div>
-        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          Sınırsız AI analizi, PDF rapor, toplu parsel karşılaştırma, watchlist bildirimleri.
-        </p>
+        <ul className="space-y-1.5 mb-3">
+          {proOzellikler.map((m) => (
+            <li key={m} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <SparklesIcon className="h-3 w-3 flex-shrink-0 mt-0.5 text-tkgm-primary/60" aria-hidden="true" />
+              {m}
+            </li>
+          ))}
+        </ul>
         <a
           href="https://cadastrum.com.tr/fiyat"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 mt-2.5 text-xs font-medium text-tkgm-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tkgm-primary/40 rounded"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-tkgm-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tkgm-primary/40 rounded"
         >
-          Planları gör <ChevronRightIcon className="h-3 w-3" />
+          Planları gör ve Pro'ya geç <ChevronRightIcon className="h-3 w-3" />
         </a>
       </div>
     </div>
@@ -125,14 +144,81 @@ function Adim2() {
 
 /* ─── Sub-components ────────────────────────────────────────────────────── */
 
+function Adim3({ onKapat }: { onKapat: () => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 text-center">
+        <div className="text-3xl mb-2" aria-hidden="true">🗺️</div>
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">
+          İlk parselin için hazırsın
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Harita sekmesinden herhangi bir yere tıkla ya da
+          Sahibinden/Hepsiemlak'ta bir ilan aç. Cadastrum otomatik devreye girer.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hızlı başlangıç</p>
+
+        <button
+          type="button"
+          onClick={onKapat}
+          className="w-full flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-left hover:border-tkgm-primary/40 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+        >
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600" aria-hidden="true">
+            <MapPinIcon className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Haritayı aç → tıkla</p>
+            <p className="text-[10px] text-slate-400">Harita sekmesine geç, herhangi bir noktaya tıkla</p>
+          </div>
+          <ChevronRightIcon className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-slate-400" />
+        </button>
+
+        <a
+          href="https://www.sahibinden.com/satilik-arsa"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-left hover:border-orange-300/50 hover:bg-orange-50/30 dark:hover:bg-slate-700/50 transition-colors"
+        >
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600" aria-hidden="true">
+            <ExternalLinkIcon className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Sahibinden'de ilan aç</p>
+            <p className="text-[10px] text-slate-400">Arka planda otomatik analiz başlar</p>
+          </div>
+          <ExternalLinkIcon className="h-3 w-3 ml-auto flex-shrink-0 text-slate-400 opacity-60" />
+        </a>
+
+        <button
+          type="button"
+          onClick={onKapat}
+          className="w-full flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-left hover:border-emerald-300/50 hover:bg-emerald-50/30 dark:hover:bg-slate-700/50 transition-colors"
+        >
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600" aria-hidden="true">
+            <StarIcon className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Favorilerimi yönet</p>
+            <p className="text-[10px] text-slate-400">Beğendiğin parselleri kaydet, portföy oluştur</p>
+          </div>
+          <ChevronRightIcon className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-slate-400" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdimSatir({
   n, icon, baslik, aciklama, eylem,
 }: {
   n: number;
-  icon: React.ReactNode;
+  icon: ReactNode;
   baslik: string;
   aciklama: string;
-  eylem?: React.ReactNode;
+  eylem?: ReactNode;
 }) {
   return (
     <div className="flex gap-3">
@@ -159,7 +245,7 @@ function SiteLink({
 }: {
   href: string;
   color: "orange" | "blue";
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const cls = color === "orange"
     ? "bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/30"
@@ -180,10 +266,14 @@ function SiteLink({
 
 /* ─── Main component ────────────────────────────────────────────────────── */
 
-const ADIMLAR = [
-  { baslik: "Nasıl çalışır?",   icerik: <Adim1 /> },
-  { baslik: "Ücretsiz ne var?", icerik: <Adim2 /> },
-];
+// ADIMLAR bileşeni render sırasında üretiliyor — Adim3 onKapat prop'u istiyor
+function adimlarUret(onKapat: () => void) {
+  return [
+    { baslik: "Nasıl çalışır?",   icerik: <Adim1 /> },
+    { baslik: "Ücretsiz ne var?", icerik: <Adim2 /> },
+    { baslik: "Hadi başlayalım!", icerik: <Adim3 onKapat={onKapat} /> },
+  ];
+}
 
 interface OnboardingProps {
   onKapat: () => void;
@@ -193,6 +283,7 @@ export function Onboarding({ onKapat }: OnboardingProps) {
   const [adim, setAdim] = useState(0);
   const [visible, setVisible] = useState(false);
   const [contentKey, setContentKey] = useState(0); // adım geçişi için
+  const ADIMLAR = adimlarUret(onKapat);
   const sonAdim = adim === ADIMLAR.length - 1;
 
   // Overlay enter animasyonu

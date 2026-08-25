@@ -19,6 +19,8 @@ const ALARM_TCMB = "cadastrum:tcmb-refresh";
 const ALARM_VALIDATION = "cadastrum:validation-refresh";
 /** W2 — İmar değişikliği kontrolü: 7 günde bir favori parselleri kontrol et */
 const ALARM_IMAR_KONTROL = "cadastrum:imar-degisiklik-kontrol";
+/** T1.3 — Fiyat/bildirim alarmı: saatlik backend kontrolü */
+const ALARM_BILDIRIM = "cadastrum:bildirim-kontrol";
 /** İmar snapshot storage key — parsel başına son bilinen imar özeti */
 const IMAR_SNAPSHOT_PREFIX = "imarSnapshot:";
 
@@ -52,12 +54,15 @@ export function alarmlariKaydet(): void {
     periodInMinutes: 7 * 24 * 60, // 7 gün
   });
 
-  console.log("[scheduler] 4 periyodik alarm kayıt edildi");
+  // T1.3 — Fiyat/bildirim alarmı: saatlik (backend cron ile uyumlu)
+  chrome.alarms.create(ALARM_BILDIRIM, {
+    delayInMinutes: 20, // ilk kontrol 20 dakika sonra
+    periodInMinutes: 60, // saatlik
+  });
 }
 
 /** Alarm tetiklendiğinde işlenir (service-worker'dan çağrılır) */
 export async function alarmIsle(alarm: chrome.alarms.Alarm): Promise<void> {
-  console.log(`[scheduler] alarm: ${alarm.name}`);
 
   if (alarm.name === ALARM_BIAS) {
     await biasKalibrasyonRefresh();
@@ -67,6 +72,8 @@ export async function alarmIsle(alarm: chrome.alarms.Alarm): Promise<void> {
     await validationOzetRefresh();
   } else if (alarm.name === ALARM_IMAR_KONTROL) {
     await imarDegisiklikKontrol();
+  } else if (alarm.name === ALARM_BILDIRIM) {
+    await bildirimKontrol();
   }
 }
 
@@ -79,18 +86,12 @@ async function biasKalibrasyonRefresh(): Promise<void> {
     const res = await fetch(`${API_BASE}/validation/bias`, {
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) {
-      console.warn(`[scheduler] bias HTTP ${res.status}`);
-      return;
-    }
+    if (!res.ok) return;
     const veri = await res.json();
     await chrome.storage.local.set({
       biasKalibrasyonCache: { veri, cachedAt: Date.now() },
     });
-    console.log(`[scheduler] ✓ bias refresh: ${veri.tabloAdet ?? 0} ilçe`);
-  } catch (e) {
-    console.warn("[scheduler] bias refresh hata:", e);
-  }
+  } catch { /* sessiz başarısız */ }
 }
 
 /**
@@ -100,16 +101,10 @@ async function tcmbRefresh(): Promise<void> {
   try {
     const ayarRaw = await chrome.storage.local.get("ayarlar");
     const ayarlar = ayarRaw.ayarlar as { tcmbApiKey?: string } | undefined;
-    if (!ayarlar?.tcmbApiKey || ayarlar.tcmbApiKey.length < 10) {
-      console.log("[scheduler] TCMB API key yok, refresh atlandı");
-      return;
-    }
+    if (!ayarlar?.tcmbApiKey || ayarlar.tcmbApiKey.length < 10) return;
     // Cache'i sil → bir sonraki sorgu fresh fetch yapsın
     await chrome.storage.local.remove("tcmbKfeCache");
-    console.log("[scheduler] ✓ TCMB cache temizlendi");
-  } catch (e) {
-    console.warn("[scheduler] tcmb refresh hata:", e);
-  }
+  } catch { /* sessiz başarısız */ }
 }
 
 /**
@@ -125,10 +120,7 @@ async function validationOzetRefresh(): Promise<void> {
     await chrome.storage.local.set({
       validationOzetCache: { veri, cachedAt: Date.now() },
     });
-    console.log("[scheduler] ✓ validation özet refresh");
-  } catch (e) {
-    console.warn("[scheduler] validation refresh hata:", e);
-  }
+  } catch { /* sessiz başarısız */ }
 }
 
 /**
@@ -225,10 +217,104 @@ async function imarDegisiklikKontrol(): Promise<void> {
       }
     }
 
-    console.log(`[scheduler] ✓ imar kontrol: ${kontrolEdilecek.length} parsel, ${degisiklikAdet} değişiklik`);
-  } catch (e) {
-    console.warn("[scheduler] imar kontrol hata:", e);
-  }
+  } catch { /* sessiz başarısız */ }
+}
+
+/**
+ * T1.3 — Fiyat/bildirim alarmı saatlik kontrolü.
+ *
+ * Backend /v1/bildirim/kontrol endpoint'ine JWT ile istek atar.
+ * Tetiklenen bildirimler varsa Chrome notification oluşturur + badge günceller.
+ *
+ * Opt-out: kullanıcı ayarlardan bildirim kapatabilir (bildirimlerKapali flag).
+ * JWT yoksa (giriş yapılmamış): sessizce atlar.
+ */
+async function bildirimKontrol(): Promise<void> {
+  try {
+    // Bildirimler kapalıysa atla
+    const ayarRaw = await chrome.storage.local.get(["ayarlar", "cadastrum_token"]);
+    const ayarlar = ayarRaw.ayarlar as { bildirimlerKapali?: boolean } | undefined;
+    if (ayarlar?.bildirimlerKapali) return;
+
+    // JWT yoksa giriş yapılmamış — atla
+    const token = typeof ayarRaw["cadastrum_token"] === "string"
+      ? ayarRaw["cadastrum_token"]
+      : null;
+    if (!token) return;
+
+    // Backend bildirim kontrol endpoint'i
+    const res = await fetch(`${API_BASE}/bildirim/kontrol`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        // Token geçersiz — sessiz geç (kullanıcı çıkış yapmış olabilir)
+        return;
+      }
+      return;
+    }
+
+    const veri = await res.json() as {
+      tetiklenen?: Array<{
+        id: number;
+        tur: string;
+        il: string;
+        ilce: string;
+        mahalle?: string;
+        mesaj: string;
+      }>;
+      toplam?: number;
+    };
+
+    const tetiklenenler = veri.tetiklenen ?? [];
+    if (tetiklenenler.length === 0) return;
+
+    // Extension badge güncelle (bildirim sayısı)
+    if (chrome.action) {
+      chrome.action.setBadgeText({ text: String(tetiklenenler.length) });
+      chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+    }
+
+    // Chrome notification oluştur — her tetiklenen için
+    if (chrome.notifications) {
+      for (const b of tetiklenenler.slice(0, 5)) {
+        // Max 5 bildirim — spam önleme
+        const lokasyon = [b.mahalle, b.ilce, b.il].filter(Boolean).join(", ");
+        chrome.notifications.create(`bildirim-${b.id}-${Date.now()}`, {
+          type: "basic",
+          iconUrl: "public/icon-48.png",
+          title: `Cadastrum — ${b.tur === "fiyat-degisimi" ? "Fiyat Değişimi" : "Yeni Emsal"}`,
+          message: b.mesaj || `${lokasyon} bölgesinde değişiklik tespit edildi.`,
+        });
+      }
+
+      // Fazla bildirim varsa tek özet ekle
+      if (tetiklenenler.length > 5) {
+        chrome.notifications.create(`bildirim-ozet-${Date.now()}`, {
+          type: "basic",
+          iconUrl: "public/icon-48.png",
+          title: "Cadastrum — Bildirimler",
+          message: `${tetiklenenler.length} bildirim var. Paneli açın.`,
+        });
+      }
+    }
+
+    // Storage'a yaz — panel açıldığında gösterilsin
+    const logKey = "bildirimLog";
+    const logRaw = await chrome.storage.local.get(logKey);
+    const log = (logRaw[logKey] as Array<{ ts: number; mesaj: string; tur: string }> | undefined) ?? [];
+    for (const b of tetiklenenler) {
+      log.unshift({ ts: Date.now(), mesaj: b.mesaj, tur: b.tur });
+    }
+    await chrome.storage.local.set({ [logKey]: log.slice(0, 50) }); // son 50 bildirim
+
+  } catch { /* sessiz başarısız */ }
 }
 
 

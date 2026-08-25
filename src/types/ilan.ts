@@ -1,4 +1,4 @@
-export type IlanKaynak = "sahibinden" | "hepsiemlak";
+export type IlanKaynak = "sahibinden" | "hepsiemlak" | "emlakjet";
 
 export interface IlanBilgisi {
   kaynak: IlanKaynak;

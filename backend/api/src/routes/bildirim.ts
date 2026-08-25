@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { jwtMiddleware } from "./hesap.js";
+import { turkiyeBboxIcinde } from "../lib/geo.js";
 
 export const bildirimRoutes = new Hono<{ Bindings: Env }>();
 
@@ -43,13 +44,6 @@ const TIER_LIMIT: Record<string, number> = {
 interface AboneInput {
   tip?: BildirimTipi;
   parametre?: Record<string, unknown>;
-}
-
-function turkiyeBboxIcinde(lat: unknown, lng: unknown): boolean {
-  return (
-    typeof lat === "number" && typeof lng === "number" &&
-    lat > 35 && lat < 43 && lng > 25 && lng < 46
-  );
 }
 
 // ── GET /list ────────────────────────────────────────────────────────────────
@@ -87,7 +81,9 @@ bildirimRoutes.post("/abone", async (c) => {
   }
   const par = body.parametre ?? {};
   // Tüm tipler lat/lng/radius gerektirir
-  if (!turkiyeBboxIcinde(par.lat, par.lng)) {
+  const lat = typeof par.lat === "number" ? par.lat : NaN;
+  const lng = typeof par.lng === "number" ? par.lng : NaN;
+  if (!turkiyeBboxIcinde(lat, lng)) {
     return c.json({ hata: "lat/lng eksik veya Türkiye dışı" }, 422);
   }
   if (typeof par.radius_km !== "number" || par.radius_km <= 0 || par.radius_km > 30) {

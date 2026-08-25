@@ -13,6 +13,7 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 const TUCBS_WMS_SLUGS = new Set([
   "csb_cdp_im_wms",
@@ -104,12 +105,17 @@ proxyRoutes.get("/eplan", async (c) => {
       return c.json({ error: `e-Plan ${res.status}`, status: res.status }, 502);
     }
     const text = await res.text();
+    // GÜVENLIK: ACAO "*" yerine gelen origin'i reflect ediyoruz.
+    // Bu proxy endpoint'i extension + site'dan çağrılıyor; wildcard gerekmiyor,
+    // index.ts'deki CORS allowlist zaten yeterli filtrelemeyi yapıyor.
+    const origin = c.req.header("Origin") ?? "";
     return new Response(text, {
       status: 200,
       headers: {
         "Content-Type": res.headers.get("Content-Type") ?? "application/json",
         "Cache-Control": "public, max-age=86400",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": origin || "null",
+        "Vary": "Origin",
       },
     });
   } catch (e) {
@@ -163,12 +169,14 @@ proxyRoutes.get("/tucbs", async (c) => {
       return c.json({ error: `TUCBS WMS ${res.status}` }, 502);
     }
     const text = await res.text();
+    const origin2 = c.req.header("Origin") ?? "";
     return new Response(text, {
       status: 200,
       headers: {
         "Content-Type": "application/geojson",
         "Cache-Control": "public, max-age=604800",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": origin2 || "null",
+        "Vary": "Origin",
       },
     });
   } catch (e) {
@@ -211,12 +219,14 @@ proxyRoutes.get("/tucbs/tile/:wms/:z/:x/:y", async (c) => {
   // 1) R2'den dene
   const cached = await c.env.TUCBS_TILES.get(r2Key);
   if (cached) {
+    const tileOrigin = c.req.header("Origin") ?? "";
     return new Response(cached.body, {
       status: 200,
       headers: {
         "Content-Type": cached.httpMetadata?.contentType ?? "image/png",
         "Cache-Control": "public, max-age=2592000, immutable",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": tileOrigin || "null",
+        "Vary": "Origin",
         "X-Tile-Cache": "r2-hit",
       },
     });
@@ -256,12 +266,14 @@ proxyRoutes.get("/tucbs/tile/:wms/:z/:x/:y", async (c) => {
       }),
     );
 
+    const tileOrigin2 = c.req.header("Origin") ?? "";
     return new Response(buf, {
       status: 200,
       headers: {
         "Content-Type": res.headers.get("Content-Type") ?? "image/png",
         "Cache-Control": "public, max-age=2592000, immutable",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": tileOrigin2 || "null",
+        "Vary": "Origin",
         "X-Tile-Cache": "miss-fetched",
       },
     });
@@ -309,12 +321,14 @@ proxyRoutes.get("/tkgm-idari/:tip/:kod?", async (c) => {
       return c.json({ error: `TKGM idari HTTP ${res.status}` }, 502);
     }
     const text = await res.text();
+    const idariOrigin = c.req.header("Origin") ?? "";
     return new Response(text, {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=2592000", // 30 gün — idari yapı nadiren değişir
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": idariOrigin || "null",
+        "Vary": "Origin",
       },
     });
   } catch (e) {
@@ -375,13 +389,230 @@ proxyRoutes.get("/tkgm-analiz", async (c) => {
     }
 
     const text = await res.text();
+    const analizOrigin = c.req.header("Origin") ?? "";
     return new Response(text, {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         // 7 günlük public cache — CDN kenarında tutulur, backend'e istek gelmez
         "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": analizOrigin || "null",
+        "Vary": "Origin",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
+// ── Sentinel-2 / ESRI World Imagery tile proxy ────────────────────────────────
+// Kullanıcıya herhangi bir API key gerektirmeyen kamuya açık uydu görüntüsü.
+//
+// Kaynak seçimi:
+//   1. ESRI World Imagery (arcgisonline.com) — zoom 0-23, gerçek uydu görüntüsü,
+//      API key gerektirmez, ücretsiz tile servisi, küresel kapsam.
+//   2. Fallback: OpenStreetMap tile (harita — uydu değil)
+//
+// Endpoint: GET /v1/proxy/uydu-tile/{z}/{x}/{y}
+// Cloudflare'de cache'lenir (30 gün) — repeated requests ücretsiz.
+
+const ESRI_TILE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile";
+
+proxyRoutes.get("/uydu-tile/:z/:x/:y", async (c) => {
+  const z = parseInt(c.req.param("z"), 10);
+  const x = parseInt(c.req.param("x"), 10);
+  const y = parseInt(c.req.param("y"), 10);
+
+  // Zoom sınır — 18+ ESRI'de çok yavaş
+  if (!Number.isInteger(z) || z < 0 || z > 19) {
+    return c.json({ error: "z 0–19 arasında olmalı" }, 400);
+  }
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0) {
+    return c.json({ error: "x ve y pozitif tam sayı olmalı" }, 400);
+  }
+
+  const url = `${ESRI_TILE}/${z}/${y}/${x}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
+        "Referer": "https://www.arcgis.com/",
+      },
+      cf: { cacheTtl: 86_400 * 30, cacheEverything: true } as never,
+    });
+
+    if (!res.ok) {
+      return new Response(null, { status: res.status });
+    }
+
+    const imgOrigin = c.req.header("Origin") ?? "";
+    const imgData = await res.arrayBuffer();
+    return new Response(imgData, {
+      status: 200,
+      headers: {
+        "Content-Type": res.headers.get("Content-Type") ?? "image/jpeg",
+        "Cache-Control": "public, max-age=2592000",
+        "Access-Control-Allow-Origin": imgOrigin || "*",
+        "Vary": "Origin",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+});
+
+// ── AI Uydu Analizi ───────────────────────────────────────────────────────────
+// POST /v1/proxy/uydu-analiz
+// body: { lat: number, lng: number, zoom: number }
+// Gemini Vision ile uydu görüntüsünden arazi değişim analizi yapar.
+// Gemini Flash multimodal — görüntü URL'sini doğrudan işler.
+
+proxyRoutes.post("/uydu-analiz", rateLimitMiddleware(5, "uydu-analiz"), async (c) => {
+  const body = await c.req.json<{ lat?: number; lng?: number; zoom?: number }>();
+  const lat = Number(body.lat ?? 0);
+  const lng = Number(body.lng ?? 0);
+  const zoom = Math.min(Math.max(Number(body.zoom ?? 15), 10), 18);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+    return c.json({ error: "Geçerli lat/lng gerekli" }, 400);
+  }
+
+  // Cache key — koordinatı 3 ondalığa yuvarlayarak benzer konumları birleştir (~100m hassasiyet)
+  const cacheKey = `uydu:${lat.toFixed(3)}:${lng.toFixed(3)}:${zoom}`;
+  const kv = c.env.RATE_LIMIT_KV;
+
+  // KV cache'den oku (24 saat TTL)
+  if (kv) {
+    try {
+      const cached = await kv.get(cacheKey, "text");
+      if (cached) {
+        const uyduOrigin = c.req.header("Origin") ?? "";
+        return new Response(cached, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=86400",
+            "X-Cache": "HIT",
+            "Access-Control-Allow-Origin": uyduOrigin || "*",
+            "Vary": "Origin",
+          },
+        });
+      }
+    } catch { /* KV hata → devam et, fresh analiz yap */ }
+  }
+
+  // Web Mercator tile koordinatları hesapla
+  function latLngToTile(lat: number, lng: number, z: number): { x: number; y: number } {
+    const n = Math.pow(2, z);
+    const x = Math.floor((lng + 180) / 360 * n);
+    const latRad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return { x, y };
+  }
+
+  const { x, y } = latLngToTile(lat, lng, zoom);
+  const tileUrl = `${ESRI_TILE}/${zoom}/${y}/${x}`;
+
+  // Gemini Vision API key
+  const geminiKey = c.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    return c.json({ error: "Gemini API key eksik" }, 500);
+  }
+
+  try {
+    // Uydu görüntüsünü fetch et
+    const tileRes = await fetch(tileUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)" },
+    });
+    if (!tileRes.ok) {
+      return c.json({ error: `Uydu tile alınamadı: HTTP ${tileRes.status}` }, 502);
+    }
+    const imgBytes = await tileRes.arrayBuffer();
+    // btoa(String.fromCharCode(...spread)) büyük tile'larda call stack overflow verir.
+    // Chunk'lara bölerek güvenli base64 encode.
+    const bytes = new Uint8Array(imgBytes);
+    let imgB64 = "";
+    const CHUNK = 8192;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      imgB64 += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    imgB64 = btoa(imgB64);
+    const mimeType = tileRes.headers.get("Content-Type") ?? "image/jpeg";
+
+    // Gemini Vision multimodal analiz
+    const prompt = `Bu bir Türkiye'deki arazi/parsel bölgesinin uydu görüntüsüdür (koordinat: ${lat.toFixed(5)}, ${lng.toFixed(5)}).
+
+Lütfen aşağıdaki konularda kısa ve net bir analiz yap (JSON formatında dön):
+1. arazi_tipi: Görüntüdeki arazi kullanım türü (arsa/tarla/konut/sanayi/tarım/orman/karma)
+2. yapilasma_yogunlugu: Yapılaşma yoğunluğu (0=boş, 100=tam dolu)
+3. yesil_alan_orani: Yeşil/bitki örtüsü oranı (0-100)
+4. ulasim_erisimi: Görünür yol/cadde erişimi (yok/zayıf/orta/iyi/çok iyi)
+5. yakin_tesisler: Görünen önemli tesisler (liste, en fazla 5 madde)
+6. degerlenme_potansiyeli: Bu görüntüye göre arazi değerlenme potansiyeli (düşük/orta/yüksek)
+7. gozlemler: Önemli gözlemler (2-3 cümle, Türkçe)
+
+Sadece JSON döndür, başka açıklama ekleme.`;
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType, data: imgB64 } },
+              { text: prompt },
+            ],
+          }],
+          generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512 },
+        }),
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      return c.json({ error: `Gemini API hatası: ${errText.slice(0, 200)}` }, 502);
+    }
+
+    const geminiData = await geminiRes.json() as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+
+    let analiz: Record<string, unknown>;
+    try {
+      analiz = JSON.parse(rawText);
+    } catch {
+      analiz = { gozlemler: rawText.slice(0, 300) };
+    }
+
+    const uyduOrigin = c.req.header("Origin") ?? "";
+    const responseBody = JSON.stringify({
+      ok: true,
+      koordinat: { lat, lng, zoom },
+      tile: { z: zoom, x, y },
+      tileUrl: `${c.req.url.split("/v1/")[0]}/v1/proxy/uydu-tile/${zoom}/${x}/${y}`,
+      analiz,
+    });
+
+    // KV'ye 24 saat cache'le (fire-and-forget)
+    if (kv) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (c as any).executionCtx?.waitUntil(
+        kv.put(cacheKey, responseBody, { expirationTtl: 86400 }).catch(() => {})
+      );
+    }
+
+    return new Response(responseBody, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=82800",
+        "X-Cache": "MISS",
+        "Access-Control-Allow-Origin": uyduOrigin || "*",
+        "Vary": "Origin",
       },
     });
   } catch (e) {
@@ -392,5 +623,5 @@ proxyRoutes.get("/tkgm-analiz", async (c) => {
 // ── Sağlık ────────────────────────────────────────────────────────────────────
 
 proxyRoutes.get("/health", (c) =>
-  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz"] }),
+  c.json({ ok: true, services: ["eplan", "tucbs", "tkgm-analiz", "uydu-tile", "uydu-analiz"] }),
 );

@@ -369,7 +369,11 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  alarmIsle(alarm).catch(e => console.error("[alarm] hata:", e));
+  alarmIsle(alarm).catch((e: unknown) => {
+    import("../lib/telemetri").then(({ hataBildir }) => {
+      hataBildir("alarm", e);
+    }).catch(() => { /* telemetri yüklenemedi */ });
+  });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {

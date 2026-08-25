@@ -17,7 +17,7 @@ import {
   ChevronDown as ChevronDownIcon,
   ChevronRight as ChevronRightIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Parsel } from "../../types/tkgm";
 import { haversineM } from "../../lib/analiz";
 import { OSBLAR } from "../../lib/data/osblar";
@@ -38,6 +38,8 @@ interface YakinSonuc {
   ad: string;
   il: string;
   kmMesafe: number;
+  lat: number;
+  lng: number;
 }
 
 function enYakin(noktalar: ReadonlyArray<Nokta>, lat: number, lng: number): YakinSonuc | null {
@@ -47,7 +49,7 @@ function enYakin(noktalar: ReadonlyArray<Nokta>, lat: number, lng: number): Yaki
     const m = haversineM(lat, lng, n.lat, n.lng);
     const km = m / 1000;
     if (!enIyi || km < enIyi.kmMesafe) {
-      enIyi = { ad: n.ad, il: n.il, kmMesafe: Math.round(km * 10) / 10 };
+      enIyi = { ad: n.ad, il: n.il, kmMesafe: Math.round(km * 10) / 10, lat: n.lat, lng: n.lng };
     }
   }
   return enIyi;
@@ -79,17 +81,31 @@ function nufusYogKategori(yogunluk: number): { etiket: string; renk: string; aci
 
 interface Props {
   parsel: Parsel;
+  /** Yakın noktaları haritaya çizmek için (MapView'den geçilir) */
+  onYakinPoiler?: (poiler: { tip: string; ad: string; lat: number; lng: number; mesafeM: number; ikon?: string }[] | null) => void;
 }
 
-export function AltyapiMesafeKarti({ parsel }: Props) {
+export function AltyapiMesafeKarti({ parsel, onYakinPoiler }: Props) {
   const [acik, setAcik] = useState(false);
 
   const { lat, lng } = parsel.merkezNokta;
-  if (!lat || !lng) return null;
 
-  const osb = enYakin(OSBLAR, lat, lng);
-  const havalimanı = enYakin(HAVALIMANLARITÜMÜ, lat, lng);
-  const liman = enYakin(LIMANLAR, lat, lng);
+  const osb = (lat && lng) ? enYakin(OSBLAR, lat, lng) : null;
+  const havalimanı = (lat && lng) ? enYakin(HAVALIMANLARITÜMÜ, lat, lng) : null;
+  const liman = (lat && lng) ? enYakin(LIMANLAR, lat, lng) : null;
+
+  // Haritaya POI çizgilerini bildir — parsel değişince veya mount'ta
+  useEffect(() => {
+    if (!lat || !lng || !onYakinPoiler) return;
+    const poiler: { tip: string; ad: string; lat: number; lng: number; mesafeM: number; ikon?: string }[] = [];
+    if (osb) poiler.push({ tip: "osb", ad: osb.ad, lat: osb.lat, lng: osb.lng, mesafeM: Math.round(osb.kmMesafe * 1000), ikon: "🏭" });
+    if (havalimanı) poiler.push({ tip: "havalimani", ad: havalimanı.ad, lat: havalimanı.lat, lng: havalimanı.lng, mesafeM: Math.round(havalimanı.kmMesafe * 1000), ikon: "✈️" });
+    if (liman) poiler.push({ tip: "liman", ad: liman.ad, lat: liman.lat, lng: liman.lng, mesafeM: Math.round(liman.kmMesafe * 1000), ikon: "⚓" });
+    onYakinPoiler(poiler.length > 0 ? poiler : null);
+    return () => onYakinPoiler(null);
+  }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!lat || !lng) return null;
 
   const ilNorm = normalizeYerAdi(parsel.ilAd ?? "");
   const nufusYog = IL_NUFUS_YOGUNLUGU[ilNorm] ?? null;

@@ -465,7 +465,7 @@ function parseAiSonuc(text: string): {
  *   body: { parselAnahtar, baselineHash, prompt }
  *   response: { altPerM2, beklenenPerM2, ustPerM2, gerekce, modelAd, sureMs, cached, kalanKota }
  */
-const CADASTRUM_API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API as CADASTRUM_API } from "./api-constants";
 
 async function cadastrumProxyCagir(
   parsel: Parsel,

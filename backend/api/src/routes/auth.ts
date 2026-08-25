@@ -23,6 +23,7 @@ import {
   welcomeTemplate,
   sifreSifirlamaTemplate,
 } from "../lib/email-templates.js";
+import { log } from "../lib/logger.js";
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -185,7 +186,10 @@ auth.post("/kayit", async (c) => {
   if (body.sifre.length > 128) return c.json({ hata: "Şifre çok uzun" }, 400);
 
   const mevcut = await c.env.DB.prepare("SELECT id FROM kullanicilar WHERE email = ?").bind(email).first();
-  if (mevcut) return c.json({ hata: "Bu email zaten kayıtlı" }, 409);
+  if (mevcut) {
+    log.warn("auth.kayit.duplicate", { email });
+    return c.json({ hata: "Bu email zaten kayıtlı" }, 409);
+  }
 
   const salt = rastgeleHex(16);
   const hash = await sifreHash(body.sifre, salt);
@@ -216,7 +220,10 @@ auth.post("/kayit", async (c) => {
 auth.post("/giris", async (c) => {
   const ip = clientIp(c);
   const izinli = await rateLimitKontrol(c.env, ip);
-  if (!izinli) return c.json({ hata: "Çok fazla deneme. Bir dakika bekleyin." }, 429);
+  if (!izinli) {
+    log.warn("auth.giris.rate-limit", { ip });
+    return c.json({ hata: "Çok fazla deneme. Bir dakika bekleyin." }, 429);
+  }
 
   const body = await c.req.json<{ email?: string; sifre?: string }>().catch(() => null);
   if (!body?.email || !body?.sifre) return c.json({ hata: "Email ve şifre gerekli" }, 400);
@@ -239,10 +246,14 @@ auth.post("/giris", async (c) => {
   const b = new TextEncoder().encode(row.pw_hash);
   let diff = a.length ^ b.length;
   for (let i = 0; i < Math.min(a.length, b.length); i++) diff |= a[i] ^ b[i];
-  if (diff !== 0) return c.json({ hata: "Email veya şifre hatalı" }, 401);
+  if (diff !== 0) {
+    log.warn("auth.giris.basarisiz", { email });
+    return c.json({ hata: "Email veya şifre hatalı" }, 401);
+  }
 
   // Banlanan hesap girişini engelle
   if ((row as any).durum === "banli") {
+    log.warn("auth.giris.banli", { email, id: row.id });
     return c.json({ hata: "Hesabınız askıya alınmış. Destek: iletisim@cadastrum.com.tr" }, 403);
   }
 
@@ -252,6 +263,7 @@ auth.post("/giris", async (c) => {
   await c.env.DB.prepare("UPDATE kullanicilar SET son_giris = ? WHERE id = ?")
     .bind(Date.now(), row.id).run();
 
+  log.info("auth.giris.basarili", { email, tier, id: row.id });
   const token = await tokenUret(c.env.JWT_SECRET, row.id, row.email, tier, (row as any).admin);
   return c.json({ token, kullanici: { ...kullaniciDispatch(row), tier } });
 });
@@ -297,7 +309,18 @@ auth.post("/dogrula", async (c) => {
   if (veri.kullanici.dogrulama_son < Date.now()) {
     return c.json({ hata: "Kod süresi geçmiş, yeni kod isteyin" }, 400);
   }
-  if (veri.kullanici.dogrulama_kod !== body.kod.trim()) {
+
+  // GÜVENLIK: doğrulama kodu karşılaştırması timing-safe olmalı.
+  // Düz !== operatörü, eşleşme noktasını timing side-channel ile sızdırabilir.
+  const gelen = body.kod.trim();
+  const beklenen = veri.kullanici.dogrulama_kod;
+  // 6 haneli numerik kod — sabit uzunluk, XOR ile constant-time
+  let kodXor = gelen.length ^ beklenen.length;
+  const minLen = Math.min(gelen.length, beklenen.length);
+  for (let i = 0; i < minLen; i++) {
+    kodXor |= gelen.charCodeAt(i) ^ beklenen.charCodeAt(i);
+  }
+  if (kodXor !== 0) {
     return c.json({ hata: "Kod hatalı" }, 400);
   }
 

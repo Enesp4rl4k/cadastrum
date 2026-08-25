@@ -13,15 +13,27 @@
  * crypto.subtle.timingSafeEqual Cloudflare Workers'ta mevcut.
  */
 export async function secureCompare(a: string, b: string): Promise<boolean> {
-  if (a.length !== b.length) return false;
+  // GÜVENLIK: length karşılaştırmasını da constant-time yapıyoruz.
+  // Erken "false" dönmek, uzunluk farkını timing side-channel ile sızdırırdı.
+  // Her iki string'i aynı uzunluğa pad'leyip XOR yapıyoruz; length uyuşmazlığı
+  // sonda ayrıca OR'lanıyor — toplam süre sabit kalır.
   const enc = new TextEncoder();
   const aBytes = enc.encode(a);
   const bBytes = enc.encode(b);
+  const maxLen = Math.max(aBytes.length, bBytes.length);
+  const aPad = new Uint8Array(maxLen);
+  const bPad = new Uint8Array(maxLen);
+  aPad.set(aBytes);
+  bPad.set(bBytes);
   try {
-    return crypto.subtle.timingSafeEqual(aBytes, bBytes);
+    const equal = crypto.subtle.timingSafeEqual(aPad, bPad);
+    // Uzunluk farkı varsa false; ama bunu yukarıdaki işlem bittikten sonra OR'la
+    return equal && aBytes.length === bBytes.length;
   } catch {
-    // Fallback: length eşit, en azından === kullan
-    return a === b;
+    // Fallback: padding sonrası manuel XOR — still constant-time for maxLen
+    let diff = aBytes.length ^ bBytes.length;
+    for (let i = 0; i < maxLen; i++) diff |= (aPad[i] ?? 0) ^ (bPad[i] ?? 0);
+    return diff === 0;
   }
 }
 

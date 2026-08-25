@@ -12,22 +12,25 @@
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { verify } from "hono/jwt";
-import type { Env } from "../index.js";
+import type { Env, AppVariables } from "../index.js";
 
-const hesap = new Hono<{ Bindings: Env }>();
+// AppVariables ile tip güvenli Hono context — as any cast'leri kaldırıldı
+type AppCtx = { Bindings: Env; Variables: AppVariables };
+
+const hesap = new Hono<AppCtx>();
 
 // ── JWT Bearer middleware ─────────────────────────────────────
-export const jwtMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+export const jwtMiddleware: MiddlewareHandler<AppCtx> = async (c, next) => {
   const authH = c.req.header("Authorization");
   if (!authH?.startsWith("Bearer ")) {
     return c.json({ hata: "Token yok" }, 401);
   }
   const token = authH.slice(7);
   try {
-    const payload = await verify(token, c.env.JWT_SECRET.trim(), "HS256");
-    c.set("kullaniciId" as any, payload.sub);
-    c.set("tier" as any, payload.tier);
-    c.set("jwtPayload" as any, payload);
+    const payload = await verify(token, c.env.JWT_SECRET.trim(), "HS256") as AppVariables["jwtPayload"];
+    c.set("kullaniciId", payload.sub);
+    c.set("tier", payload.tier);
+    c.set("jwtPayload", payload);
   } catch {
     return c.json({ hata: "Geçersiz token" }, 401);
   }
@@ -42,9 +45,9 @@ const TIER_SIRA: Record<string, number> = {
   kurumsal: 3,
 };
 
-export function tierGerekli(min: "pro" | "pro_plus" | "kurumsal"): MiddlewareHandler<{ Bindings: Env }> {
+export function tierGerekli(min: "pro" | "pro_plus" | "kurumsal"): MiddlewareHandler<AppCtx> {
   return async (c, next) => {
-    const tier = c.get("tier" as any) as string | undefined;
+    const tier = c.get("tier") as string | undefined;
     if (!tier || (TIER_SIRA[tier] ?? 0) < (TIER_SIRA[min] ?? 99)) {
       return c.json({
         hata: `Bu özellik ${min === "pro" ? "Pro" : min === "pro_plus" ? "Pro+" : "Kurumsal"} planında.`,
@@ -60,7 +63,7 @@ hesap.use("*", jwtMiddleware);
 
 // ── Veri Export (KVKK Madde 11) ───────────────────────────────
 hesap.get("/dis-aktarim", async (c) => {
-  const kullaniciId = c.get("kullaniciId" as any) as number;
+  const kullaniciId = c.get("kullaniciId");
   const kullanici = await c.env.DB.prepare(
     `SELECT id, email, ad, tier, tier_bitis, olusturuldu, son_giris, email_dogrulandi
      FROM kullanicilar WHERE id = ?`

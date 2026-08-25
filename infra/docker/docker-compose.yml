@@ -1,0 +1,66 @@
+﻿version: "3.8"
+
+services:
+  # ─── Qdrant Vektör Veritabanı ───────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    container_name: cadastrum-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333" # HTTP REST API
+      - "6334:6334" # gRPC API
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__TELEMETRY_DISABLED: "true"
+
+  # ─── PostGIS Uzamsal Veritabanı ────────────────────────────────────────────
+  postgis:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: cadastrum-postgis
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: cadastrum
+      POSTGRES_USER: cadastrum_app
+      POSTGRES_PASSWORD: cadastrum_secure_password
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+
+  # ─── Redis (BullMQ Job Queue & Cache) ──────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: cadastrum-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  # ─── Cadastrum API & Agent Service ─────────────────────────────────────────
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: cadastrum-api
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      QDRANT_URL: http://qdrant:6333
+      POSTGRES_URL: postgres://cadastrum_app:cadastrum_secure_password@postgis:5432/cadastrum
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - qdrant
+      - postgis
+      - redis
+
+volumes:
+  qdrant_storage:
+  postgis_data:
+  redis_data:

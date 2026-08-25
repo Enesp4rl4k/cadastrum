@@ -10,7 +10,8 @@
 
 // Production worker URL. Custom domain (api.cadastrum.com.tr) Cloudflare'de
 // bağlandığında bu satırı değiştir. Pilot: workers.dev subdomain.
-const API_BASE = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { BACKEND_API as API_BASE } from "./api-constants";
+import { hataBildir } from "./telemetri";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 saat
 const CACHE_PREFIX = "api_fiyat__";
 const FETCH_TIMEOUT_MS = 5000;
@@ -97,8 +98,8 @@ export async function apiFiyatMahalleSorgula(
     }
     await cacheYaz(key, veri);
     return veri;
-  } catch {
-    // Network error — cache'e yazma, bir sonraki sorguda tekrar dene
+  } catch (err) {
+    hataBildir("api-fiyat", err, { url });
     return null;
   }
 }
@@ -134,7 +135,8 @@ export async function apiFiyatIlceSorgula(
     const sonuc: ApiFiyatSonuc = { ...veri, kaynak: veri.kaynak ?? "ilan-istatistik" };
     await cacheYaz(key, sonuc);
     return sonuc;
-  } catch {
+  } catch (err) {
+    hataBildir("api-fiyat-ilce", err, { url });
     return null;
   }
 }
@@ -168,7 +170,8 @@ export async function apiIlanGonder(payload: {
     if (res.status === 201) return { ok: true };
     if (res.status === 409) return { ok: true, duplicate: true };
     return { ok: false };
-  } catch {
+  } catch (err) {
+    hataBildir("api-ilan-gonder", err, { ilanNo: payload.ilan_no });
     return { ok: false };
   }
 }

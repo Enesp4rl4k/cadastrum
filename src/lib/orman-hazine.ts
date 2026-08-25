@@ -306,7 +306,7 @@ export async function ormanHazineRiskGetir(
     CACHE.set(key, { data: sonuc, fetchedAt: Date.now() });
     return sonuc;
   } catch (e) {
-    console.warn("[orman-hazine] Overpass sorgusu başarısız:", e);
+    // Overpass başarısız — fallback il tablosuna devam
     const ilRisk = ilNorm ? (IL_ORMAN_RISK[ilNorm] ?? "dusuk") : "dusuk";
     return {
       tespitler: [],

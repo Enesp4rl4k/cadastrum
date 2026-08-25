@@ -1,28 +1,30 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { mahalleAliasSeedYukle } from "../lib/mahalle-alias-seed-yukle";
+import { usePortfoySync } from "../lib/portfoy-sync";
 import { SCRAPING_ENABLED } from "../lib/build-flags";
 import { ToastProvider } from "./components/Toast";
 import { KarsilastirmaProvider } from "../lib/karsilastirma-store";
-import { KarsilastirmaView } from "./views/KarsilastirmaView";
 import {
   Map as MapIcon,
   Search as SearchIcon,
   ListChecks as ListChecksIcon,
   LayoutGrid as LayoutGridIcon,
   FlaskConical as FlaskIcon,
-  Star as StarIcon,
-  History as HistoryIcon,
+  FolderOpen as PortfoyIcon,
   Building2 as Building2Icon,
   MoreHorizontal as MoreIcon,
-  GitCompare as CompareIcon,
 } from "lucide-react";
 import { MapView } from "./views/MapView";
-import { FavorilerView } from "./views/FavorilerView";
-import { GecmisView } from "./views/GecmisView";
-import { AraView } from "./views/AraView";
-import { TopluView } from "./views/TopluView";
-import { BolgeView } from "./views/BolgeView";
-import { LabView } from "./views/LabView";
-import { IlanKarti } from "./components/IlanKarti";
+
+// ── Ana view'lar ──────────────────────────────────────────────────────────────
+const AraView     = lazy(() => import("./views/AraView").then(m => ({ default: m.AraView })));
+const PortfoyView = lazy(() => import("./views/PortfoyView").then(m => ({ default: m.PortfoyView })));
+
+// ── Overflow (Pro) view'lar ───────────────────────────────────────────────────
+const TopluView = lazy(() => import("./views/TopluView").then(m => ({ default: m.TopluView })));
+const BolgeView = lazy(() => import("./views/BolgeView").then(m => ({ default: m.BolgeView })));
+const LabView   = lazy(() => import("./views/LabView").then(m => ({ default: m.LabView })));
+
 import { KomutPaleti } from "./components/KomutPaleti";
 import { KvkkConsent, useKvkkConsentVerilmis } from "./components/KvkkConsent";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -33,7 +35,8 @@ import { useLisans, type Yetenek } from "../lib/lisans";
 import type { Parsel } from "../types/tkgm";
 import { Onboarding, useOnboardingGoster } from "./components/Onboarding";
 
-type Tab = "harita" | "ara" | "toplu" | "bolge" | "lab" | "favoriler" | "gecmis" | "bootstrap" | "karsilastirma";
+/** Ana tab'lar — 3 sabit + overflow */
+type Tab = "harita" | "ara" | "portfoy" | "toplu" | "bolge" | "lab" | "bootstrap";
 
 interface FlyToTarget {
   lat: number;
@@ -49,21 +52,22 @@ interface TabConfig {
   adminGerekli?: boolean;
 }
 
-const TABS: TabConfig[] = [
-  { id: "harita",         label: "Harita",   Icon: MapIcon },
-  { id: "ara",            label: "Ara",      Icon: SearchIcon },
-  { id: "favoriler",      label: "Favori",   Icon: StarIcon },
-  { id: "gecmis",         label: "Geçmiş",   Icon: HistoryIcon },
-  { id: "karsilastirma",  label: "Karşılaştır", Icon: CompareIcon },
-  { id: "toplu",          label: "Toplu",    Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },
-  { id: "bolge",          label: "Bölge",    Icon: LayoutGridIcon },
-  { id: "lab",            label: "Lab",      Icon: FlaskIcon, yetenek: "ai-fiyat" },
-  ...(SCRAPING_ENABLED
-    ? [{ id: "bootstrap" as const, label: "Boot", Icon: FlaskIcon, adminGerekli: true }]
-    : []),
+/** 3 sabit ana tab */
+const SABIT_TABS: TabConfig[] = [
+  { id: "harita",  label: "Harita",  Icon: MapIcon },
+  { id: "ara",     label: "Ara",     Icon: SearchIcon },
+  { id: "portfoy", label: "Portföy", Icon: PortfoyIcon },
 ];
 
-const SABIT_TAB_SAYISI = 4;
+/** Overflow (Pro / Admin) tab'lar */
+const OVERFLOW_TABS: TabConfig[] = [
+  { id: "toplu",  label: "Toplu Analiz", Icon: ListChecksIcon, yetenek: "coklu-parsel-karsilastirma" },
+  { id: "bolge",  label: "Bölge Haritası", Icon: LayoutGridIcon },
+  { id: "lab",    label: "AI Lab",       Icon: FlaskIcon, yetenek: "ai-fiyat" },
+  ...(SCRAPING_ENABLED
+    ? [{ id: "bootstrap" as const, label: "Bootstrap", Icon: FlaskIcon, adminGerekli: true }]
+    : []),
+];
 
 const BootstrapView = SCRAPING_ENABLED
   ? lazy(() => import("./views/BootstrapView").then((m) => ({ default: m.BootstrapView })))
@@ -87,45 +91,46 @@ function AppInner() {
   const [kvkkKapali, setKvkkKapali] = useState(false);
   const [onboardingGoster, onboardingKapat] = useOnboardingGoster();
 
-  const gorunurTabs = TABS.filter((t) => {
+  useEffect(() => { void mahalleAliasSeedYukle(); }, []);
+  usePortfoySync();
+
+  // Overflow tab'ları lisans filtrelemesi
+  const gorunurOverflow = OVERFLOW_TABS.filter((t) => {
     if (t.yetenek && !lisans.can(t.yetenek)) return false;
     if (t.adminGerekli && !lisans.isAdmin && !import.meta.env.DEV) return false;
     return true;
   });
 
-  const gorunurTabIdleri = gorunurTabs.map((t) => t.id).join(",");
+  // Aktif tab geçersizse haritaya dön
+  const tumGorunurTabIdleri = [...SABIT_TABS, ...gorunurOverflow].map(t => t.id).join(",");
   useEffect(() => {
-    const idler = gorunurTabIdleri.split(",");
+    const idler = tumGorunurTabIdleri.split(",");
     if (!idler.includes(tab)) setTab("harita");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gorunurTabIdleri, tab]);
+  }, [tumGorunurTabIdleri, tab]);
 
-  const sabitTabs = gorunurTabs.slice(0, SABIT_TAB_SAYISI);
-  const overflowTabs = gorunurTabs.slice(SABIT_TAB_SAYISI);
+  function flyToParsel(parsel: Parsel) {
+    setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
+    setTab("harita");
+  }
 
   return (
     <div className="relative flex h-full flex-col" style={{ background: "var(--surface-0)" }}>
       {onboardingGoster && <Onboarding onKapat={onboardingKapat} />}
-      <KomutPaleti
-        onParselSec={(parsel) => {
-          setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
-          setTab("harita");
-        }}
-      />
+      <KomutPaleti onParselSec={flyToParsel} />
       {kvkkVerilmis === false && !kvkkKapali && (
         <KvkkConsent onComplete={() => setKvkkKapali(true)} />
       )}
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header
-        className="flex items-center justify-between gap-2 px-3 py-2"
+        className="flex items-center justify-between gap-2 px-3 py-2 flex-shrink-0"
         style={{
           background: "var(--surface-1)",
           borderBottom: "1px solid var(--surface-3)",
           boxShadow: "var(--shadow-xs)",
         }}
       >
-        {/* Logo mark */}
         <div className="flex items-center gap-2 min-w-0">
           <div
             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
@@ -143,8 +148,6 @@ function AppInner() {
             </span>
           </div>
         </div>
-
-        {/* Actions */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <HesapDurumu />
           <TemaSecici />
@@ -152,9 +155,9 @@ function AppInner() {
         </div>
       </header>
 
-      {/* ── Tab navigation ─────────────────────────────────────────────── */}
+      {/* ── Tab navigation — 3 sabit + overflow ────────────────────────── */}
       <nav
-        className="relative flex"
+        className="relative flex flex-shrink-0"
         role="tablist"
         data-tab-nav
         style={{
@@ -162,10 +165,8 @@ function AppInner() {
           borderBottom: "1px solid var(--surface-3)",
         }}
       >
-        {/* Animated indicator pill */}
-        <TabIndicator activeTab={tab} tabs={sabitTabs} />
-
-        {sabitTabs.map((t) => (
+        <TabIndicator activeTab={tab} tabs={SABIT_TABS} />
+        {SABIT_TABS.map((t) => (
           <TabButton
             key={t.id}
             active={tab === t.id}
@@ -174,36 +175,18 @@ function AppInner() {
             Icon={t.Icon}
           />
         ))}
-        {overflowTabs.length > 0 && (
+        {gorunurOverflow.length > 0 && (
           <OverflowMenu
-            tabs={overflowTabs}
+            tabs={gorunurOverflow}
             activeTab={tab}
             onSelect={(id) => setTab(id)}
           />
         )}
       </nav>
 
-      {/* ── İlan kartı ─────────────────────────────────────────────────── */}
-      <div
-        style={{
-          background: "var(--surface-1)",
-          borderBottom: "1px solid var(--surface-3)",
-        }}
-        className="px-2 py-1.5"
-      >
-        <ErrorBoundary etiket="İlan kartı">
-          <IlanKarti
-            acikParsel={flyTo?.parsel ?? null}
-            onParselDogrula={(parsel) => {
-              setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
-              setTab("harita");
-            }}
-          />
-        </ErrorBoundary>
-      </div>
-
       {/* ── Main content ───────────────────────────────────────────────── */}
       <main className="relative flex-1 overflow-hidden" style={{ background: "var(--surface-0)" }}>
+        {/* Harita — her zaman mount'ta, sadece gizlenir */}
         <div className={tab === "harita" ? "h-full" : "hidden h-full"}>
           <ErrorBoundary etiket="Harita">
             <MapView
@@ -213,59 +196,43 @@ function AppInner() {
             />
           </ErrorBoundary>
         </div>
-        {tab === "ara" && (
-          <AraView
-            onResult={(parsel) => {
-              setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
-              setTab("harita");
-            }}
-          />
-        )}
-        {tab === "toplu" && lisans.can("coklu-parsel-karsilastirma") && <TopluView />}
-        {tab === "bolge" && <BolgeView />}
-        {tab === "lab" && lisans.can("ai-fiyat") && (
-          <LabView
-            initialIlceKodu={flyTo?.parsel?.ilceKodu ?? null}
-            initialIlceAd={flyTo?.parsel?.ilceAd ?? null}
-            onParselSec={(parsel) => {
-              setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
-              setTab("harita");
-            }}
-          />
-        )}
-        {tab === "favoriler" && (
-          <FavorilerView
-            onSelect={(f) => {
-              setFlyTo({ lat: f.parsel.merkezNokta.lat, lng: f.parsel.merkezNokta.lng, parsel: f.parsel });
-              setTab("harita");
-            }}
-          />
-        )}
-        {tab === "bootstrap" && BootstrapView && (
-          <Suspense fallback={<div className="p-4 text-sm text-slate-500">Yükleniyor…</div>}>
-            <BootstrapView />
-          </Suspense>
-        )}
-        {tab === "gecmis" && (
-          <GecmisView
-            onSelect={(k) => {
-              setFlyTo(
-                k.basarili && k.parsel
-                  ? { lat: k.lat, lng: k.lng, parsel: k.parsel }
-                  : { lat: k.lat, lng: k.lng },
-              );
-              setTab("harita");
-            }}
-          />
-        )}
-        {tab === "karsilastirma" && (
-          <KarsilastirmaView
-            onFlyTo={(parsel) => {
-              setFlyTo({ lat: parsel.merkezNokta.lat, lng: parsel.merkezNokta.lng, parsel });
-              setTab("harita");
-            }}
-          />
-        )}
+
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-32 text-sm text-slate-400">
+            <div className="animate-pulse">Yükleniyor…</div>
+          </div>
+        }>
+          {/* Ara */}
+          {tab === "ara" && (
+            <AraView
+              onResult={flyToParsel}
+              onFlyTo={(lat, lng) => {
+                setFlyTo({ lat, lng });
+                setTab("harita");
+              }}
+            />
+          )}
+
+          {/* Portföy — Favoriler + Geçmiş + Alarmlar + Karşılaştır */}
+          {tab === "portfoy" && (
+            <PortfoyView
+              onFlyTo={(parsel) => flyToParsel(parsel)}
+              onKarsilastirFlyTo={flyToParsel}
+            />
+          )}
+
+          {/* Overflow: Pro / Admin */}
+          {tab === "toplu" && lisans.can("coklu-parsel-karsilastirma") && <TopluView />}
+          {tab === "bolge" && <BolgeView />}
+          {tab === "lab" && lisans.can("ai-fiyat") && (
+            <LabView
+              initialIlceKodu={flyTo?.parsel?.ilceKodu ?? null}
+              initialIlceAd={flyTo?.parsel?.ilceAd ?? null}
+              onParselSec={flyToParsel}
+            />
+          )}
+          {tab === "bootstrap" && BootstrapView && <BootstrapView />}
+        </Suspense>
       </main>
     </div>
   );

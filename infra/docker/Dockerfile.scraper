@@ -1,0 +1,26 @@
+﻿FROM mcr.microsoft.com/playwright:v1.45.0-jammy
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Türkçe dil ve saat dilimi ayarları
+RUN apt-get update && apt-get install -y locales tzdata && \
+    locale-gen tr_TR.UTF-8 && \
+    update-locale LANG=tr_TR.UTF-8 && \
+    ln -fs /usr/share/zoneinfo/Europe/Istanbul /etc/localtime && \
+    dpkg-reconfigure --frontend noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=tr_TR.UTF-8
+ENV LANGUAGE=tr_TR:tr
+ENV LC_ALL=tr_TR.UTF-8
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY scripts ./scripts
+COPY backend ./backend
+
+CMD ["node", "scripts/aylik-scrape.mjs"]

@@ -26,6 +26,8 @@ export default defineManifest({
     "alarms",
     "notifications",
     "declarativeNetRequest",
+    // ⚠️ NOTE: "scripting" yalnızca ADMIN BUILD'de eklenir (VITE_SCRAPING_ENABLED=true)
+    // Chrome Web Store sürümü için DISABLED (build:store)
     ...(scrapingEnabled ? (["scripting"] as const) : []),
   ],
   declarative_net_request: {
@@ -56,6 +58,8 @@ export default defineManifest({
     "https://www.sahibinden.com/*",
     "https://www.hepsiemlak.com/*",
     "https://hepsiemlak.com/*",
+    "https://www.emlakjet.com/*",
+    "https://emlakjet.com/*",
     // Harita tile sunucuları
     "https://server.arcgisonline.com/*",
     "https://wayback.maptiles.arcgis.com/*",
@@ -93,6 +97,14 @@ export default defineManifest({
         "https://hepsiemlak.com/*",
       ],
       js: ["src/content/hepsiemlak.ts"],
+      run_at: "document_idle",
+    },
+    {
+      matches: [
+        "https://www.emlakjet.com/*",
+        "https://emlakjet.com/*",
+      ],
+      js: ["src/content/emlakjet.ts"],
       run_at: "document_idle",
     },
     ...(scrapingEnabled

@@ -1,0 +1,30 @@
+﻿FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY tsconfig*.json ./
+RUN npm ci
+
+COPY src ./src
+COPY public ./public
+COPY backend ./backend
+
+# API derleme
+RUN npx tsc -b
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8787
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/backend ./backend
+
+EXPOSE 8787
+
+CMD ["node", "backend/api/src/index.js"]

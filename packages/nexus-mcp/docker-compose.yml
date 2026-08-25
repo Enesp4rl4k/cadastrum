@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  nexus-mcp:
+    build: .
+    container_name: nexus-mcp-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - NODE_ENV=production
+    volumes:
+      - ./nexus-mcp.config.example.json:/app/nexus-mcp.config.json:ro

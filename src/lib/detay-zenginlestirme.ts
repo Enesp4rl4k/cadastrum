@@ -421,8 +421,7 @@ export async function detayZenginlestirmeBaslat(
       await new Promise((r) => setTimeout(r, Math.max(3000, jitter(base))));
     }
     detayDurum.calisiyor = false;
-  })().catch((e) => {
-    console.error("[detay-zenginlestirme] döngü hatası:", e);
+  })().catch(() => {
     detayDurum.calisiyor = false;
   });
 }

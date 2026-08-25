@@ -30,7 +30,7 @@ const GAYRIMENKUL_TUFE_MULTIPLIER = 1.15;
 /**
  * Bilinen aylık TÜFE oranları (TÜİK resmi, % değişim).
  * Kaynak: TCMB + TÜİK açıklama tarihleri.
- * Son güncelleme: 2026-04
+ * Son güncelleme: 2026-07 (05-07 tahmini)
  *
  * Format: { "YYYY-MM": aylikOran (0.0532 = %5.32) }
  *
@@ -55,6 +55,9 @@ const TUFE_AYLIK: Record<string, number> = {
   "2026-02": 0.0296,  // %2.96
   "2026-03": 0.0194,  // %1.94
   "2026-04": 0.0418,  // %4.18
+  "2026-05": 0.0235,  // %2.35 (tahmini — TÜİK açıklanınca güncelle)
+  "2026-06": 0.0218,  // %2.18 (tahmini)
+  "2026-07": 0.0195,  // %1.95 (tahmini)
 };
 
 /** Bilinmeyen aylar için aylık enflasyon tahmini (yıllık %35 ≈ aylık ~%2.5) */
@@ -98,7 +101,11 @@ function bugunAy(): string {
 export interface EnflasyonCarpani {
   /** Baseline TL fiyatına uygulanacak çarpan (örn. 1.42 = %42 artış) */
   carpan: number;
-  /** Gayrimenkul premium dahil gerçek çarpan */
+  /** 
+   * Gayrimenkul premium dahil gerçek çarpan.
+   * Hesap: enflasyon oranı * premium (baz 1 korunur).
+   * (örn. enflasyonOrani > 0 ise 1 + enflasyonOrani * premium)
+   */
   gayrimenkulCarpan: number;
   /** Baseline tarihinden bu yana geçen ay sayısı */
   gecenAy: number;
@@ -156,7 +163,13 @@ export function enflasyonCarpaniniHesapla(
     bilinenAy === 0 ? "tufe-tahmini" :
     "karisik";
 
-  const gayrimenkulCarpan = carpan * GAYRIMENKUL_TUFE_MULTIPLIER;
+  // Gayrimenkul fiyat artışı TÜFE'nin üzerinde hareket eder.
+  // Doğru hesap: enflasyon oranı * premium, baz 1 korunur.
+  // Örnek: TÜFE %40 ise (carpan=1.40), gayrimenkul = 1 + 0.40*1.15 = 1.46
+  const enflasyonOrani = carpan - 1;
+  const gayrimenkulCarpan = enflasyonOrani > 0
+    ? 1 + enflasyonOrani * GAYRIMENKUL_TUFE_MULTIPLIER
+    : carpan; // 0 veya negatif enflasyonda premium uygulanmaz
 
   return {
     carpan: Math.round(carpan * 10000) / 10000,

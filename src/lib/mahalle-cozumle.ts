@@ -13,6 +13,7 @@ import {
   mahalleEsleFromListe,
   type MahalleAdayi,
 } from "./tkgm-api";
+import { hataBildir } from "./telemetri";
 
 export type MahalleCozumYontem =
   | "alias"
@@ -26,7 +27,7 @@ export interface MahalleCozumleGirdi {
   ilAd: string;
   ilceAd: string;
   mahalleAd: string | null;
-  kaynak?: "sahibinden" | "hepsiemlak";
+  kaynak?: "sahibinden" | "hepsiemlak" | "emlakjet";
   url?: string;
   lat?: number | null;
   lng?: number | null;
@@ -218,15 +219,30 @@ export async function mahalleKoduCoz(
     .map((o) => `${o.mahalle.mahalleAdi} (%${o.skor})`)
     .join(", ");
 
+  // Faz 4 — başarısız eşleşmeleri anonim log olarak backend'e ilet.
+  // PII yok: il/ilçe/mahalle adları coğrafi isim, kişisel veri değil.
+  // opt-out telemetriKapali'ya saygı gösterir (hataBildir içinde kontrol edilir).
+  if (mahalleAd) {
+    hataBildir("mahalle-cozumle:basarisiz", new Error(`Eşleşme yok: "${mahalleAd}"`), {
+      il: girdi.ilAd,
+      ilce: girdi.ilceAd,
+      mahalle: mahalleAd,
+      kaynak: girdi.kaynak ?? null,
+      adaySayisi: adaylar.length,
+      enIyiSkor: adaylar[0]?.skor ?? null,
+      enIyiAday: adaylar[0]?.mahalle.mahalleAdi ?? null,
+    });
+  }
+
   return {
     ok: false,
     hata: {
       adaylar,
       mesaj:
         adaylar.length > 0
-          ? `“${mahalleAd}” TKGM’de birebir yok. Öneri: ${oneriMetin}. Aşağıdan seç.`
+          ? `"${mahalleAd}" TKGM'de birebir yok. Öneri: ${oneriMetin}. Aşağıdan seç.`
           : mahalleAd
-            ? `“${mahalleAd}” bu ilçede TKGM listesinde yok (semt veya farklı isim olabilir). Aşağıdan seç.`
+            ? `"${mahalleAd}" bu ilçede TKGM listesinde yok (semt veya farklı isim olabilir). Aşağıdan seç.`
             : "Mahalle seç — listeden TKGM mahallesini işaretle.",
     },
   };

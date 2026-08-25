@@ -57,8 +57,8 @@ async function ilanGozlemUpsert(kayit: Omit<IlanGozlem, "id">): Promise<void> {
         .first();
       await db.ilanGozlem.put(mevcut?.id != null ? { ...kayit, id: mevcut.id } : kayit);
     });
-  } catch (e) {
-    console.warn("[arsa] ilanGozlem upsert:", (e as Error)?.name ?? e);
+  } catch {
+    // Upsert başarısız — unique constraint veya benzeri, sessizce atla
   }
 }
 
@@ -279,25 +279,28 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
     if (acikParsel) return; // zaten parsel açık, atla
     if (adaCandidateEff == null || parselCandidate == null) return;
     if (!ilan.il || !ilan.ilce) return;
-    // Mahalle null ise dropdown ile manuel seçim gerekiyor — oto tetikleme
+    // Mahalle null ise dropdown'dan seçim bekleniyor — secilenMahalleKodu yoksa dur
     if (!ilan.mahalle && !secilenMahalleKodu) return;
     if (dogrulaniyor || dogrulamaHatasi) return;
 
-    const ilanKey = `${ilan.ilanNo ?? ""}/${adaCandidateEff}/${parselCandidate}`;
+    const ilanKey = `${ilan.ilanNo ?? ""}/${adaCandidateEff}/${parselCandidate}/${secilenMahalleKodu ?? ""}`;
     if (otoDogrulamaTetiklenmisRef.current === ilanKey) return;
     otoDogrulamaTetiklenmisRef.current = ilanKey;
 
+    // Mahalle hazırlığını bekleyip doğrula.
+    // hazirIlceKodu bağımlılığa eklendiği için ilce listesi yüklendikten sonra da tetiklenir.
     const timer = setTimeout(() => {
       void (async () => {
-        if (ilan.mahalle && mahalleHazirlikRef.current) {
+        // Mahalle hazırlık promise'i varsa bekle (API listesi yüklensin)
+        if (mahalleHazirlikRef.current) {
           await mahalleHazirlikRef.current;
         }
         await dogrula();
       })();
-    }, 80);
+    }, 200);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ilan?.ilanNo, adaCandidate, parselCandidate, acikParsel]);
+  }, [ilan?.ilanNo, adaCandidate, parselCandidate, acikParsel, secilenMahalleKodu, hazirIlceKodu]);
 
   // Bölge ortalaması (aynı mahalle / ilçe)
   const bolgeOrtalama = useBolgeOrtalama(ilan);
@@ -335,7 +338,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
           >
             Sahibinden
           </a>
-          {" "}veya{" "}
+          {", "}
           <a
             href="https://www.hepsiemlak.com/arsa-satilik"
             target="_blank"
@@ -343,6 +346,15 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
             className="font-medium text-slate-500 dark:text-slate-400 hover:text-tkgm-primary transition"
           >
             Hepsiemlak
+          </a>
+          {" veya "}
+          <a
+            href="https://www.emlakjet.com/satilik-arsa/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-500 dark:text-slate-400 hover:text-tkgm-primary transition"
+          >
+            Emlakjet
           </a>
           {" "}ilanı açınca analiz başlar.
         </span>
@@ -499,7 +511,11 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
             <span className="status-live absolute inline-flex h-full w-full rounded-full bg-accent-ilan opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-ilan" />
           </span>
-          {ilan.kaynak === "hepsiemlak" ? "Hepsiemlak" : "Sahibinden"}
+          {ilan.kaynak === "hepsiemlak"
+            ? "Hepsiemlak"
+            : ilan.kaynak === "emlakjet"
+              ? "Emlakjet"
+              : "Sahibinden"}
         </span>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <a
@@ -911,7 +927,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
                 !secilenMahalleKodu &&
                 mahallelerDropdown.length > 0
               }
-              className="btn-tkgm-dogrula w-full cursor-pointer rounded-md bg-accent-ilan px-2 py-1.5 text-2xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-cta w-full cursor-pointer rounded-md bg-accent-ilan px-2 py-1.5 text-2xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               TKGM&apos;de doğrula
             </button>

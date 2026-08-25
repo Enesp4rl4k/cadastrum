@@ -1,0 +1,117 @@
+export interface IlLikidite {
+  yillikSatis: number;
+  ipotekliOran: number;
+  nufusM: number;
+}
+
+export const IL_LIKIDITE: Record<string, IlLikidite> = {
+  "istanbul":          { yillikSatis: 280262, ipotekliOran: 0.18, nufusM: 16.0 },
+  "ankara":            { yillikSatis: 152534, ipotekliOran: 0.22, nufusM: 5.8 },
+  "izmir":             { yillikSatis: 96998,  ipotekliOran: 0.20, nufusM: 4.4 },
+  "antalya":           { yillikSatis: 78000,  ipotekliOran: 0.15, nufusM: 2.7 },
+  "bursa":             { yillikSatis: 65000,  ipotekliOran: 0.21, nufusM: 3.2 },
+  "adana":             { yillikSatis: 38000,  ipotekliOran: 0.17, nufusM: 2.3 },
+  "konya":             { yillikSatis: 36000,  ipotekliOran: 0.18, nufusM: 2.3 },
+  "gaziantep":         { yillikSatis: 32000,  ipotekliOran: 0.16, nufusM: 2.1 },
+  "kocaeli":           { yillikSatis: 30000,  ipotekliOran: 0.20, nufusM: 2.1 },
+  "mersin":            { yillikSatis: 28000,  ipotekliOran: 0.16, nufusM: 1.9 },
+  "kayseri":           { yillikSatis: 22000,  ipotekliOran: 0.19, nufusM: 1.4 },
+  "samsun":            { yillikSatis: 19000,  ipotekliOran: 0.17, nufusM: 1.4 },
+  "sanliurfa":         { yillikSatis: 17000,  ipotekliOran: 0.13, nufusM: 2.2 },
+  "diyarbakir":        { yillikSatis: 16000,  ipotekliOran: 0.14, nufusM: 1.8 },
+  "hatay":             { yillikSatis: 15500,  ipotekliOran: 0.15, nufusM: 1.7 },
+  "manisa":            { yillikSatis: 18000,  ipotekliOran: 0.18, nufusM: 1.5 },
+  "kahramanmaras":     { yillikSatis: 12000,  ipotekliOran: 0.14, nufusM: 1.2 },
+  "balikesir":         { yillikSatis: 22000,  ipotekliOran: 0.18, nufusM: 1.2 },
+  "aydin":             { yillikSatis: 25000,  ipotekliOran: 0.17, nufusM: 1.1 },
+  "tekirdag":          { yillikSatis: 21000,  ipotekliOran: 0.21, nufusM: 1.1 },
+  "sakarya":           { yillikSatis: 18000,  ipotekliOran: 0.20, nufusM: 1.0 },
+  "mugla":             { yillikSatis: 32000,  ipotekliOran: 0.14, nufusM: 1.1 },
+  "denizli":           { yillikSatis: 16000,  ipotekliOran: 0.18, nufusM: 1.1 },
+  "eskisehir":         { yillikSatis: 17000,  ipotekliOran: 0.21, nufusM: 0.9 },
+  "trabzon":           { yillikSatis: 14000,  ipotekliOran: 0.16, nufusM: 0.8 },
+  "ordu":              { yillikSatis: 11000,  ipotekliOran: 0.16, nufusM: 0.8 },
+  "malatya":           { yillikSatis: 10500,  ipotekliOran: 0.15, nufusM: 0.8 },
+  "erzurum":           { yillikSatis: 9500,   ipotekliOran: 0.15, nufusM: 0.8 },
+  "van":               { yillikSatis: 8500,   ipotekliOran: 0.13, nufusM: 1.1 },
+  "elazig":            { yillikSatis: 9000,   ipotekliOran: 0.15, nufusM: 0.6 },
+  "afyonkarahisar":    { yillikSatis: 8500,   ipotekliOran: 0.16, nufusM: 0.75 },
+  "yalova":            { yillikSatis: 12000,  ipotekliOran: 0.20, nufusM: 0.30 },
+  "canakkale":         { yillikSatis: 11000,  ipotekliOran: 0.17, nufusM: 0.55 },
+  "edirne":            { yillikSatis: 9500,   ipotekliOran: 0.18, nufusM: 0.43 },
+  "kirklareli":        { yillikSatis: 7500,   ipotekliOran: 0.18, nufusM: 0.36 },
+  "tokat":             { yillikSatis: 7000,   ipotekliOran: 0.15, nufusM: 0.6 },
+  "sivas":             { yillikSatis: 8500,   ipotekliOran: 0.15, nufusM: 0.65 },
+  "yozgat":            { yillikSatis: 5500,   ipotekliOran: 0.14, nufusM: 0.42 },
+  "amasya":            { yillikSatis: 5000,   ipotekliOran: 0.16, nufusM: 0.34 },
+  "corum":             { yillikSatis: 6500,   ipotekliOran: 0.15, nufusM: 0.52 },
+  "kastamonu":         { yillikSatis: 5500,   ipotekliOran: 0.16, nufusM: 0.39 },
+  "sinop":             { yillikSatis: 4500,   ipotekliOran: 0.16, nufusM: 0.22 },
+  "zonguldak":         { yillikSatis: 7500,   ipotekliOran: 0.17, nufusM: 0.59 },
+  "karabuk":           { yillikSatis: 5500,   ipotekliOran: 0.17, nufusM: 0.25 },
+  "bartin":            { yillikSatis: 3500,   ipotekliOran: 0.16, nufusM: 0.21 },
+  "duzce":             { yillikSatis: 7500,   ipotekliOran: 0.18, nufusM: 0.40 },
+  "bolu":              { yillikSatis: 6500,   ipotekliOran: 0.18, nufusM: 0.31 },
+  "bilecik":           { yillikSatis: 4000,   ipotekliOran: 0.17, nufusM: 0.23 },
+  "rize":              { yillikSatis: 6500,   ipotekliOran: 0.16, nufusM: 0.34 },
+  "giresun":           { yillikSatis: 5500,   ipotekliOran: 0.16, nufusM: 0.45 },
+  "artvin":            { yillikSatis: 2500,   ipotekliOran: 0.15, nufusM: 0.17 },
+  "gumushane":         { yillikSatis: 1800,   ipotekliOran: 0.14, nufusM: 0.14 },
+  "bayburt":           { yillikSatis: 1251,   ipotekliOran: 0.13, nufusM: 0.085 },
+  "erzincan":          { yillikSatis: 4000,   ipotekliOran: 0.15, nufusM: 0.24 },
+  "tunceli":           { yillikSatis: 1300,   ipotekliOran: 0.12, nufusM: 0.085 },
+  "bingol":            { yillikSatis: 3500,   ipotekliOran: 0.13, nufusM: 0.28 },
+  "mus":               { yillikSatis: 3500,   ipotekliOran: 0.12, nufusM: 0.40 },
+  "bitlis":            { yillikSatis: 3000,   ipotekliOran: 0.12, nufusM: 0.35 },
+  "hakkari":           { yillikSatis: 1559,   ipotekliOran: 0.10, nufusM: 0.27 },
+  "siirt":             { yillikSatis: 3500,   ipotekliOran: 0.12, nufusM: 0.33 },
+  "sirnak":            { yillikSatis: 3500,   ipotekliOran: 0.11, nufusM: 0.55 },
+  "batman":            { yillikSatis: 5500,   ipotekliOran: 0.12, nufusM: 0.61 },
+  "mardin":            { yillikSatis: 6500,   ipotekliOran: 0.13, nufusM: 0.86 },
+  "adiyaman":          { yillikSatis: 5000,   ipotekliOran: 0.13, nufusM: 0.63 },
+  "kilis":             { yillikSatis: 1800,   ipotekliOran: 0.14, nufusM: 0.15 },
+  "osmaniye":          { yillikSatis: 5500,   ipotekliOran: 0.15, nufusM: 0.55 },
+  "aksaray":           { yillikSatis: 6000,   ipotekliOran: 0.16, nufusM: 0.43 },
+  "karaman":           { yillikSatis: 4500,   ipotekliOran: 0.16, nufusM: 0.26 },
+  "nigde":             { yillikSatis: 4500,   ipotekliOran: 0.15, nufusM: 0.37 },
+  "nevsehir":          { yillikSatis: 4500,   ipotekliOran: 0.16, nufusM: 0.31 },
+  "kirsehir":          { yillikSatis: 3800,   ipotekliOran: 0.16, nufusM: 0.24 },
+  "kirikkale":         { yillikSatis: 4500,   ipotekliOran: 0.17, nufusM: 0.28 },
+  "cankiri":           { yillikSatis: 2500,   ipotekliOran: 0.15, nufusM: 0.20 },
+  "burdur":            { yillikSatis: 4000,   ipotekliOran: 0.16, nufusM: 0.27 },
+  "isparta":           { yillikSatis: 7000,   ipotekliOran: 0.17, nufusM: 0.45 },
+  "usak":              { yillikSatis: 6000,   ipotekliOran: 0.17, nufusM: 0.37 },
+  "kutahya":           { yillikSatis: 7500,   ipotekliOran: 0.17, nufusM: 0.58 },
+  "agri":              { yillikSatis: 2500,   ipotekliOran: 0.11, nufusM: 0.52 },
+  "kars":              { yillikSatis: 2500,   ipotekliOran: 0.13, nufusM: 0.28 },
+  "igdir":             { yillikSatis: 1800,   ipotekliOran: 0.12, nufusM: 0.20 },
+  "ardahan":           { yillikSatis: 800,    ipotekliOran: 0.11, nufusM: 0.09 },
+};
+
+export function ilLikiditeSkoru(ilNorm: string): number {
+  const il = IL_LIKIDITE[ilNorm];
+  if (!il) return 0.5;
+  const oran = il.yillikSatis / (il.nufusM * 1_000_000);
+  if (oran > 0.025) return 1.0;
+  if (oran > 0.018) return 0.85;
+  if (oran > 0.013) return 0.70;
+  if (oran > 0.008) return 0.50;
+  return 0.30;
+}
+
+export const IL_ALTYAPI_PUAN: Record<string, number> = {
+  istanbul: 95, kocaeli: 90, izmir: 85, ankara: 80, bursa: 78, adana: 72,
+  mersin: 75, gaziantep: 68, tekirdag: 70, sakarya: 65, manisa: 62, antalya: 60,
+  hatay: 58, konya: 55, eskisehir: 58, karabuk: 60, zonguldak: 55, balikesir: 52,
+  denizli: 50, kayseri: 55, trabzon: 52, samsun: 48, duzce: 45, bolu: 45,
+  yalova: 62, kirikkale: 48, mugla: 40, aydin: 45, canakkale: 42, edirne: 38,
+  osmaniye: 45, kahramanmaras: 40, malatya: 38, elazig: 35, sivas: 30,
+  erzincan: 28, erzurum: 25, kars: 15, agri: 12, van: 20, diyarbakir: 35,
+  sanliurfa: 30, batman: 28, mardin: 25, siirt: 18, sirnak: 12, hakkari: 8,
+  bingol: 15, mus: 12, bitlis: 14, tunceli: 10, ardahan: 8, igdir: 12,
+  bayburt: 10, gumushane: 12, rize: 20, artvin: 15, giresun: 18, ordu: 20,
+  tokat: 22, amasya: 25, corum: 28, sinop: 15, kastamonu: 18, bartin: 22,
+  karaman: 25, aksaray: 28, nevsehir: 30, kirsehir: 22, yozgat: 18,
+  nigde: 25, afyonkarahisar: 35, usak: 32, kutahya: 30, bilecik: 38,
+  burdur: 20, isparta: 22, cankiri: 20, kirklareli: 45, kilis: 22,
+};

@@ -21,7 +21,7 @@
  */
 
 import { MAHALLE_BASELINE, MAHALLE_BASELINE_TARIH, type MahalleBaselineTuple } from "./data/mahalle-baseline";
-import { ILCE_BASELINE_ARSA, ILCE_BASELINE_TARLA, ilceKey, ILCE_FALLBACK_SKEW } from "./data/ilce-baseline";
+import { ILCE_BASELINE_ARSA, ILCE_BASELINE_TARLA, ilceKey, mahalleTipiBelirle, ilceFallbackCarpani } from "./data/ilce-baseline";
 import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./data/ilce-baseline-ai";
 import { MAHALLE_OZELLIK, OZELLIK_ESIK } from "./data/mahalle-ozellik";
 import { enflasyonDuzelt, enflasyonDuzeltAsync } from "./enflasyon-duzeltme";
@@ -52,7 +52,7 @@ export const KAPPA_BY_KATEGORI: Record<Kategori, number> = {
 // İlçe→mahalle skew düzeltmesi data/ilce-baseline.ts'te tanımlı (tek kaynak); re-export.
 // Çıpaya uygulandığı için Bayesian shrinkage'la ölçeklenir: ilçeye çok dayanan düşük
 // güvenli köy/knn tam düzeltme alır, güçlü mahalle verisi neredeyse hiç.
-export { ILCE_FALLBACK_SKEW };
+export { mahalleTipiBelirle, ilceFallbackCarpani };
 /** Engine kategorisini (konut dahil) skew tablosunun anahtarına eşle — konut arsa çıpası kullanır. */
 function skewKategori(kategori: Kategori): "arsa" | "tarla" {
   return kategori === "tarla" ? "tarla" : "arsa";
@@ -237,9 +237,10 @@ export function mahalleBaselineGetir(
   // İlçe çıpasını skew ile düzelt — çarpık-dağılım overshoot'unu kaynağında kes.
   // Hem fallback hem Bayesian shrink anchor olarak kullanıldığı için, düzeltme
   // otomatik olarak ilçeye dayanma derecesiyle orantılı uygulanır.
+  const tip = mahalleTipiBelirle(mahalleAd);
   const ilceFiyatRaw = ilNorm && ilceNorm ? ilceFiyatGetir(ilNorm, ilceNorm, kategori) : null;
   const ilceFiyatHam = ilceFiyatRaw != null
-    ? Math.round(ilceFiyatRaw * ILCE_FALLBACK_SKEW[skewKategori(kategori)])
+    ? Math.round(ilceFiyatRaw * ilceFallbackCarpani(tip, skewKategori(kategori)))
     : null;
 
   // Mahalle tuple'ı yoksa, ilçe baseline'ı varsa onu dön
@@ -283,7 +284,10 @@ export function mahalleBaselineGetir(
   if (ilceFiyatHam) {
     const kappa = KAPPA_BY_KATEGORI[kategori] ?? 30;
     const alpha = mahalleGuven / (mahalleGuven + kappa);
-    nihai = alpha * mahalleTlm2 + (1 - alpha) * ilceFiyatHam;
+    
+    // Log-space shrinkage
+    const logNihai = alpha * Math.log(mahalleTlm2) + (1 - alpha) * Math.log(ilceFiyatHam);
+    nihai = Math.exp(logNihai);
   }
 
   // Mahalle özellik çarpanı (sahil/metro/üniversite yakınlığı)

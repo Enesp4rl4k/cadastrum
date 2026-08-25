@@ -1,4 +1,11 @@
 ---
+/**
+ * /api-docs — Cadastrum Public API Dokümantasyonu
+ *
+ * Redoc CDN ile openapi.yaml render edilir.
+ * Token oluşturma: /hesap/api-tokens
+ * Spec dosyası: /openapi.yaml (site/public'ten serve edilir)
+ */
 export const prerender = true;
 import Base from "../layouts/Base.astro";
 
@@ -9,64 +16,159 @@ const ornekCurl = `# İstanbul Beykoz Akbaba arsa medyan fiyatı
 curl -H "X-API-Key: $TOKEN" \\
   https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/beykoz/akbaba
 
-# Bodrum çevresinde 10 km içinde arsa emsalleri
+# Bodrum çevresinde 10 km arsa emsalleri
 curl -H "X-API-Key: $TOKEN" \\
   "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/emsal/spatial?lat=37.04&lng=27.43&radius_km=10&kategori=arsa"`;
 ---
 
-<Base title="API Dokümantasyon — Cadastrum">
-  <div class="max-w-4xl mx-auto px-4 py-8 prose prose-slate">
-    <h1>Cadastrum Public API</h1>
-    <p class="text-slate-600">
-      Programmatic erişim — Kurumsal Pro tier'ı için. <a href="/hesap/api-tokens">Token oluştur →</a>
-    </p>
+<Base title="API Dokümantasyon — Cadastrum"
+     description="Cadastrum Public API referansı. Gayrimenkul fiyat, emsal ve risk verisi için programmatic erişim.">
 
-    <h2>Kimlik doğrulama</h2>
-    <pre><code>{`GET /v1/api/health HTTP/1.1
-Host: api.cadastrum.com.tr
-X-API-Key: cdrm_a1b2c3d4e5f6...`}</code></pre>
-    <p>
-      Token formatı: <code>cdrm_</code> prefix + 32 hex karakter. Token sadece
-      oluşturulurken bir kez gösterilir; tekrar görmek mümkün değil — kaybedersen
-      yeni token üret. Rate limit: 60 req/dakika (varsayılan).
-    </p>
-
-    <h2>Endpoint'ler</h2>
-
-    <h3><code>GET /v1/api/health</code></h3>
-    <p>Sağlık kontrolü.</p>
-    <pre><code>{`{"ok": true, "ts": 1736089200000}`}</code></pre>
-
-    <h3><code>GET /v1/api/fiyat/mahalle/:il/:ilce/:mahalle</code></h3>
-    <p>Mahalle bazlı fiyat istatistiği (TL/m² medyan, q1, q3, ortalama, ilan adedi).</p>
-    <pre><code>{`curl -H "X-API-Key: cdrm_..." \\
-  "https://cadastrum-api.cadastrum-tr.workers.dev/v1/api/fiyat/mahalle/istanbul/beykoz/akbaba?kategori=arsa"`}</code></pre>
-
-    <h3><code>GET /v1/api/emsal/spatial</code></h3>
-    <p>Koord bazlı spatial emsal sorgu — 5 km yarıçap içindeki ilanlar.</p>
-    <pre><code>{emsalCurl}</code></pre>
-
-    <h3><code>GET /v1/api/risk/deprem?il=istanbul</code></h3>
-    <p>İl bazlı deprem risk metadata.</p>
-
-    <h2>Hata kodları</h2>
-    <table>
-      <thead><tr><th>HTTP</th><th>Anlam</th></tr></thead>
-      <tbody>
-        <tr><td>401</td><td>Token yok veya geçersiz</td></tr>
-        <tr><td>404</td><td>Veri bulunamadı</td></tr>
-        <tr><td>429</td><td>Rate limit aşıldı</td></tr>
-        <tr><td>500</td><td>Sunucu hatası</td></tr>
-      </tbody>
-    </table>
-
-    <h2>OpenAPI Spec</h2>
-    <p>
-      Tam spec: <a href="/openapi.yaml" download>openapi.yaml</a>. Swagger UI,
-      Postman, Scalar gibi araçlarla doğrudan import edebilirsin.
-    </p>
-
-    <h2>Örnekler (curl)</h2>
-    <pre><code>{ornekCurl}</code></pre>
+  <!-- Üst banner -->
+  <div class="border-b border-slate-100 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+    <div class="container-prose py-3 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-lg font-bold text-imperial-700">Cadastrum Public API</h1>
+        <p class="text-xs text-slate-500 mt-0.5">
+          v1.2.0 · Kurumsal Pro tier'a özel programmatic erişim
+        </p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="/openapi.yaml" download
+          class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+          openapi.yaml
+        </a>
+        <a href="/hesap/api-tokens"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-imperial text-white px-3 py-1.5 text-xs font-semibold hover:bg-imperial/90 transition-colors">
+          Token Oluştur →
+        </a>
+      </div>
+    </div>
   </div>
+
+  <!-- Hızlı başlangıç -->
+  <div class="container-prose py-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div class="rounded-xl border border-slate-200 bg-white p-4">
+        <div class="text-2xl mb-2" aria-hidden="true">🔑</div>
+        <h3 class="text-sm font-semibold text-slate-800 mb-1">1. Token Al</h3>
+        <p class="text-xs text-slate-500">
+          <a href="/hesap/api-tokens" class="text-imperial underline">hesap/api-tokens</a>'dan
+          Kurumsal Pro token üret. Format: <code class="bg-slate-100 px-1 rounded">cdrm_&lt;32hex&gt;</code>
+        </p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4">
+        <div class="text-2xl mb-2" aria-hidden="true">📡</div>
+        <h3 class="text-sm font-semibold text-slate-800 mb-1">2. İstek At</h3>
+        <p class="text-xs text-slate-500">
+          Her isteğe <code class="bg-slate-100 px-1 rounded">X-API-Key: cdrm_...</code>
+          header ekle. Rate limit: 60 req/dakika.
+        </p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4">
+        <div class="text-2xl mb-2" aria-hidden="true">📊</div>
+        <h3 class="text-sm font-semibold text-slate-800 mb-1">3. Veriyi Kullan</h3>
+        <p class="text-xs text-slate-500">
+          JSON response: medyan fiyat, emsal listesi, deprem/taşkın risk skoru.
+        </p>
+      </div>
+    </div>
+
+    <!-- Curl örnekleri -->
+    <div class="rounded-xl border border-slate-200 bg-slate-900 p-4 mb-8 overflow-x-auto">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="flex gap-1.5">
+          <span class="h-3 w-3 rounded-full bg-red-400"></span>
+          <span class="h-3 w-3 rounded-full bg-amber-400"></span>
+          <span class="h-3 w-3 rounded-full bg-emerald-400"></span>
+        </div>
+        <span class="text-xs text-slate-400 font-mono">Terminal</span>
+      </div>
+      <pre class="text-xs text-emerald-300 font-mono leading-relaxed whitespace-pre-wrap">{ornekCurl}</pre>
+    </div>
+
+    <!-- Hata kodları -->
+    <div class="rounded-xl border border-slate-200 bg-white p-5 mb-8">
+      <h2 class="text-base font-semibold text-slate-800 mb-3">Hata Kodları</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-100">
+              <th class="text-left py-2 pr-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">HTTP</th>
+              <th class="text-left py-2 pr-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Kod</th>
+              <th class="text-left py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Anlam</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            <tr><td class="py-2 pr-4 font-mono text-red-600 font-semibold">401</td><td class="py-2 pr-4 font-mono text-xs">UNAUTHORIZED</td><td class="py-2 text-slate-600 text-xs">Token yok veya geçersiz</td></tr>
+            <tr><td class="py-2 pr-4 font-mono text-amber-600 font-semibold">403</td><td class="py-2 pr-4 font-mono text-xs">FORBIDDEN</td><td class="py-2 text-slate-600 text-xs">Tier yetersiz</td></tr>
+            <tr><td class="py-2 pr-4 font-mono text-amber-600 font-semibold">404</td><td class="py-2 pr-4 font-mono text-xs">NOT_FOUND</td><td class="py-2 text-slate-600 text-xs">Veri bulunamadı</td></tr>
+            <tr><td class="py-2 pr-4 font-mono text-orange-600 font-semibold">429</td><td class="py-2 pr-4 font-mono text-xs">RATE_LIMITED</td><td class="py-2 text-slate-600 text-xs">Rate limit aşıldı (60 req/dk)</td></tr>
+            <tr><td class="py-2 pr-4 font-mono text-red-700 font-semibold">500</td><td class="py-2 pr-4 font-mono text-xs">SERVER_ERROR</td><td class="py-2 text-slate-600 text-xs">Sunucu hatası</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Redoc tam spec -->
+  <div class="border-t border-slate-100">
+    <div class="container-prose py-4">
+      <h2 class="text-base font-semibold text-slate-700 mb-1">Tam API Referansı</h2>
+      <p class="text-xs text-slate-400 mb-4">
+        551 satır OpenAPI 3.1 spec — tüm endpoint'ler, şemalar ve örnekler.
+      </p>
+    </div>
+    <!-- Redoc tam genişlik -->
+    <div id="redoc-container"></div>
+  </div>
+
+  <!-- Redoc CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js" defer></script>
+  <script>
+    function initRedoc() {
+      if (typeof (window as any).Redoc === "undefined") {
+        setTimeout(initRedoc, 200);
+        return;
+      }
+      (window as any).Redoc.init(
+        "/openapi.yaml",
+        {
+          theme: {
+            colors: { primary: { main: "#1B2A4A" } },
+            typography: {
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "14px",
+              headings: { fontFamily: "Inter, system-ui, sans-serif" },
+            },
+            sidebar: { backgroundColor: "#f8fafc", textColor: "#334155" },
+            rightPanel: { backgroundColor: "#1e293b" },
+          },
+          hideDownloadButton: false,
+          hideHostname: false,
+          noAutoAuth: true,
+          pathInMiddlePanel: false,
+          scrollYOffset: 60,
+          showExtensions: false,
+          nativeScrollbars: false,
+        },
+        document.getElementById("redoc-container")
+      );
+    }
+    document.addEventListener("DOMContentLoaded", initRedoc);
+  </script>
+
+  <style>
+    /* Redoc wrapper düzeltmeleri */
+    #redoc-container {
+      min-height: 600px;
+    }
+    /* Redoc'un kendi font import'unu override et */
+    #redoc-container * {
+      font-family: Inter, system-ui, -apple-system, sans-serif !important;
+    }
+  </style>
 </Base>

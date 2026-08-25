@@ -1,20 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useFiyatTahmin } from "../../lib/use-fiyat-tahmin";
+import { FiyatBilesenGrafigi } from "./FiyatBilesenGrafigi";
+import { GercekFiyatGirisKarti } from "./GercekFiyatGirisKarti";
+import { AiSonucKart } from "./AiSonucKart";
 import {
   Wallet as WalletIcon,
   Sparkles as SparklesIcon,
-  ChevronRight as ChevronRightIcon,
-  ChevronDown as ChevronDownIcon,
   Loader2 as LoaderIcon,
   AlertCircle as AlertIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
   ExternalLink as ExternalLinkIcon,
   Database as DatabaseIcon,
   Scale as ScaleIcon,
 } from "lucide-react";
 import {
   type FiyatTahmini,
-  fiyatTahminEt,
   fmtTL,
   fmtTLM2,
 } from "../../lib/fiyat-tahmin";
@@ -25,12 +24,12 @@ import type { EgimAnalizi } from "../../lib/elevation";
 import type { EPlanImarVerisi } from "../../lib/eplan";
 import type { TucbsCdpSonuc } from "../../lib/tucbs";
 import { ePlanOzet } from "../../lib/eplan";
-import { type AiFiyatSonucu, aiTahmin, chromeBuiltinAiVarMi, aiDurumGetir, type AiDurum, aiSanityCheck, type AiSanityCheckSonuc } from "../../lib/ai-fiyat";
-import { useAyarlar } from "../../lib/ayarlar";
-import { useLisans } from "../../lib/lisans";
+// chromeBuiltinAiVarMi hâlâ AiOnboardingKarti'de kullanılıyor
+import { type AiFiyatSonucu, chromeBuiltinAiVarMi, type AiDurum, type AiSanityCheckSonuc } from "../../lib/ai-fiyat";
 import { Card, Section } from "../ui/Card";
 import { HizliImarPrompt } from "./HizliImarPrompt";
 import { GuvenGostergesi } from "./GuvenGostergesi";
+import { KiraGetirisiPanel } from "./KiraGetirisiPanel";
 
 import type { MilliEmlakOzet } from "../../lib/milli-emlak";
 import { fmtTLm2 as fmtMEm2 } from "../../lib/milli-emlak";
@@ -45,6 +44,10 @@ interface Props {
   ePlanLoading: boolean;
   /** Kullanıcı "Bilmiyorum, devam et" dediyse fiyatı TKGM nitelik fallback'iyle hesapla. */
   imarSkipEdildi: boolean;
+  /** Koordinat bazlı heyelan verisi — DogalVeriKarti'dan yukarı taşınır */
+  heyelan?: import("../../lib/heyelan").HeyelanVerisi | null;
+  /** Koordinat bazlı taşkın verisi (GloFAS) — DogalVeriKarti'dan yukarı taşınır */
+  taskinKoord?: import("../../lib/taskin-koord").TaskinKoordSonuc | null;
   onImarKaydedildi: () => void;
   onImarSkip: () => void;
   /** Skip sonrası warn banner'dan "İmar gir" — skip'i geri çevirir, prompt'u tekrar açar. */
@@ -66,127 +69,54 @@ export function FiyatTahminKarti({
   tucbs,
   ePlanLoading,
   imarSkipEdildi,
+  heyelan,
+  taskinKoord,
   onImarKaydedildi,
   onImarSkip,
   onImarTekrarSor,
   onTahminHesaplandi,
   milliEmlakOzet,
 }: Props) {
-  const [tahmin, setTahmin] = useState<FiyatTahmini | null>(null);
+  // ── UI-only state (accordion) ──────────────────────────────────────────────
   const [acik, setAcik] = useState(false);
-  const [aiSonuc, setAiSonuc] = useState<AiFiyatSonucu | null>(null);
-  const [aiYukleniyor, setAiYukleniyor] = useState(false);
-  const [aiHata, setAiHata] = useState<string | null>(null);
-  const [aiDurum, setAiDurum] = useState<AiDurum | null>(null);
-  // D5 — AI sanity check state
-  const [sanityCheck, setSanityCheck] = useState<AiSanityCheckSonuc | null>(null);
-  const [ayarlar] = useAyarlar();
-  const lisans = useLisans();
 
-  // AI sağlayıcısı:
-  // - Pro user: kullanıcı sağlayıcı seçtiyse onunla, yoksa cadastrum-proxy (otomatik)
-  // - Free user: cadastrum-proxy günlük 3 deneme hakkı (manuel button ile tetiklenir)
-  const proAi = lisans.can("ai-fiyat");
-  const aktifSaglayici = ayarlar.aiSaglayici !== "yok"
-    ? ayarlar.aiSaglayici
-    : "cadastrum-proxy" as const;
+  // ── İş logic'i hook'a devredildi ──────────────────────────────────────────
+  const {
+    tahmin,
+    aiSonuc,
+    aiYukleniyor,
+    aiHata,
+    aiDurum,
+    sanityCheck,
+    kombineBeklenenPerM2,
+    kombineBeklenenToplam,
+    dusukGuven,
+    coldStart,
+    coldStartKaynak,
+    coldStartHataPayi,
+    meOrtFiyat,
+    meSapmaYuzde,
+    meUyariGoster,
+    aktifSaglayici,
+    proAi,
+    ayarlar,
+    aiCalistir,
+  } = useFiyatTahmin({
+    parsel,
+    cevre,
+    egim,
+    ePlan,
+    tucbs,
+    imarSkipEdildi,
+    heyelan,
+    taskinKoord,
+    milliEmlakOzet,
+    onTahminHesaplandi,
+  });
 
-  // İmar gating — fiyat ancak resmi imar VEYA kullanıcının açık skip'i ile hesaplanır.
+  // İmar gating: hook'tan gelen tahmin + ePlan'dan hesaplanan imarVar
   const imarVar = !!ePlan && !!(ePlan.kullanimKarari || ePlan.taks || ePlan.emsal);
   const hesaplanabilir = imarVar || imarSkipEdildi;
-
-  useEffect(() => {
-    let iptal = false;
-    if (!hesaplanabilir) {
-      // İmar yoksa eski tahmini temizle — yanıltıcı stale değer kalmasın
-      setTahmin(null);
-      onTahminHesaplandi?.(null);
-      setAiSonuc(null);
-      setAiHata(null);
-      return;
-    }
-    // NOT: fiyatTahminEt(4 param) tucbs almıyor (TÜCBS imar threading fiyat-tahmin.ts'te
-    // henüz tamamlanmadı). tucbs prop'u deps'te kalıyor; imar threading eklenince buraya geçilir.
-    fiyatTahminEt(parsel, cevre, egim, ePlan).then((t) => {
-      if (!iptal) {
-        setTahmin(t);
-        onTahminHesaplandi?.(t);
-      }
-    });
-    setAiSonuc(null);
-    setAiHata(null);
-    return () => {
-      iptal = true;
-    };
-  }, [parsel, cevre, egim, ePlan, tucbs, hesaplanabilir]);
-
-  async function aiCalistir() {
-    if (!tahmin) return;
-    setAiYukleniyor(true);
-    setAiHata(null);
-    try {
-      const sonuc = await aiTahmin(parsel, cevre, egim, tahmin, {
-        saglayici: aktifSaglayici,
-        ollamaModel: ayarlar.aiOllamaModel,
-        ollamaUrl: ayarlar.aiOllamaUrl,
-        geminiApiKey: ayarlar.aiGeminiApiKey,
-      });
-      setAiSonuc(sonuc);
-    } catch (e) {
-      setAiHata(e instanceof Error ? e.message : String(e));
-    } finally {
-      setAiYukleniyor(false);
-    }
-  }
-
-  // Pro otomatik tetikleme — istatistik tahmin geldiğinde AI'yı arka planda çalıştır
-  useEffect(() => {
-    if (!tahmin || !proAi) return;
-    if (aiSonuc || aiYukleniyor || aiHata) return;
-    void aiCalistir();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tahmin, proAi]);
-
-  // AI kullanım durumunu (kalan kota) periyodik tazele
-  useEffect(() => {
-    if (aktifSaglayici !== "cadastrum-proxy") return;
-    void aiDurumGetir().then(setAiDurum);
-  }, [aktifSaglayici, aiSonuc]);
-
-  // D5 — AI sanity check: tahmin hesaplandığında referanslarla karşılaştır
-  useEffect(() => {
-    if (!tahmin) { setSanityCheck(null); return; }
-    void aiSanityCheck(
-      { ilAd: parsel.ilAd, ilceAd: parsel.ilceAd, nitelik: parsel.nitelik, alan: parsel.alan },
-      tahmin.beklenenPerM2,
-      {
-        milliEmlakOrtPerM2: milliEmlakOzet?.ort_fiyat_per_m2 ?? null,
-      },
-      { saglayici: ayarlar.aiSaglayici !== "yok" ? ayarlar.aiSaglayici : undefined },
-    ).then((r) => setSanityCheck(r ?? null));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tahmin?.beklenenPerM2, milliEmlakOzet?.ort_fiyat_per_m2]);
-
-  // Triangulation: AI sonucu makul aralıktaysa kombine beklenen göster (70% statistical + 30% AI)
-  const aiSapma = aiSonuc && tahmin
-    ? Math.abs((aiSonuc.beklenenPerM2 - tahmin.beklenenPerM2) / tahmin.beklenenPerM2)
-    : null;
-  const aiKombineGecerli = aiSapma != null && aiSapma <= 0.30;
-  const kombineBeklenenPerM2 = aiKombineGecerli && aiSonuc && tahmin
-    ? Math.round(0.7 * tahmin.beklenenPerM2 + 0.3 * aiSonuc.beklenenPerM2)
-    : null;
-  const kombineBeklenenToplam = kombineBeklenenPerM2 ? Math.round(kombineBeklenenPerM2 * parsel.alan) : null;
-
-  // D3 — Güven bazlı UI: düşük güvende kesin rakam yerine aralık göster
-  const dusukGuven = tahmin != null && tahmin.guvenSkoru < 40;
-
-  // D2 — Milli Emlak cross-validation: ihale ortalaması varsa tahminle karşılaştır
-  const meOrtFiyat = milliEmlakOzet?.ort_fiyat_per_m2 ?? null;
-  const meSapmaYuzde = meOrtFiyat && tahmin
-    ? Math.round(((tahmin.beklenenPerM2 - meOrtFiyat) / meOrtFiyat) * 100)
-    : null;
-  // Sapma ±%30'u geçiyorsa uyarı göster
-  const meUyariGoster = meSapmaYuzde != null && Math.abs(meSapmaYuzde) > 30;
 
   // İmar gating UI'ı — sıralama: e-Plan yükleniyor > imar yok > skip > tahmin yükleniyor
   if (ePlanLoading && !imarVar && !imarSkipEdildi) {
@@ -220,27 +150,6 @@ export function FiyatTahminKarti({
       </Card>
     );
   }
-
-  const coldStart = tahmin.baselineKaynak !== "ilanGozlem-mahalle"
-    && tahmin.baselineKaynak !== "ilanGozlem-ilce"
-    && tahmin.baselineKaynak !== "spatial-radius";
-
-  // Cold start kaynak etiketi — kullanıcıya neden bu verinin kısıtlı olduğunu anlat
-  const coldStartKaynakEtiket: Record<string, string> = {
-    "mahalle-baseline": "mahalle istatistik tablosu",
-    "ilce-semt-baseline": "semt ortalaması",
-    "ilce-baseline": "ilçe ortalaması",
-    "il-baseline": "il ortalaması (kaba)",
-    "fallback": "genel Türkiye ortalaması",
-  };
-  const coldStartKaynak = coldStartKaynakEtiket[tahmin.baselineKaynak] ?? tahmin.baselineKaynak;
-  // Hata payı — kaynak kalitesine göre
-  const coldStartHataPayi =
-    tahmin.baselineKaynak === "il-baseline" || tahmin.baselineKaynak === "fallback"
-      ? "%50–80"
-      : tahmin.baselineKaynak === "ilce-baseline"
-      ? "%35–60"
-      : "%25–50";
 
   return (
     <Section
@@ -621,47 +530,21 @@ export function FiyatTahminKarti({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setAcik((v) => !v)}
-          className="flex w-full cursor-pointer items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1.5 text-2xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
-        >
-          <span>Hesap detayı ({tahmin.bilesenler.length} bileşen)</span>
-          {acik ? (
-            <ChevronDownIcon className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronRightIcon className="h-3.5 w-3.5" />
-          )}
-        </button>
-
-        {acik && (
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-3xs">
-            {tahmin.bilesenler.map((b, i) => (
-              <div
-                key={i}
-                className="flex items-baseline justify-between gap-2 border-b border-slate-200/50 py-1 last:border-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-slate-700 truncate">
-                    {b.ad}
-                  </div>
-                  <div className="text-slate-500 truncate">{b.not}</div>
-                </div>
-                <div className="font-mono font-semibold tabular-nums text-accent-success whitespace-nowrap">
-                  {i === 0
-                    ? fmtTLM2(Math.round(b.carpan))
-                    : `× ${b.carpan.toFixed(2)}`}
-                </div>
-              </div>
-            ))}
-            <div className="mt-1 flex justify-between border-t-2 border-accent-success/30 pt-1.5 text-2xs font-bold">
-              <span className="text-slate-700">= Beklenen</span>
-              <span className="font-mono tabular-nums text-accent-success">
-                {fmtTLM2(tahmin.beklenenPerM2)}
-              </span>
-            </div>
-          </div>
+        {/* Fiyat Bileşen Grafiği — waterfall chart */}
+        {tahmin.bilesenler.length > 0 && (
+          <FiyatBilesenGrafigi
+            bilesenler={tahmin.bilesenler}
+            baselineFiyat={tahmin.baselineDeger}
+            beklenenFiyat={tahmin.beklenenPerM2}
+            compact
+          />
         )}
+
+        {/* Gerçek Fiyat Giriş — satın aldıysanız gerçek fiyatı girin */}
+        <GercekFiyatGirisKarti
+          parsel={parsel}
+          heuristicTahminPerM2={tahmin.beklenenPerM2}
+        />
 
         {/* AI bölümü — cold start'ta daha vurgulu CTA */}
         <div className="space-y-1.5 border-t border-slate-100 pt-2">
@@ -742,79 +625,11 @@ export function FiyatTahminKarti({
             <AiSonucKart aiSonuc={aiSonuc} heuristic={tahmin} />
           )}
         </div>
+
+        {/* Kira Getirisi + Mortgage Hesaplama */}
+        <KiraGetirisiPanel parsel={parsel} tahminFiyat={tahmin?.toplamBeklenen ?? null} />
       </div>
     </Section>
-  );
-}
-
-function AiSonucKart({
-  aiSonuc,
-  heuristic,
-}: {
-  aiSonuc: AiFiyatSonucu;
-  heuristic: FiyatTahmini;
-}) {
-  const fark =
-    heuristic.beklenenPerM2 > 0
-      ? Math.round(
-          ((aiSonuc.beklenenPerM2 - heuristic.beklenenPerM2) /
-            heuristic.beklenenPerM2) *
-            100,
-        )
-      : 0;
-  const FarkIcon = fark > 0 ? TrendingUpIcon : fark < 0 ? TrendingDownIcon : null;
-  const farkColor =
-    fark > 5
-      ? "text-accent-success"
-      : fark < -5
-        ? "text-accent-danger"
-        : "text-slate-500";
-
-  return (
-    <div className="rounded-md border border-violet-200 bg-violet-50/50 p-2">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="flex items-center gap-1 text-3xs font-medium text-accent-ai">
-          <SparklesIcon className="h-3 w-3" />
-          {aiSonuc.modelAd}
-        </span>
-        <span className="text-3xs text-slate-400 tabular-nums">
-          {aiSonuc.sureMs}ms
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-1 text-center">
-        <div className="rounded bg-white px-1 py-1">
-          <div className="text-3xs text-slate-500">Alt</div>
-          <div className="text-2xs font-semibold tabular-nums text-slate-700">
-            {fmtTLM2(aiSonuc.altPerM2)}
-          </div>
-        </div>
-        <div className="rounded bg-violet-100 px-1 py-1">
-          <div className="text-3xs text-accent-ai">AI Tahmin</div>
-          <div className="text-2xs font-bold tabular-nums text-accent-ai">
-            {fmtTLM2(aiSonuc.beklenenPerM2)}
-          </div>
-        </div>
-        <div className="rounded bg-white px-1 py-1">
-          <div className="text-3xs text-slate-500">Üst</div>
-          <div className="text-2xs font-semibold tabular-nums text-slate-700">
-            {fmtTLM2(aiSonuc.ustPerM2)}
-          </div>
-        </div>
-      </div>
-      <div className="mt-1.5 flex items-center gap-1 text-3xs">
-        <span className="text-slate-500">Heuristic ile fark:</span>
-        {FarkIcon && <FarkIcon className={`h-3 w-3 ${farkColor}`} />}
-        <span className={`font-semibold tabular-nums ${farkColor}`}>
-          {fark > 0 ? "+" : ""}
-          {fark}%
-        </span>
-      </div>
-      {aiSonuc.gerekce && (
-        <p className="mt-1.5 rounded bg-white p-1.5 text-3xs italic text-slate-700">
-          "{aiSonuc.gerekce}"
-        </p>
-      )}
-    </div>
   );
 }
 

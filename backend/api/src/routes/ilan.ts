@@ -5,8 +5,10 @@
  * Rate limiting: per IP, default 100 req/saat (env: RATE_LIMIT_PER_HOUR)
  */
 import { Hono } from "hono";
+import type { z } from "zod";
 import type { Env } from "../index.js";
 import { normalizeYerAdi } from "../lib/normalize.js";
+import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 export const ilanRoutes = new Hono<{ Bindings: Env }>();
 
@@ -47,39 +49,32 @@ const VALID_KOORD_KAYNAK = new Set(["dom", "mahalle-merkez", "manuel"]);
 const VALID_KAYNAK = new Set(["sahibinden", "hepsiemlak", "extension", "emlakjet"]);
 const VALID_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik", "diger"]);
 
-function ilanValidate(input: IlanInput): { ok: true; ilan: Required<Omit<IlanInput, "imar_durumu" | "para_birimi" | "m2" | "mahalle" | "ilan_tarihi">> & Pick<IlanInput, "imar_durumu" | "para_birimi" | "m2" | "mahalle" | "ilan_tarihi"> } | { ok: false; error: string } {
-  if (!input.kaynak || !VALID_KAYNAK.has(input.kaynak)) return { ok: false, error: "Geçersiz kaynak" };
-  if (!input.ilan_no || typeof input.ilan_no !== "string") return { ok: false, error: "ilan_no gerekli" };
-  if (!input.il || !input.ilce) return { ok: false, error: "il ve ilce gerekli" };
-  if (typeof input.fiyat_per_m2 !== "number" || input.fiyat_per_m2 <= 0 || input.fiyat_per_m2 > 10_000_000) {
-    return { ok: false, error: "Geçersiz fiyat_per_m2 (0-10M)" };
+import { IlanIngestSchema } from "../lib/validation.js";
+type ValidIlan = z.infer<typeof IlanIngestSchema> & { koord_kaynagi?: string };
+
+function ilanValidate(input: unknown) {
+  // Extension/scraper'ın eski snake_case payload'larını yeni API sözleşmesine
+  // tek sınırda dönüştürür; bundan sonraki kod yalnızca camelCase kullanır.
+  const raw = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  const normalized = {
+    ...raw,
+    ilanNo: raw.ilanNo ?? raw.ilan_no,
+    fiyatPerM2: raw.fiyatPerM2 ?? raw.fiyat_per_m2,
+    paraBirimi: raw.paraBirimi ?? raw.para_birimi,
+    imarDurumu: raw.imarDurumu ?? raw.imar_durumu,
+  };
+  const result = IlanIngestSchema.safeParse(normalized);
+  if (!result.success) {
+    return { ok: false as const, error: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ") };
   }
-  if (!input.kategori || !VALID_KATEGORI.has(input.kategori)) return { ok: false, error: "Geçersiz kategori" };
-  return { ok: true, ilan: input as never };
+  return { ok: true as const, ilan: result.data, ilanTarihi: raw.ilanTarihi ?? raw.ilan_tarihi };
 }
 
-async function rateLimitCheck(env: Env, ip: string): Promise<{ ok: boolean; kalan: number }> {
-  const limit = +env.RATE_LIMIT_PER_HOUR || 100;
-  const saat = Math.floor(Date.now() / 3600_000);
-  const row = await env.DB.prepare(
-    `SELECT istek_sayisi FROM rate_limit WHERE ip = ? AND saat = ?`,
-  ).bind(ip, saat).first<{ istek_sayisi: number }>();
-
-  const mevcut = row?.istek_sayisi ?? 0;
-  if (mevcut >= limit) return { ok: false, kalan: 0 };
-
-  await env.DB.prepare(
-    `INSERT INTO rate_limit (ip, saat, istek_sayisi) VALUES (?, ?, 1)
-     ON CONFLICT(ip, saat) DO UPDATE SET istek_sayisi = istek_sayisi + 1`,
-  ).bind(ip, saat).run();
-
-  return { ok: true, kalan: limit - mevcut - 1 };
-}
-
-ilanRoutes.post("/", async (c) => {
-  const ip = c.req.header("CF-Connecting-IP") ?? c.req.header("X-Forwarded-For") ?? "unknown";
-  const rate = await rateLimitCheck(c.env, ip);
-  if (!rate.ok) return c.json({ error: "Rate limit aşıldı (100/saat)" }, 429);
+// Merkezi rate-limit middleware — ilan POST endpoint'leri için 100 req/saat.
+// NOT: Batch (/batch) SCRAPER_API_SECRET gerektirdiği için rate limit daha az kritik
+// ama tutarlılık için middleware'e bırakıyoruz (index.ts'deki global limit de çalışıyor).
+ilanRoutes.post("/", rateLimitMiddleware(100, "ilan-post"), async (c) => {
+  // ip ve kalan kota artık middleware tarafından X-RateLimit-* header'larında dönüyor.
 
   const body = await c.req.json<IlanInput>().catch(() => null);
   if (!body) return c.json({ error: "Geçersiz JSON" }, 400);
@@ -92,7 +87,7 @@ ilanRoutes.post("/", async (c) => {
   const ilce_norm = normalizeYerAdi(ilan.ilce);
   const mahalle_norm = ilan.mahalle ? normalizeYerAdi(ilan.mahalle) : null;
 
-  const koord = koordSanitize(body.lat, body.lng);
+  const koord = koordSanitize(ilan.lat ?? undefined, ilan.lng ?? undefined);
   const koordKaynagi =
     koord.lat != null && body.koord_kaynagi && VALID_KOORD_KAYNAK.has(body.koord_kaynagi)
       ? body.koord_kaynagi
@@ -118,23 +113,23 @@ ilanRoutes.post("/", async (c) => {
         aktif = 1`,
     ).bind(
       ilan.kaynak,
-      ilan.ilan_no,
+      ilan.ilanNo,
       il_norm,
       ilce_norm,
       mahalle_norm,
-      ilan.fiyat_per_m2,
+      ilan.fiyatPerM2,
       ilan.m2 ?? null,
       ilan.kategori,
-      ilan.imar_durumu ?? null,
-      ilan.para_birimi ?? "TL",
-      ilan.ilan_tarihi ?? null,
+      ilan.imarDurumu ?? null,
+      ilan.paraBirimi ?? "TL",
+      typeof v.ilanTarihi === "number" ? v.ilanTarihi : null,
       Date.now(),
       koord.lat,
       koord.lng,
       koordKaynagi,
     ).run();
     const guncellendiMi = (res.meta?.changes ?? 0) > 0;
-    return c.json({ ok: true, kalan: rate.kalan, upsert: guncellendiMi }, 201);
+    return c.json({ ok: true, upsert: guncellendiMi }, 201);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return c.json({ error: msg }, 500);
@@ -172,23 +167,23 @@ ilanRoutes.post("/batch", async (c) => {
   );
   const now = Date.now();
   const stmts = gecerli.map(v => {
-    const ilan = (v as any).ilan as IlanInput;
-    const koord = koordSanitize(ilan.lat, ilan.lng);
+    const ilan = (v as unknown as { ilan: ValidIlan }).ilan;
+    const koord = koordSanitize(ilan.lat ?? undefined, ilan.lng ?? undefined);
     const koordKaynagi =
       koord.lat != null && ilan.koord_kaynagi && VALID_KOORD_KAYNAK.has(ilan.koord_kaynagi)
         ? ilan.koord_kaynagi
         : null;
     return stmt.bind(
       ilan.kaynak,
-      ilan.ilan_no,
+      ilan.ilanNo,
       normalizeYerAdi(ilan.il!),
       normalizeYerAdi(ilan.ilce!),
       ilan.mahalle ? normalizeYerAdi(ilan.mahalle) : null,
-      ilan.fiyat_per_m2,
+      ilan.fiyatPerM2,
       ilan.m2 ?? null,
       ilan.kategori,
-      ilan.imar_durumu ?? null,
-      ilan.para_birimi ?? "TL",
+      ilan.imarDurumu ?? null,
+      ilan.paraBirimi ?? "TL",
       now,
       koord.lat,
       koord.lng,
@@ -239,23 +234,23 @@ ilanRoutes.post("/katki", async (c) => {
   );
   const now = Date.now();
   const stmts = gecerli.map((v) => {
-    const ilan = v.ilan as IlanInput;
-    const koord = koordSanitize(ilan.lat, ilan.lng);
+    const ilan = (v as unknown as { ilan: ValidIlan }).ilan;
+    const koord = koordSanitize(ilan.lat ?? undefined, ilan.lng ?? undefined);
     const koordKaynagi =
       koord.lat != null && ilan.koord_kaynagi && VALID_KOORD_KAYNAK.has(ilan.koord_kaynagi)
         ? ilan.koord_kaynagi
         : null;
     return stmt.bind(
       "extension",
-      ilan.ilan_no,
+      ilan.ilanNo,
       normalizeYerAdi(ilan.il!),
       normalizeYerAdi(ilan.ilce!),
       ilan.mahalle ? normalizeYerAdi(ilan.mahalle) : null,
-      ilan.fiyat_per_m2,
+      ilan.fiyatPerM2,
       ilan.m2 ?? null,
       ilan.kategori,
-      ilan.imar_durumu ?? null,
-      ilan.para_birimi ?? "TL",
+      ilan.imarDurumu ?? null,
+      ilan.paraBirimi ?? "TL",
       now,
       koord.lat,
       koord.lng,

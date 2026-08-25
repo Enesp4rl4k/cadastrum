@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileDown as DownloadIcon, Loader2 as LoaderIcon } from "lucide-react";
+import { FileDown as DownloadIcon, Loader2 as LoaderIcon, FileText as FileTextIcon } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
 import type { CevreAnalizi } from "../../lib/osm";
 import type { EgimAnalizi } from "../../lib/elevation";
@@ -10,6 +10,8 @@ import { raporVerisiniSakla, type RaporVerisi } from "../../lib/rapor-data";
 import { aiTahmin, type AiFiyatSonucu } from "../../lib/ai-fiyat";
 import { useAyarlar } from "../../lib/ayarlar";
 import { useLisans } from "../../lib/lisans";
+import { udesRaporUret } from "../../lib/degerler/udes-rapor-uret";
+import { karsilastirmalidenKarar } from "../../lib/degerler/degerleme-ajani";
 import {
   type AnalizTip,
   ANALIZ_TIPI_ETIKETLERI,
@@ -23,6 +25,66 @@ interface Props {
   cevre: CevreAnalizi | null;
   egim: EgimAnalizi | null;
   ePlan: EPlanImarVerisi | null;
+}
+
+/** UDES değerleme raporu — yeni tab'da HTML açar, tarayıcıdan PDF kaydedilir */
+export function UdesRaporButonu({ parsel, cevre, egim, ePlan }: Props) {
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const [hata, setHata] = useState<string | null>(null);
+
+  async function raporuAc() {
+    setYukleniyor(true);
+    setHata(null);
+    try {
+      const fiyat = await fiyatTahminEt(parsel, cevre, egim, ePlan);
+      if (!fiyat) throw new Error("Fiyat tahmini hesaplanamadı");
+
+      const karar = karsilastirmalidenKarar(fiyat, parsel.alan ?? 0);
+
+      const rapor = udesRaporUret({
+        degerlenmeTarihi: new Date().toISOString().split("T")[0]!,
+        amac: "Bilgilendirme / Ön Değerleme",
+        parsel,
+        karsilastirmali: fiyat,
+        karar,
+      });
+
+      // Blob URL ile yeni tab'da aç
+      const blob = new Blob([rapor.htmlIcerik], { type: "text/html;charset=utf-8" });
+      const url  = URL.createObjectURL(blob);
+      await chrome.tabs.create({ url });
+      // Blob URL birkaç saniye sonra revoke et (memory leak önlemi)
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      setHata(e instanceof Error ? e.message : String(e));
+    } finally {
+      setYukleniyor(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={raporuAc}
+        disabled={yukleniyor}
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-2xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        title="UDES uyumlu değerleme raporu — yeni sekmede açılır, PDF olarak kaydedebilirsiniz"
+      >
+        {yukleniyor ? (
+          <><LoaderIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />UDES Raporu hazırlanıyor…</>
+        ) : (
+          <><FileTextIcon className="h-3.5 w-3.5" aria-hidden="true" />UDES Değerleme Raporu</>
+        )}
+      </button>
+      {hata && (
+        <div className="rounded-md bg-red-50 px-2 py-1 text-3xs text-red-700" role="alert">{hata}</div>
+      )}
+      <p className="text-3xs italic text-slate-500">
+        UDES uyumlu — yeni sekmede açılır → "PDF olarak kaydet"
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -83,9 +145,7 @@ export function RaporExportButonu({ parsel, cevre, egim, ePlan }: Props) {
             trend = seri.map(s => ({ yil: s.yil, sayi: s.toplamIslem }));
           } catch { /* ignore */ }
           tkgmAnaliz = { yil, ilceAd: parsel.ilceAd, tipler, ipotekOrani, trend };
-        } catch (e) {
-          console.warn("[rapor] TKGM analiz başarısız:", e);
-        }
+        } catch { /* TKGM analiz başarısız — rapor kısmi üretilir */ }
       }
 
       // Pro: AI tahmini de paralel al (sessiz başarısız ol — rapor üretiminde block etme)
@@ -98,9 +158,7 @@ export function RaporExportButonu({ parsel, cevre, egim, ePlan }: Props) {
             ollamaUrl: ayarlar.aiOllamaUrl,
             geminiApiKey: ayarlar.aiGeminiApiKey,
           });
-        } catch (e) {
-          console.warn("[rapor] AI tahmini başarısız, atlanıyor:", e);
-        }
+        } catch { /* AI tahmini başarısız — rapor AI olmadan üretilir */ }
       }
 
       const veri: RaporVerisi = {

@@ -1,4 +1,4 @@
-# Chrome Web Store Listing — Cadastrum
+# Chrome Web Store Listing — Cadastrum v0.4.0
 
 ## 1. STORE LISTING METADATA
 
@@ -213,9 +213,8 @@ https://cadastrum.com.tr
 
 ```cmd
 cd C:\Users\parlak\Downloads\arsa-tkgm-extension
-npm run build
-cd dist
-powershell Compress-Archive -Path * -DestinationPath ..\cadastrum-extension-v0.3.0.zip -Force
+npm run release:store
+# Otomatik olarak cadastrum-extension-v0.4.0.zip oluşturur
 ```
 
 ---

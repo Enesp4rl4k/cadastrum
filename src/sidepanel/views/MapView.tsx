@@ -1,41 +1,21 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
-import { Flame as FlameIcon, Layers as LayersIcon, Mountain as MountainIcon, Thermometer as ThermometerIcon } from "lucide-react";
+import { Flame as FlameIcon, Layers as LayersIcon, Mountain as MountainIcon, Thermometer as ThermometerIcon, TrendingUp as TrendingUpIcon } from "lucide-react";
+import { BottomSheet, type SheetState } from "../components/BottomSheet";
+import { IlanKarti } from "../components/IlanKarti";
 import { getParselByLatLng } from "../../lib/tkgm-api";
 import { db } from "../../lib/db";
 import type { Parsel } from "../../types/tkgm";
 import { ParselDetay } from "../components/ParselDetay";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import type { YakinNoktaMesafesi } from "../../lib/osm";
 import { BasemapSecici } from "../components/BasemapSecici";
-import {
-  type BasemapId,
-  getBasemap,
-  loadSavedBasemap,
-  saveBasemap,
-} from "../../lib/basemaps";
-import {
-  type AnalizNoktasi,
-  type AnalizTip,
-  ANALIZ_TIPI_ETIKETLERI,
-  YIL_SECENEKLERI,
-  tkgmAnalizGetir,
-} from "../../lib/tkgm-analiz";
-import {
-  HEAT_TIP_RENKLERI,
-  applyHeatmap,
-  removeHeatmap,
-} from "./heatmap-layer";
-import { applyCdpWms, removeCdpWms } from "./cdp-wms-layer";
-import { tucbsWmsEndpointGetir } from "../../lib/data/tucbs-wms-endpoints";
-import {
-  terrainEkle,
-  terrainKaldir,
-  egimHaritasiHesapla,
-  egimHaritasiUygula,
-  egimHaritasiKaldir,
-  type EgimKategori,
-  EGIM_RENKLERI,
-} from "./terrain-egim-layer";
+import { getBasemap } from "../../lib/basemaps";
+import { ANALIZ_TIPI_ETIKETLERI, type AnalizTip } from "../../lib/tkgm-analiz";
+import { HEAT_TIP_RENKLERI } from "./heatmap-layer";
+import { EGIM_RENKLERI, type EgimKategori } from "./terrain-egim-layer";
+import { useMapLayers } from "../../hooks/useMapLayers";
+import { drawYakinPoiler } from "../../lib/map-poi-layer";
 
 interface MapViewProps {
   flyTo?: { lat: number; lng: number; parsel?: Parsel } | null;
@@ -51,53 +31,40 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
   const [parsel, setParsel] = useState<Parsel | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [basemap, setBasemap] = useState<BasemapId>(() => loadSavedBasemap());
-  const [heatmapAcik, setHeatmapAcik] = useState(false);
-  const [heatmapAnalizTip, setHeatmapAnalizTip] = useState<AnalizTip>(1);
-  const [heatmapYukleniyor, setHeatmapYukleniyor] = useState(false);
-  const [heatmapNoktaSayisi, setHeatmapNoktaSayisi] = useState(0);
-  /** Açık ilçe için cache'lenmiş heatmap noktaları — basemap swap sonrası repaint için */
-  const heatmapNoktalariRef = useRef<AnalizNoktasi[]>([]);
-  /** Önceki heatmapAcik durumu — true→false→true geçişlerinde fitBounds yapmak için */
-  const heatmapOncekiAcikRef = useRef(false);
-  const [heatmapMenuAcik, setHeatmapMenuAcik] = useState(false);
-  const [cdpAcik, setCdpAcik] = useState(false);
-  const cdpSlugRef = useRef<string | null>(null);
-  // Terrain + Eğim state'leri
-  const [terrainAcik, setTerrainAcik] = useState(false);
-  const [egimAcik, setEgimAcik] = useState(false);
-  const [egimYukleniyor, setEgimYukleniyor] = useState(false);
-  const [egimSonuc, setEgimSonuc] = useState<{ kategori: EgimKategori; ortEgim: number; maxEgim: number } | null>(null);
+  // Bottom sheet state
+  const [sheetState, setSheetState] = useState<SheetState>("closed");
+  // ── Tüm layer state/logic hook'a devredildi ──────────────────────────────
+  const layers = useMapLayers({ mapRef, parsel });
   parselRef.current = parsel;
 
-  const cdpEndpoint = useMemo(
-    () => (parsel?.ilAd ? tucbsWmsEndpointGetir(parsel.ilAd) : null),
-    [parsel?.ilAd],
-  );
+  // ── Basemap değişince parsel polygon'unu yeniden çiz ─────────────────────
+  const oncekiBasemap = useRef(layers.basemap);
+  useEffect(() => {
+    if (oncekiBasemap.current === layers.basemap) return;
+    oncekiBasemap.current = layers.basemap;
+    const map = mapRef.current;
+    if (!map) return;
+    map.once("styledata", () => {
+      if (parselRef.current) drawParsel(map, parselRef.current);
+    });
+  }, [layers.basemap]);
 
+  // ── Harita init ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
-
     const map = new maplibregl.Map({
       container: mapEl.current,
-      style: getBasemap(basemap).style,
+      style: getBasemap(layers.basemap).style,
       center: [35.0, 39.0],
       zoom: 5.5,
     });
     mapRef.current = map;
-
     map.on("click", async (e) => {
       const { lat, lng } = e.lngLat;
       await runQuery(lat, lng);
     });
-
-    // Container boyutu değiştiğinde MapLibre'a haber ver — flex layout
-    // ilk render'da 0 yükseklikle başlayabiliyor, yoksa harita siyah kalır.
-    const ro = new ResizeObserver(() => {
-      mapRef.current?.resize();
-    });
+    const ro = new ResizeObserver(() => { mapRef.current?.resize(); });
     ro.observe(mapEl.current);
-
     return () => {
       ro.disconnect();
       map.remove();
@@ -106,93 +73,10 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Basemap değişince stili swap et + parsel polygon'unu yeniden çiz.
-  // İlk render'da (basemap zaten init style'ı) setStyle çağırmıyoruz —
-  // MapLibre "Style is not done loading" uyarısını önler.
-  const oncekiBasemap = useRef(basemap);
-  useEffect(() => {
-    if (oncekiBasemap.current === basemap) return;
-    oncekiBasemap.current = basemap;
-    const map = mapRef.current;
-    if (!map) return;
-    saveBasemap(basemap);
-    map.setStyle(getBasemap(basemap).style);
-    map.once("styledata", () => {
-      if (parselRef.current) drawParsel(map, parselRef.current);
-      if (heatmapAcik && heatmapNoktalariRef.current.length > 0) {
-        applyHeatmap(map, heatmapNoktalariRef.current, heatmapAnalizTip, { fitBounds: false });
-      }
-      if (cdpAcik && cdpSlugRef.current) {
-        applyCdpWms(map, cdpSlugRef.current);
-      }
-    });
-  }, [basemap, heatmapAcik, heatmapAnalizTip, cdpAcik]);
-
-  // Heatmap toggle / parsel ilçe değişimi → TKGM analiz noktalarını çek + render
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (!heatmapAcik || !parsel?.ilceKodu) {
-      heatmapNoktalariRef.current = [];
-      heatmapOncekiAcikRef.current = false;
-      setHeatmapNoktaSayisi(0);
-      removeHeatmap(map);
-      return;
-    }
-
-    // İlk kez açılıyor mu? (kapalıdan açığa geçiş) → veriyi gösterebilmek için fit
-    const ilkAcilis = !heatmapOncekiAcikRef.current;
-    heatmapOncekiAcikRef.current = true;
-
-    const ctrl = new AbortController();
-    setHeatmapYukleniyor(true);
-    tkgmAnalizGetir(
-      // YIL_SECENEKLERI[0] = en güncel yayımlanmış yıl (currentYear - 1)
-      // TKGM ilgili yıl tamamlanana kadar veri yayımlamıyor → 400 yememek için
-      { ilceKodu: parsel.ilceKodu, analizTip: heatmapAnalizTip, yil: YIL_SECENEKLERI[0] ?? 2024 },
-      ctrl.signal,
-    )
-      .then((noktalar) => {
-        if (ctrl.signal.aborted) return;
-        heatmapNoktalariRef.current = noktalar;
-        setHeatmapNoktaSayisi(noktalar.length);
-        applyHeatmap(map, noktalar, heatmapAnalizTip, { fitBounds: ilkAcilis });
-      })
-      .catch((e) => {
-        if (!ctrl.signal.aborted) console.warn("[arsa-map] heatmap fetch hata:", e);
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setHeatmapYukleniyor(false);
-      });
-
-    return () => ctrl.abort();
-  }, [heatmapAcik, heatmapAnalizTip, parsel?.ilceKodu]);
-
-  // TUCBS ÇDP WMS overlay — il kapsamında ise raster katman
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (!cdpAcik || !cdpEndpoint?.slug) {
-      cdpSlugRef.current = null;
-      removeCdpWms(map);
-      return;
-    }
-
-    cdpSlugRef.current = cdpEndpoint.slug;
-    applyCdpWms(map, cdpEndpoint.slug);
-  }, [cdpAcik, cdpEndpoint?.slug]);
-
-  // İl kapsam dışına geçince overlay'i kapat
-  useEffect(() => {
-    if (!cdpEndpoint && cdpAcik) setCdpAcik(false);
-  }, [cdpEndpoint, cdpAcik]);
-
   useEffect(() => {
     if (!flyTo || !mapRef.current) return;
     if (flyTo.parsel) {
-      setParsel(flyTo.parsel);
+      handleParselSet(flyTo.parsel);
       drawParsel(mapRef.current, flyTo.parsel);
       mapRef.current.flyTo({
         center: [flyTo.parsel.merkezNokta.lng, flyTo.parsel.merkezNokta.lat],
@@ -209,13 +93,57 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo]);
 
+  // Parsel değişince sheet'i aç
+  const handleParselSet = useCallback((p: Parsel | null) => {
+    setParsel(p);
+    setSheetState(p ? "peek" : "closed");
+  }, []);
+
+  // İlan tespit edilince:
+  //   1. Sheet'i half'a aç — kullanıcı "TKGM'de doğrula" butonunu görsün
+  //   2. İlan koordinatı varsa haritayı o noktaya fly et (ama yakın zoom'a gitme, bölgesel bak)
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome?.storage?.session) return;
+    const dinleyici = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string,
+    ) => {
+      if (area !== "session" || !changes["sonIlan"]?.newValue) return;
+      const yeniIlan = changes["sonIlan"].newValue as import("../../types/ilan").IlanBilgisi;
+
+      // Sheet: parsel açık değilse half yap
+      setSheetState((prev) => {
+        if (prev === "closed" || prev === "peek") return "half";
+        return prev;
+      });
+
+      // Koordinat fly — sadece parsel henüz seçili değilse ve koordinat yüksek güvenliyse
+      const { lat, lng, koordDogruluk } = yeniIlan;
+      if (
+        lat != null && lng != null &&
+        koordDogruluk === "yuksek" &&
+        mapRef.current &&
+        !parselRef.current  // zaten açık parsel varsa fly etme
+      ) {
+        mapRef.current.flyTo({
+          center: [lng, lat],
+          zoom: 14,   // bölgesel zoom — parseli görmek için yeterli ama fazla yakın değil
+          duration: 1200,
+        });
+      }
+    };
+    chrome.storage.onChanged.addListener(dinleyici);
+    return () => chrome.storage.onChanged.removeListener(dinleyici);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function runQuery(lat: number, lng: number) {
     if (!mapRef.current) return;
     setLoading(true);
     setError(null);
     try {
       const result = await getParselByLatLng(lat, lng);
-      setParsel(result);
+      handleParselSet(result);
       drawParsel(mapRef.current, result);
       await db.gecmis.add({
         lat,
@@ -227,7 +155,7 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
-      setParsel(null);
+      handleParselSet(null);
       await db.gecmis.add({
         lat,
         lng,
@@ -241,119 +169,126 @@ export function MapView({ flyTo, onConsumed, onTabDegistir }: MapViewProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="relative flex-1">
-        {/* MapLibre kendi container'ına position:relative enjekte ettiği için
-            absolute+inset-0 ile sıfır yükseklik problemi yaşanıyor — h-full w-full
-            kullanıp pozisyonu MapLibre'a bırakıyoruz. */}
-        <div ref={mapEl} className="h-full w-full" />
-        <BasemapSecici active={basemap} onChange={setBasemap} />
+    <div className="relative h-full w-full overflow-hidden">
+      {/* ── Harita container — tam ekran, sheet'in altında kalır ── */}
+      <div ref={mapEl} className="h-full w-full" />
+
+      {/* ── Harita overlay kontroller — sağ kenarda dikey stack ── */}
+      <BasemapSecici active={layers.basemap} onChange={layers.setBasemap} />
+
+      {/* Basemap secici altında dikey sıralanmış katman kontrolleri */}
+      <div className="absolute right-3 top-14 z-10 flex flex-col items-end gap-1">
         <HeatmapKontrol
-          acik={heatmapAcik}
-          analizTip={heatmapAnalizTip}
-          yukleniyor={heatmapYukleniyor}
+          acik={layers.heatmapAcik}
+          analizTip={layers.heatmapAnalizTip}
+          yukleniyor={layers.heatmapYukleniyor}
           parselSecili={!!parsel?.ilceKodu}
-          noktaSayisi={heatmapNoktaSayisi}
-          menuAcik={heatmapMenuAcik}
-          onMenuToggle={() => setHeatmapMenuAcik((v) => !v)}
-          onToggle={() => setHeatmapAcik((v) => !v)}
+          noktaSayisi={layers.heatmapNoktaSayisi}
+          menuAcik={layers.heatmapMenuAcik}
+          onMenuToggle={() => layers.setHeatmapMenuAcik((v) => !v)}
+          onToggle={layers.toggleHeatmap}
           onTipChange={(t) => {
-            setHeatmapAnalizTip(t);
-            setHeatmapMenuAcik(false);
+            layers.setHeatmapAnalizTip(t);
+            layers.setHeatmapMenuAcik(false);
           }}
         />
         <CdpKontrol
-          acik={cdpAcik}
-          kapsamVar={!!cdpEndpoint}
-          bolgeAd={cdpEndpoint?.bolgeAd ?? null}
-          onToggle={() => setCdpAcik((v) => !v)}
+          acik={layers.cdpAcik}
+          kapsamVar={!!layers.cdpEndpoint}
+          bolgeAd={layers.cdpEndpoint?.bolgeAd ?? null}
+          onToggle={layers.toggleCdp}
+        />
+        <FiyatChoroplethKontrol
+          acik={layers.fiyatAcik}
+          yukleniyor={layers.fiyatYukleniyor}
+          onToggle={layers.toggleFiyat}
         />
         <Terrain3DKontrol
-          terrainAcik={terrainAcik}
-          egimAcik={egimAcik}
-          egimYukleniyor={egimYukleniyor}
-          egimSonuc={egimSonuc}
+          terrainAcik={layers.terrainAcik}
+          egimAcik={layers.egimAcik}
+          egimYukleniyor={layers.egimYukleniyor}
+          egimSonuc={layers.egimSonuc}
           parselSecili={!!parsel}
-          onTerrainToggle={() => {
-            const map = mapRef.current;
-            if (!map) return;
-            const yeni = !terrainAcik;
-            setTerrainAcik(yeni);
-            if (yeni) {
-              terrainEkle(map);
-            } else {
-              terrainKaldir(map);
-              // Terrain kapanınca pitch'i sıfırla
-              map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
-            }
-          }}
-          onEgimToggle={async () => {
-            const map = mapRef.current;
-            if (!map || !parsel) return;
-            const yeni = !egimAcik;
-            setEgimAcik(yeni);
-            if (!yeni) {
-              egimHaritasiKaldir(map);
-              setEgimSonuc(null);
-              return;
-            }
-            // Parsel bbox'ı hesapla
-            const coords = parsel.koordinatlar;
-            if (!coords.length) return;
-            const lats = coords.map(c => c.lat);
-            const lngs = coords.map(c => c.lng);
-            const minLat = Math.min(...lats);
-            const maxLat = Math.max(...lats);
-            const minLng = Math.min(...lngs);
-            const maxLng = Math.max(...lngs);
-            setEgimYukleniyor(true);
-            try {
-              const sonuc = await egimHaritasiHesapla(minLat, maxLat, minLng, maxLng);
-              egimHaritasiUygula(map, sonuc.geojson);
-              setEgimSonuc({ kategori: sonuc.kategori, ortEgim: sonuc.ortEgim, maxEgim: sonuc.maxEgim });
-            } catch (e) {
-              console.warn("[terrain] eğim hesaplama hatası:", e);
-              setEgimAcik(false);
-            } finally {
-              setEgimYukleniyor(false);
-            }
-          }}
+          onExaggerationChange={layers.setTerrainExaggeration}
+          onTerrainToggle={layers.toggleTerrain}
+          onEgimToggle={layers.toggleEgim}
         />
-        {loading && (
-          <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-1 text-xs text-white">
-            Sorgulanıyor…
-          </div>
-        )}
       </div>
 
-      <div className="max-h-[45%] overflow-y-auto border-t border-slate-200 bg-slate-50 p-3 text-xs">
+      {/* ── Yükleniyor göstergesi ── */}
+      {loading && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+          Sorgulanıyor…
+        </div>
+      )}
+
+      {/* ── Haritaya tıkla ipucu — parsel seçilmemiş ve sheet kapalıysa ── */}
+      {sheetState === "closed" && !loading && (
+        <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 hint-float">
+          <div className="flex items-center gap-1.5 rounded-full border border-white/30 bg-black/50 px-3 py-1.5 text-xs text-white backdrop-blur-sm">
+            <span aria-hidden="true">📍</span>
+            Haritada bir noktaya tıkla
+          </div>
+        </div>
+      )}
+
+      {/* ── Bottom Sheet — parsel detay + ilan kartı ── */}
+      <BottomSheet
+        state={sheetState}
+        onStateChange={setSheetState}
+        closeable
+      >
+        {/* Hata durumu */}
         {error && (
-          <div className="rounded border border-red-300 bg-red-50 p-2 text-red-700">
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 dark:border-red-800/50 dark:bg-red-950/30 dark:text-red-400">
             {error}
           </div>
         )}
-        {!error && !parsel && (
-          <p className="text-tkgm-muted">
-            Haritada bir noktaya tıkla, parsel bilgisi burada görünecek.
-          </p>
-        )}
+
+        {/* İlan kartı — sheet içinde, header'da değil */}
         {parsel && (
-          <ParselDetay
-            parsel={parsel}
-            onYakinPoiler={(poiler) => {
-              if (mapRef.current && parsel) {
-                drawYakinPoiler(mapRef.current, parsel.merkezNokta, poiler);
-              }
-            }}
-            onKarsilastirTabAc={onTabDegistir ? () => onTabDegistir("karsilastirma") : undefined}
-          />
+          <div className="mb-2">
+            <IlanKarti
+              acikParsel={parsel}
+              onParselDogrula={(p) => {
+                handleParselSet(p);
+                if (mapRef.current) {
+                  drawParsel(mapRef.current, p);
+                  mapRef.current.flyTo({
+                    center: [p.merkezNokta.lng, p.merkezNokta.lat],
+                    zoom: Math.max(mapRef.current.getZoom(), 17),
+                  });
+                }
+              }}
+            />
+          </div>
         )}
-      </div>
+
+        {/* Parsel detay */}
+        {parsel && (
+          <ErrorBoundary etiket="Parsel detay">
+            <ParselDetay
+              parsel={parsel}
+              onYakinPoiler={(poiler) => {
+                if (mapRef.current && parsel) {
+                  drawYakinPoiler(mapRef.current, parsel.merkezNokta, poiler);
+                }
+              }}
+              onAltyapiPoiler={(poiler) => {
+                if (mapRef.current && parsel) {
+                  drawYakinPoiler(mapRef.current, parsel.merkezNokta, poiler);
+                }
+              }}
+              onKarsilastirTabAc={onTabDegistir ? () => onTabDegistir("karsilastirma") : undefined}
+            />
+          </ErrorBoundary>
+        )}
+      </BottomSheet>
     </div>
   );
 }
 
-/** TUCBS ÇDP renk katmanı toggle — heatmap butonunun altında */
+/** TUCBS ÇDP renk katmanı toggle */
 function CdpKontrol({
   acik,
   kapsamVar,
@@ -366,7 +301,7 @@ function CdpKontrol({
   onToggle: () => void;
 }) {
   return (
-    <div className="absolute right-3 top-[5.5rem] z-10 flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1">
       <button
         type="button"
         onClick={() => {
@@ -399,272 +334,39 @@ function CdpKontrol({
   );
 }
 
-/**
- * Yakın POI'leri (okul, durak, otoyol, vb.) parselin merkezinden çizgiyle bağla.
- * Her POI noktası daire + ikon + mesafe etiketiyle görünür.
- * `poiler === null` → katmanları temizle.
- */
-function drawYakinPoiler(
-  map: MapLibreMap,
-  merkez: { lat: number; lng: number },
-  poiler: { tip: string; ad: string; lat: number; lng: number; mesafeM: number; ikon?: string }[] | null,
-): void {
-  const LINE_SRC = "yakin-line-src";
-  const POINT_SRC = "yakin-point-src";
-  const LINE_LAYER = "yakin-line-layer";
-  const POINT_LAYER = "yakin-point-layer";
-  const LABEL_LAYER = "yakin-label-layer";
-
-  // Temizle — TÜM türetilmiş layer'lar (halo, ikon dahil) source'tan ÖNCE silinmeli.
-  // Aksi halde "Source cannot be removed while layer is using it" hatası oluşur.
-  if (poiler === null || poiler.length === 0) {
-    for (const id of [
-      "yakin-line-label-layer",
-      LABEL_LAYER,
-      POINT_LAYER + "-ikon",
-      POINT_LAYER,
-      POINT_LAYER + "-halo",
-      LINE_LAYER,
-    ]) {
-      if (map.getLayer(id)) map.removeLayer(id);
-    }
-    for (const id of ["yakin-line-label-src", POINT_SRC, LINE_SRC]) {
-      if (map.getSource(id)) map.removeSource(id);
-    }
-    return;
-  }
-
-  // Her POI için: parselden POI'ye LineString
-  const lineFeatures: GeoJSON.Feature[] = poiler.map((p) => ({
-    type: "Feature",
-    geometry: {
-      type: "LineString",
-      coordinates: [
-        [merkez.lng, merkez.lat],
-        [p.lng, p.lat],
-      ],
-    },
-    properties: { tip: p.tip, ad: p.ad, mesafeM: p.mesafeM },
-  }));
-
-  const pointFeatures: GeoJSON.Feature[] = poiler.map((p) => {
-    const km = p.mesafeM >= 1000 ? `${(p.mesafeM / 1000).toFixed(1)}km` : `${p.mesafeM}m`;
-    return {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-      properties: {
-        tip: p.tip,
-        ad: p.ad,
-        mesafeM: p.mesafeM,
-        ikon: p.ikon ?? "📍",
-        etiket: `${p.ikon ?? "📍"} ${p.ad}\n${km}`,
-      },
-    };
-  });
-
-  // Mesafe etiketleri için LineString'in ortasına nokta hesapla
-  const labelFeatures: GeoJSON.Feature[] = poiler.map((p) => {
-    const midLng = (merkez.lng + p.lng) / 2;
-    const midLat = (merkez.lat + p.lat) / 2;
-    const km = p.mesafeM >= 1000 ? `${(p.mesafeM / 1000).toFixed(1)}km` : `${p.mesafeM}m`;
-    return {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [midLng, midLat] },
-      properties: { mesafe: km, tip: p.tip },
-    };
-  });
-  const labelData: GeoJSON.FeatureCollection = {
-    type: "FeatureCollection",
-    features: labelFeatures,
-  };
-  const LINE_LABEL_SRC = "yakin-line-label-src";
-  const LINE_LABEL_LAYER = "yakin-line-label-layer";
-
-  const lineData: GeoJSON.FeatureCollection = {
-    type: "FeatureCollection",
-    features: lineFeatures,
-  };
-  const pointData: GeoJSON.FeatureCollection = {
-    type: "FeatureCollection",
-    features: pointFeatures,
-  };
-
-  const lineSrc = map.getSource(LINE_SRC) as maplibregl.GeoJSONSource | undefined;
-  const pointSrc = map.getSource(POINT_SRC) as maplibregl.GeoJSONSource | undefined;
-
-  // POI tipine göre renk paleti
-  const renkMap: any = ["match", ["get", "tip"],
-    "okul", "#3B82F6",         // mavi (eğitim)
-    "saglik", "#DC2626",       // kırmızı (sağlık)
-    "durak", "#10B981",        // yeşil (toplu taşıma)
-    "motorway", "#F59E0B",     // turuncu (otoyol)
-    "trunk", "#F59E0B",
-    "primary", "#FBBF24",      // sarı-turuncu
-    "secondary", "#FBBF24",
-    "havalimani", "#8B5CF6",   // mor (havalimanı)
-    "airport", "#8B5CF6",
-    "tren", "#6366F1",         // indigo (raylı sistem)
-    "railway", "#6366F1",
-    "liman", "#0EA5E9",        // gök mavi (deniz)
-    "port", "#0EA5E9",
-    "ferry", "#0EA5E9",
-    "endustri", "#71717A",     // gri (sanayi)
-    "osb", "#71717A",
-    "su_yolu", "#06B6D4",      // cyan (su)
-    "river", "#06B6D4",
-    "koy", "#A78BFA",          // lavanta (köy/yerleşim)
-    /* default */ "#F59E0B",
-  ];
-
-  if (lineSrc) {
-    lineSrc.setData(lineData);
-  } else {
-    map.addSource(LINE_SRC, { type: "geojson", data: lineData });
-    map.addLayer({
-      id: LINE_LAYER,
-      type: "line",
-      source: LINE_SRC,
-      paint: {
-        "line-color": renkMap as any,
-        "line-width": 1.5,
-        "line-dasharray": [2, 2],
-        "line-opacity": 0.65,
-      },
-    });
-  }
-
-  if (pointSrc) {
-    pointSrc.setData(pointData);
-  } else {
-    map.addSource(POINT_SRC, { type: "geojson", data: pointData });
-    // Halo (dış halka)
-    map.addLayer({
-      id: POINT_LAYER + "-halo",
-      type: "circle",
-      source: POINT_SRC,
-      paint: {
-        "circle-radius": 12,
-        "circle-color": renkMap as any,
-        "circle-opacity": 0.18,
-      },
-    });
-    // Asıl daire
-    map.addLayer({
-      id: POINT_LAYER,
-      type: "circle",
-      source: POINT_SRC,
-      paint: {
-        "circle-radius": [
-          "interpolate", ["linear"], ["zoom"],
-          10, 5,
-          14, 7,
-          18, 10,
-        ],
-        "circle-color": renkMap as any,
-        "circle-stroke-color": "#fff",
-        "circle-stroke-width": 2,
-      },
-    });
-    // İkon (emoji) — circle üstünde. text-font Noto Sans demotiles fontstack'i ile uyumlu.
-    map.addLayer({
-      id: POINT_LAYER + "-ikon",
-      type: "symbol",
-      source: POINT_SRC,
-      layout: {
-        "text-field": ["get", "ikon"],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": 11,
-        "text-allow-overlap": true,
-        "text-ignore-placement": true,
-      },
-    });
-    // İsim + mesafe (alt etiket)
-    map.addLayer({
-      id: LABEL_LAYER,
-      type: "symbol",
-      source: POINT_SRC,
-      layout: {
-        "text-field": ["get", "etiket"],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": 10,
-        "text-offset": [0, 1.4],
-        "text-anchor": "top",
-        "text-allow-overlap": false,
-        "text-optional": true,
-        "text-max-width": 8,
-      },
-      paint: {
-        "text-color": "#1B2A4A",
-        "text-halo-color": "#fff",
-        "text-halo-width": 2,
-      },
-    });
-
-    // Popup (tıklayınca detay)
-    map.on("click", POINT_LAYER, (e) => {
-      const f = e.features?.[0];
-      if (!f || f.geometry.type !== "Point") return;
-      const props = f.properties as { ad: string; tip: string; mesafeM: number; ikon: string };
-      const km = props.mesafeM >= 1000
-        ? `${(props.mesafeM / 1000).toFixed(2)} km`
-        : `${props.mesafeM} m`;
-      const tipAd: Record<string, string> = {
-        okul: "Eğitim", saglik: "Sağlık", durak: "Toplu taşıma",
-        motorway: "Otoyol", trunk: "Devlet yolu", primary: "Anayol", secondary: "İkincil yol",
-        havalimani: "Havalimanı", airport: "Havalimanı",
-        tren: "Tren / metro", railway: "Demiryolu",
-        liman: "Liman", port: "Liman", ferry: "Feribot",
-        endustri: "Sanayi", osb: "OSB",
-        su_yolu: "Su yolu", river: "Nehir",
-        koy: "Yerleşim",
-      };
-      const popup = new (window as any).maplibregl.Popup({ offset: 16, closeButton: true })
-        .setLngLat((f.geometry as any).coordinates)
-        .setHTML(`
-          <div style="font-family:Inter,sans-serif;min-width:160px">
-            <div style="font-size:9pt;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">
-              ${tipAd[props.tip] ?? props.tip}
-            </div>
-            <div style="font-size:12pt;font-weight:600;color:#1B2A4A;margin-bottom:4px">
-              ${props.ikon} ${props.ad}
-            </div>
-            <div style="font-size:10pt;color:#475569;display:flex;align-items:center;gap:6px">
-              <span>📏</span>
-              <span>${km}</span>
-            </div>
-          </div>
-        `)
-        .addTo(map as any);
-      void popup;
-    });
-    map.on("mouseenter", POINT_LAYER, () => { map.getCanvas().style.cursor = "pointer"; });
-    map.on("mouseleave", POINT_LAYER, () => { map.getCanvas().style.cursor = ""; });
-  }
-
-  // Mesafe etiketi line üzerinde (km)
-  const lineLabelSrc = map.getSource(LINE_LABEL_SRC) as maplibregl.GeoJSONSource | undefined;
-  if (lineLabelSrc) {
-    lineLabelSrc.setData(labelData);
-  } else {
-    map.addSource(LINE_LABEL_SRC, { type: "geojson", data: labelData });
-    map.addLayer({
-      id: LINE_LABEL_LAYER,
-      type: "symbol",
-      source: LINE_LABEL_SRC,
-      layout: {
-        "text-field": ["get", "mesafe"],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": 9,
-        "text-allow-overlap": false,
-        "text-optional": true,
-      },
-      paint: {
-        "text-color": "#475569",
-        "text-halo-color": "#fff",
-        "text-halo-width": 2,
-      },
-    });
-  }
+/** Fiyat choropleth katmanı toggle butonu */
+function FiyatChoroplethKontrol({
+  acik,
+  yukleniyor,
+  onToggle,
+}: {
+  acik: boolean;
+  yukleniyor: boolean;
+  onToggle: () => Promise<void>;
+}) {
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={() => { void onToggle(); }}
+        title={acik ? "Fiyat haritasını kapat" : "TL/m² il fiyat haritasını aç"}
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors ${
+          acik
+            ? "border-blue-600 bg-blue-600 text-white"
+            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        }`}
+        aria-label="Fiyat choropleth toggle"
+        aria-pressed={acik}
+      >
+        <TrendingUpIcon className={`h-4 w-4 ${yukleniyor ? "animate-pulse" : ""}`} />
+      </button>
+      {acik && (
+        <span className="max-w-[9rem] rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-right text-3xs text-blue-700 shadow-sm dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+          TL/m² Arsa
+        </span>
+      )}
+    </div>
+  );
 }
 
 function drawParsel(map: MapLibreMap, parsel: Parsel) {
@@ -707,6 +409,7 @@ function Terrain3DKontrol({
   parselSecili,
   onTerrainToggle,
   onEgimToggle,
+  onExaggerationChange,
 }: {
   terrainAcik: boolean;
   egimAcik: boolean;
@@ -715,26 +418,54 @@ function Terrain3DKontrol({
   parselSecili: boolean;
   onTerrainToggle: () => void;
   onEgimToggle: () => Promise<void>;
+  onExaggerationChange: (v: number) => void;
 }) {
   const egimRenk = egimSonuc ? EGIM_RENKLERI[egimSonuc.kategori] : undefined;
+  const [exaggeration, setExaggeration] = useState(1.5);
 
   return (
-    <div className="absolute right-3 top-[8.5rem] z-10 flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1">
       {/* 3D Terrain toggle */}
       <button
         type="button"
         onClick={onTerrainToggle}
-        title={terrainAcik ? "3D görünümü kapat" : "3D terrain aç (2D/3D)"}
+        title={terrainAcik ? "3D görünümü kapat" : "3D terrain aç — Dijital Twin"}
         className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-colors ${
           terrainAcik
             ? "border-transparent bg-indigo-600 text-white"
             : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
         }`}
-        aria-label="3D Terrain toggle"
+        aria-label="3D Terrain Dijital Twin toggle"
         aria-pressed={terrainAcik}
       >
         <MountainIcon className="h-4 w-4" />
       </button>
+
+      {/* Exaggeration slider — terrain açıkken göster */}
+      {terrainAcik && (
+        <div className="flex flex-col items-end gap-0.5 rounded-md border border-indigo-200 bg-white/95 px-2 py-1.5 shadow-sm dark:border-indigo-800 dark:bg-slate-800/95">
+          <span className="text-[9px] font-medium text-indigo-700 dark:text-indigo-300">
+            3D Yükseklik ×{exaggeration.toFixed(1)}
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={5}
+            step={0.5}
+            value={exaggeration}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              setExaggeration(v);
+              onExaggerationChange(v);
+            }}
+            className="w-20 accent-indigo-600"
+            aria-label="Terrain yükseklik çarpanı"
+          />
+          <div className="flex w-full justify-between text-[8px] text-slate-400">
+            <span>Gerçek</span><span>5×</span>
+          </div>
+        </div>
+      )}
 
       {/* Eğim ısı haritası toggle — sadece parsel seçiliyken aktif */}
       <button
@@ -819,7 +550,7 @@ function HeatmapKontrol({
   const aktifRenk = HEAT_TIP_RENKLERI[analizTip];
 
   return (
-    <div className="absolute right-3 top-14 z-10 flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <button
         type="button"
         onClick={() => {

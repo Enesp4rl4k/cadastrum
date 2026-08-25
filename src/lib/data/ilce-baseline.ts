@@ -33,10 +33,19 @@ export { BASELINE_TARIH };
  * kısıtı altında) türetildi. Arsa: MAPE −%22, bias %121→%92; Tarla: MAPE −%8, bias %35→%17.
  * baseline-engine.ts de bu sabiti import eder (tek kaynak).
  */
-export const ILCE_FALLBACK_SKEW: Record<"arsa" | "tarla", number> = {
-  arsa: 0.87,
-  tarla: 0.87,
-};
+export function mahalleTipiBelirle(mahalleAd: string | null | undefined): "sehir" | "koy" | "hamlet" {
+  if (!mahalleAd) return "sehir";
+  const n = mahalleAd.toLocaleLowerCase("tr");
+  if (n.includes("mezra") || n.includes("yayla") || n.includes("oba") || n.includes("kom") || n.includes("mezrası")) return "hamlet";
+  if (n.includes("köyü") || n.includes("koy") || n.includes("bucak") || n.includes("belde")) return "koy";
+  return "sehir";
+}
+
+export function ilceFallbackCarpani(tip: "sehir" | "koy" | "hamlet", kategori: "arsa" | "tarla"): number {
+  if (tip === "sehir") return 1.00; // Urban center aligns with district median
+  if (tip === "koy") return kategori === "tarla" ? 0.70 : 0.45; // Rural land is substantially cheaper
+  return 0.35; // Hamlet / isolated rural
+}
 
 /** İlçe bazlı ARSA TL/m² baseline (asking fiyat ortalaması, 2025) */
 export const ILCE_BASELINE_ARSA: Record<string, number> = {
@@ -474,7 +483,8 @@ export function ilceBaselineGetir(
   const aiKaynakli = tablo[ik] == null && aiTablo[ik] != null;
 
   // Semt çarpanı dene — ilçe çıpasına skew düzeltmesi uygula (çarpık-dağılım overshoot)
-  let hammFiyat = ilceVal * ILCE_FALLBACK_SKEW[kategori];
+  const tip = mahalleTipiBelirle(mahalleAd);
+  let hammFiyat = ilceVal * ilceFallbackCarpani(tip, kategori);
   let kaynak: "ilce-baseline" | "ilce-semt-baseline" = "ilce-baseline";
   let baseNot = aiKaynakli
     ? `${ilceAd} ilçe baseline (AI fallback) — ${kategori}`

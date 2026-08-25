@@ -44,6 +44,15 @@ function cacheKey(lat: number, lng: number): string {
   return `${lat.toFixed(2)}|${lng.toFixed(2)}`;
 }
 
+/**
+ * PGA değerine göre deprem zonu — 5 bant sistemi.
+ * TDTH-2018 harita zonları (pgaCarpani ile tutarlı):
+ *   Z1: ≥0.40g  (çok yüksek — çarpan 0.95)
+ *   Z2: 0.30-0.39g (yüksek — çarpan 0.98)
+ *   Z3: 0.20-0.29g (orta-yüksek — çarpan 1.00)
+ *   Z4: 0.10-0.19g (orta-düşük — çarpan 1.02)
+ *   Z5: <0.10g  (düşük — çarpan 1.03)
+ */
 export function pgaToZon(pga: number): DepremZonu {
   if (pga >= 0.40) return "Z1";
   if (pga >= 0.30) return "Z2";

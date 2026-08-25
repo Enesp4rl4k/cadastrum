@@ -2,18 +2,18 @@
  * Türkçe yer adı normalizasyonu — extension'ın src/lib/tkgm-api.ts
  * `normalizeYerAdi` fonksiyonu ile birebir aynı çıktı verir.
  */
-export function normalizeYerAdi(s: string): string {
+export function normalizeTr(s: string): string {
   return s
-    .trim()
     .toLocaleLowerCase("tr")
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ı/g, "i")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
+    .replace(/[çğıöşüâîû]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", â: "a", î: "i", û: "u" })[c] ?? c)
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function normalizeYerAdi(s: string): string {
+  return normalizeTr(s)
     .replace(/\b(mahallesi|mahalle|koyu|koy|beldesi|belde|mah|mh)\b/g, "")
-    .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

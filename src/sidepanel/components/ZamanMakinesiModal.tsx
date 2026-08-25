@@ -288,7 +288,7 @@ export function ZamanMakinesiModal({ il, ilce, mahalle, kategori = "tum", onKapa
     setHata(null);
     trendProjesyonGetir(il, ilce, mahalle, kategori)
       .then((d) => {
-        if (!d) setHata("Bu bölge için yeterli veri yok.");
+        if (!d) setHata("Bu bölge için henüz yeterli fiyat geçmişi yok.");
         else setVeri(d);
       })
       .catch(() => setHata("Veri alınamadı, lütfen tekrar deneyin."))
@@ -362,16 +362,48 @@ export function ZamanMakinesiModal({ il, ilce, mahalle, kategori = "tum", onKapa
           )}
 
           {hata && !yukleniyor && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
-              <InfoIcon className="h-5 w-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-xs text-amber-700">{hata}</p>
-              <p className="text-[10px] text-amber-500 mt-1">
-                Veri birikimcisi arka planda çalışıyor — bu bölgede ilan gezmeye devam edin.
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950/20">
+              <InfoIcon className="h-5 w-5 text-amber-500 mx-auto mb-2" aria-hidden="true" />
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{hata}</p>
+              <div className="mt-3 space-y-1.5 text-left rounded-md bg-white/70 dark:bg-slate-800/50 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-200">Fiyat geçmişini doldurmak için:</p>
+                <ol className="text-[10px] text-amber-700 dark:text-amber-400 space-y-1 list-decimal list-inside">
+                  <li>Sahibinden veya Hepsiemlak'ta bu <strong>{mahalle}</strong> mahallesinde ilan listesine girin</li>
+                  <li>Extension otomatik olarak ilanları toplar ve fiyat geçmişi oluşturmaya başlar</li>
+                  <li>Yeterli veri birikmeden sonra (≥5 ilan) bu grafik dolmaya başlar</li>
+                </ol>
+              </div>
+              <p className="text-[9px] text-amber-500 dark:text-amber-600 mt-2 italic">
+                Veri birikimi 1-2 hafta içinde tamamlanır.
               </p>
             </div>
           )}
 
-          {veri && !yukleniyor && (
+          {/* Veri geldi ama geçmiş noktası yetersiz — veri yok durumu */}
+          {veri && !yukleniyor && veri.gecmis.length < 2 && (
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 text-center">
+              <ClockIcon className="h-6 w-6 text-slate-300 mx-auto mb-2" aria-hidden="true" />
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Henüz yeterli fiyat geçmişi yok
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Bu mahalle için en az 2 aylık veri gerekli. Sahibinden veya Hepsiemlak'ta
+                <strong className="text-slate-500"> {mahalle || ilce} </strong>
+                mahallesi ilan listesini ziyaret edin — extension otomatik toplar.
+              </p>
+            </div>
+          )}
+
+          {/* Seçili aralık için nokta sayısı yetersiz (veri var ama filtreden geçmiyor) */}
+          {veri && !yukleniyor && veri.gecmis.length >= 2 && gorunenler.filter(n => !n.projeksiyon).length < 2 && (
+            <div className="rounded-lg border border-amber-100 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 p-3 text-center">
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Seçili dönem ({aralik}) için yeterli veri yok. "Tümü" seçeneğini deneyin.
+              </p>
+            </div>
+          )}
+
+          {veri && !yukleniyor && veri.gecmis.length >= 2 && gorunenler.filter(n => !n.projeksiyon).length >= 2 && (
             <>
               {/* Özet KPI'lar */}
               <div className="grid grid-cols-3 gap-2">
@@ -480,6 +512,7 @@ export function ZamanMakinesiModal({ il, ilce, mahalle, kategori = "tum", onKapa
               )}
             </>
           )}
+          {/* kapanış: veri.gecmis.length >= 2 && gorunenler >= 2 bloğu */}
         </div>
 
         {/* Footer */}

@@ -170,37 +170,16 @@ async function bboxPrefilter(
   const minLng = lng - lngDelta;
   const maxLng = lng + lngDelta;
 
-  // Dexie composite index — `where('[lat+lng]')` array-key range. Lat dış bantta
-  // olan kayıtlar elenir; lng ikinci kısım'da yine taranır (Dexie multi-range
-  // tek call'da olur ama biz daha güvenli olan tek-dim filtreyi tercih ediyoruz).
-  try {
-    const aday = await db.ilanGozlem
-      .where("[lat+lng]")
-      .between([minLat, minLng], [maxLat, maxLng])
-      .toArray();
-    // Dexie compound between'i her iki boyutu da uygular; lng kısmı için
-    // ekstra filtre defansif:
-    return aday.filter(
-      (k) =>
-        typeof k.lat === "number" &&
-        typeof k.lng === "number" &&
-        k.lng >= minLng &&
-        k.lng <= maxLng,
-    );
-  } catch (e) {
-    // Eski Dexie versiyonu veya index yoksa full-scan fallback — hatayı logla
-    console.debug("[arsa-spatial] bboxPrefilter compound index hatası, full-scan fallback:", e);
-    const tum = await db.ilanGozlem.toArray();
-    return tum.filter(
-      (k) =>
-        typeof k.lat === "number" &&
-        typeof k.lng === "number" &&
-        k.lat >= minLat &&
-        k.lat <= maxLat &&
-        k.lng >= minLng &&
-        k.lng <= maxLng,
-    );
-  }
+  const tum = await db.ilanGozlem.toArray();
+  return tum.filter(
+    (k) =>
+      typeof k.lat === "number" &&
+      typeof k.lng === "number" &&
+      k.lat >= minLat &&
+      k.lat <= maxLat &&
+      k.lng >= minLng &&
+      k.lng <= maxLng,
+  );
 }
 
 function bandaYerlestir(d: number, halka: HalkaDagilimi): void {
@@ -412,10 +391,7 @@ export async function apiSpatialIdwGetir(
   },
 ): Promise<IdwAvmSonuc | null> {
   try {
-    const API_BASE =
-      typeof chrome !== "undefined"
-        ? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"
-        : "/v1";
+    const { BACKEND_API: API_BASE } = await import("./api-constants");
 
     const params = new URLSearchParams({
       lat: lat.toString(),

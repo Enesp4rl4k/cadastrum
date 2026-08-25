@@ -507,6 +507,12 @@ admin.post("/newsletter-blast", async (c) => {
   if (!body.konu || !body.html || !body.metin) {
     return c.json({ hata: "konu, html, metin zorunlu" }, 400);
   }
+  // GÜVENLIK: konu/metin sınır kontrolü — log forging ve Resend payload şişirme önlemi.
+  // HTML içeriği admin tarafından girildiğinden XSS riski zaten admin-only context'te
+  // kabul edilebilir, ancak boyut limiti servis tarafı güvenilirliği için gerekli.
+  if (body.konu.length > 200) return c.json({ hata: "Konu maksimum 200 karakter" }, 400);
+  if (body.html.length > 100_000) return c.json({ hata: "HTML maksimum 100KB" }, 400);
+  if (body.metin.length > 10_000) return c.json({ hata: "Metin maksimum 10KB" }, 400);
   const apiKey = (c.env as any).RESEND_API_KEY as string | undefined;
   if (!apiKey) return c.json({ hata: "RESEND_API_KEY tanımlı değil" }, 500);
 
@@ -562,14 +568,24 @@ admin.get("/export/kullanicilar", async (c) => {
     `SELECT id, email, ad, tier, tier_bitis, durum, email_dogrulandi, olusturuldu, son_giris
      FROM kullanicilar ORDER BY id`
   ).all<any>();
+  // GÜVENLIK: CSV injection önlemi — =, +, -, @ ile başlayan değerler formül olarak
+  // yorumlanabilir (Excel/Sheets formula injection). Başına tek tırnak ekliyoruz.
+  const csvHucre = (v: unknown): string => {
+    if (v == null) return '""';
+    const s = String(v).replace(/"/g, '""');
+    // Formül injection karakterleri: =, +, -, @, tab, newline, CR
+    const temiz = /^[=+\-@\t\r\n]/.test(s) ? `'${s}` : s;
+    return `"${temiz}"`;
+  };
   const head = "id,email,ad,tier,tier_bitis,durum,email_dogrulandi,olusturuldu,son_giris\n";
-  const csvKacis = (v: any) => v == null ? "" : `"${String(v).replace(/"/g, '""')}"`;
   const body = (rows.results ?? []).map((r: any) =>
     [r.id, r.email, r.ad, r.tier, r.tier_bitis, r.durum, r.email_dogrulandi, r.olusturuldu, r.son_giris]
-      .map(csvKacis).join(",")
+      .map(csvHucre).join(",")
   ).join("\n");
+  // GÜVENLIK: Content-Disposition filename sabit — dinamik değer header injection açardı.
   c.header("Content-Type", "text/csv; charset=utf-8");
-  c.header("Content-Disposition", `attachment; filename="kullanicilar-${Date.now()}.csv"`);
+  c.header("Content-Disposition", `attachment; filename="kullanicilar-export.csv"`);
+  c.header("X-Content-Type-Options", "nosniff");
   return c.body(head + body);
 });
 

@@ -4,22 +4,17 @@ import {
   bboxAreaM2,
   bolgeyiTara,
   gridPoints,
-  nitelikRenkBul,
   statsHesapla,
   type BBox,
   type BolgeStats,
   type TaramaProgress,
 } from "../../lib/bolge-profili";
-import { PieChart, PieLegend, Histogram } from "../components/Charts";
 import {
   Save as SaveIcon,
-  Square as SquareIcon,
-  Circle as CircleIcon,
-  Maximize as MaximizeIcon,
-  Sun as SunIcon,
-  Sprout as SproutIcon,
-  X as XIcon,
 } from "lucide-react";
+import { BolgeSinirSecici } from "../components/BolgeSinirSecici";
+import { BolgeAnalizSec } from "../components/BolgeAnalizSec";
+import { BolgeIlerleme } from "../components/BolgeIlerleme";
 import {
   gunesAnalizGetir,
   gunesKalitesiSiniflandir,
@@ -42,6 +37,8 @@ import {
   saveBasemap,
 } from "../../lib/basemaps";
 import { normalizeYerAdi } from "../../lib/tkgm-api";
+import { drawBbox, eraseBbox, drawParseller, drawTkgmHeatmap } from "./bolge-map-layers";
+import { StatsBlogu } from "../components/StatsBlogu";
 import {
   BolgeFiltreler,
   filtreUygula,
@@ -292,9 +289,7 @@ export function BolgeView() {
           const ges = await gunesAnalizGetir(merkezLat, merkezLng);
           const sinif = gunesKalitesiSiniflandir(ges.yillikKwhPerKwp).sinif;
           setBolgeGunes({ kwhKwp: ges.yillikKwhPerKwp, sinif });
-        } catch (e) {
-          console.warn("[bolge-gunes] hata:", e);
-        }
+        } catch { /* güneş analizi başarısız — sessizce atla */ }
       }
       if (analizSecimleri.tarimOzeti) {
         try {
@@ -304,13 +299,11 @@ export function BolgeView() {
             yagis: trm.iklim.yillikYagisMm,
             sicaklik: trm.iklim.ortSicaklikC,
             enUygunUrunler: trm.oneriUrunler
-              .filter((u) => u.uygunluk === "yuksek")
+              .filter((u: import("../../lib/tarim-analiz").UrunUygunluk) => u.uygunluk === "yuksek")
               .slice(0, 3)
-              .map((u) => `${u.ikon} ${u.urun}`),
+              .map((u: import("../../lib/tarim-analiz").UrunUygunluk) => `${u.ikon} ${u.urun}`),
           });
-        } catch (e) {
-          console.warn("[bolge-tarim] hata:", e);
-        }
+        } catch { /* tarım analizi başarısız — sessizce atla */ }
       }
 
       // TKGM Resmi Analiz heatmap — bbox içindeki ilçelerin satış yoğunluğu
@@ -341,9 +334,7 @@ export function BolgeView() {
             setTkgmHeatNoktalari(bboxIcindekiler);
             if (mapRef.current) drawTkgmHeatmap(mapRef.current, bboxIcindekiler);
           }
-        } catch (e) {
-          console.warn("[bolge-tkgm-heat] hata:", e);
-        }
+        } catch { /* TKGM ısı haritası başarısız — sessizce atla */ }
       }
 
       // Sahibinden join — bbox içindeki parsellerin mahalleleri × ilanGozlem
@@ -393,9 +384,7 @@ export function BolgeView() {
             }
           }
           setSahibindenJoin(sonuclar.sort((a, b) => b.ortPerM2 - a.ortPerM2));
-        } catch (e) {
-          console.warn("[bolge-sahibinden] hata:", e);
-        }
+        } catch { /* Sahibinden emsal başarısız — sessizce atla */ }
       }
     } finally {
       setTaraniyor(false);
@@ -461,77 +450,24 @@ export function BolgeView() {
         />
 
         {!bbox && (
-          <div className="mt-2 space-y-2">
-            <div className="text-2xs font-semibold text-slate-700">
-              Bölge sınırını seç:
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={bboxOlustur}
-                disabled={cizimModu !== "yok"}
-                className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-2 text-2xs font-medium text-slate-700 transition-colors hover:border-tkgm-primary hover:bg-tkgm-primary/5 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <MaximizeIcon className="h-4 w-4" />
-                Görünür alan
-              </button>
-              <button
-                type="button"
-                onClick={() => cizimBaslat("dikdortgen")}
-                className={`flex cursor-pointer flex-col items-center gap-1 rounded-md border px-2 py-2 text-2xs font-medium transition-colors ${
-                  cizimModu === "dikdortgen"
-                    ? "border-tkgm-primary bg-tkgm-primary/10 text-tkgm-primary"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-tkgm-primary hover:bg-tkgm-primary/5"
-                }`}
-              >
-                <SquareIcon className="h-4 w-4" />
-                Dikdörtgen çiz
-              </button>
-              <button
-                type="button"
-                onClick={() => cizimBaslat("daire")}
-                className={`flex cursor-pointer flex-col items-center gap-1 rounded-md border px-2 py-2 text-2xs font-medium transition-colors ${
-                  cizimModu === "daire"
-                    ? "border-tkgm-primary bg-tkgm-primary/10 text-tkgm-primary"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-tkgm-primary hover:bg-tkgm-primary/5"
-                }`}
-              >
-                <CircleIcon className="h-4 w-4" />
-                Daire (radius)
-              </button>
-            </div>
-
-            {cizimModu === "daire" && (
-              <label className="flex flex-col gap-0.5 rounded-md border border-tkgm-primary/30 bg-tkgm-primary/5 p-2">
-                <span className="text-3xs text-slate-600">
-                  Yarıçap: {daireYaricapKm} km
-                </span>
-                <input
-                  type="range"
-                  min={0.2}
-                  max={10}
-                  step={0.1}
-                  value={daireYaricapKm}
-                  onChange={(e) => setDaireYaricapKm(Number(e.target.value))}
-                  className="w-full accent-tkgm-primary"
-                />
-              </label>
-            )}
-            {cizimModu !== "yok" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCizimModu("yok");
-                  ilkKoseRef.current = null;
-                  eraseBbox(mapRef.current);
-                }}
-                className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-2xs text-slate-600 hover:bg-slate-50"
-              >
-                <XIcon className="h-3 w-3" />
-                Çizimi iptal et
-              </button>
-            )}
-          </div>
+          <BolgeSinirSecici
+            cizimModu={cizimModu}
+            daireYaricapKm={daireYaricapKm}
+            alanKm2={alanKm2}
+            gridSize={gridSize}
+            tahminiPunto={tahminiPunto}
+            tahminiSure={tahminiSure}
+            setCizimModu={setCizimModu}
+            setDaireYaricapKm={setDaireYaricapKm}
+            setGridSize={setGridSize}
+            onGorunurAlani={bboxOlustur}
+            onSil={bboxSil}
+            onTara={tara}
+            mapRef={mapRef}
+            ilkKoseRef={ilkKoseRef}
+            analizSecimleri={analizSecimleri}
+            setAnalizSecimleri={setAnalizSecimleri}
+          />
         )}
 
         {bbox && !taraniyor && !stats && (
@@ -568,93 +504,10 @@ export function BolgeView() {
             )}
 
             {/* Modüler analiz seçimi */}
-            <div className="rounded-md border border-slate-200 bg-white p-2">
-              <div className="mb-1 text-2xs font-semibold text-slate-700">
-                Tarama içeriği
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
-                <input
-                  type="checkbox"
-                  checked={analizSecimleri.parselTara}
-                  onChange={(e) =>
-                    setAnalizSecimleri((s) => ({
-                      ...s,
-                      parselTara: e.target.checked,
-                    }))
-                  }
-                  className="h-3 w-3 cursor-pointer accent-tkgm-primary"
-                />
-                <span className="text-2xs">📍 Parsel taraması (TKGM)</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
-                <input
-                  type="checkbox"
-                  checked={analizSecimleri.gunesOzeti}
-                  onChange={(e) =>
-                    setAnalizSecimleri((s) => ({
-                      ...s,
-                      gunesOzeti: e.target.checked,
-                    }))
-                  }
-                  className="h-3 w-3 cursor-pointer accent-amber-500"
-                />
-                <span className="flex items-center gap-1 text-2xs">
-                  <SunIcon className="h-3 w-3 text-accent-warning" />
-                  Bölge güneş enerjisi özeti (PVGIS)
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
-                <input
-                  type="checkbox"
-                  checked={analizSecimleri.tarimOzeti}
-                  onChange={(e) =>
-                    setAnalizSecimleri((s) => ({
-                      ...s,
-                      tarimOzeti: e.target.checked,
-                    }))
-                  }
-                  className="h-3 w-3 cursor-pointer accent-emerald-500"
-                />
-                <span className="flex items-center gap-1 text-2xs">
-                  <SproutIcon className="h-3 w-3 text-accent-success" />
-                  Bölge tarım analizi (5-yıl iklim)
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
-                <input
-                  type="checkbox"
-                  checked={analizSecimleri.tkgmHeatmap}
-                  onChange={(e) =>
-                    setAnalizSecimleri((s) => ({
-                      ...s,
-                      tkgmHeatmap: e.target.checked,
-                    }))
-                  }
-                  className="h-3 w-3 cursor-pointer accent-purple-500"
-                />
-                <span className="flex items-center gap-1 text-2xs">
-                  <span className="text-purple-600">🔥</span>
-                  TKGM resmi alım-satım heatmap
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1">
-                <input
-                  type="checkbox"
-                  checked={analizSecimleri.sahibindenJoin}
-                  onChange={(e) =>
-                    setAnalizSecimleri((s) => ({
-                      ...s,
-                      sahibindenJoin: e.target.checked,
-                    }))
-                  }
-                  className="h-3 w-3 cursor-pointer accent-orange-500"
-                />
-                <span className="flex items-center gap-1 text-2xs">
-                  <span className="text-orange-600">📡</span>
-                  Sahibinden mahalle TL/m² join
-                </span>
-              </label>
-            </div>
+            <BolgeAnalizSec
+              analizSecimleri={analizSecimleri}
+              setAnalizSecimleri={setAnalizSecimleri}
+            />
 
             <div className="flex gap-2">
               <button
@@ -677,27 +530,7 @@ export function BolgeView() {
         )}
 
         {taraniyor && progress && (
-          <div className="space-y-2">
-            <div className="font-medium">Taranıyor…</div>
-            <div className="h-1.5 w-full overflow-hidden rounded bg-slate-200">
-              <div
-                className="h-full bg-tkgm-primary transition-all"
-                style={{
-                  width: `${(progress.done / Math.max(progress.total, 1)) * 100}%`,
-                }}
-              />
-            </div>
-            <div className="text-tkgm-muted">
-              {progress.done}/{progress.total} sorgu · {progress.bulunan} parsel bulundu
-            </div>
-            <button
-              type="button"
-              onClick={durdur}
-              className="rounded bg-red-600 px-3 py-1 font-medium text-white"
-            >
-              Durdur
-            </button>
-          </div>
+          <BolgeIlerleme progress={progress} onDurdur={durdur} />
         )}
 
         {stats && (
@@ -742,523 +575,6 @@ export function BolgeView() {
             </button>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function StatsBlogu({
-  stats,
-  ilanSayisi,
-  parsellerForSave,
-  bolgeGunes,
-  bolgeTarim,
-  tkgmHeatNoktalari,
-  sahibindenJoin,
-}: {
-  stats: BolgeStats;
-  ilanSayisi: number;
-  parsellerForSave: Parsel[];
-  bolgeGunes: { kwhKwp: number; sinif: string } | null;
-  bolgeTarim: {
-    kusak: string;
-    yagis: number;
-    sicaklik: number;
-    enUygunUrunler: string[];
-  } | null;
-  tkgmHeatNoktalari: AnalizNoktasi[] | null;
-  sahibindenJoin: { mahalle: string; ortPerM2: number; adet: number; renkSiniri: number }[] | null;
-}) {
-  const verim =
-    stats.toplamSorgu > 0
-      ? Math.round((stats.basariliSorgu / stats.toplamSorgu) * 100)
-      : 0;
-
-  return (
-    <div className="space-y-2">
-      <div className="rounded border border-slate-200 bg-white p-2">
-        <div className="font-semibold text-tkgm-ink">📊 Bölge Profili</div>
-        <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
-          <KV k="Eşsiz parsel" v={String(stats.parselSayisi)} />
-          <KV k="Toplam alan" v={`${(stats.toplamAlanM2 / 10_000).toFixed(1)} ha`} />
-          <KV k="Ortalama" v={`${stats.ortalamaAlanM2.toLocaleString("tr-TR")} m²`} />
-          <KV k="Medyan" v={`${stats.medyanAlanM2.toLocaleString("tr-TR")} m²`} />
-          <KV k="En küçük" v={`${stats.enKucukAlanM2.toLocaleString("tr-TR")} m²`} />
-          <KV k="En büyük" v={`${stats.enBuyukAlanM2.toLocaleString("tr-TR")} m²`} />
-          <KV k="Tarama süresi" v={`${Math.round(stats.taramaSureSn)} sn`} />
-          <KV k="Sorgu verimi" v={`%${verim}`} />
-          <KV k="Cache hit" v={`${stats.cacheHit} parsel`} />
-        </div>
-      </div>
-
-      {ilanSayisi > 0 && (
-        <div className="rounded border border-orange-200 bg-orange-50 p-2">
-          <div className="font-medium text-orange-800">
-            💡 İlan gözlemi: {ilanSayisi} sahibinden ilanı kayıtlı
-          </div>
-          <div className="text-[10px] text-orange-700">
-            Bu bbox'taki TKGM parsellerini ilanlarla eşleyip TL/m² heatmap'i v0.5'te gelecek.
-          </div>
-        </div>
-      )}
-
-      {stats.nitelikDagilimi.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-card">
-          <div className="mb-2 text-2xs font-semibold text-slate-700">
-            Nitelik dağılımı
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0">
-              <PieChart
-                size={90}
-                strokeWidth={16}
-                toplamLabel={String(stats.parselSayisi)}
-                dilimler={stats.nitelikDagilimi.map((n) => {
-                  const { renk } = nitelikRenkBul(n.nitelik);
-                  return { label: n.nitelik || "—", value: n.sayi, renk };
-                })}
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <PieLegend
-                dilimler={stats.nitelikDagilimi.map((n) => {
-                  const { renk } = nitelikRenkBul(n.nitelik);
-                  return { label: n.nitelik || "—", value: n.sayi, renk };
-                })}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {stats.alanHistogram.some((h) => h.sayi > 0) && (
-        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-card">
-          <div className="mb-2 text-2xs font-semibold text-slate-700">
-            Alan dağılımı (m²)
-          </div>
-          <Histogram
-            bins={stats.alanHistogram.map((h) => ({
-              label: h.aralik,
-              value: h.sayi,
-            }))}
-            color="#3b82f6"
-          />
-        </div>
-      )}
-
-      {stats.mahalleDagilimi.length > 1 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-card">
-          <div className="mb-1 text-2xs font-semibold text-slate-700">
-            Mahalle dağılımı
-          </div>
-          <div className="space-y-0.5 text-2xs">
-            {stats.mahalleDagilimi.slice(0, 5).map((m) => (
-              <div key={m.mahalle} className="flex items-baseline justify-between">
-                <span className="truncate text-slate-600">{m.mahalle}</span>
-                <span className="font-medium tabular-nums text-slate-700">
-                  {m.sayi}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Bölgesel ek analizler */}
-      {bolgeGunes && (
-        <div className="rounded-lg border-2 border-amber-200 bg-amber-50/60 p-2 shadow-card">
-          <div className="mb-1 flex items-center gap-1.5 text-2xs font-semibold text-accent-warning">
-            <SunIcon className="h-3.5 w-3.5" />
-            Bölge güneş enerjisi
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 text-2xs">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Yıllık üretim</span>
-              <span className="font-semibold tabular-nums text-slate-800">
-                {bolgeGunes.kwhKwp.toLocaleString("tr-TR")} kWh/kWp
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Sınıf</span>
-              <span className="font-semibold text-accent-warning">
-                {bolgeGunes.sinif}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {bolgeTarim && (
-        <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50/60 p-2 shadow-card">
-          <div className="mb-1 flex items-center gap-1.5 text-2xs font-semibold text-accent-success">
-            <SproutIcon className="h-3.5 w-3.5" />
-            Bölge tarım profili
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 text-2xs">
-            <div className="flex justify-between">
-              <span className="text-slate-500">İklim kuşağı</span>
-              <span className="font-semibold text-slate-800">
-                {bolgeTarim.kusak}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Sıcaklık</span>
-              <span className="font-semibold tabular-nums text-slate-800">
-                {bolgeTarim.sicaklik}°C
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Yıllık yağış</span>
-              <span className="font-semibold tabular-nums text-slate-800">
-                {bolgeTarim.yagis} mm
-              </span>
-            </div>
-          </div>
-          {bolgeTarim.enUygunUrunler.length > 0 && (
-            <div className="mt-1 text-2xs">
-              <span className="text-slate-500">En uygun ürünler: </span>
-              <span className="font-medium text-accent-success">
-                {bolgeTarim.enUygunUrunler.join(", ")}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TKGM resmi alım-satım heatmap özeti */}
-      {tkgmHeatNoktalari && tkgmHeatNoktalari.length > 0 && (
-        <div className="rounded-lg border-2 border-purple-200 bg-purple-50/60 p-2 shadow-card">
-          <div className="mb-1 flex items-center gap-1.5 text-2xs font-semibold text-accent-ai">
-            🔥 TKGM resmi alım-satım heatmap
-          </div>
-          <div className="text-2xs">
-            <span className="text-slate-500">Bbox içinde:</span>{" "}
-            <span className="font-semibold tabular-nums text-slate-800">
-              {tkgmHeatNoktalari.length} parsel
-            </span>{" "}
-            <span className="text-slate-500">·</span>{" "}
-            <span className="font-semibold tabular-nums text-slate-800">
-              {tkgmHeatNoktalari.reduce((s, n) => s + n.sayi, 0)} işlem
-            </span>{" "}
-            <span className="text-slate-500">son 2 yıl</span>
-          </div>
-          <p className="mt-1 text-3xs italic text-slate-500">
-            Harita üstünde mor→kırmızı gradient. Yoğunluk yüksek = likit bölge.
-          </p>
-        </div>
-      )}
-
-      {/* Sahibinden mahalle join */}
-      {sahibindenJoin && sahibindenJoin.length > 0 && (
-        <div className="rounded-lg border-2 border-orange-200 bg-orange-50/60 p-2 shadow-card">
-          <div className="mb-1 flex items-center gap-1.5 text-2xs font-semibold text-accent-ilan">
-            📡 Sahibinden mahalle TL/m² join
-          </div>
-          <div className="space-y-0.5 text-3xs">
-            {sahibindenJoin.map((s) => {
-              const renkClass =
-                s.renkSiniri === 3
-                  ? "bg-red-100 text-red-700"
-                  : s.renkSiniri === 1
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700";
-              return (
-                <div
-                  key={s.mahalle}
-                  className="flex items-baseline justify-between gap-2"
-                >
-                  <span className="truncate text-slate-700">{s.mahalle}</span>
-                  <span className="flex-shrink-0 text-slate-500">
-                    n={s.adet}
-                  </span>
-                  <span
-                    className={`flex-shrink-0 rounded px-1.5 py-0.5 font-bold tabular-nums ${renkClass}`}
-                  >
-                    {s.ortPerM2.toLocaleString("tr-TR")} TL/m²
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-1 text-3xs italic text-slate-500">
-            Yeşil = ucuz bölge, kırmızı = pahalı (3-tile bölünmüş). Sahibinden
-            ilan gözlemlerinden lokal birikim.
-          </p>
-        </div>
-      )}
-
-      {/* Kayıtlı tarama olarak sakla */}
-      <SaveScanDugmesi stats={stats} parseller={stats.parselSayisi > 0 ? parsellerForSave : []} />
-    </div>
-  );
-}
-
-function KV({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-2 py-0.5 text-[11px]">
-      <span className="text-tkgm-muted">{k}</span>
-      <span className="font-medium text-tkgm-ink">{v}</span>
-    </div>
-  );
-}
-
-function drawBbox(map: MapLibreMap, bbox: BBox) {
-  const SRC = "bbox-src";
-  const FILL = "bbox-fill";
-  const LINE = "bbox-line";
-  const data: GeoJSON.Feature = {
-    type: "Feature",
-    properties: {},
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [bbox.batiLng, bbox.guneyLat],
-          [bbox.doguLng, bbox.guneyLat],
-          [bbox.doguLng, bbox.kuzeyLat],
-          [bbox.batiLng, bbox.kuzeyLat],
-          [bbox.batiLng, bbox.guneyLat],
-        ],
-      ],
-    },
-  };
-  const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined;
-  if (src) {
-    src.setData(data);
-  } else {
-    map.addSource(SRC, { type: "geojson", data });
-    map.addLayer({
-      id: FILL,
-      type: "fill",
-      source: SRC,
-      paint: { "fill-color": "#0d6efd", "fill-opacity": 0.1 },
-    });
-    map.addLayer({
-      id: LINE,
-      type: "line",
-      source: SRC,
-      paint: { "line-color": "#0d6efd", "line-width": 2, "line-dasharray": [3, 2] },
-    });
-  }
-}
-
-function eraseBbox(map: MapLibreMap | null) {
-  if (!map) return;
-  for (const id of ["bbox-fill", "bbox-line", "parseller-fill", "parseller-line"]) {
-    if (map.getLayer(id)) map.removeLayer(id);
-  }
-  for (const id of ["bbox-src", "parseller-src"]) {
-    if (map.getSource(id)) map.removeSource(id);
-  }
-}
-
-function drawParseller(map: MapLibreMap | null, parseller: Parsel[]) {
-  if (!map) return;
-  const SRC = "parseller-src";
-  const FILL = "parseller-fill";
-  const LINE = "parseller-line";
-
-  // Niteliğe göre renk-kodlu polygons
-  const features: GeoJSON.Feature[] = parseller.map((p) => {
-    const { renk } = nitelikRenkBul(p.nitelik);
-    return {
-      type: "Feature",
-      geometry: p.geometri as GeoJSON.Geometry,
-      properties: {
-        nitelik: p.nitelik,
-        alan: p.alan,
-        adaParsel: `${p.adaNo}/${p.parselNo}`,
-        renk,
-      },
-    };
-  });
-  const data: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
-  const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined;
-  if (src) {
-    src.setData(data);
-  } else {
-    map.addSource(SRC, { type: "geojson", data });
-    map.addLayer({
-      id: FILL,
-      type: "fill",
-      source: SRC,
-      paint: {
-        "fill-color": ["coalesce", ["get", "renk"], "#10b981"],
-        "fill-opacity": 0.45,
-      },
-    });
-    map.addLayer({
-      id: LINE,
-      type: "line",
-      source: SRC,
-      paint: {
-        "line-color": ["coalesce", ["get", "renk"], "#059669"],
-        "line-width": 1.2,
-      },
-    });
-
-    // Hover popup
-    let popup: maplibregl.Popup | null = null;
-    map.on("mousemove", FILL, (e) => {
-      if (!e.features?.[0]) return;
-      map.getCanvas().style.cursor = "pointer";
-      const props = e.features[0].properties as {
-        nitelik: string;
-        alan: number;
-        adaParsel: string;
-      };
-      const html = `<div style="font: 11px system-ui;padding:2px 4px;line-height:1.4">
-        <strong>${props.adaParsel}</strong><br/>
-        ${props.nitelik || "—"} · ${props.alan.toLocaleString("tr-TR")} m²
-      </div>`;
-      if (popup) popup.remove();
-      popup = new maplibregl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-      })
-        .setLngLat(e.lngLat)
-        .setHTML(html)
-        .addTo(map);
-    });
-    map.on("mouseleave", FILL, () => {
-      map.getCanvas().style.cursor = "";
-      if (popup) {
-        popup.remove();
-        popup = null;
-      }
-    });
-  }
-}
-
-function drawTkgmHeatmap(
-  map: MapLibreMap,
-  noktalar: AnalizNoktasi[],
-): void {
-  const SRC = "tkgm-heat-bolge-src";
-  const LAYER = "tkgm-heat-bolge-layer";
-  if (noktalar.length === 0) return;
-
-  const maxSayi = Math.max(...noktalar.map((n) => n.sayi), 1);
-  const features: GeoJSON.Feature[] = noktalar.map((n) => ({
-    type: "Feature",
-    geometry: { type: "Point", coordinates: [n.boylam, n.enlem] },
-    properties: { sayi: n.sayi, weight: n.sayi / maxSayi },
-  }));
-  const data: GeoJSON.FeatureCollection = {
-    type: "FeatureCollection",
-    features,
-  };
-
-  const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined;
-  if (src) {
-    src.setData(data);
-  } else {
-    map.addSource(SRC, { type: "geojson", data });
-    map.addLayer({
-      id: LAYER,
-      type: "heatmap",
-      source: SRC,
-      paint: {
-        "heatmap-weight": ["get", "weight"],
-        "heatmap-intensity": 0.9,
-        "heatmap-radius": 18,
-        "heatmap-color": [
-          "interpolate",
-          ["linear"],
-          ["heatmap-density"],
-          0, "rgba(124, 58, 237, 0)",
-          0.2, "rgba(124, 58, 237, 0.3)",
-          0.5, "rgba(168, 85, 247, 0.55)",
-          0.8, "rgba(220, 38, 38, 0.7)",
-          1, "rgba(127, 29, 29, 0.85)",
-        ],
-        "heatmap-opacity": 0.75,
-      },
-    });
-  }
-}
-
-function SaveScanDugmesi({
-  stats,
-  parseller,
-}: {
-  stats: BolgeStats;
-  parseller: Parsel[];
-}) {
-  const [kaydetmeModu, setKaydetmeModu] = useState(false);
-  const [ad, setAd] = useState("");
-  const [not, setNot] = useState("");
-  const [kayitliMi, setKayitliMi] = useState(false);
-
-  async function kaydet() {
-    if (!ad.trim()) return;
-    await db.bolgeTaramalari.add({
-      ad: ad.trim(),
-      not: not.trim(),
-      olusmaTarihi: Date.now(),
-      bbox: stats.bbox,
-      parseller,
-      stats,
-    });
-    setKayitliMi(true);
-    setKaydetmeModu(false);
-    setTimeout(() => setKayitliMi(false), 2000);
-  }
-
-  if (kayitliMi) {
-    return (
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-2xs text-accent-success">
-        ✓ Kaydedildi! Daha sonra "Kayıtlı taramalar"dan tekrar açabilirsin.
-      </div>
-    );
-  }
-
-  if (!kaydetmeModu) {
-    return (
-      <button
-        type="button"
-        onClick={() => setKaydetmeModu(true)}
-        className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-2xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-      >
-        <SaveIcon className="h-3.5 w-3.5" />
-        Bu taramayı kaydet
-      </button>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5 rounded-md border border-slate-300 bg-white p-2">
-      <input
-        type="text"
-        value={ad}
-        onChange={(e) => setAd(e.target.value)}
-        placeholder="Tarama adı (örn. Esenyurt batı kanat)"
-        className="w-full rounded border border-slate-300 px-2 py-1 text-2xs"
-        autoFocus
-      />
-      <textarea
-        value={not}
-        onChange={(e) => setNot(e.target.value)}
-        placeholder="Not (opsiyonel)"
-        rows={2}
-        className="w-full resize-none rounded border border-slate-300 px-2 py-1 text-2xs"
-      />
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={kaydet}
-          disabled={!ad.trim()}
-          className="flex-1 cursor-pointer rounded-md bg-tkgm-primary px-2 py-1 text-2xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          Kaydet
-        </button>
-        <button
-          type="button"
-          onClick={() => setKaydetmeModu(false)}
-          className="cursor-pointer rounded-md border border-slate-300 px-2 py-1 text-2xs"
-        >
-          Vazgeç
-        </button>
       </div>
     </div>
   );

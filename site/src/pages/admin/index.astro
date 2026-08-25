@@ -213,7 +213,8 @@ import Base from "../../layouts/Base.astro";
 </Base>
 
 <script>
-  const API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+  import { PUBLIC_API_BASE } from "../../lib/config";
+  const API = PUBLIC_API_BASE;
   const TOKEN_KEY = "cadastrum_token";
 
   function token(): string | null { return localStorage.getItem(TOKEN_KEY); }

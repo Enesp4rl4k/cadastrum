@@ -245,9 +245,8 @@ export async function sulamaAltyapisiniGetir(
 
     CACHE.set(key, { data: sonuc, fetchedAt: Date.now() });
     return sonuc;
-  } catch (e) {
+  } catch {
     // Overpass başarısız — statik il verisinden en azından bir yorum üret
-    console.warn("[sulama] Overpass sorgusu başarısız:", e);
     const erisim: SulamaErisim = "yok";
     return {
       enYakinKanalM: null,

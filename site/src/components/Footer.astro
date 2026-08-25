@@ -104,7 +104,7 @@ const yil = new Date().getFullYear();
     const btn = form.querySelector("button[type=submit]") as HTMLButtonElement;
     if (btn) { btn.disabled = true; btn.textContent = "..."; }
     try {
-      const res = await fetch("https://cadastrum-api.cadastrum-tr.workers.dev/v1/newsletter/abone-ol", {
+      const res = await fetch(`${import.meta.env.PUBLIC_API_BASE ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"}/newsletter/abone-ol`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, kaynak: "footer" }),

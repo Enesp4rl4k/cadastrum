@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { normalizeYerAdi } from "../../lib/tkgm-api";
 import { RiskKarti } from "./RiskKarti";
 import { AnalizIlerlemeBar } from "./AnalizIlerlemeBar";
+import { Section, KV, Poi, Bilesenler } from "./AnalizAltComponents";
 import {
   Truck as TruckIcon,
   Mountain as MountainIcon,
@@ -9,6 +11,8 @@ import {
   BarChart3 as BarChart3Icon,
   MapPin as MapPinIcon,
   Link2 as Link2Icon,
+  CheckCircle2 as CheckCircle2Icon,
+  FolderPlus as FolderPlusIcon,
 } from "lucide-react";
 import { analizet } from "../../lib/analiz";
 import { adresGetir, cevreAnaliziGetir, type CevreAnalizi } from "../../lib/osm";
@@ -17,7 +21,7 @@ import { tumSkorlariHesapla } from "../../lib/skor";
 import type { Parsel } from "../../types/tkgm";
 import { SkorBadge } from "./SkorBadge";
 import { Fizibilite } from "./Fizibilite";
-import { TkgmAnaliz } from "./TkgmAnaliz";
+import { BolgeSkorKarti } from "./BolgeSkorKarti";
 import { BelediyeImar } from "./BelediyeImar";
 import { FiyatTahminKarti } from "./FiyatTahminKarti";
 import { RiskUyariKarti } from "./RiskUyariKarti";
@@ -34,20 +38,16 @@ import { imarTahminEt } from "../../lib/imar-tahmin";
 import { useManuelVeri } from "../../lib/use-manuel-veri";
 import { EmsalMukayeseKarti } from "./EmsalMukayeseKarti";
 import { EmsalRadiusSlider } from "./EmsalRadiusSlider";
-import { YatirimSkoruKarti } from "./YatirimSkoruKarti";
 import { BildirimKurali } from "./BildirimKurali";
 import { DogalVeriKarti } from "./DogalVeriKarti";
 import { AltyapiMesafeKarti } from "./AltyapiMesafeKarti";
 import { MilliEmlakKarti } from "./MilliEmlakKarti";
-import { HavaFotoTimeline } from "./HavaFotoTimeline";
 import {
   katmanlarOlustur,
   type KatmanBilgi,
   type KatmanDurum,
 } from "../../lib/analiz-orkestrator";
 import { BagimsizBolumKarti } from "./BagimsizBolumKarti";
-import { GunesEnerjisiKarti } from "./GunesEnerjisiKarti";
-import { TarimAnalizKarti } from "./TarimAnalizKarti";
 import { PaywallKilit } from "./PaywallKilit";
 import { useLisans } from "../../lib/lisans";
 import { useAyarlar } from "../../lib/ayarlar";
@@ -55,21 +55,53 @@ import { EPLAN_URL } from "../../lib/eplan";
 import { useEPlanVerisi } from "../../lib/use-eplan";
 import { useTucbsCdp } from "../../lib/use-tucbs";
 import { CdpKarti } from "./CdpKarti";
-import { ScorecardKarti } from "./ScorecardKarti";
+import { useKarsilastirma, parselKarsilastirmaKey, MAX_PORTFOY } from "../../lib/karsilastirma-store";
+import { PortfoyPanel } from "./PortfoyPanel";
+import { AccordionSection } from "./AccordionSection";
+import { MekansalKarsilastirmaKarti } from "./MekansalKarsilastirmaKarti";
+import { EndeksGrafigiKarti } from "./EndeksGrafigiKarti";
+
+// ── Pro / nadir componentler — lazy loaded (bundle boyutu optimizasyonu) ──────
+const TkgmAnaliz        = lazy(() => import("./TkgmAnaliz").then(m => ({ default: m.TkgmAnaliz })));
+const TkgmKarsilastirma = lazy(() => import("./TkgmKarsilastirma").then(m => ({ default: m.TkgmKarsilastirma })));
+const YatirimSkoruKarti = lazy(() => import("./YatirimSkoruKarti").then(m => ({ default: m.YatirimSkoruKarti })));
+const GunesEnerjisiKarti = lazy(() => import("./GunesEnerjisiKarti").then(m => ({ default: m.GunesEnerjisiKarti })));
+const TarimAnalizKarti  = lazy(() => import("./TarimAnalizKarti").then(m => ({ default: m.TarimAnalizKarti })));
+const ScorecardKarti    = lazy(() => import("./ScorecardKarti").then(m => ({ default: m.ScorecardKarti })));
+const HavaFotoTimeline  = lazy(() => import("./HavaFotoTimeline").then(m => ({ default: m.HavaFotoTimeline })));
+const UyduAnaliz        = lazy(() => import("./UyduAnaliz").then(m => ({ default: m.UyduAnaliz })));
+const UyduAnalizKarti   = lazy(() => import("./UyduAnalizKarti").then(m => ({ default: m.UyduAnalizKarti })));
+
+/** Hafif lazy fallback — büyük componentlerin yüklenmesi sırasında */
+function LazyFallback() {
+  return (
+    <div className="flex items-center justify-center py-4 text-xs text-slate-400">
+      <div className="animate-pulse">Yükleniyor…</div>
+    </div>
+  );
+}
+
+// Harita POI tipi — drawYakinPoiler ile uyumlu
+type HaritaPoiler = { tip: string; ad: string; lat: number; lng: number; mesafeM: number; ikon?: string }[];
 
 interface Props {
   parsel: Parsel;
   /** Cevre analizi tamamlanınca harita üstünde POI'leri çizmek için MapView'e pas et */
   onYakinPoiler?: (poiler: import("../../lib/osm").YakinNoktaMesafesi[] | null) => void;
+  /** Altyapı statik POI'ler (OSB/Havalimanı/Liman) — harita çizgisi için MapView'e pas et */
+  onAltyapiPoiler?: (poiler: HaritaPoiler | null) => void;
 }
 
-export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
+export function AnalizPanel({ parsel, onYakinPoiler, onAltyapiPoiler }: Props) {
   const analiz = analizet(parsel);
   const [ayarlar] = useAyarlar();
   const acikModuller = ayarlar.acikModuller;
   const lisansBilgi = useLisans();
   const [cevre, setCevre] = useState<CevreAnalizi | null>(null);
   const [egim, setEgim] = useState<EgimAnalizi | null>(null);
+  // Doğal risk verileri — DogalVeriKarti callback'leriyle güncellenir, fiyat motoruna iletilir
+  const [heyelanVerisi, setHeyelanVerisi] = useState<import("../../lib/heyelan").HeyelanVerisi | null>(null);
+  const [taskinKoordVerisi, setTaskinKoordVerisi] = useState<import("../../lib/taskin-koord").TaskinKoordSonuc | null>(null);
   // Fiyat tahmini — FiyatTahminKarti tarafından hesaplanır, YatirimSkoruKarti'na geçirilir
   const [hesaplananFiyat, setHesaplananFiyat] = useState<import("../../lib/fiyat-tahmin").FiyatTahmini | null>(null);
   const [adres, setAdres] = useState<string | null>(null);
@@ -259,101 +291,140 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsel.adaNo, parsel.parselNo, parsel.mahalleKodu]);
 
-  // gecenMs timer — analiz süresini göster
+  // gecenMs timer — analiz süresini göster, tüm katmanlar tamamlanınca durdur
   useEffect(() => {
+    const tumTamamlandi = katmanlar.every(
+      (k) => k.durum === "tamam" || k.durum === "hata",
+    );
+    if (tumTamamlandi) {
+      setGecenMs(Date.now() - analizBaslangicRef.current);
+      return;
+    }
     const interval = setInterval(() => {
       setGecenMs(Date.now() - analizBaslangicRef.current);
     }, 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [katmanlar]);
 
   return (
     <div className="space-y-2.5 border-t border-slate-200 pt-2.5">
+      {/* ── ÖNCELİKLİ: Fiyat + Risk — scroll gerekmeden görünsün ───────────── */}
+      {acikModuller.includes("fiyat-tahmin") && (
+        <FiyatTahminKarti
+          parsel={parsel}
+          cevre={cevre}
+          egim={egim}
+          ePlan={birlesikImar ?? ePlanVerisi}
+          tucbs={tucbsVerisi}
+          ePlanLoading={ePlanLoading}
+          imarSkipEdildi={imarSkipEdildi}
+          heyelan={heyelanVerisi}
+          taskinKoord={taskinKoordVerisi}
+          onImarKaydedildi={() => {
+            manuelTetikle();
+            setImarSkipEdildi(false);
+          }}
+          onImarSkip={() => setImarSkipEdildi(true)}
+          onImarTekrarSor={() => setImarSkipEdildi(false)}
+          onTahminHesaplandi={setHesaplananFiyat}
+        />
+      )}
+
+      <RiskUyariKarti
+        parsel={parsel}
+        ePlan={birlesikImar ?? ePlanVerisi}
+        tucbs={tucbsVerisi}
+      />
+
       {/* Analiz orkestrasyon ilerleme çubuğu */}
       <AnalizIlerlemeBar
         katmanlar={katmanlar}
         gecenMs={gecenMs}
         gizleTamamlandiktan={3000}
       />
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
-          <BarChart3Icon className="h-4 w-4 text-slate-500" />
-          Analiz
-        </h3>
-        <div className="flex items-center gap-2">
-          {cevre && cevre.elementSayisi > 0 && (
-            <label className="flex cursor-pointer items-center gap-1 text-3xs text-slate-500 hover:text-slate-700">
-              <input
-                type="checkbox"
-                checked={yakinlarHaritada}
-                onChange={(e) => setYakinlarHaritada(e.target.checked)}
-                className="h-3 w-3 cursor-pointer accent-tkgm-primary"
-              />
-              <Link2Icon className="h-3 w-3" />
-              <span>Yakınları haritada</span>
-            </label>
-          )}
-          {(!cevre || !egim) && (
+      <AccordionSection
+        title="Konum & Çevre Analizi"
+        badge={cevre
+          ? `Lojistik ${skorlar.lojistik.toplam ?? "—"} · Erişim ${skorlar.erisim.toplam ?? "—"}`
+          : loading ? "yükleniyor…" : "analiz bekleniyor"
+        }
+        badgeTone={cevre ? "info" : "muted"}
+        defaultOpen={false}
+        actions={
+          (!cevre || !egim) ? (
             <button
               type="button"
-              onClick={cevreyiAnalizEt}
+              onClick={(e) => { e.stopPropagation(); void cevreyiAnalizEt(); }}
               disabled={loading}
-              className="cursor-pointer rounded-md bg-tkgm-primary px-2.5 py-1 text-2xs font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? "Analiz ediliyor…" : cevre || egim ? "Eksik veriyi tamamla" : "Çevreyi analiz et"}
+              {loading ? "…" : cevre || egim ? "Tamamla" : "Analiz Et"}
             </button>
-          )}
+          ) : undefined
+        }
+      >
+        {/* Haritada göster toggle */}
+        {cevre && cevre.elementSayisi > 0 && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-700 pb-1">
+            <input
+              type="checkbox"
+              checked={yakinlarHaritada}
+              onChange={(e) => setYakinlarHaritada(e.target.checked)}
+              className="h-3 w-3 cursor-pointer accent-blue-600"
+            />
+            <Link2Icon className="h-3 w-3" />
+            <span>Yakınları haritada göster</span>
+          </label>
+        )}
+
+        {/* 4 ana skor */}
+        <div className="grid grid-cols-2 gap-2">
+          <SkorBadge
+            ad="Lojistik"
+            icon={<TruckIcon className="h-4 w-4" />}
+            skor={skorlar.lojistik}
+            loading={loading && !cevre}
+            hata={!loading && !cevre && error ? "Veri alınamadı" : null}
+            onRetry={() => void cevreyiAnalizEt()}
+            bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
+          />
+          <SkorBadge
+            ad="Fiziksel"
+            icon={<MountainIcon className="h-4 w-4" />}
+            skor={skorlar.fiziksel}
+            loading={loading && !egim}
+            hata={!loading && !egim && error ? "Veri alınamadı" : null}
+            onRetry={() => void cevreyiAnalizEt()}
+            bosAciklama="Yükseklik/eğim verisi henüz çekilmedi"
+          />
+          <SkorBadge
+            ad="Erişim"
+            icon={<FootprintsIcon className="h-4 w-4" />}
+            skor={skorlar.erisim}
+            loading={loading && !cevre}
+            hata={!loading && !cevre && error ? "Veri alınamadı" : null}
+            onRetry={() => void cevreyiAnalizEt()}
+            bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
+          />
+          <SkorBadge
+            ad="Altyapı"
+            icon={<ZapIcon className="h-4 w-4" />}
+            skor={skorlar.altyapi}
+            loading={loading && !cevre}
+            hata={!loading && !cevre && error ? "Veri alınamadı" : null}
+            onRetry={() => void cevreyiAnalizEt()}
+            bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
+          />
         </div>
-      </div>
 
-      {/* 4 ana skor — loading/hata/sonuç state'leri SkorBadge'in kendi mantığıyla */}
-      <div className="grid grid-cols-2 gap-2">
-        <SkorBadge
-          ad="Lojistik"
-          icon={<TruckIcon className="h-4 w-4" />}
-          skor={skorlar.lojistik}
-          loading={loading && !cevre}
-          hata={!loading && !cevre && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
-        />
-        <SkorBadge
-          ad="Fiziksel"
-          icon={<MountainIcon className="h-4 w-4" />}
-          skor={skorlar.fiziksel}
-          loading={loading && !egim}
-          hata={!loading && !egim && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Yükseklik/eğim verisi henüz çekilmedi"
-        />
-        <SkorBadge
-          ad="Erişim"
-          icon={<FootprintsIcon className="h-4 w-4" />}
-          skor={skorlar.erisim}
-          loading={loading && !cevre}
-          hata={!loading && !cevre && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
-        />
-        <SkorBadge
-          ad="Altyapı"
-          icon={<ZapIcon className="h-4 w-4" />}
-          skor={skorlar.altyapi}
-          loading={loading && !cevre}
-          hata={!loading && !cevre && error ? "Veri alınamadı" : null}
-          onRetry={() => void cevreyiAnalizEt()}
-          bosAciklama="Bu bölgede yeterli veri tespit edilemedi"
-        />
-      </div>
+        {error && (
+          <div className="rounded border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Lokal analizler — her zaman gösterilir */}
-      <Section title={`${analiz.nitelik.ikon} Nitelik & Konum`}>
+        {/* Lokal analizler */}
+        <Section title={`${analiz.nitelik.ikon} Nitelik & Konum`}>
         <p className="text-[11px]">{analiz.nitelik.not}</p>
         <p className="mt-1 text-[11px] text-tkgm-muted">{analiz.konum.not}</p>
       </Section>
@@ -520,10 +591,15 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
       )}
 
       {/* Doğal veri katmanı — AFAD deprem + iklim + toprak (Cadastrum içinde) */}
-      <DogalVeriKarti parsel={parsel} />
+      <DogalVeriKarti
+        parsel={parsel}
+        onHeyelanChange={setHeyelanVerisi}
+        onTaskinKoordChange={setTaskinKoordVerisi}
+      />
 
-      {/* Altyapı mesafe katmanı — OSB, havalimanı, liman, nüfus yoğunluğu (statik, sıfır API) */}
-      <AltyapiMesafeKarti parsel={parsel} />
+        {/* Altyapı mesafe katmanı — OSB, havalimanı, liman, nüfus yoğunluğu (statik, sıfır API) */}
+        <AltyapiMesafeKarti parsel={parsel} onYakinPoiler={onAltyapiPoiler} />
+      </AccordionSection>
 
       {/* İmar & Üst Plan — e-Plan KAKS + TUCBS ÇDP birleşik kart */}
       {acikModuller.includes("cdp-tucbs") && (
@@ -535,12 +611,7 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         />
       )}
 
-      {/* Risk taraması — fiyat tahmin kartından ÖNCE: yatırım öncesi kritik */}
-      <RiskUyariKarti
-        parsel={parsel}
-        ePlan={birlesikImar ?? ePlanVerisi}
-        tucbs={tucbsVerisi}
-      />
+      {/* RiskUyariKarti ve FiyatTahminKarti yukarıya taşındı (return bloğunun başına) */}
 
       {/* Likidite — TKGM yıllık işlem yoğunluğu (otomatik fetch) */}
       {parsel.ilceKodu != null && (
@@ -549,6 +620,9 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
 
       {/* Milli Emlak ihale fiyatları — gerçek devlet ihale kapanış fiyatları (listing değil) */}
       <MilliEmlakKarti parsel={parsel} />
+
+      {/* Cadex Fiyat Endeksi & Zaman Serisi Trendi */}
+      <EndeksGrafigiKarti parsel={parsel} />
 
       {acikModuller.includes("fiyat-tahmin") && (
         <FiyatNetlestirKarti
@@ -559,47 +633,24 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         />
       )}
 
-      {/* Tahmini piyasa fiyatı — imar bilinmeden hesaplanmaz; e-Plan fail olursa hızlı imar prompt'u gösterilir */}
-      {acikModuller.includes("fiyat-tahmin") && (
-        <FiyatTahminKarti
-          parsel={parsel}
-          cevre={cevre}
-          egim={egim}
-          ePlan={birlesikImar ?? ePlanVerisi}
-          tucbs={tucbsVerisi}
-          ePlanLoading={ePlanLoading}
-          imarSkipEdildi={imarSkipEdildi}
-          onImarKaydedildi={() => {
-            manuelTetikle();
-            setImarSkipEdildi(false);
-          }}
-          onImarSkip={() => setImarSkipEdildi(true)}
-          onImarTekrarSor={() => setImarSkipEdildi(false)}
-          onTahminHesaplandi={setHesaplananFiyat}
-        />
-      )}
 
       {/* W3 — Ada İçi Komşu Parsel Karşılaştırması */}
       {parsel.mahalleKodu && parsel.adaNo && (
         <KomsuParselKarti parsel={parsel} />
       )}
 
-      {/* PDF Rapor — tüm analizi yazdırılabilir tek dokümana topla */}
-      <RaporExportButonu parsel={parsel} cevre={cevre} egim={egim} ePlan={birlesikImar ?? ePlanVerisi ?? null} />
-
-      {/* ── İMAR & MANUEL VERİ — collapsed grup ────────────────────── */}
-      <DetayGrup
-        baslik="İmar & Manuel Veri"
-        ikon="🏛️"
-        ozet={[
+      {/* ── İMAR & MANUEL VERİ ── */}
+      <AccordionSection
+        title="İmar & Manuel Veri"
+        badge={[
           ePlanVerisi ? "e-Plan ✓" : "e-Plan eksik",
-          manuelVeri.imar ? "manuel imar ✓" : null,
+          manuelVeri.imar ? "manuel ✓" : null,
           manuelVeri.emsaller.length > 0 ? `${manuelVeri.emsaller.length} emsal` : null,
         ].filter(Boolean).join(" · ")}
-        renk="amber"
-        defaultAcik={!ePlanVerisi}
-        acik={imarDetayAcik}
-        onAcikDegisimi={setImarDetayAcik}
+        badgeTone={ePlanVerisi ? "success" : "warning"}
+        defaultOpen={!ePlanVerisi}
+        open={imarDetayAcik}
+        onOpenChange={setImarDetayAcik}
       >
         {/* Belediye + İmar bağlantıları */}
         {parsel.ilAd && parsel.ilceAd && (
@@ -617,14 +668,14 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
 
         {/* Manuel emsal listesi */}
         <ManuelEmsalKarti parsel={parsel} onDegisti={manuelTetikle} />
-      </DetayGrup>
+      </AccordionSection>
 
-      {/* ── DETAYLI ANALİZ — emsal mukayese vs ─────────────────────── */}
-      <DetayGrup
-        baslik="Detaylı Analiz"
-        ikon="🔬"
-        ozet="e-Plan · emsal · TKGM yoğunluk · doğal risk"
-        renk="slate"
+      {/* ── DETAYLI ANALİZ ── */}
+      <AccordionSection
+        title="Detaylı Analiz"
+        badge="emsal · TKGM · bölge skoru · uydu"
+        badgeTone="default"
+        defaultOpen={false}
       >
         {/* e-Plan özeti */}
         <div className="rounded border border-slate-200 bg-white p-2 text-[11px]">
@@ -694,20 +745,59 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         </div>
 
         {acikModuller.includes("fiyat-tahmin") && <EmsalMukayeseKarti parsel={parsel} />}
+        {acikModuller.includes("fiyat-tahmin") && <MekansalKarsilastirmaKarti parsel={parsel} />}
         {acikModuller.includes("fiyat-tahmin") && <EmsalRadiusSlider parsel={parsel} />}
         {acikModuller.includes("fiyat-tahmin") && (
-          <YatirimSkoruKarti
-            parsel={parsel}
-            fiyat={hesaplananFiyat}
-            cevre={cevre}
-            ePlan={birlesikImar ?? ePlanVerisi}
-          />
+          <Suspense fallback={<LazyFallback />}>
+            <YatirimSkoruKarti
+              parsel={parsel}
+              fiyat={hesaplananFiyat}
+              cevre={cevre}
+              ePlan={birlesikImar ?? ePlanVerisi}
+            />
+          </Suspense>
         )}
         {acikModuller.includes("fiyat-tahmin") && <BildirimKurali parsel={parsel} />}
 
         {parsel.ilceKodu != null && (
-          <TkgmAnaliz ilceKodu={parsel.ilceKodu} ilceAd={parsel.ilceAd} />
+          <Suspense fallback={<LazyFallback />}>
+            <TkgmAnaliz ilceKodu={parsel.ilceKodu} ilceAd={parsel.ilceAd} />
+          </Suspense>
         )}
+
+        {/* Tarihsel karşılaştırma — 2 yıl yan yana */}
+        {parsel.ilceKodu != null && (
+          <Suspense fallback={<LazyFallback />}>
+            <TkgmKarsilastirma ilceKodu={parsel.ilceKodu} ilceAd={parsel.ilceAd} />
+          </Suspense>
+        )}
+
+        {/* Bölge Gelişim Skoru — 5 boyutlu öngörü */}
+        {parsel.ilceKodu != null && parsel.merkezNokta != null && (
+          <BolgeSkorKarti
+            ilNorm={normalizeYerAdi(parsel.ilAd ?? "")}
+            ilceNorm={normalizeYerAdi(parsel.ilceAd ?? "")}
+            ilceKodu={parsel.ilceKodu}
+            lat={parsel.merkezNokta.lat}
+            lng={parsel.merkezNokta.lng}
+          />
+        )}
+
+        {/* AI Uydu Görüntü Analizi — ESRI World Imagery + Gemini Vision */}
+        {parsel.merkezNokta != null && (
+          <Suspense fallback={<LazyFallback />}>
+            <UyduAnaliz
+              lat={parsel.merkezNokta.lat}
+              lng={parsel.merkezNokta.lng}
+              zoom={16}
+            />
+          </Suspense>
+        )}
+
+        {/* Sentinel-2 Uydu Görüntüsü — Copernicus + bant seçici (Pro) */}
+        <Suspense fallback={<LazyFallback />}>
+          <UyduAnalizKarti parsel={parsel} />
+        </Suspense>
 
         {/* Bağımsız bölüm (kat mülkiyeti) — apartman/bina nitelikli parsellerde otomatik */}
         <BagimsizBolumKarti parsel={parsel} />
@@ -715,19 +805,22 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
         <Section title="🌍 Doğal Risk Değerlendirmesi">
           <RiskKarti ilAd={parsel.ilAd} />
         </Section>
-      </DetayGrup>
+      </AccordionSection>
 
-      {/* ── PRO MODÜLLER — Güneş + Tarım ────────────────────────────── */}
+      {/* ── PRO MODÜLLER — Güneş + Tarım ── */}
       {(acikModuller.includes("gunes-enerjisi") || acikModuller.includes("tarim")) && (
-        <DetayGrup
-          baslik="Pro Modüller"
-          ikon="✨"
-          ozet="güneş · tarım"
-          renk="violet"
+        <AccordionSection
+          title="Pro Modüller"
+          badge="güneş · tarım"
+          badgeTone="ai"
+          defaultOpen={false}
+          pro
         >
           {acikModuller.includes("gunes-enerjisi") &&
             (lisansBilgi.can("gunes-modulu") ? (
-              <GunesEnerjisiKarti parsel={parsel} />
+              <Suspense fallback={<LazyFallback />}>
+                <GunesEnerjisiKarti parsel={parsel} />
+              </Suspense>
             ) : (
               <PaywallKilit
                 gerekliTier={lisansBilgi.yukseltGerekli("gunes-modulu") ?? "bireysel-pro"}
@@ -738,7 +831,9 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
 
           {acikModuller.includes("tarim") &&
             (lisansBilgi.can("tarim-modulu") ? (
-              <TarimAnalizKarti parsel={parsel} />
+              <Suspense fallback={<LazyFallback />}>
+                <TarimAnalizKarti parsel={parsel} />
+              </Suspense>
             ) : (
               <PaywallKilit
                 gerekliTier={lisansBilgi.yukseltGerekli("tarim-modulu") ?? "bireysel-pro"}
@@ -746,11 +841,12 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
                 kompakt
               />
             ))}
-        </DetayGrup>
+        </AccordionSection>
       )}
 
-      {/* ── AI SCORECARD — 5 boyutlu uygunluk analizi ───────────────────── */}
-      <DetayGrup baslik="AI Arazi Scorecard" ikon="🤖" renk="violet">
+      {/* ── AI SCORECARD ── */}
+      <AccordionSection title="AI Arazi Scorecard" badge="5 boyutlu" badgeTone="ai" defaultOpen={false} pro>
+        <Suspense fallback={<LazyFallback />}>
         <ScorecardKarti
           parsel={parsel}
           egim={egim}
@@ -784,117 +880,70 @@ export function AnalizPanel({ parsel, onYakinPoiler }: Props) {
           elektrikHattiM={cevre?.altyapi.elektrikHattiM ?? undefined}
           baselineTlm2={hesaplananFiyat?.beklenenPerM2 ?? undefined}
         />
-      </DetayGrup>
+        </Suspense>
+      </AccordionSection>
 
-      {/* ── W8 — HAVA FOTOĞRAFI TİMELINE ───────────────────────────────── */}
-      {parsel.koordinatlar && parsel.koordinatlar.length >= 3 && (
-        <HavaFotoTimeline parsel={parsel} />
-      )}
-
-      {/* ── FİZİBİLİTE — bağımsız grup (yatırım hesabı odaklı) ─────────── */}
-      <DetayGrup baslik="Fizibilite Hesaplayıcı" ikon="🧮" renk="slate">
+      {/* ── ARAÇLAR: Hava Fotoğrafı + Fizibilite + Eylemler ── */}
+      <AccordionSection title="Araçlar" badge="hava foto · fizibilite · rapor" badgeTone="default" defaultOpen={false}>
+        {parsel.koordinatlar && parsel.koordinatlar.length >= 3 && (
+          <Suspense fallback={<LazyFallback />}>
+            <HavaFotoTimeline parsel={parsel} />
+          </Suspense>
+        )}
         <Fizibilite parsel={parsel} />
-      </DetayGrup>
+        <PortfoyEkleButonu parsel={parsel} fiyat={hesaplananFiyat} ePlan={birlesikImar ?? ePlanVerisi ?? null} />
+        <RaporExportButonu parsel={parsel} cevre={cevre} egim={egim} ePlan={birlesikImar ?? ePlanVerisi ?? null} />
+      </AccordionSection>
     </div>
   );
 }
 
-function Section({
-  title,
-  children,
-  loz,
-  right,
+// ─── Portföye Ekle Butonu ─────────────────────────────────────────────────────
+
+function PortfoyEkleButonu({
+  parsel,
+  fiyat,
+  ePlan,
 }: {
-  title: string;
-  children: React.ReactNode;
-  loz?: boolean;
-  right?: React.ReactNode;
+  parsel: import("../../types/tkgm").Parsel;
+  fiyat: import("../../lib/fiyat-tahmin").FiyatTahmini | null;
+  ePlan: import("../../lib/eplan").EPlanImarVerisi | null;
 }) {
-  return (
-    <div
-      className={`rounded-lg border shadow-card transition-shadow hover:shadow-card-hover ${loz ? "border-dashed border-slate-300 bg-slate-50/50" : "border-slate-200 bg-white"}`}
-    >
-      <header className="flex items-center justify-between gap-2 px-3 pt-2 pb-1">
-        <h4 className="text-2xs font-semibold text-slate-700">{title}</h4>
-        {right}
-      </header>
-      <div className="px-3 pb-2">{children}</div>
-    </div>
-  );
-}
+  const { ekle, cikar, varMi, guncelleiFiyat, guncellePlan } = useKarsilastirma();
+  const [eklendi, setEklendi] = useState(false);
+  const portfoydeMi = varMi(parsel);
 
-function KV({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2 py-0.5 text-2xs">
-      <span className="text-slate-500">{k}</span>
-      <span className="font-medium tabular-nums text-slate-700">{v}</span>
-    </div>
-  );
-}
-
-function Poi({ label, sayi, enYakinM }: { label: string; sayi: number; enYakinM?: number | null }) {
-  // POI 1.5km içinde varsa sayı + yeşil; yoksa en yakın mesafe (5km'ye kadar) + nötr
-  const farUstu = sayi === 0 && enYakinM != null;
-  const hicYok = sayi === 0 && (enYakinM == null);
+  function toggle() {
+    const key = parselKarsilastirmaKey(parsel);
+    if (portfoydeMi) {
+      cikar(key);
+    } else {
+      ekle(parsel);
+      // Fiyat ve ePlan varsa hemen güncelle
+      if (fiyat) setTimeout(() => guncelleiFiyat(key, fiyat), 50);
+      if (ePlan) setTimeout(() => guncellePlan(key, ePlan), 50);
+      setEklendi(true);
+      setTimeout(() => setEklendi(false), 2000);
+    }
+  }
 
   return (
-    <div
-      className={`rounded-md border px-1.5 py-1.5 text-center transition-colors ${
-        sayi > 0
-          ? "border-emerald-200 bg-emerald-50/70 text-accent-success"
-          : farUstu
-          ? "border-amber-200 bg-amber-50/70 text-amber-700"
-          : "border-slate-200 bg-white text-slate-400"
+    <button
+      type="button"
+      onClick={toggle}
+      className={`flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-2xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+        portfoydeMi
+          ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
       }`}
-      title={
-        sayi > 0
-          ? `1.5km içinde ${sayi} ${label.toLowerCase()}`
-          : farUstu && enYakinM != null
-          ? `En yakın ${label.toLowerCase()} ${(enYakinM / 1000).toFixed(1)}km'de`
-          : `5km içinde ${label.toLowerCase()} bulunamadı`
-      }
+      title={portfoydeMi ? "Portföyden çıkar" : `Portföye ekle (max ${MAX_PORTFOY} parsel)`}
+      aria-pressed={portfoydeMi}
     >
-      {sayi > 0 ? (
-        <>
-          <div className="text-base font-bold leading-none">{sayi}</div>
-          <div className="text-[9px] uppercase tracking-wide">{label}</div>
-        </>
-      ) : farUstu && enYakinM != null ? (
-        <>
-          <div className="text-sm font-bold leading-none">{(enYakinM / 1000).toFixed(1)}<span className="text-[8px] font-normal">km</span></div>
-          <div className="text-[9px] uppercase tracking-wide">{label}</div>
-        </>
-      ) : (
-        <>
-          <div className="text-sm font-bold leading-none">—</div>
-          <div className="text-[9px] uppercase tracking-wide">{label}</div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function Bilesenler({
-  bilesenler,
-}: {
-  bilesenler: { ad: string; puan: number; not: string }[];
-}) {
-  return (
-    <div className="space-y-1">
-      {bilesenler.map((b) => (
-        <div key={b.ad} className="text-[11px]">
-          <div className="flex justify-between gap-2">
-            <span className="text-tkgm-muted">{b.ad}</span>
-            <span className="font-medium">{b.puan}/100 · {b.not}</span>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded bg-slate-200">
-            <div
-              className={`h-full ${b.puan >= 75 ? "bg-emerald-500" : b.puan >= 50 ? "bg-amber-500" : "bg-red-500"}`}
-              style={{ width: `${b.puan}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
+      {portfoydeMi
+        ? <CheckCircle2Icon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+        : <FolderPlusIcon   className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+      }
+      {eklendi ? "Portföye eklendi!" : portfoydeMi ? "Portföyde" : "Portföye Ekle"}
+    </button>
   );
 }

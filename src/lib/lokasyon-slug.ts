@@ -70,9 +70,11 @@ export function hepsiemlakUrldenLokasyon(url: string): {
 
 export function ilanUrldenLokasyon(
   url: string,
-  kaynak: "sahibinden" | "hepsiemlak",
+  kaynak: "sahibinden" | "hepsiemlak" | "emlakjet",
 ): { il: string | null; ilce: string | null; mahalle: string | null } {
-  return kaynak === "hepsiemlak"
-    ? hepsiemlakUrldenLokasyon(url)
-    : sahibindenUrldenLokasyon(url);
+  if (kaynak === "hepsiemlak") return hepsiemlakUrldenLokasyon(url);
+  // Emlakjet URL: /ilan/[il]-[ilce]-...-[id] — lokasyon slug'ı sahibinden benzeri değil,
+  // content script kendi parse'ını yapıyor. Burada null dön (alias/API fallback devreye girer).
+  if (kaynak === "emlakjet") return { il: null, ilce: null, mahalle: null };
+  return sahibindenUrldenLokasyon(url);
 }

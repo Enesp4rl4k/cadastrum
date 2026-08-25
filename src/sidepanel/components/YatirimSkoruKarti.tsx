@@ -100,17 +100,21 @@ export function YatirimSkoruKarti({ parsel, fiyat: fiyatProp, cevre, ePlan }: Pr
     ? fiyatProp.beklenenPerM2 * parsel.alan
     : null;
 
+  const tarımsalMi = /tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(parsel.nitelik);
   const roi = useMemo(() => {
     if (fiyatTutari == null || fiyatTutari <= 0) return null;
     return roiHesapla({
       fiyat: fiyatTutari,
       yillikKira: kira?.yillikKira ?? null,
-      // Gerçek trend varsa kullan, yoksa TCMB KFE varsayılan ~%30
+      // Gerçek trend varsa kullan, yoksa TCMB KFE varsayılan ~%35 (2026 güncel)
       yillikDegerArtisYuzdesi: trendYillikDegisim != null
-        ? Math.max(5, trendYillikDegisim) // en az %5 (negatif trendde floor)
-        : 30,
+        ? Math.max(5, trendYillikDegisim)
+        : 35,
+      // Yeni parametreler: vergi etkisi + parsel türü
+      vergiDahil: true,
+      parselTuru: tarımsalMi ? "tarla" : "arsa",
     });
-  }, [fiyatTutari, kira, trendYillikDegisim]);
+  }, [fiyatTutari, kira, trendYillikDegisim, tarımsalMi]);
 
   if (!acik) {
     return (
@@ -187,26 +191,47 @@ export function YatirimSkoruKarti({ parsel, fiyat: fiyatProp, cevre, ePlan }: Pr
         {roi != null && (kira || roi.irr10y != null) && (
           <div className="rounded border border-slate-200 bg-slate-50 dark:bg-slate-900 dark:border-slate-700 p-2 space-y-1">
             <div className="text-2xs font-semibold text-slate-700 dark:text-slate-300">
-              📊 Getiri Analizi
+              📊 Getiri Analizi (Vergi Dahil)
               {kira ? ` (kira: ₺${kira.aylikKira.toLocaleString("tr-TR")}/ay)` : ""}
               {trendYillikDegisim != null
                 ? ` · değer artışı %${Math.max(5, trendYillikDegisim).toFixed(0)}/yıl`
-                : " · değer artışı %30/yıl (varsayılan)"}
+                : " · değer artışı %35/yıl (varsayılan)"}
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               {roi.brutKiraGetirisi != null && (
                 <KpiBox label="Brüt Getiri" value={`%${roi.brutKiraGetirisi}`} />
               )}
-              {roi.capRate != null && (
-                <KpiBox label="Cap Rate" value={`%${roi.capRate}`} />
+              {roi.capRateVergiSonrasi != null && (
+                <KpiBox label="Net Cap Rate" value={`%${roi.capRateVergiSonrasi}`} />
               )}
               {roi.irr10y != null && (
-                <KpiBox label="10y IRR" value={`%${roi.irr10y}`} />
+                <KpiBox label="10y IRR (net)" value={`%${roi.irr10y}`} />
+              )}
+              {roi.irr10yBrut != null && roi.irr10y != null && (
+                <KpiBox
+                  label="10y IRR (brüt)"
+                  value={`%${roi.irr10yBrut}`}
+                />
+              )}
+              {roi.geriOdemeSuresiYil != null && kira != null && (
+                <KpiBox label="Geri Ödeme" value={`${roi.geriOdemeSuresiYil} yıl`} />
               )}
             </div>
+            {/* Vergi detayları */}
+            {roi.vergi.tapuHarciTL > 0 && (
+              <div className="text-3xs text-slate-500 dark:text-slate-400 space-y-0.5 border-t border-slate-200 dark:border-slate-700 mt-1 pt-1">
+                <div>Tapu harcı: ₺{roi.vergi.tapuHarciTL.toLocaleString("tr-TR")} · Döner sermaye: ₺{roi.vergi.donerSermayreTL.toLocaleString("tr-TR")}</div>
+                {roi.vergi.yillikEmlakVergiTL > 0 && (
+                  <div>Yıllık emlak vergisi: ₺{roi.vergi.yillikEmlakVergiTL.toLocaleString("tr-TR")}</div>
+                )}
+                {roi.vergi.yillikKiraVergiTL > 0 && (
+                  <div>Kira gelir vergisi: ₺{roi.vergi.yillikKiraVergiTL.toLocaleString("tr-TR")}/yıl</div>
+                )}
+              </div>
+            )}
             {roi.brutKiraGetirisi == null && (
               <p className="text-3xs italic text-slate-500">
-                Kira tahmini sadece konut için yapılır. IRR {trendYillikDegisim != null ? `%${Math.max(5, trendYillikDegisim).toFixed(0)} trend` : "%30 varsayılan"} değer artışıyla hesaplandı.
+                Kira tahmini sadece konut için yapılır. IRR {trendYillikDegisim != null ? `%${Math.max(5, trendYillikDegisim).toFixed(0)} trend` : "%35 varsayılan"} değer artışıyla hesaplandı.
               </p>
             )}
           </div>

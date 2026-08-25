@@ -1,0 +1,315 @@
+---
+/**
+ * /endeks — Cadastrum Türkiye Arsa Fiyat Endeksi
+ *
+ * SSG sayfası — veri client-side fetch ile yüklenir.
+ * Backend /v1/api/endeks endpoint'inden il bazlı aylık medyan fiyat
+ * zaman serisi çeker. SVG çizgi grafik ile gösterir.
+ */
+
+export const prerender = true;
+
+import Base from "../layouts/Base.astro";
+
+const ILLER = [
+  "istanbul", "ankara", "izmir", "antalya", "bursa",
+  "konya", "adana", "gaziantep", "mersin", "kocaeli",
+  "eskisehir", "denizli", "trabzon", "kayseri", "diyarbakir",
+];
+---
+
+<Base title="Cadastrum Fiyat Endeksi — Türkiye Arsa Piyasası"
+     description="Türkiye'nin bağımsız arsa ve tarla fiyat endeksi. Mahalle bazlı aylık medyan verilerinden hesaplanır.">
+
+  <section class="container-prose py-12">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold tracking-tight mb-2">Cadastrum Fiyat Endeksi</h1>
+      <p class="text-slate-500 max-w-2xl">
+        Türkiye'nin bağımsız gayrimenkul fiyat endeksi.
+        İlan ve tapu verilerinden elde edilen mahalle bazlı aylık medyan fiyatlar kullanılır.
+        TCMB KFE'den bağımsız, crowdsource + scraper verisine dayanır.
+      </p>
+    </header>
+
+    <!-- Filtreler -->
+    <form id="endeks-form" class="flex flex-wrap gap-3 mb-8">
+      <div class="flex flex-col gap-1">
+        <label for="il-sec" class="text-xs font-semibold text-slate-500 uppercase tracking-wide">İl</label>
+        <select id="il-sec" name="il"
+          class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
+          <option value="">Türkiye Geneli</option>
+          {ILLER.map((i) => (
+            <option value={i}>{i.charAt(0).toUpperCase() + i.slice(1)}</option>
+          ))}
+        </select>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label for="kategori-sec" class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Kategori</label>
+        <select id="kategori-sec" name="kategori"
+          class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
+          <option value="arsa">Arsa</option>
+          <option value="tarla">Tarla</option>
+          <option value="konut">Konut</option>
+        </select>
+      </div>
+
+      <div class="flex items-end">
+        <button type="submit" id="endeks-btn"
+          class="rounded-lg bg-[#1B2A4A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#233461] transition-colors">
+          Güncelle
+        </button>
+      </div>
+    </form>
+
+    <!-- Yükleniyor skeleton -->
+    <div id="endeks-yukleniyor" class="hidden space-y-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[1,2,3,4].map(() => (
+          <div class="rounded-xl border border-slate-200 bg-white p-4 animate-pulse">
+            <div class="h-3 bg-slate-200 rounded w-16 mb-2"></div>
+            <div class="h-7 bg-slate-200 rounded w-24"></div>
+          </div>
+        ))}
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4 h-64 animate-pulse">
+        <div class="h-full bg-slate-100 rounded-lg"></div>
+      </div>
+    </div>
+
+    <!-- Hata durumu -->
+    <div id="endeks-hata" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+
+    <!-- Boş veri durumu -->
+    <div id="endeks-bos" class="hidden rounded-xl border border-slate-200 bg-slate-50 px-6 py-10 text-center text-slate-500">
+      <p class="font-medium">Bu filtre için veri bulunamadı.</p>
+      <p class="text-sm mt-1">Veri birikimi devam ettikçe daha fazla dönem gösterilecek.</p>
+    </div>
+
+    <!-- Sonuç alanı -->
+    <div id="endeks-sonuc" class="hidden space-y-4">
+      <!-- Özet istatistikler -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Son Değer</p>
+          <p id="stat-son" class="text-xl font-bold text-[#1B2A4A]">—</p>
+          <p id="stat-son-donem" class="text-xs text-slate-400 mt-0.5">—</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Başlangıç</p>
+          <p id="stat-ilk" class="text-xl font-bold text-[#1B2A4A]">—</p>
+          <p id="stat-ilk-donem" class="text-xs text-slate-400 mt-0.5">—</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Dönem Değişimi</p>
+          <p id="stat-degisim" class="text-xl font-bold">—</p>
+          <p id="stat-donem-sayisi" class="text-xs text-slate-400 mt-0.5">—</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Toplam İlan</p>
+          <p id="stat-ilan" class="text-xl font-bold text-[#1B2A4A]">—</p>
+          <p class="text-xs text-slate-400 mt-0.5">analiz edilen</p>
+        </div>
+      </div>
+
+      <!-- Grafik -->
+      <div class="rounded-xl border border-slate-200 bg-white p-4 overflow-x-auto">
+        <div id="endeks-grafik" class="w-full"></div>
+      </div>
+
+      <!-- Veri tablosu -->
+      <div class="rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Dönem</th>
+              <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Medyan ₺/m²</th>
+              <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Endeks</th>
+              <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">İlan</th>
+            </tr>
+          </thead>
+          <tbody id="endeks-tablo" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <!-- Metodoloji notu -->
+      <p class="text-xs text-slate-400">
+        Veriler kullanıcı katkılı ilan havuzundan ve bağımsız web taramasından derlenir.
+        İlk dönem baz (100) olarak alınır; sonraki değerler buna göre normalize edilir.
+        Aykırı değerler Tukey IQR yöntemiyle elenir.
+      </p>
+    </div>
+  </section>
+
+  <script>
+    import { PUBLIC_API_BASE } from "../lib/config";
+
+    interface EndeksNokta {
+      donem: string;
+      yil: number;
+      ay: number;
+      medyan_tl_m2: number;
+      endeks: number | null;
+      ilan_adet: number;
+    }
+
+    interface EndeksSonuc {
+      il: string | null;
+      kategori: string;
+      noktalar: EndeksNokta[];
+      baz_donem: string | null;
+    }
+
+    const SVG_W = 800, SVG_H = 280;
+    const PAD_L = 60, PAD_R = 20, PAD_T = 20, PAD_B = 40;
+    const GW = SVG_W - PAD_L - PAD_R;
+    const GH = SVG_H - PAD_T - PAD_B;
+
+    function fmtTLm2(n: number): string {
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)} M ₺/m²`;
+      if (n >= 1_000) return `${Math.round(n / 1_000)} bin ₺/m²`;
+      return `${n.toLocaleString("tr-TR")} ₺/m²`;
+    }
+
+    function svgGrafik(noktalar: EndeksNokta[]): string {
+      if (noktalar.length < 2) return "<p class='text-center text-slate-400 py-8'>Grafik için yeterli veri yok</p>";
+      const vals = noktalar.map(n => n.medyan_tl_m2);
+      const minV = Math.min(...vals), maxV = Math.max(...vals);
+      const aralik = maxV - minV || 1;
+      const xOf = (i: number) => PAD_L + (i / (noktalar.length - 1)) * GW;
+      const yOf = (v: number) => PAD_T + GH - ((v - minV) / aralik) * GH;
+
+      const pathD = noktalar.map((n, i) => `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(n.medyan_tl_m2).toFixed(1)}`).join(" ");
+      const alanD = `${pathD} L ${xOf(noktalar.length - 1).toFixed(1)} ${(PAD_T + GH).toFixed(1)} L ${PAD_L} ${(PAD_T + GH).toFixed(1)} Z`;
+
+      const yAdimlar = Array.from({ length: 5 }, (_, i) => {
+        const v = minV + (aralik * i) / 4;
+        const etiket = v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v/1_000)}K` : String(Math.round(v));
+        return { y: yOf(v), etiket };
+      });
+
+      const xEtiketler = noktalar.filter((_, i) => i === 0 || i === noktalar.length - 1 || i % Math.max(1, Math.floor(noktalar.length / 6)) === 0)
+        .map(n => ({ x: xOf(noktalar.indexOf(n)), etiket: `${n.ay}/${String(n.yil).slice(2)}` }));
+
+      return `<svg viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fiyat endeksi grafiği" class="w-full h-auto">
+        <defs><linearGradient id="grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1B2A4A" stop-opacity="0.15"/><stop offset="100%" stop-color="#1B2A4A" stop-opacity="0"/></linearGradient></defs>
+        ${yAdimlar.map(({y}) => `<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${SVG_W-PAD_R}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`).join("")}
+        <path d="${alanD}" fill="url(#grad)"/>
+        <path d="${pathD}" fill="none" stroke="#1B2A4A" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        ${noktalar.map((n,i) => `<circle cx="${xOf(i).toFixed(1)}" cy="${yOf(n.medyan_tl_m2).toFixed(1)}" r="3.5" fill="#1B2A4A"/>`).join("")}
+        ${yAdimlar.map(({y,etiket}) => `<text x="${(PAD_L-6).toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#64748b">${etiket} ₺</text>`).join("")}
+        ${xEtiketler.map(({x,etiket}) => `<text x="${x.toFixed(1)}" y="${(PAD_T+GH+18).toFixed(1)}" text-anchor="middle" font-size="11" fill="#64748b">${etiket}</text>`).join("")}
+        <line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T+GH}" stroke="#cbd5e1" stroke-width="1.5"/>
+        <line x1="${PAD_L}" y1="${PAD_T+GH}" x2="${SVG_W-PAD_R}" y2="${PAD_T+GH}" stroke="#cbd5e1" stroke-width="1.5"/>
+      </svg>`;
+    }
+
+    async function endeksYukle() {
+      const ilSec = document.getElementById("il-sec") as HTMLSelectElement;
+      const katSec = document.getElementById("kategori-sec") as HTMLSelectElement;
+      const il = ilSec?.value ?? "";
+      const kategori = katSec?.value ?? "arsa";
+
+      const yukl = document.getElementById("endeks-yukleniyor");
+      const hataEl = document.getElementById("endeks-hata");
+      const bosEl = document.getElementById("endeks-bos");
+      const sonucEl = document.getElementById("endeks-sonuc");
+
+      yukl?.classList.remove("hidden");
+      hataEl?.classList.add("hidden");
+      bosEl?.classList.add("hidden");
+      sonucEl?.classList.add("hidden");
+
+      try {
+        const params = new URLSearchParams({ kategori });
+        if (il) params.set("il", il);
+        const res = await fetch(`${PUBLIC_API_BASE}/api/endeks?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json() as EndeksSonuc;
+        const noktalar = data.noktalar ?? [];
+
+        yukl?.classList.add("hidden");
+
+        if (noktalar.length === 0) {
+          bosEl?.classList.remove("hidden");
+          return;
+        }
+
+        // İstatistikler
+        const ilk = noktalar[0]!;
+        const son = noktalar[noktalar.length - 1]!;
+        const degisim = ilk.medyan_tl_m2 > 0
+          ? ((son.medyan_tl_m2 - ilk.medyan_tl_m2) / ilk.medyan_tl_m2 * 100).toFixed(1)
+          : null;
+
+        const statSon = document.getElementById("stat-son");
+        const statSonDonem = document.getElementById("stat-son-donem");
+        const statIlk = document.getElementById("stat-ilk");
+        const statIlkDonem = document.getElementById("stat-ilk-donem");
+        const statDeg = document.getElementById("stat-degisim");
+        const statDonem = document.getElementById("stat-donem-sayisi");
+        const statIlan = document.getElementById("stat-ilan");
+
+        if (statSon) statSon.textContent = fmtTLm2(son.medyan_tl_m2);
+        if (statSonDonem) statSonDonem.textContent = son.donem;
+        if (statIlk) statIlk.textContent = fmtTLm2(ilk.medyan_tl_m2);
+        if (statIlkDonem) statIlkDonem.textContent = ilk.donem;
+        if (statDeg) {
+          statDeg.textContent = degisim ? `${parseFloat(degisim) >= 0 ? "+" : ""}${degisim}%` : "—";
+          statDeg.className = `text-xl font-bold ${degisim && parseFloat(degisim) >= 0 ? "text-emerald-600" : "text-red-600"}`;
+        }
+        if (statDonem) statDonem.textContent = `son ${noktalar.length} ay`;
+        if (statIlan) statIlan.textContent = noktalar.reduce((s,n) => s + n.ilan_adet, 0).toLocaleString("tr-TR");
+
+        // Grafik
+        const grafEl = document.getElementById("endeks-grafik");
+        if (grafEl) grafEl.innerHTML = svgGrafik(noktalar);
+
+        // Tablo
+        const tablo = document.getElementById("endeks-tablo");
+        if (tablo) {
+          tablo.innerHTML = [...noktalar].reverse().map(n => `
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-4 py-2.5 font-mono text-slate-700">${n.donem}</td>
+              <td class="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium">${n.medyan_tl_m2.toLocaleString("tr-TR")} ₺</td>
+              <td class="px-4 py-2.5 text-right tabular-nums text-slate-600">${n.endeks != null ? n.endeks.toFixed(1) : "—"}</td>
+              <td class="px-4 py-2.5 text-right tabular-nums text-slate-500">${n.ilan_adet.toLocaleString("tr-TR")}</td>
+            </tr>
+          `).join("");
+        }
+
+        // URL güncelle (history API)
+        const urlParams = new URLSearchParams(location.search);
+        if (il) urlParams.set("il", il); else urlParams.delete("il");
+        urlParams.set("kategori", kategori);
+        history.replaceState(null, "", `?${urlParams}`);
+
+        sonucEl?.classList.remove("hidden");
+      } catch (err) {
+        yukl?.classList.add("hidden");
+        if (hataEl) {
+          hataEl.textContent = err instanceof Error ? err.message : "Bağlantı hatası";
+          hataEl.classList.remove("hidden");
+        }
+      }
+    }
+
+    // Form submit
+    document.getElementById("endeks-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      void endeksYukle();
+    });
+
+    // URL params'tan başlangıç değerlerini doldur
+    const initParams = new URLSearchParams(location.search);
+    const initIl = initParams.get("il") ?? "";
+    const initKat = initParams.get("kategori") ?? "arsa";
+    const ilSec = document.getElementById("il-sec") as HTMLSelectElement;
+    const katSec = document.getElementById("kategori-sec") as HTMLSelectElement;
+    if (ilSec && initIl) ilSec.value = initIl;
+    if (katSec) katSec.value = initKat;
+
+    // İlk yükleme
+    void endeksYukle();
+  </script>
+</Base>

@@ -13,6 +13,8 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { haversineM, turkiyeBboxIcinde, kmToDegrees } from "../lib/geo.js";
+import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 export const sorguRoutes = new Hono<{ Bindings: Env }>();
 
@@ -26,16 +28,18 @@ interface SorguInput {
 const VALID_KATEGORI = new Set(["arsa", "tarla", "konut"]);
 
 // Fallback il-bazlı baseline (TL/m²) — spatial + mahalle istatistik boşsa.
-// Kabaca İstanbul/Ankara/İzmir merkez ortalaması, diğer iller 1/4. Çok kaba
-// ama "veri yok" demektense bir-aralık ver.
+// Son güncelleme: Temmuz 2026 — yüksek enflasyon ortamında sık güncellenmeli.
+// Kaynak: Endeksa, Hepsiemlak, REIDIN Temmuz 2026 ortalamaları.
 const IL_FALLBACK_TL_M2: Record<string, { arsa: number; tarla: number; konut: number }> = {
-  istanbul: { arsa: 25000, tarla: 800, konut: 60000 },
-  ankara: { arsa: 8000, tarla: 400, konut: 25000 },
-  izmir: { arsa: 15000, tarla: 600, konut: 35000 },
-  bursa: { arsa: 8000, tarla: 350, konut: 22000 },
-  antalya: { arsa: 12000, tarla: 500, konut: 30000 },
-  kocaeli: { arsa: 7000, tarla: 300, konut: 20000 },
-  default: { arsa: 5000, tarla: 200, konut: 15000 },
+  istanbul: { arsa: 85000,  tarla: 3000,  konut: 200000 },
+  ankara:   { arsa: 28000,  tarla: 1500,  konut: 80000  },
+  izmir:    { arsa: 55000,  tarla: 2000,  konut: 140000 },
+  bursa:    { arsa: 25000,  tarla: 1200,  konut: 70000  },
+  antalya:  { arsa: 45000,  tarla: 1800,  konut: 120000 },
+  kocaeli:  { arsa: 22000,  tarla: 1000,  konut: 60000  },
+  mugla:    { arsa: 60000,  tarla: 2500,  konut: 150000 },
+  aydin:    { arsa: 30000,  tarla: 1200,  konut: 80000  },
+  default:  { arsa: 15000,  tarla: 700,   konut: 40000  },
 };
 
 function ilFallbackBul(lat: number, lng: number, kategori: string): number {
@@ -48,49 +52,20 @@ function ilFallbackBul(lat: number, lng: number, kategori: string): number {
   return tier1[kategori as "arsa"] ?? tier1.arsa;
 }
 
-function turkiyeBboxIcinde(lat: number, lng: number): boolean {
-  return lat > 35 && lat < 43 && lng > 25 && lng < 46;
-}
+import { CoordinatesSchema, validateBody } from "../lib/validation.js";
 
-/** Haversine — spatial query için. */
-function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6_371_000;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
-  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
+// Merkezi rate-limit middleware — sorgu POST için 20 req/saat.
+// Free tier web app sorguları; index.ts'deki /v1/sorgu/* global 100/saat üst limiti ile birlikte çalışır.
+sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
+  const { data: body, errorResponse } = await validateBody(CoordinatesSchema.extend({
+    m2: CoordinatesSchema.shape.radiusKm.optional().nullable(),
+  }), c);
 
-async function rateLimitWeb(env: Env, ip: string): Promise<{ ok: boolean; kalan: number }> {
-  const limit = 20; // Web app daha düşük (extension'a göre daha pasif)
-  const saat = Math.floor(Date.now() / 3600_000);
-  const row = await env.DB.prepare(
-    `SELECT istek_sayisi FROM rate_limit WHERE ip = ? AND saat = ?`,
-  ).bind(`web_${ip}`, saat).first<{ istek_sayisi: number }>();
-  const mevcut = row?.istek_sayisi ?? 0;
-  if (mevcut >= limit) return { ok: false, kalan: 0 };
-  await env.DB.prepare(
-    `INSERT INTO rate_limit (ip, saat, istek_sayisi) VALUES (?, ?, 1)
-     ON CONFLICT(ip, saat) DO UPDATE SET istek_sayisi = istek_sayisi + 1`,
-  ).bind(`web_${ip}`, saat).run();
-  return { ok: true, kalan: limit - mevcut - 1 };
-}
-
-sorguRoutes.post("/", async (c) => {
-  const ip = c.req.header("CF-Connecting-IP") ?? c.req.header("X-Forwarded-For") ?? "unknown";
-  const rate = await rateLimitWeb(c.env, ip);
-  if (!rate.ok) return c.json({ error: "Rate limit (20/saat). Pro tier ile kalkar." }, 429);
-
-  const body = await c.req.json<SorguInput>().catch(() => null);
-  if (!body || typeof body.lat !== "number" || typeof body.lng !== "number") {
-    return c.json({ error: "Geçersiz lat/lng" }, 400);
+  if (errorResponse || !body) {
+    return errorResponse!;
   }
-  if (!turkiyeBboxIcinde(body.lat, body.lng)) {
-    return c.json({ error: "Koordinat Türkiye bbox dışı" }, 400);
-  }
-  const kategori = body.kategori && VALID_KATEGORI.has(body.kategori) ? body.kategori : "arsa";
+
+  const kategori = body.kategori ?? "arsa";
   const parselM2 = typeof body.m2 === "number" && body.m2 > 0 && body.m2 < 10_000_000 ? body.m2 : null;
 
   // Spatial sorgu — adaptif radius (5 → 10 → 20 km) emsal sayısına göre
@@ -108,8 +83,7 @@ sorguRoutes.post("/", async (c) => {
 
   for (const r of [5, 10, 20]) {
     radiusKm = r;
-    const latDelta = r / 111;
-    const lngDelta = r / (111 * Math.cos((body.lat * Math.PI) / 180));
+    const { latDelta, lngDelta } = kmToDegrees(r, body.lat!);
     const rows = await c.env.DB.prepare(
       `SELECT fiyat_per_m2, lat, lng, m2, mahalle_norm, imar_durumu, yakalanma_tarihi
        FROM ilanlar
@@ -242,7 +216,7 @@ sorguRoutes.post("/", async (c) => {
       r1_3km: filtered.filter((f) => f.mesafeM > 1000 && f.mesafeM <= 3000).length,
       r3_5km: filtered.filter((f) => f.mesafeM > 3000 && f.mesafeM <= 5000).length,
     },
-    kalan_kota: rate.kalan,
+    kalan_kota: 0, // rate limit artık middleware header'larında (X-RateLimit-Remaining)
   });
 });
 
@@ -263,8 +237,7 @@ sorguRoutes.get("/trend", async (c) => {
   }
 
   const radiusKm = 10;
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  const { latDelta, lngDelta } = kmToDegrees(radiusKm, lat);
   const yasEsigi = Date.now() - ay * 30 * 86_400_000;
 
   const rows = await c.env.DB.prepare(

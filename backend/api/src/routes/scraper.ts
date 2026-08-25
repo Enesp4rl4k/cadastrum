@@ -11,11 +11,11 @@
  *       15'i 03:00 UTC — Emlakjet aylık run [YENİ]
  */
 import { Hono } from "hono";
-import type { Env } from "../index.js";
+import type { Env, AppVariables } from "../index.js";
 import { jwtMiddleware } from "./hesap.js";
 import { emlakjetRunBaslat } from "../lib/emlakjet-scraper.js";
 
-export const scraperRoutes = new Hono<{ Bindings: Env }>();
+export const scraperRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
 scraperRoutes.use("/*", jwtMiddleware);
 
@@ -262,7 +262,7 @@ scraperRoutes.get("/emlakjet-kapsam", async (c) => {
 
   // Son run'lar
   const sonRunlar = await c.env.DB.prepare(
-    `SELECT id, baslangic, bitis, islened_ilce, toplam_insert, durum
+    `SELECT id, baslangic, bitis, islenen_ilce, toplam_insert, durum
      FROM scraper_run WHERE tetik LIKE 'emlakjet%' ORDER BY baslangic DESC LIMIT 10`,
   ).all().catch(() => ({ results: [] as any[] }));
 

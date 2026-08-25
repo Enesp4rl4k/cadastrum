@@ -3,19 +3,32 @@ import {
   CircleDashed as MissingIcon,
   ExternalLink as ExternalLinkIcon,
   Sparkles as SparklesIcon,
+  TrendingDown as TrendingDownIcon,
+  Info as InfoIcon,
 } from "lucide-react";
 import type { Parsel } from "../../types/tkgm";
 import type { EPlanImarVerisi } from "../../lib/eplan";
+import type { FiyatTahmini } from "../../lib/fiyat-tahmin";
 import { Card } from "../ui/Card";
+import { iskontoGetir } from "../../lib/satis-iskonto";
+import { normalizeYerAdi } from "../../lib/tkgm-api";
 
 interface Props {
   parsel: Parsel;
   imar: EPlanImarVerisi | null;
   manuelEmsalAdet: number;
   onDetayAc: () => void;
+  /** Fiyat tahmini — satış iskontosu gösterimi için */
+  tahmin?: FiyatTahmini | null;
 }
 
-export function FiyatNetlestirKarti({ parsel, imar, manuelEmsalAdet, onDetayAc }: Props) {
+export function FiyatNetlestirKarti({ parsel, imar, manuelEmsalAdet, onDetayAc, tahmin }: Props) {
+  // Satış iskontosu — asking price → gerçek satış fiyatı farkı
+  const ilNorm = parsel.ilAd ? normalizeYerAdi(parsel.ilAd) : null;
+  const tarımsalMi = /tarla|bahçe|bahce|bağ|bag|zeytin/iu.test(parsel.nitelik ?? "");
+  const iskontoSonuc = ilNorm ? iskontoGetir(ilNorm, tarımsalMi ? "tarla" : "arsa") : null;
+  // İskonto bileşeni fiyat-tahmin.ts tarafından uygulandıysa göster
+  const iskontoUygulandıMi = tahmin?.bilesenler.some((b) => b.ad === "Satış iskontosu") ?? false;
   const kullanimHazir = !!(imar?.kullanimKarari || imar?.planKarari);
   const yapilanmaHazir = imar?.taks != null || imar?.emsal != null;
   const katNizamHazir = imar?.maksKat != null || !!imar?.yapiNizami;
@@ -120,6 +133,38 @@ export function FiyatNetlestirKarti({ parsel, imar, manuelEmsalAdet, onDetayAc }
             </div>
           ))}
         </div>
+
+        {/* Satış İskontosu Bilgisi */}
+        {iskontoSonuc && (
+          <div className={`rounded-md border px-2.5 py-2 text-[10px] ${
+            iskontoUygulandıMi
+              ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/30 dark:bg-emerald-950/20"
+              : "border-blue-200 bg-blue-50/80 dark:border-blue-500/30 dark:bg-blue-950/20"
+          }`}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <TrendingDownIcon className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />
+              <span className="font-semibold text-slate-700 dark:text-slate-200">Satış İskontosu</span>
+              {iskontoUygulandıMi && (
+                <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  uygulandı
+                </span>
+              )}
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+              {parsel.ilAd} bölgesi için tahmini satış iskontosu:{" "}
+              <strong className="text-slate-800 dark:text-slate-100">
+                %{Math.round(iskontoSonuc.oran * 100)}
+              </strong>
+              {" "}— ilan fiyatından gerçek satışa bu kadar fark beklenir.
+            </p>
+            {!iskontoUygulandıMi && tahmin && (
+              <p className="text-slate-500 dark:text-slate-400 mt-0.5 flex items-start gap-1">
+                <InfoIcon className="h-3 w-3 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                Mahalle bazlı güçlü emsal varsa iskonto otomatik atlanır.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white/80 px-2 py-2 dark:border-slate-700 dark:bg-slate-800/80">
           <div className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
