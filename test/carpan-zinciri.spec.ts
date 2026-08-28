@@ -114,25 +114,34 @@ describe("nitelikCarpani", () => {
 // ── alanCarpani ──────────────────────────────────────────────────────────────
 
 describe("alanCarpani", () => {
-  it("<200 → 2.0 (mikro prim)", () => {
-    expect(alanCarpani(100).carpan).toBe(2.0);
-    expect(alanCarpani(199).carpan).toBe(2.0);
+  // Değerler emlakjet veri setinden AYNI MAHALLE içi karşılaştırmayla türetildi
+  // (bkz. carpan-zinciri.ts alanCarpani doc). Arsa referans bandı 750-2.5k.
+  it("<200 → 1.47 (mikro prim)", () => {
+    expect(alanCarpani(100).carpan).toBe(1.47);
+    expect(alanCarpani(199).carpan).toBe(1.47);
   });
-  it("200-749 → 1.5", () => {
-    expect(alanCarpani(200).carpan).toBe(1.5);
-    expect(alanCarpani(749).carpan).toBe(1.5);
+  it("200-749 → 1.27", () => {
+    expect(alanCarpani(200).carpan).toBe(1.27);
+    expect(alanCarpani(749).carpan).toBe(1.27);
   });
   it("750-2499 → 1.0 (referans)", () => {
     expect(alanCarpani(750).carpan).toBe(1.0);
     expect(alanCarpani(2499).carpan).toBe(1.0);
   });
-  it("2500-9999 → 0.66", () => {
-    expect(alanCarpani(2500).carpan).toBe(0.66);
-    expect(alanCarpani(9999).carpan).toBe(0.66);
+  it("2500-9999 → 0.67", () => {
+    expect(alanCarpani(2500).carpan).toBe(0.67);
+    expect(alanCarpani(9999).carpan).toBe(0.67);
   });
-  it("≥10000 → 0.48", () => {
-    expect(alanCarpani(10000).carpan).toBe(0.48);
-    expect(alanCarpani(50000).carpan).toBe(0.48);
+  it("10000-49999 → 0.38, ≥50000 → 0.32", () => {
+    expect(alanCarpani(10000).carpan).toBe(0.38);
+    expect(alanCarpani(49999).carpan).toBe(0.38);
+    expect(alanCarpani(50000).carpan).toBe(0.32);
+  });
+  it("tarla ölçeği ayrı — tipik tarla büyüklüğü referans, arsa gibi iskonto yemez", () => {
+    // Aynı 3.672 m² (tarla medyanı) arsa ölçeğinde 0.67x iskonto yerken
+    // tarla ölçeğinde referansa yakın kalır — baseline zaten büyük-parsel fiyatı.
+    expect(alanCarpani(3672, "arsa").carpan).toBe(0.67);
+    expect(alanCarpani(3672, "tarla").carpan).toBeGreaterThan(0.9);
   });
   it("monoton azalır — küçük arsa > büyük arsa m² fiyatı", () => {
     expect(alanCarpani(100).carpan).toBeGreaterThan(alanCarpani(1000).carpan);

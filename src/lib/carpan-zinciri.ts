@@ -142,12 +142,47 @@ export function nitelikCarpani(nitelik: string): CarpanSonucu {
  * Kademeler 13K emlakjet ilanından mahalle-içi leave-one-out ile kalibre edildi.
  * Küçük arsa → yüksek m² fiyatı (mikro prim), büyük arsa → düşük m² fiyatı.
  */
-export function alanCarpani(alan: number): CarpanSonucu {
-  if (alan < 200)   return { carpan: 2.0,  not: "Mikro arsa, m² primi çok yüksek" };
-  if (alan < 750)   return { carpan: 1.5,  not: "Küçük arsa, m² primi yüksek" };
+/**
+ * Parsel büyüklüğünün m² fiyatına etkisi — kategori bazlı.
+ *
+ * NEDEN kategori bazlı: bu çarpan bölge baseline'ının ÜZERİNE uygulanır ve
+ * baseline o mahalledeki *tipik* parselin fiyatını temsil eder. Tipik büyüklük
+ * kategoriye göre çok farklı: arsa medyanı ~1.4 dönüm, tarla medyanı ~3.7 dönüm.
+ * Tek bir arsa-kalibreli ölçek tarlaya uygulanınca, tipik tarla "büyük parsel"
+ * sayılıp 0.66x iskonto yiyordu — baseline zaten büyük-parsel fiyatı olduğu
+ * için boyut etkisi ÇİFT sayılıyordu (backtest: tarla baseline bias +%4.7 iken
+ * nihai tahmin -%26).
+ *
+ * Oranlar tahmin değil, veriden türetildi: emlakjet veri setinde (33k ilan)
+ * AYNI MAHALLE içindeki farklı büyüklük bantlarının medyan TL/m² oranları
+ * karşılaştırıldı — böylece "büyük parsel = daha kırsal = daha ucuz" konum
+ * etkisi izole edilip saf boyut etkisi ölçüldü.
+ *   arsa  (referans 750-2.5k): <200=1.47 · 200-750=1.27 · 2.5k-10k=0.67 · 10k-50k=0.38
+ *   tarla (referans 2.5k-10k): 200-750=2.46 · 750-2.5k=1.49 · 10k-50k=0.80
+ *
+ * DİKKAT — yukarı yöndeki değerler pratikte kırpılır: fiyat-tahmin.ts bu çarpanı
+ * HEURISTIC_MULTIPLIER_BANT ile sınırlıyor ve o bandın üst ucu her iki kategoride
+ * de ~1.05-1.10 (hold-out backtest'te ölçüldü). Sebep: ölçülen küçük-parsel primi
+ * gerçek ama baseline'ın kendisi o mahalledeki ilan karışımını zaten yansıtıyor,
+ * dolayısıyla primi tam uygulamak ikinci kez saymak oluyor. Aşağı yöndeki
+ * (büyük parsel) iskontolar kırpılmadan geçer — asıl kazanç orada.
+ */
+export function alanCarpani(alan: number, kategori: "arsa" | "tarla" = "arsa"): CarpanSonucu {
+  if (kategori === "tarla") {
+    // Referans: 2.500-10.000 m² — tipik tarla parseli, baseline'ın temsil ettiği büyüklük.
+    if (alan < 750)   return { carpan: 1.50, not: "Çok küçük tarla — bahçe/hobi segmentine yakın, m² primi yüksek" };
+    if (alan < 2500)  return { carpan: 1.49, not: "Küçük tarla, m² primi var" };
+    if (alan < 10000) return { carpan: 0.95,  not: "Tipik tarla büyüklüğü — referans" };
+    if (alan < 50000) return { carpan: 0.80, not: "Büyük tarla, m² fiyatı düşer" };
+    return { carpan: 0.70, not: "Çok büyük tarımsal arazi — m² fiyatı belirgin düşer" };
+  }
+  // Referans: 750-2.500 m² — tipik arsa parseli.
+  if (alan < 200)   return { carpan: 1.47, not: "Mikro arsa, m² primi yüksek" };
+  if (alan < 750)   return { carpan: 1.27, not: "Küçük arsa, m² primi var" };
   if (alan < 2500)  return { carpan: 1.0,  not: "Orta — referans" };
-  if (alan < 10000) return { carpan: 0.66, not: "Büyük, m² fiyatı belirgin düşer" };
-  return { carpan: 0.48, not: "Çok büyük, parsellenmesi gerek — m² fiyatı yarılanır" };
+  if (alan < 10000) return { carpan: 0.67, not: "Büyük, m² fiyatı belirgin düşer" };
+  if (alan < 50000) return { carpan: 0.38, not: "Çok büyük, parsellenmesi gerek — m² fiyatı yarıdan aşağı" };
+  return { carpan: 0.32, not: "Devasa parsel — toplu arazi fiyatlaması" };
 }
 
 // ─── İmar sınıflandırma ───────────────────────────────────────────────────────

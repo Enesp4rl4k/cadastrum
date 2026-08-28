@@ -39,14 +39,32 @@ export interface MahalleBaselineSonuc {
 }
 
 /**
- * Bayesian shrinkage kuvveti — kategori-bazlı.
- * Tarla'da tek bir aykırı ilan baseline'ı çok bozar → daha yüksek κ ile ilçeye daha çok çek.
- * Konut piyasası daha likit ve verisi sık → düşük κ.
+ * Bayesian shrinkage kuvveti — kategori-bazlı. alpha = guven/(guven+κ);
+ * κ büyüdükçe mahalle değeri ilçe çıpasına daha çok çekilir.
+ *
+ * Değerler hold-out backtest ile ölçüldü (test/backtest/), tahmin değil.
+ * Eski κ (arsa 30, tarla 45) klasik "ortalamaya regresyon" üretiyordu: ucuz
+ * kırsal mahalleler ilçe ortalamasına doğru yukarı çekilip aşırı pahalı,
+ * pahalı kent mahalleleri aşağı çekilip aşırı ucuz tahmin ediliyordu
+ * (arsa: <500 TL/m² bandında +%296 bias, >20k bandında -%74).
+ *
+ * κ süpürmesi (arsa, n=400 hold-out):
+ *   κ=30 (eski) → MAPE %154 · medyan bias +%16.3
+ *   κ=5         → MAPE %132 · medyan bias  +%5.7
+ *   κ=1         → MAPE %126 · medyan bias  +%1.5
+ * κ=5 seçildi: aşırı yumuşatmanın büyük kısmını kaldırıyor ama gerçekten
+ * düşük güvenli mahallelerde (guven≈5 → %50 ilçe ağırlığı) koruma kalıyor;
+ * κ=1'de shrinkage fiilen devre dışı kalır, tek ilanlık mahallelere karşı
+ * savunmasız kalırdık.
+ *
+ * NOT: κ tarla tarafında MAPE'yi çok az etkiliyor (κ=1..60 arasında %36.7-37.6);
+ * oradaki asıl kazanç alanCarpani'nin kategori bazlı olmasından geldi. Yine de
+ * simetri ve aşırı-yumuşatmayı önleme adına tarla κ'sı da düşürüldü.
  */
 export const KAPPA_BY_KATEGORI: Record<Kategori, number> = {
-  arsa: 30,
-  konut: 25,
-  tarla: 45,
+  arsa: 5,
+  konut: 5,
+  tarla: 10,
 };
 
 // İlçe→mahalle skew düzeltmesi data/ilce-baseline.ts'te tanımlı (tek kaynak); re-export.

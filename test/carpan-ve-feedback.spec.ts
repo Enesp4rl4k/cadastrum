@@ -79,24 +79,25 @@ describe("nitelikCarpani", () => {
 
 // ─── alanCarpani ──────────────────────────────────────────────────────────────
 describe("alanCarpani", () => {
-  it("< 200m² → 2.0 mikro prim", () => {
-    expect(alanCarpani(150).carpan).toBeCloseTo(2.0);
+  // Değerler veri setinden aynı-mahalle içi karşılaştırmayla türetildi.
+  it("< 200m² → 1.47 mikro prim", () => {
+    expect(alanCarpani(150).carpan).toBeCloseTo(1.47);
   });
 
-  it("200-750m² → 1.5 küçük prim", () => {
-    expect(alanCarpani(500).carpan).toBeCloseTo(1.5);
+  it("200-750m² → 1.27 küçük prim", () => {
+    expect(alanCarpani(500).carpan).toBeCloseTo(1.27);
   });
 
   it("750-2500m² → 1.0 referans", () => {
     expect(alanCarpani(1500).carpan).toBeCloseTo(1.0);
   });
 
-  it("2500-10000m² → 0.66 büyük parsel", () => {
-    expect(alanCarpani(5000).carpan).toBeCloseTo(0.66);
+  it("2500-10000m² → 0.67 büyük parsel", () => {
+    expect(alanCarpani(5000).carpan).toBeCloseTo(0.67);
   });
 
-  it("> 10000m² → 0.48 çok büyük", () => {
-    expect(alanCarpani(15000).carpan).toBeCloseTo(0.48);
+  it("> 10000m² → 0.38 çok büyük", () => {
+    expect(alanCarpani(15000).carpan).toBeCloseTo(0.38);
   });
 
   it("Alan arttıkça çarpan monoton azalır", () => {

@@ -19,8 +19,7 @@ import { depremRiskiGetir } from "./data/deprem-zonlari";
 import { pgaCarpani } from "./deprem-tdth";
 import { taskinRiskiGetir, taskinCarpani } from "./data/taskin-risk";
 import {
-  HEURISTIC_MULTIPLIER_MIN,
-  HEURISTIC_MULTIPLIER_MAX,
+  HEURISTIC_MULTIPLIER_BANT,
 } from "./fiyat/constants";
 import {
   manuelEmsaliIlanaCevir,
@@ -261,7 +260,7 @@ export async function fiyatTahminEt(
     }
   }
 
-  const alan = alanCarpani(parsel.alan);
+  const alan = alanCarpani(parsel.alan, baseline.kategori);
   const konum = konumCarpani(parsel);
   const cevreC = cevreCarpani(cevre);
   const egimC = egimCarpani(egim);
@@ -269,10 +268,13 @@ export async function fiyatTahminEt(
 
   const kategoriMultiplier = nitelik.carpan * imarC.carpan;
   const rawIncearMultiplier = alan.carpan * konum.carpan * cevreC.carpan * egimC.carpan * kirsalC.carpan;
+  // Koruma bandı kategoriye bağlı — alan etkisinin gerçek aralığı arsa ve tarlada
+  // farklı, tek bir band arsa'nın uçlarını kırpıyordu (bkz. constants.ts).
+  const incearBant = HEURISTIC_MULTIPLIER_BANT[baseline.kategori];
   const clampedIncearMultiplier =
     rawIncearMultiplier <= 0
       ? 0
-      : clamp(rawIncearMultiplier, HEURISTIC_MULTIPLIER_MIN, HEURISTIC_MULTIPLIER_MAX);
+      : clamp(rawIncearMultiplier, incearBant.min, incearBant.max);
   const incearClampFactor =
     rawIncearMultiplier > 0 ? clampedIncearMultiplier / rawIncearMultiplier : 1;
   const incearClamped = Math.abs(incearClampFactor - 1) > 0.01;

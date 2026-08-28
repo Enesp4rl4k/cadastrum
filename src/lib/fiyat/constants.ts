@@ -95,8 +95,38 @@ export const GUN_MS = 86_400_000;
 export const MAX_ILAN_YASI_GUN = 180;
 export const MIN_MAHALLE_BASELINE_SAMPLES = 3;
 export const MIN_ILCE_BASELINE_SAMPLES = 5;
-export const HEURISTIC_MULTIPLIER_MIN = 0.70;
-export const HEURISTIC_MULTIPLIER_MAX = 1.35;
+/**
+ * İnce ayar çarpanları (alan × konum × çevre × eğim × kırsal) için koruma bandı
+ * — kategori bazlı.
+ *
+ * NEDEN kategori bazlı: bandın, taşıması gereken en büyük bileşen olan alan
+ * etkisini kırpmaması gerekir ve o etkinin gerçek aralığı kategoriye göre
+ * farklı (bkz. carpan-zinciri.ts alanCarpani, aynı-mahalle içi ölçüm):
+ *   arsa  0.32x–1.47x  → geniş band gerekiyor
+ *   tarla 0.70x–1.50x  → dar band zaten yeterli
+ *
+ * Band asimetrik: ALT uç geniş, ÜST uç 1.0'a yakın.
+ *   - Alt uç, arsa'nın gerçek büyük-parsel iskontosunu (0.38x) geçirecek kadar
+ *     geniş; eski 0.70 tabanı bunu kırpıyordu.
+ *   - Üst uç ~1.05-1.10'da tutuluyor: ölçülen küçük-parsel primi gerçek olsa da
+ *     baseline zaten mahallenin ilan karışımını yansıttığı için primi tam
+ *     uygulamak ikinci kez saymak oluyor ve tahmini şişiriyor.
+ *
+ * Değerler hold-out backtest'le seçildi (n=1200/segment), tahmin değil.
+ * Tarla üst uç süpürmesi (MAPE / ±%20):
+ *   max 1.45 → 45.3 / 37.5 · 1.25 → 41.0 / 42.1 · 1.15 → 39.1 / 47.4 · 1.05 → 37.9 / 49.1
+ * Arsa üst uç süpürmesi:
+ *   max 1.80 → 134.2 / 17.7 · 1.30 → 134.0 / 17.6 · 1.10 → 132.3 / 17.8
+ * Runaway çarpanlara karşı koruma amacı her iki kategoride de korunuyor.
+ */
+export const HEURISTIC_MULTIPLIER_BANT: Record<"arsa" | "tarla", { min: number; max: number }> = {
+  arsa:  { min: 0.45, max: 1.10 },
+  tarla: { min: 0.70, max: 1.05 },
+};
+
+/** Geriye dönük uyumluluk — kategori bilinmeyen çağrılar için arsa bandı. */
+export const HEURISTIC_MULTIPLIER_MIN = HEURISTIC_MULTIPLIER_BANT.arsa.min;
+export const HEURISTIC_MULTIPLIER_MAX = HEURISTIC_MULTIPLIER_BANT.arsa.max;
 export const EMSAL_MIN_BENZERLIK = 0.45;
 export const EMSAL_MAX_SECIM = 12;
 export const EMSAL_MAX_ILCE_DESTEK = 5;

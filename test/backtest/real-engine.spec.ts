@@ -38,7 +38,7 @@ const ROOT = join(__dirname, "..", "..");
 const SQL_YOLU = join(ROOT, "scripts/emlakjet-data-turkiye.sql");
 const ESIK_YOLU = join(ROOT, "data/backtest-esik-real.json");
 const MIN_TEST = 30;
-const MAX_TEST_PER_SEGMENT = 400; // CI süresini makul tut — deterministik örneklem
+const MAX_TEST_PER_SEGMENT = 1200; // CI suresini makul tut — deterministik orneklem
 const MAPE_TOLERANS = 5.0;
 const WITHIN_TOLERANS = 3.0;
 const YAZ_MODU = process.env.BACKTEST_YAZ === "1";
