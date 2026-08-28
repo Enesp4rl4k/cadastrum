@@ -19,6 +19,13 @@
  * GET /v1/harita/trend?kategori=arsa
  *   → İl bazlı son 6 ay fiyat değişim yüzdesi (sıcaklık haritası için)
  *
+ * GET /v1/harita/ilceler
+ *   → Bilinen tüm ilçe kodları + yaklaşık merkez koordinatı (D1'den — TKGM'ye
+ *     hiç istek atmadan). Site harita sayfasının viewport-bazlı ilçe keşfi
+ *     için (bkz. site/src/scripts/harita-init.ts) — daha önce bu iş canlı
+ *     TKGM idariYapi proxy'si üzerinden yapılıyordu, yasal/ToS riski
+ *     nedeniyle kaldırıldı.
+ *
  * GET /v1/harita/seed-status
  *   → Kaç ilçe/tip/yıl seed edilmiş (admin/debug için)
  */
@@ -130,6 +137,27 @@ haritaRoutes.get("/ozet", async (c) => {
     { analizTip, birlesik, ozet: rows.results ?? [] },
     200,
     { "Cache-Control": "public, max-age=3600" }, // 1 saat
+  );
+});
+
+// ── İlçe kodu + yaklaşık merkez (TKGM'ye hiç istek atmadan, D1'den) ──────────
+
+haritaRoutes.get("/ilceler", async (c) => {
+  // Sabit bir yıl/tipe filtrelemiyoruz — amaç sadece "hangi ilçe kodları var
+  // + yaklaşık merkezi" bulmak, hangi yılın seed edildiği zamanla değişebilir
+  // (bkz. /ozet'in YIL_MAX-1 varsayımı: seed verisi 2024'te kalmışken bugünün
+  // yılı ilerledikçe sessizce boş sonuç dönerdi). Tablo ~250k satır — filtresiz
+  // GROUP BY bu boyutta ucuz, 30 günlük cache zaten tekrar sorgulanmasını önlüyor.
+  const rows = await c.env.DB.prepare(
+    `SELECT ilce_kodu, AVG(enlem) AS lat, AVG(boylam) AS lng
+     FROM tkgm_analiz_noktalari
+     GROUP BY ilce_kodu`
+  ).all<{ ilce_kodu: number; lat: number; lng: number }>();
+
+  return c.json(
+    { ilceler: rows.results ?? [] },
+    200,
+    { "Cache-Control": "public, max-age=2592000" }, // 30 gün — idari yapı pratikte hiç değişmez
   );
 });
 

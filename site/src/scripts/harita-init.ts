@@ -62,27 +62,6 @@ const TIP_ETIKETLERI: Record<number, string> = {
   5: "Bağımsız Bölüm İpotekli Satış",
 };
 
-// İl merkez koordinatları — ilçe listesi viewport filtresi için
-const IL_MERKEZLER: Record<number, [number, number]> = {
-  1:[37.00,35.32],2:[37.76,38.28],3:[38.76,30.54],4:[39.72,43.06],5:[40.65,35.83],
-  6:[39.92,32.85],7:[36.90,30.70],8:[41.18,41.82],9:[37.85,27.85],10:[39.65,27.88],
-  11:[40.15,29.97],12:[39.00,40.50],13:[38.40,42.11],14:[40.74,31.61],15:[37.72,30.29],
-  16:[40.19,29.06],17:[40.15,26.41],18:[40.60,33.62],19:[40.55,34.95],20:[37.78,29.09],
-  21:[37.91,40.22],22:[41.67,26.56],23:[38.68,39.22],24:[39.75,39.49],25:[39.91,41.27],
-  26:[39.78,30.52],27:[37.07,37.38],28:[40.91,38.39],29:[40.44,39.48],30:[37.58,43.74],
-  31:[36.60,36.16],32:[37.76,30.56],33:[36.80,34.64],34:[41.01,28.95],35:[38.42,27.14],
-  36:[40.61,36.10],37:[41.37,33.78],38:[38.72,35.49],39:[41.73,27.22],40:[39.15,33.52],
-  41:[40.85,29.88],42:[37.87,32.49],43:[39.42,29.98],44:[38.35,38.31],45:[38.62,27.43],
-  46:[37.58,36.94],47:[37.32,40.74],48:[37.21,28.37],49:[38.73,41.49],50:[38.62,34.72],
-  51:[37.97,34.68],52:[40.98,37.88],53:[41.02,40.52],54:[40.69,30.43],55:[41.28,36.33],
-  56:[38.00,41.95],57:[42.03,35.15],58:[39.75,37.02],59:[41.42,27.98],60:[40.31,36.55],
-  61:[40.99,39.73],62:[39.11,39.55],63:[37.16,38.80],64:[38.67,29.40],65:[38.50,43.41],
-  66:[39.83,34.81],67:[41.46,31.80],68:[38.35,33.99],69:[40.62,43.10],70:[37.18,33.22],
-  71:[40.11,33.51],72:[37.89,41.14],73:[37.52,42.46],74:[41.63,32.34],75:[41.08,42.71],
-  76:[39.89,44.04],77:[40.65,29.27],78:[41.20,32.64],79:[36.72,37.12],80:[37.07,36.23],
-  81:[40.84,31.16],
-};
-
 interface D1Nokta {
   parsel_id: number;
   enlem: number;
@@ -92,8 +71,6 @@ interface D1Nokta {
 
 interface IlceBilgi {
   ilceKodu: number;
-  ilceAdi: string;
-  ilKodu: number;
   lat: number;
   lng: number;
 }
@@ -1043,8 +1020,16 @@ async function ilceBirlesikCek(ilceKodu: number, tip: number): Promise<D1Nokta[]
 // istemci tarafında da aynı süre localStorage'da tutup ilk yüklemeyi hızlandırıyoruz.
 const ILCE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+// NOT: bu fonksiyon önceden ilçe listesini backend proxy'si üzerinden canlı
+// TKGM idariYapi API'sinden çekiyordu (Origin/Referer spoofing ile resmi
+// portalı taklit ederek). Anonim kamuya açık site trafiği için bu yasal/ToS
+// riski taşıyor — backend'in kendi D1'inde (offline seed edilmiş,
+// tkgm_analiz_noktalari) zaten aynı bilgi var, tek bir istekle ve TKGM'ye
+// hiç dokunmadan alınabiliyor (bkz. backend/api/src/routes/harita.ts
+// GET /ilceler — header yorumu "Site buradan okur; TKGM'ye doğrudan hiç
+// istek atmaz" zaten bu route'un tasarım niyetiydi).
 async function tumIlceleriCek(): Promise<IlceBilgi[]> {
-  const cacheKey = "tkgm-ilce-listesi-v3";
+  const cacheKey = "d1-ilce-listesi-v1";
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -1053,38 +1038,17 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
     }
   } catch {}
 
-  const ilceler: IlceBilgi[] = [];
-  const ilKodlari = Array.from({ length: 81 }, (_, i) => i + 1);
-  const GRUP = 24;
-
-  for (let i = 0; i < ilKodlari.length; i += GRUP) {
-    const grup = ilKodlari.slice(i, i + GRUP);
-    await Promise.allSettled(
-      grup.map(async (ilKodu) => {
-        try {
-          const res = await fetch(`${API_BASE}/proxy/tkgm-idari/ilceListe/${ilKodu}`);
-          if (!res.ok) return;
-          const data = await res.json() as {
-            features?: Array<{ properties?: Record<string, unknown> }>;
-          };
-          const merkez = IL_MERKEZLER[ilKodu] ?? [39.0, 35.5];
-          for (const f of data.features ?? []) {
-            const p = (f.properties ?? {}) as Record<string, unknown>;
-            const ilceKodu = Number(p["id"] ?? 0);
-            if (!ilceKodu) continue;
-            const idx = ilceler.filter(x => x.ilKodu === ilKodu).length;
-            ilceler.push({
-              ilceKodu,
-              ilceAdi: String(p["text"] ?? p["ad"] ?? ""),
-              ilKodu,
-              lat: merkez[0] + ((idx % 6) - 2.5) * 0.25,
-              lng: merkez[1] + (Math.floor(idx / 6) - 2) * 0.35,
-            });
-          }
-        } catch {}
-      })
-    );
-  }
+  let ilceler: IlceBilgi[] = [];
+  try {
+    const res = await fetch(`${API_BASE}/harita/ilceler`);
+    if (res.ok) {
+      const data = await res.json() as { ilceler?: Array<{ ilce_kodu: number; lat: number; lng: number }> };
+      ilceler = (data.ilceler ?? [])
+        .filter((x) => x.ilce_kodu > 0 && Number.isFinite(x.lat) && Number.isFinite(x.lng))
+        .map((x) => ({ ilceKodu: x.ilce_kodu, lat: x.lat, lng: x.lng }));
+    }
+  } catch {}
+  if (ilceler.length === 0) return ilceler; // erişilemedi — boş dön, çağıran cache'lemez
 
   try {
     localStorage.setItem(cacheKey, JSON.stringify({ veri: ilceler, zaman: Date.now() }));

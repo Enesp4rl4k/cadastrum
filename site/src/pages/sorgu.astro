@@ -362,12 +362,16 @@ import Base from "../layouts/Base.astro";
     // ── State ──
     let map: any = null;
     let marker: any = null;
+    let ml: any = null; // maplibre-gl modülü — initHarita() dinamik import ile doldurur
     let currentLat = 0, currentLng = 0;
 
     // ── MapLibre init ──
-    function initHarita() {
-      const ml = (window as any).maplibregl;
-      if (!ml || !document.getElementById("sorgu-harita")) return;
+    // NOT: global `window.maplibregl`'e güvenmiyoruz — modülü dinamik import ediyoruz
+    // (harita.astro / harita-init.ts:1807 ile aynı pattern). Sayfa sonunda
+    // astro:page-load ile çağrılır.
+    async function initHarita() {
+      if (!document.getElementById("sorgu-harita")) return;
+      ml = await import("maplibre-gl");
 
       map = new ml.Map({
         container: "sorgu-harita",
@@ -405,7 +409,6 @@ import Base from "../layouts/Base.astro";
       }
 
       // Marker koy/taşı
-      const ml = (window as any).maplibregl;
       if (map && ml) {
         if (marker) {
           marker.setLngLat([lng, lat]);
@@ -499,6 +502,10 @@ import Base from "../layouts/Base.astro";
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        // Backend'in kalan_kota alanı hep 0 döner (bkz. sorgu.ts yorumu) — gerçek
+        // değer rate-limit middleware'inin response header'larında.
+        const kotaKalan = res.headers.get("X-RateLimit-Remaining");
+        const kotaLimit = res.headers.get("X-RateLimit-Limit");
         const data = await res.json();
         submitBtn.disabled = false;
 
@@ -571,7 +578,7 @@ import Base from "../layouts/Base.astro";
               <div><span class="text-slate-400">📍</span> Yarıçap: <strong>${data.radius_km} km</strong></div>
               <div><span class="text-slate-400">🎯</span> Emsal: <strong>${data.emsal_adet}</strong> ilan
                 (0-1km: ${data.halka_dagilimi.r0_1km}, 1-3km: ${data.halka_dagilimi.r1_3km}, 3-5km: ${data.halka_dagilimi.r3_5km})</div>
-              <div><span class="text-slate-400">📊</span> Bu saat kalan kotanız: <strong>${data.kalan_kota}/20</strong></div>
+              ${kotaKalan !== null ? `<div><span class="text-slate-400">📊</span> Bu saat kalan kotanız: <strong>${kotaKalan}${kotaLimit ? `/${kotaLimit}` : ""}</strong></div>` : ""}
             </div>
 
             <div class="mt-5 pt-4 border-t border-slate-100 flex gap-2 flex-wrap">
@@ -905,7 +912,6 @@ import Base from "../layouts/Base.astro";
 
         // Haritaya pinleri ekle (koordinat varsa)
         nlPinleriTemizle();
-        const ml = (window as any).maplibregl;
         if (map && ml) {
           const koordinatliSonuclar = sonuclar.filter((s) => s.lat && s.lng);
           if (koordinatliSonuclar.length > 0) {
@@ -1080,5 +1086,7 @@ import Base from "../layouts/Base.astro";
       // Otomatik sorgu tetikle
       setTimeout(() => form.requestSubmit(), 100);
     }
+
+    document.addEventListener("astro:page-load", () => initHarita());
   </script>
 </Base>

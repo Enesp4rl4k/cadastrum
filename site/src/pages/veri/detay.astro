@@ -86,7 +86,8 @@ import PaywallOverlay from "../../components/PaywallOverlay.astro";
 
 <script>
   // @ts-nocheck
-  const API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+  import { PUBLIC_API_BASE } from "../../lib/config";
+  const API = PUBLIC_API_BASE;
   // Auth tabanlı Pro kontrolü
   function _kullanici() {
     try { return JSON.parse(localStorage.getItem("cadastrum_user") || "null"); } catch { return null; }
@@ -417,25 +418,18 @@ import PaywallOverlay from "../../components/PaywallOverlay.astro";
         </div>`;
     }
 
-    // Kira getirisi tahmini (mock — gerçek hesaplama ileride)
-    const kiraGetirisi = v.medyan ? `
-      <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <div class="text-xs uppercase tracking-wide text-slate-500 font-medium mb-2">Tahmini kira getirisi (yıllık)</div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-3xl font-bold text-imperial-700">%${(2.5 + Math.random() * 2).toFixed(1)}</span>
-          <span class="text-xs text-slate-500">brüt yıllık verim</span>
-        </div>
-        <p class="text-xs text-slate-500 mt-2 leading-relaxed">
-          Bölge ortalamasına göre tahmin. Gerçek verim mahalle, daire tipi ve yapı yaşına göre değişir.
-        </p>
-      </div>` : "";
+    // NOT: burada daha önce Math.random() ile üretilen bir "tahmini kira
+    // getirisi" kartı vardı — gerçek bir hesaplama olmadan rastgele bir
+    // sayıyı finansal veri gibi göstermek yanıltıcıydı, kaldırıldı.
+    // Gerçek bir kira-getirisi hesabı gerekiyorsa extension'daki
+    // src/lib/kira-getirisi.ts (kiraTahminiHesapla) referans alınabilir —
+    // bunun için backend'e ayrı bir endpoint eklenmesi gerekiyor.
 
     return `
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         ${percentilBar}
         ${yillikKart}
         ${karsilastirma}
-        ${kiraGetirisi}
       </div>`;
   }
 

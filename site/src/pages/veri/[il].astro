@@ -259,10 +259,23 @@ const icerik = IL_ICERIK[il!] ?? null;
   </section>
 </Base>
 
-<script define:vars={{ il, ilDisplay }}>
-  // @ts-nocheck
-  import { PUBLIC_API_BASE } from "../lib/config";
+<!--
+  Server-taraflı il/ilDisplay değerlerini client script'e taşımak için data
+  attribute — define:vars kullanmıyoruz çünkü o bloklar Astro tarafından
+  bundle edilmiyor (düz inline script basılıyor), içinde `import` olması
+  tarayıcıda "Cannot use import statement outside a module" hatası verir.
+-->
+<div id="il-veri-baglam" data-il={il} data-il-display={ilDisplay} class="hidden"></div>
+
+<script>
+  // @ts-nocheck — bu script uzun süredir tiplenmemiş DOM/JS kodu; define:vars
+  // bug'ını düzeltmek kapsamında (bkz. yukarıdaki not) tüm dosyayı tiplemek
+  // ayrı bir iş. Asıl düzeltme: gerçek bundle edilen modül + doğru import yolu.
+  import { PUBLIC_API_BASE } from "../../lib/config";
   const API = PUBLIC_API_BASE;
+  const baglam = document.getElementById("il-veri-baglam");
+  const il = baglam.dataset.il;
+  const ilDisplay = baglam.dataset.ilDisplay;
   let kategori = new URLSearchParams(location.search).get("kategori") || "arsa";
 
   function fmtTLM2(n) {

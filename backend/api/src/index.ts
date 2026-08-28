@@ -130,6 +130,9 @@ app.use("/*", cors({
   // Bu başlık burada izinli değilse, geçerli anahtarı olan istek bile preflight'ta
   // engellenir.
   allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+  // Rate-limit header'ları default'ta tarayıcı JS'ine görünmez (CORS safelist
+  // dışında) — sorgu.astro gibi client'lar gerçek kalan-kota'yı gösterebilsin.
+  exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
   maxAge: 86400,
 }));
 
