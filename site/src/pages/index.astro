@@ -737,6 +737,8 @@ const features = [
 </style>
 
 <script>
+  import { PUBLIC_API_BASE } from "../lib/config";
+
   let heroScrubCleanup: (() => void) | null = null;
 
   function initHeroScrub() {
@@ -820,7 +822,7 @@ const features = [
     const btn = heroForm.querySelector("button[type=submit]") as HTMLButtonElement;
     if (btn) { btn.disabled = true; btn.textContent = "..."; }
     try {
-      const r = await fetch(`${import.meta.env.PUBLIC_API_BASE ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"}/newsletter/abone-ol`, {
+      const r = await fetch(`${PUBLIC_API_BASE}/newsletter/abone-ol`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, kaynak: "hero" }),
@@ -853,7 +855,7 @@ const features = [
   // Waitlist sayım — canlı social proof
   async function guncelleSayim() {
     try {
-      const r = await fetch(`${import.meta.env.PUBLIC_API_BASE ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1"}/newsletter/sayim`);
+      const r = await fetch(`${PUBLIC_API_BASE}/newsletter/sayim`);
       const j = await r.json();
       // Tabandan başla — gerçek sayı + base ekleyebiliriz isteğe bağlı
       const toplam = Math.min(100, Math.max(0, j.toplam ?? 0));

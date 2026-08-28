@@ -21,8 +21,10 @@
  *     son_guncelleme: 1700000000
  *   }
  *
- * Endeks hesabı: ilk noktayı 100 kabul eder, sonrakiler buna göre normalize edilir.
- * Bu sayede farklı iller ve kategoriler karşılaştırılabilir hale gelir.
+ * Endeks hesabı: MIN_BAZ_ILAN_ADET eşiğini geçen ilk noktayı 100 kabul eder
+ * (kronolojik ilk satır değil — düşük hacimli bir ay yanlışlıkla taban
+ * olmasın diye), sonrakiler buna göre normalize edilir. Bu sayede farklı
+ * iller ve kategoriler karşılaştırılabilir hale gelir.
  *
  * Rate limit: API key gerekmez (public), ancak IP bazlı 30/saat sınırı uygulanır.
  */
@@ -44,6 +46,14 @@ interface ZamanNoktasi {
 function donemStr(yil: number, ay: number): string {
   return `${yil}-${String(ay).padStart(2, "0")}`;
 }
+
+// Taban dönem (endeks=100) için minimum ilan sayısı. Bunsuz, veri toplamanın
+// henüz başladığı/az olduğu bir ay (ör. 16 ilan) kronolojik olarak "ilk satır"
+// diye taban alınabiliyordu — sonraki ayların binlerce ilanlık gerçek medyanı
+// bu istatistiksel olarak anlamsız küçük örnekleme bölünüp yanıltıcı ("-%93")
+// bir endeks üretiyordu. Bkz. gerçek olay: 2026-05 (16 ilan) taban alınmış,
+// 2026-06 (882 ilan) endeks=7.2 çıkmıştı — piyasa çökmedi, taban bozuktu.
+const MIN_BAZ_ILAN_ADET = 50;
 
 function donemParse(s: string): { yil: number; ay: number } | null {
   const m = /^(\d{4})-(\d{2})$/.exec(s);
@@ -147,8 +157,14 @@ endeksRoutes.get("/", rateLimitMiddleware(30, "endeks"), async (c) => {
       });
     }
 
-    // Endeks hesabı — ilk noktayı 100 kabul et
-    const bazMedyan = rows[0]!.medyan;
+    // Endeks hesabı — taban dönem olarak MIN_BAZ_ILAN_ADET eşiğini geçen ilk
+    // noktayı kabul et (kronolojik ilk satır değil — bkz. yukarıdaki not).
+    // Hiçbir satır eşiği geçmiyorsa (tüm dönem düşük hacimli) yine de en
+    // yüksek hacimli satırı taban al — boş/null endeks dönmektense en az kötü seçenek.
+    const bazSatir =
+      rows.find((r) => r.ilan_adet >= MIN_BAZ_ILAN_ADET) ??
+      rows.reduce((en, r) => (r.ilan_adet > en.ilan_adet ? r : en), rows[0]!);
+    const bazMedyan = bazSatir.medyan;
     const noktalar = rows.map((r) => ({
       donem: donemStr(r.yil, r.ay),
       yil: r.yil,
@@ -163,7 +179,7 @@ endeksRoutes.get("/", rateLimitMiddleware(30, "endeks"), async (c) => {
         il: ilNorm,
         kategori,
         noktalar,
-        baz_donem: donemStr(rows[0]!.yil, rows[0]!.ay),
+        baz_donem: donemStr(bazSatir.yil, bazSatir.ay),
         son_guncelleme: Math.floor(Date.now() / 1000),
       },
       200,

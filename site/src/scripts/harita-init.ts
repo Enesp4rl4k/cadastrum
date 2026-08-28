@@ -15,10 +15,9 @@
  *   İlçe bazında OSB yakınlığı + havalimanı yakınlığı + tapu yoğunluğu birleşimi
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const API_BASE: string = (typeof (import.meta as any).env !== "undefined"
-  ? (import.meta as any).env.PUBLIC_API_BASE
-  : undefined) ?? "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
+import { PUBLIC_API_BASE } from "../lib/config";
+
+const API_BASE: string = PUBLIC_API_BASE;
 
 // ─── Fiyat choropleth renk paleti (TL/m² log skala) ──────────────────────────
 // Logaritmik interpolasyon: 500 TL/m² (kırsal) → 100.000 TL/m² (İstanbul merkez)
