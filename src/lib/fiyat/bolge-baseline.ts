@@ -19,13 +19,15 @@ import {
   weightedAverage,
   weightedMedian,
   clamp,
+  type EmsalAdayi,
 } from "./emsal-havuzu";
 import { tarımsalMi } from "../carpan-zinciri";
 import {
   bolgeFiyatOzetiHesapla,
   dinamikIndirimOrani,
-  outlierTemizleBaglamsalAsimli,
 } from "../fiyat-correction";
+import { emsalHavuzunuRafineEt } from "./outlier-engine";
+import type { RawIlanGirdisi } from "./data-sanitizer";
 import { ilceBaselineGetir } from "../data/ilce-baseline";
 import { enflasyonDuzelt } from "../enflasyon-duzeltme";
 import {
@@ -161,18 +163,58 @@ export async function bolgeBaseliniGetir(
     : null;
 
   if (secilenEmsaller.length >= minEmsal) {
-    const fiyatlar = secilenEmsaller.map((a) => a.fiyatPerM2TL);
-    const ilNormStr = normalizeYerAdi(parsel.ilAd ?? "");
-    const kategoriStr = parsel.nitelik
-      ? normalizeYerAdi(parsel.nitelik).split(" ")[0] ?? "arsa"
-      : "arsa";
-    const baglamsalOutlier = outlierTemizleBaglamsalAsimli(fiyatlar, ilNormStr, kategoriStr);
-    const outlier = { temiz: baglamsalOutlier.temiz, cikarilan: [...baglamsalOutlier.mutlakAtilanlar, ...baglamsalOutlier.iqrAtilanlar] };
-    const temizSet = new Set(outlier.temiz);
-    const temizEmsaller =
-      outlier.temiz.length >= Math.max(3, Math.ceil(secilenEmsaller.length / 2))
-        ? secilenEmsaller.filter((a) => temizSet.has(a.fiyatPerM2TL))
+    // Veri Rafinerisi: sanitasyon (hisseli/kooperatif/hobi/2B tespiti) + zaman
+    // serisi enflasyon endekslemesi (nominal ilan fiyatını bugüne taşı) + il/ilçe/
+    // kategori bazlı Tukey IQR — tek geçişte. `outlierTemizleBaglamsalAsimli`'nin
+    // yerini alır: aynı mutlak sınır + IQR mantığını (IL_KATEGORI_SINIR) içerir,
+    // ayrıca nominal/güncel fiyat tutarsızlığını da giderir (bkz. proje planı, madde B).
+    const rafineGirdi: RawIlanGirdisi[] = secilenEmsaller.map((a, i) => ({
+      ilanNo: `emsal_${i}`,
+      baslik: a.kayit.baslik ?? undefined,
+      fiyatTL: Math.round(a.fiyatPerM2TL * (a.kayit.m2 || 1)),
+      m2: a.kayit.m2 || 1,
+      ilAd: a.kayit.ilAd ?? parsel.ilAd ?? undefined,
+      ilceAd: a.kayit.ilceAd ?? parsel.ilceAd ?? undefined,
+      mahalleAd: a.kayit.mahalleAd ?? undefined,
+      nitelik: isTarimsal ? "tarla" : "arsa",
+      imarDurumu: a.kayit.imarDurumu ?? undefined,
+      tarih: a.kayit.zaman,
+    }));
+
+    const rafinasyon = await emsalHavuzunuRafineEt(
+      rafineGirdi,
+      parsel.ilAd ?? undefined,
+      isTarimsal ? "tarla" : "arsa",
+    );
+    const rafineMap = new Map(rafinasyon.temizHavuz.map((r) => [r.ilanNo, r]));
+
+    const rafineEdilmisEmsaller: EmsalAdayi[] = [];
+    for (let i = 0; i < secilenEmsaller.length; i++) {
+      const r = rafineMap.get(`emsal_${i}`);
+      if (!r) continue;
+      const a = secilenEmsaller[i]!;
+      rafineEdilmisEmsaller.push({
+        ...a,
+        // Nominal fiyat yerine bugüne enflasyonla taşınmış fiyat kullanılır.
+        fiyatPerM2TL: r.normalizeFiyatPerM2,
+        // Benzerlik ağırlığı × (mülkiyet temizliği × tazelik) — tek birleşik ağırlık.
+        weight: clamp(a.weight * r.agirlik, 0, 1.25),
+      });
+    }
+
+    // Rafineri havuzu aşırı küçültürse (ör. tüm emsaller bölgesel absürd sınırın
+    // dışında düşerse) orijinal (rafine edilmemiş, nominal fiyatlı) sete geri dön —
+    // pipeline'ı kırma. Aynı eşik önceki outlierTemizleBaglamsalAsimli mantığıyla korunur.
+    const temizEmsaller: EmsalAdayi[] =
+      rafineEdilmisEmsaller.length >= Math.max(3, Math.ceil(secilenEmsaller.length / 2))
+        ? rafineEdilmisEmsaller
         : secilenEmsaller;
+
+    const rafinasyonUygulandi = temizEmsaller === rafineEdilmisEmsaller;
+    const outlier = {
+      cikarilan: rafinasyonUygulandi ? rafinasyon.elenenler : [],
+    };
+
     const weightedValues = temizEmsaller.map((a) => ({
       value: a.fiyatPerM2TL,
       weight: a.weight,
@@ -232,8 +274,22 @@ export async function bolgeBaseliniGetir(
       );
     }
     if (outlier.cikarilan.length > 0) {
+      const asamaSayaci = new Map<string, number>();
+      for (const e of outlier.cikarilan) {
+        asamaSayaci.set(e.asama, (asamaSayaci.get(e.asama) ?? 0) + 1);
+      }
+      const asamaOzet = [
+        asamaSayaci.get("sanitasyon") ? `${asamaSayaci.get("sanitasyon")} hukuki/mülkiyet kısıtı` : "",
+        asamaSayaci.get("mutlak_sinir") ? `${asamaSayaci.get("mutlak_sinir")} mutlak sınır dışı` : "",
+        asamaSayaci.get("istatistiksel_iqr") ? `${asamaSayaci.get("istatistiksel_iqr")} Tukey IQR outlier` : "",
+        asamaSayaci.get("zaman_veya_fiyat") ? `${asamaSayaci.get("zaman_veya_fiyat")} geçersiz zaman/fiyat` : "",
+      ].filter(Boolean).join(", ");
       veriKalitesiNotlari.push(
-        `${outlier.cikarilan.length} aykırı emsal havuz dışına itildi (Tukey IQR).`,
+        `${outlier.cikarilan.length} emsal veri rafinerisinde havuz dışına itildi (${asamaOzet}).`,
+      );
+    } else if (!rafinasyonUygulandi) {
+      veriKalitesiNotlari.push(
+        "Veri rafinerisi havuzu aşırı küçülttüğü için rafine edilmemiş (nominal fiyatlı) emsal seti kullanıldı.",
       );
     }
     if (dovizDonusturulenAdet > 0) {

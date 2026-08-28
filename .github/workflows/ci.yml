@@ -35,8 +35,11 @@ jobs:
       - name: Extension tests
         run: npm test
 
-      - name: Accuracy regression guard
+      - name: Accuracy regression guard (proxy)
         run: node scripts/backtest-guard.mjs
+
+      - name: Accuracy regression guard (real engine)
+        run: npm run backtest:real
 
       - name: Extension build (store)
         run: npm run build:store

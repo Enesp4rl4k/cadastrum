@@ -1,5 +1,5 @@
 {
-  "olusturuldu": "2026-07-02T07:56:51.397Z",
+  "olusturuldu": "2026-08-28T13:11:07.075Z",
   "tolerans": {
     "mape": 5,
     "within20": 3
@@ -7,21 +7,21 @@
   "esikler": {
     "arsa": {
       "baseline": {
-        "n": 62,
-        "mape": 130.06,
-        "within20": 16.1
+        "n": 1168,
+        "mape": 186.67,
+        "within20": 14.3
       },
-      "mape_max": 135.06,
-      "within20_min": 13.1
+      "mape_max": 191.67,
+      "within20_min": 11.3
     },
     "tarla": {
       "baseline": {
-        "n": 952,
-        "mape": 72.36,
-        "within20": 20.1
+        "n": 509,
+        "mape": 62.01,
+        "within20": 21.8
       },
-      "mape_max": 77.36,
-      "within20_min": 17.1
+      "mape_max": 67.01,
+      "within20_min": 18.8
     }
   }
 }

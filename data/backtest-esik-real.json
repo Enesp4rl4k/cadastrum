@@ -1,0 +1,35 @@
+{
+  "olusturuldu": "2026-08-28T22:41:41.695Z",
+  "tolerans": {
+    "mape": 5,
+    "within20": 3
+  },
+  "esikler": {
+    "arsa": {
+      "baseline": {
+        "n": 400,
+        "mape": 153.81,
+        "medyanApe": 65.64,
+        "p90Ape": 347.17,
+        "bias": 109.75,
+        "within10": 6.8,
+        "within20": 13.5
+      },
+      "mape_max": 158.81,
+      "within20_min": 10.5
+    },
+    "tarla": {
+      "baseline": {
+        "n": 400,
+        "mape": 37.34,
+        "medyanApe": 30.36,
+        "p90Ape": 79.27,
+        "bias": -12.94,
+        "within10": 15.3,
+        "within20": 26
+      },
+      "mape_max": 42.34,
+      "within20_min": 23
+    }
+  }
+}

@@ -20,7 +20,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.spec.ts"],
-    exclude: ["scripts/**"],
+    // test/backtest/**: ayrı vitest.backtest.config.ts ile çalıştırılır (npm run
+    // backtest:real) — yüzlerce fiyatTahminEt çağrısı normal `npm test` koşusunu
+    // yavaşlatmasın ve MAPE eşik ihlali normal test koşusunu kırmasın diye.
+    exclude: ["scripts/**", "test/backtest/**"],
     globals: false,
     // Dexie + chrome API stub'ları — node ortamında IndexedDB/extension API yok
     setupFiles: ["./test/setup.ts"],

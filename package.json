@@ -20,7 +20,10 @@
     "build:mahalle-merkez": "node scripts/build-mahalle-merkez.mjs",
     "build:alias-seed": "node scripts/mahalle-alias-uret.mjs",
     "build:alias-seed:ts": "node scripts/mahalle-alias-uret.mjs --sadece-ts",
-    "d1-backup": "node scripts/d1-backup.mjs"
+    "d1-backup": "node scripts/d1-backup.mjs",
+    "veri:rafine": "node scripts/veri-rafine-pipeline.mjs",
+    "backtest:real": "vitest run --config vitest.backtest.config.ts",
+    "backtest:real:yaz": "cross-env BACKTEST_YAZ=1 vitest run --config vitest.backtest.config.ts"
   },
   "dependencies": {
     "dexie": "^4.0.10",

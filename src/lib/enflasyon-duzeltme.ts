@@ -30,7 +30,9 @@ const GAYRIMENKUL_TUFE_MULTIPLIER = 1.15;
 /**
  * Bilinen aylık TÜFE oranları (TÜİK resmi, % değişim).
  * Kaynak: TCMB + TÜİK açıklama tarihleri.
- * Son güncelleme: 2026-07 (05-07 tahmini)
+ * Son güncelleme: 2026-07 (05-07 tahmini). Bugün 2026-08 veya sonrasıysa
+ * tabloda son ay 2026-07'de kalır; eksik aylar AYLIK_ENFLASYON_TAHMINI ile
+ * otomatik doldurulur (bkz. tufeTablosuGuncellikKontrol).
  *
  * Format: { "YYYY-MM": aylikOran (0.0532 = %5.32) }
  *
@@ -58,6 +60,9 @@ const TUFE_AYLIK: Record<string, number> = {
   "2026-05": 0.0235,  // %2.35 (tahmini — TÜİK açıklanınca güncelle)
   "2026-06": 0.0218,  // %2.18 (tahmini)
   "2026-07": 0.0195,  // %1.95 (tahmini)
+  // 2026-08: TÜİK henüz açıklamadı — buraya eklenmedi, aşağıdaki
+  // AYLIK_ENFLASYON_TAHMINI fallback'i otomatik devreye girer.
+  // Gerçek oran açıklanınca BU YORUMU SİL, satırı ekle: "2026-08": 0.0XXX,
 };
 
 /** Bilinmeyen aylar için aylık enflasyon tahmini (yıllık %35 ≈ aylık ~%2.5) */
@@ -271,3 +276,42 @@ export function tufeTablosuGuncellikKontrol(): {
       : `TÜFE tablosu ${gecen} ay geride — tahmini oran kullanılıyor. Geliştirici: enflasyon-duzeltme.ts güncelle.`,
   };
 }
+
+/**
+ * Belirtilen başlangıç ayından bugüne enflasyon çarpanını getirir.
+ *
+ * Semantik not: dönen `carpan`/`gayrimenkulCarpan` her iki alan da premium DAHİL
+ * gayrimenkul çarpanına eşittir (bkz. `enflasyonDuzeltAsync` — KFE dalı zaten
+ * premium dahil hesaplıyor, TÜFE fallback dalında `carpan` alanı burada bilinçli
+ * olarak `gayrimenkulCarpan` ile eşitlenir). Böylece çağıran taraf hangi dala
+ * düştüğünden bağımsız aynı semantiği görür.
+ *
+ * (ay, il) çiftleri için modül içi cache tutulur — aynı emsal havuzunda yüzlerce
+ * ilan aynı ay/il kombinasyonuna düşebildiği için tekrar tekrar KFE fetch / TÜFE
+ * hesabı yapılmasını önler.
+ */
+const enflasyonCarpaniCache = new Map<string, Promise<EnflasyonCarpani>>();
+
+export async function enflasyonCarpaniniGetir(
+  baslangicAy: string = BASELINE_TARIH,
+  il?: string | null,
+): Promise<EnflasyonCarpani> {
+  const cacheKey = `${baslangicAy}::${il ?? ""}`;
+  const cached = enflasyonCarpaniCache.get(cacheKey);
+  if (cached) return cached;
+
+  const promise = enflasyonDuzeltAsync(1, baslangicAy, il).then(({ carpan }) => ({
+    ...carpan,
+    // TÜFE fallback dalında carpan !== gayrimenkulCarpan; çağıran taraf için
+    // tekilleştir (bkz. yukarıdaki semantik not).
+    carpan: carpan.gayrimenkulCarpan,
+  }));
+  enflasyonCarpaniCache.set(cacheKey, promise);
+  return promise;
+}
+
+/** Test/geliştirme amaçlı — cache'i temizler. */
+export function enflasyonCarpaniCacheTemizle(): void {
+  enflasyonCarpaniCache.clear();
+}
+
