@@ -18,6 +18,7 @@ const MAX_META = 2000;
 
 // ── POST /v1/telemetri/hata ─────────────────────────────────────────────
 telemetriRoutes.post("/hata", async (c) => {
+  const requestId = c.get("requestId" as never) as string | undefined;
   const body = await c.req
     .json<{ hatalar?: Array<Record<string, unknown>> }>()
     .catch(() => null);
@@ -38,10 +39,13 @@ telemetriRoutes.post("/hata", async (c) => {
     const surum = h.surum ? String(h.surum).slice(0, 20) : null;
     const meta = h.meta != null ? JSON.stringify(h.meta).slice(0, MAX_META) : null;
     const ts = typeof h.ts === "number" && Number.isFinite(h.ts) ? h.ts : Date.now();
+    // İstemci kendi request_id'sini gönderdiyse onu kullan (bir client hatası genelde
+    // farklı bir HTTP isteğinden geliyor), yoksa bu ingest isteğinin id'sine düş.
+    const kayitRequestId = typeof h.requestId === "string" ? h.requestId.slice(0, 100) : requestId ?? null;
     try {
       await c.env.DB.prepare(
-        `INSERT INTO hata_log (kaynak, mesaj, stack, surum, meta, ts) VALUES (?, ?, ?, ?, ?, ?)`,
-      ).bind(kaynak, mesaj, stack, surum, meta, ts).run();
+        `INSERT INTO hata_log (kaynak, mesaj, stack, surum, meta, ts, request_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(kaynak, mesaj, stack, surum, meta, ts, kayitRequestId).run();
       yazilan++;
     } catch {
       /* tek satır hatası tüm batch'i düşürmesin */
@@ -66,8 +70,8 @@ telemetriRoutes.get("/ozet", async (c) => {
   ).bind(esik).all<{ kaynak: string; adet: number }>();
 
   const sonHatalar = await c.env.DB.prepare(
-    `SELECT kaynak, mesaj, surum, ts FROM hata_log WHERE ts >= ? ORDER BY ts DESC LIMIT 20`,
-  ).bind(esik).all<{ kaynak: string; mesaj: string; surum: string | null; ts: number }>();
+    `SELECT kaynak, mesaj, surum, ts, request_id FROM hata_log WHERE ts >= ? ORDER BY ts DESC LIMIT 20`,
+  ).bind(esik).all<{ kaynak: string; mesaj: string; surum: string | null; ts: number; request_id: string | null }>();
 
   return c.json({
     gun,

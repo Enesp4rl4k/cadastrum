@@ -15,6 +15,7 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { haversineM, turkiyeBboxIcinde, quantize3, kmToDegrees } from "../lib/geo.js";
+import { wrapD1 } from "../lib/db-timing.js";
 
 export const emsalSpatialRoutes = new Hono<{ Bindings: Env }>();
 
@@ -143,8 +144,10 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
   const maxLng = lng + lngDelta;
 
   // Aktif + son 365 gün + koordlu
+  // En DB-ağır read path (bbox prefilter + app-layer haversine) — yavaş-sorgu
+  // loglaması burada özellikle değerli.
   const yasEsigi = Date.now() - 365 * 86_400_000;
-  const rows = await c.env.DB.prepare(
+  const rows = await wrapD1(c.env.DB, "emsal-spatial.spatial").prepare(
     `SELECT id, kaynak, fiyat_per_m2, m2, kategori, lat, lng, yakalanma_tarihi, ilan_tarihi,
             COALESCE(dogrulama_sayisi, 0) as dogrulama_sayisi,
             COALESCE(guven_skoru, 0.5) as guven_skoru

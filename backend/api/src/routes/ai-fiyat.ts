@@ -27,6 +27,8 @@ import { Hono } from "hono";
 import { jwtMiddleware } from "./hesap.js";
 import type { Env } from "../index.js";
 import { log } from "../lib/logger.js";
+import { fetchWithTimeout, GEMINI_TIMEOUT_MS, GROQ_TIMEOUT_MS, geminiBreaker, groqBreaker, groqWithRetry } from "../lib/ai-provider.js";
+import { d1WithTimeout, isD1Timeout } from "../lib/db-timeout.js";
 
 const aiFiyat = new Hono<{ Bindings: Env }>();
 aiFiyat.use("*", jwtMiddleware);
@@ -162,11 +164,11 @@ async function geminiCagir(apiKey: string, prompt: string): Promise<{ sonuc: AiS
     },
   };
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, GEMINI_TIMEOUT_MS);
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Gemini ${res.status}: ${err.slice(0, 200)}`);
@@ -195,7 +197,7 @@ async function geminiCagir(apiKey: string, prompt: string): Promise<{ sonuc: AiS
 // ── Groq Llama 3.3 70B fallback ──────────────────────────────────
 async function groqCagir(apiKey: string, prompt: string): Promise<{ sonuc: AiSonuc; model: string; sureMs: number }> {
   const t0 = Date.now();
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -217,7 +219,7 @@ async function groqCagir(apiKey: string, prompt: string): Promise<{ sonuc: AiSon
       temperature: 0.3,
       max_tokens: 600,
     }),
-  });
+  }, GROQ_TIMEOUT_MS);
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Groq ${res.status}: ${err.slice(0, 200)}`);
@@ -270,16 +272,25 @@ aiFiyat.post("/tahmin", async (c) => {
   }
 
   // ── Cache kontrol (24h) ──────────────────────────────────────
+  // Bu bir cache-lookup, source-of-truth değil — kısa timeout, timeout'ta
+  // cache-miss gibi davranıp AI çağrısına devam et (askıda kalmaktansa).
   const cacheTtl = 24 * 60 * 60 * 1000;
-  const cacheRow = await c.env.DB.prepare(
-    `SELECT model, alt_per_m2, beklenen_per_m2, ust_per_m2, gerekce, sure_ms, olusturuldu
-     FROM ai_fiyat_cache
-     WHERE parsel_anahtar = ? AND baseline_hash = ?
-     ORDER BY olusturuldu DESC LIMIT 1`,
-  ).bind(body.parselAnahtar, body.baselineHash).first<{
-    model: string; alt_per_m2: number; beklenen_per_m2: number;
-    ust_per_m2: number; gerekce: string; sure_ms: number; olusturuldu: number;
-  }>();
+  const cacheResult = await d1WithTimeout(
+    c.env.DB.prepare(
+      `SELECT model, alt_per_m2, beklenen_per_m2, ust_per_m2, gerekce, sure_ms, olusturuldu
+       FROM ai_fiyat_cache
+       WHERE parsel_anahtar = ? AND baseline_hash = ?
+       ORDER BY olusturuldu DESC LIMIT 1`,
+    ).bind(body.parselAnahtar, body.baselineHash).first<{
+      model: string; alt_per_m2: number; beklenen_per_m2: number;
+      ust_per_m2: number; gerekce: string; sure_ms: number; olusturuldu: number;
+    }>(),
+    2_000,
+  );
+  if (isD1Timeout(cacheResult)) {
+    log.warn("ai-fiyat.cache.timeout", { kullaniciId });
+  }
+  const cacheRow = isD1Timeout(cacheResult) ? null : cacheResult;
 
   if (cacheRow && (Date.now() - cacheRow.olusturuldu) < cacheTtl) {
     return c.json({
@@ -341,19 +352,19 @@ aiFiyat.post("/tahmin", async (c) => {
 
   if ((tercih === "auto" || tercih === "gemini") && geminiKey) {
     try {
-      cevap = await geminiCagir(geminiKey, prompt);
+      cevap = await geminiBreaker.execute(() => geminiCagir(geminiKey, prompt));
     } catch (e) {
       sonHata = e instanceof Error ? e.message : String(e);
-      log.warn("ai-fiyat.gemini.hata", { hata: sonHata, kullaniciId });
+      log.warn("ai-fiyat.gemini.hata", { hata: sonHata, kullaniciId, breakerState: geminiBreaker.getState() });
     }
   }
 
   if (!cevap && (tercih === "auto" || tercih === "groq") && groqKey) {
     try {
-      cevap = await groqCagir(groqKey, prompt);
+      cevap = await groqBreaker.execute(() => groqWithRetry(() => groqCagir(groqKey, prompt)));
     } catch (e) {
       sonHata = e instanceof Error ? e.message : String(e);
-      log.warn("ai-fiyat.groq.hata", { hata: sonHata, kullaniciId });
+      log.warn("ai-fiyat.groq.hata", { hata: sonHata, kullaniciId, breakerState: groqBreaker.getState() });
     }
   }
 

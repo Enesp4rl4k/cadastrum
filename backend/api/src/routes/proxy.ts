@@ -14,6 +14,15 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { rateLimitMiddleware } from "../lib/rate-limit.js";
+import { CircuitBreaker } from "../lib/resilience.js";
+
+/**
+ * TKGM (parselsorgu.tkgm.gov.tr) flaky/yavaş olduğu bilinen bir upstream —
+ * bu yüzden idariYapi ve analiz endpoint'leri aynı breaker'ı paylaşır: art arda
+ * hatalarda hızlı-fail'e geçilir (istekler platform limitine kadar asılı kalmaz),
+ * uzun edge-cache TTL'leri (7-30 gün) zaten çoğu isteği TKGM'e ulaşmadan karşılıyor.
+ */
+const tkgmBreaker = new CircuitBreaker({ name: "tkgm", failureThreshold: 5, resetTimeoutMs: 30_000 });
 
 const TUCBS_WMS_SLUGS = new Set([
   "csb_cdp_im_wms",
@@ -71,6 +80,7 @@ async function eplanGuestFetch(path: string, cookie = ""): Promise<{ res: Respon
       Referer: EPLAN_REFERER,
       "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
     },
+    signal: AbortSignal.timeout(8_000),
   });
   const nextCookie = mergeSetCookie(cookie, res.headers.get("set-cookie"));
   return { res, cookie: nextCookie };
@@ -164,6 +174,7 @@ proxyRoutes.get("/tucbs", async (c) => {
         Accept: "application/geojson, application/json",
       },
       cf: { cacheTtl: 86_400 * 7, cacheEverything: true } as never,
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       return c.json({ error: `TUCBS WMS ${res.status}` }, 502);
@@ -308,7 +319,7 @@ proxyRoutes.get("/tkgm-idari/:tip/:kod?", async (c) => {
   const url = `${TKGM_API_BASE}/idariYapi/${path}`;
 
   try {
-    const res = await fetch(url, {
+    const res = await tkgmBreaker.execute(() => fetch(url, {
       headers: {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
@@ -316,7 +327,8 @@ proxyRoutes.get("/tkgm-idari/:tip/:kod?", async (c) => {
         Referer: "https://parselsorgu.tkgm.gov.tr/",
       },
       cf: { cacheTtl: 86_400 * 30, cacheEverything: true } as never,
-    });
+      signal: AbortSignal.timeout(9_000),
+    }));
     if (!res.ok) {
       return c.json({ error: `TKGM idari HTTP ${res.status}` }, 502);
     }
@@ -372,7 +384,7 @@ proxyRoutes.get("/tkgm-analiz", async (c) => {
   const url = `${TKGM_ANALIZ_BASE}?AnalizTip=${analizTip}&Yil=${yil}&IlceId=${ilceKodu}`;
 
   try {
-    const res = await fetch(url, {
+    const res = await tkgmBreaker.execute(() => fetch(url, {
       headers: {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)",
@@ -382,7 +394,8 @@ proxyRoutes.get("/tkgm-analiz", async (c) => {
       },
       // Cloudflare Cache: analiz verisi yıllık — 7 gün TTL yeterli
       cf: { cacheTtl: 86_400 * 7, cacheEverything: true } as never,
-    });
+      signal: AbortSignal.timeout(9_000),
+    }));
 
     if (!res.ok) {
       return c.json({ error: `TKGM analiz HTTP ${res.status}` }, 502);
@@ -440,6 +453,7 @@ proxyRoutes.get("/uydu-tile/:z/:x/:y", async (c) => {
         "Referer": "https://www.arcgis.com/",
       },
       cf: { cacheTtl: 86_400 * 30, cacheEverything: true } as never,
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!res.ok) {
@@ -524,6 +538,7 @@ proxyRoutes.post("/uydu-analiz", rateLimitMiddleware(5, "uydu-analiz"), async (c
     // Uydu görüntüsünü fetch et
     const tileRes = await fetch(tileUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; Cadastrum/1.0)" },
+      signal: AbortSignal.timeout(8_000),
     });
     if (!tileRes.ok) {
       return c.json({ error: `Uydu tile alınamadı: HTTP ${tileRes.status}` }, 502);
@@ -568,6 +583,7 @@ Sadece JSON döndür, başka açıklama ekleme.`;
           }],
           generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512 },
         }),
+        signal: AbortSignal.timeout(15_000),
       }
     );
 

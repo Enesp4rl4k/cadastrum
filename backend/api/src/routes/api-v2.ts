@@ -23,6 +23,7 @@ import { kmToDegrees, turkiyeBboxIcinde } from "../lib/geo.js";
 import { normalizeYerAdi } from "../lib/normalize.js";
 import { log } from "../lib/logger.js";
 import { rateLimitMiddleware } from "../lib/rate-limit.js";
+import { wrapD1 } from "../lib/db-timing.js";
 
 export const apiV2Routes = new Hono<{ Bindings: Env }>();
 
@@ -407,6 +408,9 @@ apiV2Routes.post(
     ).bind(jobId, apiKeyHash, koordinatlar.length, webhookUrl ?? null, Date.now()).run();
 
     // Arka planda işle (Workers CPU 30s limiti gözetilerek chunked)
+    // waitUntil içinde çalışır, response kritik yolunun dışında — yavaş-sorgu
+    // loglama maliyeti çağıranın gecikmesine yansımıyor.
+    const timedDb = wrapD1(c.env.DB, "api-v2.batch");
     const asyncIslem = (async () => {
       try {
         await c.env.DB.prepare(`UPDATE api_jobs SET durum = 'isleniyor' WHERE id = ?`)
@@ -421,7 +425,7 @@ apiV2Routes.post(
         for (let i = 0; i < koordinatlar.length; i += CHUNK) {
           const dilim = koordinatlar.slice(i, i + CHUNK);
           const dilimSonuclar = await Promise.allSettled(
-            dilim.map((k) => koordinatDegerle(c.env.DB, k)),
+            dilim.map((k) => koordinatDegerle(timedDb, k)),
           );
 
           for (const s of dilimSonuclar) {
@@ -540,3 +544,24 @@ apiV2Routes.get(
     return c.json(yanit);
   },
 );
+
+/**
+ * Reaper — POST /v2/batch, Worker instance `ctx.waitUntil()` ortasında evict edilirse
+ * job'u sonsuza kadar `isleniyor` durumunda takılı bırakabilir (retry/dead-letter yok).
+ * Cron'dan periyodik çağrılır: TTL'i aşan `isleniyor` job'ları `hata`ya çevirir, böylece
+ * `GET /v2/batch/:id` çağıran istemci sonsuza kadar beklemek yerine net bir durum görür.
+ */
+export async function apiJobsReaperCalistir(
+  db: D1Database,
+  ttlMs = 10 * 60 * 1000,
+): Promise<{ temizlenen: number }> {
+  const esik = Date.now() - ttlMs;
+  const r = await db
+    .prepare(
+      `UPDATE api_jobs SET durum = 'hata', tamamlandi_ts = ?
+       WHERE durum = 'isleniyor' AND olusturuldu < ?`,
+    )
+    .bind(Date.now(), esik)
+    .run();
+  return { temizlenen: r.meta.changes ?? 0 };
+}

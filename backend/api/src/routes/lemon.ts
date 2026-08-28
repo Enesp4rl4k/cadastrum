@@ -187,7 +187,7 @@ lemon.post("/webhook", async (c) => {
     log.warn("lemon.webhook.kullanici-yok", { email, event });
     // webhook_log'u 'skip' olarak güncelle
     await c.env.DB.prepare(
-      `UPDATE webhook_log SET sonuc = 'skip', not = 'kullanici-yok' WHERE idempotency_key = ?`,
+      `UPDATE webhook_log SET sonuc = 'skip', notlar = 'kullanici-yok' WHERE idempotency_key = ?`,
     ).bind(idempotencyKey).run().catch(() => {});
     return c.json({ ok: true, not: "Kullanıcı yok, atlandı" });
   }
@@ -240,7 +240,7 @@ lemon.post("/webhook", async (c) => {
       log.info("lemon.webhook.bilinmeyen-event", { event, email });
       // Bilinmeyen event — webhook_log'da 'skip' olarak işaretle
       await c.env.DB.prepare(
-        `UPDATE webhook_log SET sonuc = 'skip', not = ? WHERE idempotency_key = ?`,
+        `UPDATE webhook_log SET sonuc = 'skip', notlar = ? WHERE idempotency_key = ?`,
       ).bind(`bilinmeyen-event:${event}`, idempotencyKey).run().catch(() => {});
   }
 

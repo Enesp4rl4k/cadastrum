@@ -18,6 +18,7 @@
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { bodyLimit } from "hono/body-limit";
 import { fiyatRoutes } from "./routes/fiyat.js";
 import { ilanRoutes } from "./routes/ilan.js";
 import { emsalSpatialRoutes } from "./routes/emsal-spatial.js";
@@ -48,12 +49,13 @@ import { ajan as ajanRoutes } from "./routes/ai-ajan.js";
 import { portfoyRoutes } from "./routes/portfoy.js";
 import { endeksRoutes } from "./routes/endeks.js";
 import { uyduRoutes } from "./routes/uydu.js";
-import { apiV2Routes } from "./routes/api-v2.js";
+import { apiV2Routes, apiJobsReaperCalistir } from "./routes/api-v2.js";
 import { takipRoutes, parselTakipCalistir } from "./routes/takip.js";
 import { rateLimitMiddleware, rateLimitTemizle } from "./lib/rate-limit.js";
 import { bearerYetkilendir, cspHeader } from "./lib/security.js";
 import { pipelineHealthKontrol, pipelineAlarmEmailGonder } from "./routes/pipeline-health.js";
 import { sentryMiddleware } from "./lib/sentry.js";
+import { requestIdMiddleware } from "./lib/request-id.js";
 
 export interface Env {
   DB: D1Database;
@@ -100,9 +102,15 @@ export interface AppVariables {
   };
   /** Admin route'larında set edilir */
   adminId?: number;
+  /** requestIdMiddleware tarafından her istekte set edilir — log/hata_log zincirleme için */
+  requestId: string;
 }
 
-export const app = new Hono<{ Bindings: Env }>();
+export const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+
+// Request correlation ID — en erken kaydedilir, sonraki her middleware/route
+// c.get("requestId") ile log/hata_log zincirlemesi için kullanabilir.
+app.use("/*", requestIdMiddleware);
 
 // Sentry hata izleme — SENTRY_DSN env var varsa etkinleşir, yoksa no-op
 app.use("/*", sentryMiddleware);
@@ -132,7 +140,7 @@ app.use("/*", cors({
   allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   // Rate-limit header'ları default'ta tarayıcı JS'ine görünmez (CORS safelist
   // dışında) — sorgu.astro gibi client'lar gerçek kalan-kota'yı gösterebilsin.
-  exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+  exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Request-Id"],
   maxAge: 86400,
 }));
 
@@ -142,7 +150,17 @@ app.use("/*", async (c, next) => {
   c.header("Content-Security-Policy", cspHeader());
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
+  // Her zaman Cloudflare üzerinden HTTPS servis ediliyor — HSTS standart sıkılaştırma.
+  c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 });
+
+// Blanket request body-size limiti — route-level ad hoc alan uzunluğu kontrolleri
+// devrede kalıyor, bu sadece dev/kötü niyetli bir istemcinin route mantığına
+// ulaşmadan önce büyük bir gövdeyle parse CPU'sunu yakmasını engelliyor.
+app.use("/*", bodyLimit({
+  maxSize: 1 * 1024 * 1024, // 1MB
+  onError: (c) => c.json({ error: "İstek gövdesi çok büyük (maks 1MB)" }, 413),
+}));
 
 // Standart 404 & Hata Yakalama (Unhandled Exception Guard)
 app.notFound((c) => {
@@ -156,12 +174,14 @@ app.notFound((c) => {
 });
 
 app.onError((err, c) => {
-  console.error(`[unhandled-error] ${c.req.method} ${c.req.path}:`, err);
+  const requestId = c.get("requestId" as never) as string | undefined;
+  console.error(`[unhandled-error] ${c.req.method} ${c.req.path} (requestId=${requestId ?? "?"}):`, err);
   return c.json({
     success: false,
     error: {
       code: "INTERNAL_SERVER_ERROR",
       message: c.env.ENVIRONMENT === "development" ? (err.message || String(err)) : "Sunucu hatası oluştu",
+      requestId,
     },
   }, 500);
 });
@@ -337,22 +357,18 @@ app.route("/v1/takip", takipRoutes);
 // /v1/istatistik/sayim GET  → D1 sayım raporu
 app.route("/v1", seedRoutes);
 
-app.notFound((c) => c.json({ error: "Not found" }, 404));
-app.onError((err, c) => {
-  console.error("[api error]", err);
-  return c.json({ error: err.message ?? "Internal error" }, 500);
-});
-
 // Cloudflare Workers entry point
 export default {
   fetch: app.fetch,
 
   // Cron handler — wrangler.toml `crons` listesindeki her trigger'da çağrılır.
-  // Dört trigger:
+  // Workers Free plan hesap başına 5 trigger ile sınırlı — yeni işler (endeks,
+  // api_jobs reaper) ayrı trigger yerine mevcut 5 slot'a gömülü çalışır:
   //   "0 3 * * *"   → istatistikRefresh (günde 1, mahalle istatistik agregasyonu)
-  //   "0 * * * *"   → bildirimKontroluCalistir (saatlik, fiyat/emsal/eşik kontrolü)
-  //   "0 2 1 * *"   → Sahibinden otomatik scraper (ayın 1'i 02:00 UTC)
-  //   "0 3 15 * *"  → Emlakjet otomatik scraper (ayın 15'i 03:00 UTC) [YENİ]
+  //   "0 * * * *"   → bildirimKontroluCalistir + apiJobsReaperCalistir (saatlik)
+  //   "0 2 1 * *"   → Sahibinden otomatik scraper + Cadex Fiyat Endeksi (ayın 1'i 02:00 UTC)
+  //   "0 3 15 * *"  → Emlakjet otomatik scraper (ayın 15'i 03:00 UTC)
+  //   "0 5 * * 1"   → parsel polygon değişiklik takibi (Pazartesi 05:00 UTC)
   // event.cron string'i ile ayırıyoruz.
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const cron = event.cron;
@@ -395,11 +411,19 @@ export default {
         console.log("[cron-daily] giris_denemesi temizlendi:", gd.meta.changes, "satır");
       })());
     } else if (cron === "0 * * * *") {
-      ctx.waitUntil(
-        bildirimKontroluCalistir(env).then((r) =>
-          console.log("[cron-hourly] bildirim:", r, "ts:", event.scheduledTime),
-        ),
-      );
+      ctx.waitUntil((async () => {
+        const r = await bildirimKontroluCalistir(env);
+        console.log("[cron-hourly] bildirim:", r, "ts:", event.scheduledTime);
+
+        // api_jobs reaper — POST /v2/batch job'ları waitUntil ortasında evict
+        // edilirse sonsuza kadar 'isleniyor' durumunda takılı kalabilir.
+        try {
+          const rp = await apiJobsReaperCalistir(env.DB);
+          console.log("[cron-hourly] api_jobs reaper:", rp.temizlenen, "job temizlendi");
+        } catch (e) {
+          console.error("[cron-hourly] api_jobs reaper hatası:", e);
+        }
+      })());
     } else if (cron === "0 2 1 * *") {
       // Aylık scraper hatırlatma (A+E hibrit):
       //   1) Worker'dan Sahibinden fetch'i dener (PerimeterX engelliyor — beklenen)
@@ -443,6 +467,16 @@ export default {
         for (const a of adminler.results ?? []) {
           await emailGonder(env, a.email, konu, html, metin).catch(() => {});
         }
+
+        // Aylık Cadex Fiyat Endeksi hesaplama — aynı ayın-1'i slotuna gömülü
+        // (ayrı bir "0 4 1 * *" trigger'ı Workers Free plan'ın 5 cron limitini aşardı)
+        try {
+          const { endeksHesapla } = await import("./routes/endeks.js");
+          const er = await endeksHesapla(env.DB);
+          console.log("[cron-monthly] endeks:", er.hesaplanan, "satır");
+        } catch (e) {
+          console.error("[cron-monthly] endeks hatası:", e);
+        }
       })());
     } else if (cron === "0 3 15 * *") {
       // Emlakjet aylık scraper — ayın 15'i 03:00 UTC
@@ -476,13 +510,6 @@ export default {
         const ist = await istatistikRefresh(env.DB);
         console.log("[cron-emlakjet] istatistik refresh:", ist);
       })());
-    } else if (cron === "0 4 1 * *") {
-      // Aylık Cadex Fiyat Endeksi hesaplama — ayın 1'i 04:00 UTC
-      ctx.waitUntil((async () => {
-        const { endeksHesapla } = await import("./routes/endeks.js");
-        const r = await endeksHesapla(env.DB);
-        console.log("[cron-endeks] hesaplandi:", r.hesaplanan, "satır");
-      })());
     } else if (cron === "0 5 * * 1") {
       // Haftalık parsel polygon takip — Pazartesi 05:00 UTC
       ctx.waitUntil((async () => {
@@ -490,6 +517,14 @@ export default {
         const r = await parselTakipCalistir(env, baseUrl, 100);
         console.log("[cron-haftalik] parsel-takip:", r);
       })());
+    } else if (cron === "*/30 * * * *") {
+      // api_jobs reaper — POST /v2/batch job'ları waitUntil ortasında evict edilirse
+      // sonsuza kadar 'isleniyor' durumunda takılı kalabilir; 10dk TTL aşanları 'hata'ya çevir.
+      ctx.waitUntil(
+        apiJobsReaperCalistir(env.DB).then((r) =>
+          console.log("[cron-reaper] api_jobs temizlendi:", r.temizlenen),
+        ),
+      );
     } else {
       console.warn("[cron] beklenmeyen schedule:", cron);
     }

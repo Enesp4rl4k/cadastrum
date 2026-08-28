@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS webhook_log (
   -- İşlem zamanı (epoch ms)
   islendi         INTEGER NOT NULL,
   -- Opsiyonel: hata mesajı veya özet
-  not             TEXT
+  -- NOT: sütun adı bilinçli olarak "notlar" — SQLite'ta "not" ayrılmış anahtar
+  -- kelime, bare identifier olarak kullanılınca "near 'not': syntax error" veriyor
+  -- (bu migration ilk denemede tam da bu yüzden production'a hiç uygulanamamıştı).
+  notlar          TEXT
 );
 
 -- Temizleme için tarih index'i (90 günden eski log'lar silinebilir)

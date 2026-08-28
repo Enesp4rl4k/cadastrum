@@ -22,6 +22,7 @@
 import { Hono } from "hono";
 import { jwtMiddleware } from "./hesap.js";
 import type { Env } from "../index.js";
+import { fetchWithTimeout, GEMINI_TIMEOUT_MS, GROQ_TIMEOUT_MS, geminiBreaker, groqBreaker, groqWithRetry } from "../lib/ai-provider.js";
 
 const aiScorecard = new Hono<{ Bindings: Env }>();
 aiScorecard.use("*", jwtMiddleware);
@@ -177,11 +178,11 @@ async function geminiCagir(
     },
   };
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, GEMINI_TIMEOUT_MS);
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
   const data = await res.json() as { candidates?: Array<{ content: { parts: Array<{ text: string }> }; finishReason: string }> };
@@ -201,7 +202,7 @@ async function groqCagir(
   prompt: string,
 ): Promise<{ sonuc: ScorecardSonuc; model: string; sureMs: number }> {
   const t0 = Date.now();
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -217,7 +218,7 @@ async function groqCagir(
       temperature: 0.2,
       max_tokens: 1000,
     }),
-  });
+  }, GROQ_TIMEOUT_MS);
   if (!res.ok) throw new Error(`Groq ${res.status}`);
   const data = await res.json() as { choices?: Array<{ message: { content: string } }> };
   const text = data.choices?.[0]?.message?.content;
@@ -293,12 +294,12 @@ aiScorecard.post("/analiz", async (c) => {
   const tercih = body.modelHint ?? "auto";
 
   if ((tercih === "auto" || tercih === "gemini") && geminiKey) {
-    try { cevap = await geminiCagir(geminiKey, prompt); } catch (e) {
+    try { cevap = await geminiBreaker.execute(() => geminiCagir(geminiKey, prompt)); } catch (e) {
       sonHata = e instanceof Error ? e.message : String(e);
     }
   }
   if (!cevap && (tercih === "auto" || tercih === "groq") && groqKey) {
-    try { cevap = await groqCagir(groqKey, prompt); } catch (e) {
+    try { cevap = await groqBreaker.execute(() => groqWithRetry(() => groqCagir(groqKey, prompt))); } catch (e) {
       sonHata = e instanceof Error ? e.message : String(e);
     }
   }

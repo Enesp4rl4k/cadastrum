@@ -11,6 +11,7 @@
  *   5. Aylık snapshot mahalle_zaman_serisi'ne yaz
  */
 import { istatistikOzetiHesapla } from "../lib/istatistik.js";
+import { wrapD1 } from "../lib/db-timing.js";
 
 const PENCERE_GUN = 90;
 const GUN_MS = 86_400_000;
@@ -30,7 +31,10 @@ const ARCHIVE_BATCH = 500; // her cron'da max taşınan satır
  *   4. DELETE FROM ilanlar WHERE id IN (...)
  *   5. archive_log'a kayıt yaz
  */
-export async function ilanArchiveEt(db: D1Database): Promise<{ tasınan: number; sure_ms: number }> {
+export async function ilanArchiveEt(dbHam: D1Database): Promise<{ tasınan: number; sure_ms: number }> {
+  // Cron üzerinde çalışır, write-heavy — yavaş-sorgu loglaması kullanıcı gecikmesiyle
+  // yarışmıyor, bu yüzden burada wrapD1 maliyeti bedava.
+  const db = wrapD1(dbHam, "istatistik.ilanArchiveEt");
   const basladi = Date.now();
   const sinir = basladi - ARCHIVE_GUN * GUN_MS;
 
@@ -92,7 +96,8 @@ export interface RefreshSonuc {
   toplamIlan: number;
 }
 
-export async function istatistikRefresh(db: D1Database): Promise<RefreshSonuc> {
+export async function istatistikRefresh(dbHam: D1Database): Promise<RefreshSonuc> {
+  const db = wrapD1(dbHam, "istatistik.istatistikRefresh");
   const basladi = Date.now();
   const minTarih = basladi - PENCERE_GUN * GUN_MS;
 

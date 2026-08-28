@@ -8,10 +8,19 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { normalizeYerAdi } from "../lib/normalize.js";
+import { d1WithTimeout, isD1Timeout } from "../lib/db-timeout.js";
 
 export const fiyatRoutes = new Hono<{ Bindings: Env }>();
 
 const VALID_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik"]);
+
+// D1 timeout'ta sunucu tarafında "son bilinen iyi yanıt" yok (cache-read path'i yok);
+// pratik "degraded" cevap 503 + Retry-After — s-maxage CDN cache'i trafiğin çoğunu
+// zaten karşılıyor (bkz. plan: yeni bir fallback cache CDN cache'ini tekrarlar).
+function d1TimeoutYaniti(c: import("hono").Context) {
+  c.header("Retry-After", "5");
+  return c.json({ error: "Sunucu şu an yoğun, birkaç saniye sonra tekrar deneyin" }, 503);
+}
 
 // Mahalle bazlı sorgu
 fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
@@ -26,7 +35,7 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
 
   // İstatistik + trend + AI fallback'i paralel yap — yoksa boş döner.
   // Tek round-trip yerine concurrent (D1 connection pool).
-  const [istatistik, trend, aiBaseline] = await Promise.all([
+  const sonuc = await d1WithTimeout(Promise.all([
     c.env.DB.prepare(
       `SELECT medyan, q1, q3, ortalama, ilan_adet, son_guncelleme
        FROM mahalle_istatistik
@@ -44,7 +53,9 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
        FROM mahalle_baseline_ai
        WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ? AND kategori = ?`,
     ).bind(il, ilce, mahalle, kategori).first(),
-  ]);
+  ]), 4_000);
+  if (isD1Timeout(sonuc)) return d1TimeoutYaniti(c);
+  const [istatistik, trend, aiBaseline] = sonuc;
 
   if (istatistik && istatistik.ilan_adet > 0) {
     c.header("Cache-Control", "public, s-maxage=3600");
@@ -75,7 +86,7 @@ fiyatRoutes.get("/ilce/:il/:ilce", async (c) => {
   }
 
   // Paralel — sequential await yerine
-  let [ilceIstatistik, mahalleler] = await Promise.all([
+  const ilceSonuc = await d1WithTimeout(Promise.all([
     c.env.DB.prepare(
       `SELECT medyan, q1, q3, ilan_adet, son_guncelleme, 'ilan-istatistik' AS kaynak
        FROM ilce_istatistik
@@ -89,7 +100,9 @@ fiyatRoutes.get("/ilce/:il/:ilce", async (c) => {
        ORDER BY ilan_adet DESC LIMIT 50`,
     ).bind(il, ilce, kategori)
       .all<{ mahalle_norm: string; medyan: number; ilan_adet: number }>(),
-  ]);
+  ]), 4_000);
+  if (isD1Timeout(ilceSonuc)) return d1TimeoutYaniti(c);
+  let [ilceIstatistik, mahalleler] = ilceSonuc;
 
   // Fallback: AI baseline tablosundan ilçe ortalaması + mahalle listesi
   if (!ilceIstatistik || (mahalleler.results?.length ?? 0) === 0) {
@@ -137,7 +150,7 @@ fiyatRoutes.get("/il/:il", async (c) => {
   }
 
   // Paralel
-  let [ilIstatistik, ilceler] = await Promise.all([
+  const ilSonuc = await d1WithTimeout(Promise.all([
     c.env.DB.prepare(
       `SELECT medyan, ilan_adet, son_guncelleme, 'ilan-istatistik' AS kaynak
        FROM il_istatistik WHERE il_norm = ? AND kategori = ?`,
@@ -150,7 +163,9 @@ fiyatRoutes.get("/il/:il", async (c) => {
        ORDER BY medyan DESC`,
     ).bind(il, kategori)
       .all<{ ilce_norm: string; medyan: number; ilan_adet: number }>(),
-  ]);
+  ]), 4_000);
+  if (isD1Timeout(ilSonuc)) return d1TimeoutYaniti(c);
+  let [ilIstatistik, ilceler] = ilSonuc;
 
   // Fallback: AI baseline tablosundan il agregesi (ilçe başına AI medyan)
   if (!ilIstatistik || (ilceler.results?.length ?? 0) === 0) {
