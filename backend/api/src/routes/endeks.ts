@@ -55,6 +55,29 @@ function donemStr(yil: number, ay: number): string {
 // 2026-06 (882 ilan) endeks=7.2 çıkmıştı — piyasa çökmedi, taban bozuktu.
 const MIN_BAZ_ILAN_ADET = 50;
 
+/**
+ * Bir dönemin SERİDE GÖSTERİLMESİ için gereken minimum ilan sayısı.
+ *
+ * MIN_BAZ_ILAN_ADET yalnızca taban dönem seçimini düzeltmişti; düşük hacimli
+ * dönem seriden çıkarılmadığı için hâlâ GÖSTERİLİYORDU ve grafiği bozuyordu.
+ * Canlı örnek (Türkiye geneli, arsa):
+ *
+ *   2026-05   90.392 TL/m²   16 ilan   endeks 1391.7   ← 14x aykırı
+ *   2026-06    6.495 TL/m²  882 ilan   endeks 100
+ *   2026-07    6.305 TL/m²  11.558 ilan
+ *
+ * 16 ilandan hesaplanan bir medyan ölçüm değil gürültüdür; seride bırakmak
+ * hem grafiği okunamaz kılıyor hem de kullanıcıya olmayan bir fiyat çöküşü
+ * gösteriyor. Taban seçimiyle aynı eşik kullanılıyor — iki karar için farklı
+ * bar tutmanın gerekçesi yok.
+ */
+const MIN_GOSTERIM_ILAN_ADET = MIN_BAZ_ILAN_ADET;
+
+/** Düşük hacimli dönemleri seriden çıkarır. */
+function yeterliHacimliler(rows: ZamanNoktasi[]): ZamanNoktasi[] {
+  return rows.filter((r) => r.ilan_adet >= MIN_GOSTERIM_ILAN_ADET);
+}
+
 function donemParse(s: string): { yil: number; ay: number } | null {
   const m = /^(\d{4})-(\d{2})$/.exec(s);
   if (!m) return null;
@@ -146,6 +169,12 @@ endeksRoutes.get("/", rateLimitMiddleware(30, "endeks"), async (c) => {
       ).all<ZamanNoktasi>();
       rows = result.results ?? [];
     }
+
+    // Düşük hacimli dönemleri seriden çıkar. Hepsi eşiğin altındaysa filtre
+    // uygulanmaz — "hiç veri yok" demektense zayıf veriyi göstermek daha
+    // yararlı, ama bu durumda tek başına bir aykırı değer kalmıyor.
+    const filtreli = yeterliHacimliler(rows);
+    if (filtreli.length > 0) rows = filtreli;
 
     if (rows.length === 0) {
       return c.json({
