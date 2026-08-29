@@ -80,3 +80,5 @@ cadastrum-extension-v*.zip
 chrome-store/*.zip
 thinkpython*.txt
 scripts/make_thinkpython_abridged.py
+scripts/milli-emlak-seed.sql
+scripts/.me-err.txt

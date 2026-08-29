@@ -134,7 +134,17 @@ export function tasinmazNormalize(t: MeTasinmaz, ilanId?: number): MeKayit | nul
   };
 }
 
-async function sayfaCek(pageIndex: number): Promise<MeIlan[] | null> {
+/**
+ * Sayfalama parametresi `offset` — ve bu SAYFA indeksi, satır indeksi değil.
+ *
+ * DİKKAT: API'nin yanıtında `pageNumber` alanı var ve istek gövdesinde
+ * `pageIndex`/`page`/`pageNumber`/`skip`/`start` gönderilirse SESSİZCE yok
+ * sayılıp hep 0. sayfa dönüyor (hata vermiyor). İlk yazımda `pageIndex`
+ * kullanmıştım ve 8 sayfa çekmeme rağmen aynı 100 kaydı 8 kez almıştım —
+ * 792 taşınmazın 696'sı kopya çıktı. Doğrulama: offset 0..3 → 100+100+100+90
+ * = 390 = totalRow, offset 4 → boş.
+ */
+async function sayfaCek(offset: number): Promise<MeIlan[] | null> {
   try {
     const res = await fetch(API, {
       method: "POST",
@@ -144,7 +154,7 @@ async function sayfaCek(pageIndex: number): Promise<MeIlan[] | null> {
         Referer: `${ORIGIN}/`,
         "User-Agent": "Mozilla/5.0 (compatible; CadastrumBot/1.0; +https://cadastrum.com.tr)",
       },
-      body: JSON.stringify({ pageIndex, pageSize: SAYFA_BOYUT }),
+      body: JSON.stringify({ offset, pageSize: SAYFA_BOYUT }),
       signal: AbortSignal.timeout(25_000),
     });
     if (!res.ok) return null;
