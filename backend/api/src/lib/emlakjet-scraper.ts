@@ -454,6 +454,9 @@ export interface EmlakjetRunGirdi {
  * Worker 30s CPU limitine dikkat — maxIlce ile sınırla.
  * Her ilçe için arsa + tarla (2 kategori × maxSayfa sayfa).
  */
+/** Kategori taramaları arası bekleme — bkz. emlakjetRunBaslat içindeki not. */
+const KATEGORI_ARASI_MS = 400;
+
 export async function emlakjetRunBaslat(
   db: D1Database,
   hedefler: EmlakjetRunGirdi[],
@@ -493,6 +496,10 @@ export async function emlakjetRunBaslat(
       } catch {
         hataAdet++;
       }
+      // Kategori taramaları arası nezaket beklemesi. Tarama sıklığı aylıktan
+      // günlüğe çıkarıldı (~30x hacim); kaynağa bindirilen anlık yükü aynı
+      // tutmak için istekler arasına açıkça boşluk konuyor.
+      await new Promise((r) => setTimeout(r, KATEGORI_ARASI_MS));
     }
     islenen++;
   }

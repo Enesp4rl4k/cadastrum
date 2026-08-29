@@ -346,6 +346,20 @@ app.post("/v1/admin/zenginlestir", async (c) => {
   return c.json(sonuc);
 });
 
+// Milli Emlak ihale taraması — manuel tetikleme (Bearer SCRAPER_API_SECRET).
+// Haftalık cron'da da çalışıyor; bu endpoint ilk doldurma ve deploy sonrası
+// doğrulama için.
+app.post("/v1/admin/milli-emlak-tara", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SCRAPER_API_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const { milliEmlakTaramaTuru } = await import("./lib/milli-emlak-scraper.js");
+  const sonuc = await milliEmlakTaramaTuru(c.env.DB);
+  return c.json(sonuc);
+});
+
 // Pipeline health check (Bearer STATS_SECRET)
 app.get("/v1/admin/pipeline-health", async (c) => {
   const yetki = await bearerYetkilendir(
@@ -400,11 +414,15 @@ export default {
   // Cron handler — wrangler.toml `crons` listesindeki her trigger'da çağrılır.
   // Workers Free plan hesap başına 5 trigger ile sınırlı — yeni işler (endeks,
   // api_jobs reaper) ayrı trigger yerine mevcut 5 slot'a gömülü çalışır:
-  //   "0 3 * * *"   → istatistikRefresh (günde 1, mahalle istatistik agregasyonu)
-  //   "0 * * * *"   → bildirimKontroluCalistir + apiJobsReaperCalistir (saatlik)
+  //   "0 3 * * *"   → istatistik + health + archive + temizlik
+  //                   + EMLAKJET İLÇE TARAMASI (8 ilçe/gün — aylıktan alındı)
+  //   "0 * * * *"   → bildirim + api_jobs reaper + ilan zenginleştirme (120/tur)
   //   "0 2 1 * *"   → Sahibinden otomatik scraper + Cadex Fiyat Endeksi (ayın 1'i 02:00 UTC)
-  //   "0 3 15 * *"  → Emlakjet otomatik scraper (ayın 15'i 03:00 UTC)
-  //   "0 5 * * 1"   → parsel polygon değişiklik takibi (Pazartesi 05:00 UTC)
+  //                   NOT: Sahibinden yolu 3 aydır her koşuda 'bot-bloke'
+  //                   (PerimeterX). Endeks kısmı çalışıyor.
+  //   "0 3 15 * *"  → Emlakjet aylık tarama (günlük tarama devreye girdi,
+  //                   bu artık yedek/yakalama turu)
+  //   "0 5 * * 1"   → parsel polygon takibi + MİLLİ EMLAK İHALE TARAMASI
   // event.cron string'i ile ayırıyoruz.
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const cron = event.cron;
@@ -445,6 +463,50 @@ export default {
           "DELETE FROM giris_denemesi WHERE dakika < ?"
         ).bind(dakikaSiniri).run().catch(() => ({ meta: { changes: 0 } }));
         console.log("[cron-daily] giris_denemesi temizlendi:", gd.meta.changes, "satır");
+
+        // 4) Emlakjet ilçe taraması — AYLIKTAN GÜNLÜĞE ALINDI.
+        //
+        // NEDEN: ilan havuzunda 871 ilçenin verisi var ve emsaller
+        // MAX_ILAN_YASI_GUN=180 ile düşüyor. Ayda 8 ilçe hızında bir ilçe
+        // ancak 10 yılda bir tazeleniyordu; yani rotasyon düzeltilse bile
+        // veri toptan eskiyecekti. Günde 8 ilçe → ayda ~240 → tam tur ~3.6 ay,
+        // 180 günlük pencerenin içinde kalıyor.
+        //
+        // Nezaket: istek hacmi arttığı için scraper'a kategori arası bekleme
+        // eklendi (emlakjet-scraper.ts KATEGORI_ARASI_MS). Anlık yük aynı,
+        // yayılan süre uzun.
+        //
+        // Wall time: Ağustos koşusu 3 ilçeyi 118 sn'de bitirdi → 8 ilçe ~5 dk.
+        // Cron wall limiti 15 dk, CPU değil (fetch beklemesi CPU yakmıyor).
+        try {
+          const hedefler = await env.DB.prepare(
+            `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
+             WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 6`,
+          ).all<{ il_norm: string; ilce_norm: string }>();
+          const liste = (hedefler.results ?? []).map((r) => ({
+            ilN: r.il_norm, ilceN: r.ilce_norm,
+          }));
+          if (liste.length > 0) {
+            // maxSayfa 3 → 10: ölçüm, tek bir ilçenin (istanbul/catalca) en az
+            // 10 sayfa × 30 = 300+ ilan taşıdığını gösterdi. 3 sayfada durmak
+            // her ilçenin envanterinin ~%70'ini bırakıyordu — mevcut 33.7k
+            // ilanlık havuzun (11.5k mahalleye yayılınca mahalle başına ~2.9)
+            // asıl sebebi bu.
+            //
+            // Derinlik bir kereye mahsus maliyet: emlakjetIlceTara zaten
+            // "bu sayfada yeni ilan yok" görünce duruyor, dolayısıyla daha
+            // önce taranmış bir ilçenin tekrar taraması ucuz kalıyor.
+            //
+            // Genişlik 8 → 6: derinlik 3.3x arttığı için wall time bütçesini
+            // korumak gerekiyordu (Ağustos: 3 ilçe/3 sayfa = 118 sn).
+            // 6 ilçe/gün → ayda 180 → 871 ilçenin tam turu ~4.8 ay, hâlâ
+            // 180 günlük emsal ömrünün içinde.
+            const r = await emlakjetCronBaslat(env.DB, liste, 6, 10, "cron-gunluk");
+            console.log("[cron-daily] emlakjet tarama:", r);
+          }
+        } catch (e) {
+          console.error("[cron-daily] emlakjet tarama hatası:", e);
+        }
       })());
     } else if (cron === "0 * * * *") {
       ctx.waitUntil((async () => {
@@ -467,7 +529,11 @@ export default {
         // bu yüzden saatlik slota gömülü.
         try {
           const { emlakjetZenginlestirmeTuru } = await import("./lib/emlakjet-zenginlestirme.js");
-          const z = await emlakjetZenginlestirmeTuru(env.DB, 40);
+          // Parti 40 → 120: bu hızda 33.7k ilanlık backfill 35 günden ~12 güne
+          // iniyor. İstekler arası 350ms bekleme DEĞİŞMEDİ — anlık yük aynı,
+          // sadece her turda daha uzun süre çalışıyor (120 × ~0.85s ≈ 100 sn,
+          // cron wall limiti 15 dk).
+          const z = await emlakjetZenginlestirmeTuru(env.DB, 120);
           console.log(
             `[cron-hourly] zenginlestirme: ${z.zenginlesen}/${z.denenen} ilan ` +
             `(imar ${z.imarBulunan}, koord ${z.koordBulunan}, tapu ${z.tapuBulunan}, hata ${z.hata}, ${z.sure_ms}ms)`,
@@ -568,6 +634,18 @@ export default {
         const baseUrl = "https://cadastrum-api.cadastrum-tr.workers.dev";
         const r = await parselTakipCalistir(env, baseUrl, 100);
         console.log("[cron-haftalik] parsel-takip:", r);
+
+        // Milli Emlak ihale taraması — resmi Hazine taşınmaz satışları.
+        // Aktif ilan sayısı ~390 ve sayfa boyutu 100, yani tam tarama 4 istek:
+        // haftalık çalıştırmak bedava sayılır. İhaleler haftalar önceden
+        // yayımlandığı için daha sık taramanın bilgi kazancı yok.
+        try {
+          const { milliEmlakTaramaTuru } = await import("./lib/milli-emlak-scraper.js");
+          const m = await milliEmlakTaramaTuru(env.DB);
+          console.log("[cron-haftalik] milli-emlak:", m);
+        } catch (e) {
+          console.error("[cron-haftalik] milli-emlak hatası:", e);
+        }
       })());
       // NOT: "*/30 * * * *" dalı kaldırıldı — o trigger wrangler.toml'da hiç
       // tanımlı değildi (Workers Free plan 5 trigger limiti), dolayısıyla dal
