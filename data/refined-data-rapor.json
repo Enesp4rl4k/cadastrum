@@ -1,0 +1,12 @@
+{
+  "tarih": "2026-08-28T12:52:50.235Z",
+  "hamKayitSayisi": 33445,
+  "temizKayitSayisi": 30506,
+  "kayipOraniYuzde": 8.79,
+  "elenenler": {
+    "gecersizAlanFiyat": 0,
+    "mutlakSinir": 172,
+    "istatistikselIqr": 2767
+  },
+  "not": "Hukuki kısıt (hisseli/kooperatif/hobi/2B) taraması bu script'te yapılmaz — girdi SQL'inde başlık/açıklama alanı yok. Bkz. src/lib/fiyat/data-sanitizer.ts (çalışma zamanı yolu)."
+}

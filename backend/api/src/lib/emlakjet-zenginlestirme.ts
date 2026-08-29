@@ -128,6 +128,20 @@ async function sayfaCek(url: string, timeoutMs = 15_000): Promise<string | null>
   }
 }
 
+/**
+ * Bir mahallede kaç ilanı zenginleştirdikten sonra sıradaki mahalleye geçilir.
+ *
+ * NEDEN kota var: emsal havuzunun bir mahallede iş görebilmesi için orada
+ * BİRDEN FAZLA gerçek koordinat gerekiyor (spatial motor tek noktadan medyan
+ * üretemez). Kotasız "en büyük mahalleden başla" stratejisi tek bir yoğun
+ * mahallede günlerce takılabilirdi. 25, sağlam bir medyan + outlier payı için
+ * yeterli; veri setinde mahalle başına ortalama ~2.9 ilan (33.716 ilan /
+ * 11.519 mahalle) olduğundan ve en yoğun mahallede 67 ilan bulunduğundan
+ * pratikte yalnızca en yoğun birkaç mahallede devreye giriyor — asıl işlevi
+ * emniyet supabı.
+ */
+const MAHALLE_KOTA = 25;
+
 export interface ZenginlestirmeSonuc {
   denenen: number;
   zenginlesen: number;
@@ -136,6 +150,74 @@ export interface ZenginlestirmeSonuc {
   tapuBulunan: number;
   hata: number;
   sure_ms: number;
+}
+
+/**
+ * Zenginleştirme kuyruğunu getirir — mahalle-öncelikli sırayla.
+ *
+ * NEDEN tarih sırası değil: kuyruk `yakalanma_tarihi DESC` ile alındığında
+ * işlenen 240 ilan 90 ayrı mahalleye dağılmıştı (mahalle başına ~2.7). Emsal
+ * havuzu bu dağılımda hiçbir mahallede eşiği aşamıyor, yani harcanan istekler
+ * kullanılabilir emsal üretmiyordu. İlan sayısı en yüksek mahalleden başlayıp
+ * mahalleyi (kotaya kadar) bitirerek ilerlemek, aynı istek bütçesiyle ilk
+ * turlardan itibaren gerçek emsal havuzu oluşturuyor.
+ *
+ * Mahalle anahtarı (il_norm, ilce_norm, mahalle_norm) ÜÇLÜSÜ — `mahalle_norm`
+ * tek başına benzersiz değil ("cumhuriyet" onlarca ilçede geçiyor, tek başına
+ * gruplanınca 181 ilanlık sahte bir mahalle üretiyor).
+ *
+ * Kota yaklaşık uygulanır: bir parti mahalleyi birkaç kayıt aşabilir. Zararsız,
+ * ve her satır için ayrı sayaç sorgusu yapmaktan çok daha ucuz.
+ */
+async function kuyrukGetir(
+  db: D1Database,
+  limit: number,
+): Promise<Array<{ id: number; ilan_no: string }>> {
+  const oncelikli = await db
+    .prepare(
+      `WITH islenen AS (
+         SELECT il_norm, ilce_norm, mahalle_norm, COUNT(*) AS z FROM ilanlar
+         WHERE kaynak = 'emlakjet' AND zenginlestirildi IS NOT NULL
+         GROUP BY il_norm, ilce_norm, mahalle_norm
+       ),
+       toplam AS (
+         SELECT il_norm, ilce_norm, mahalle_norm, COUNT(*) AS n FROM ilanlar
+         WHERE kaynak = 'emlakjet' AND aktif = 1
+         GROUP BY il_norm, ilce_norm, mahalle_norm
+       )
+       SELECT i.id, i.ilan_no
+       FROM ilanlar i
+       JOIN toplam t
+         ON t.il_norm = i.il_norm AND t.ilce_norm = i.ilce_norm
+        AND t.mahalle_norm = i.mahalle_norm
+       LEFT JOIN islenen z
+         ON z.il_norm = i.il_norm AND z.ilce_norm = i.ilce_norm
+        AND z.mahalle_norm = i.mahalle_norm
+       WHERE i.kaynak = 'emlakjet' AND i.aktif = 1
+         AND i.zenginlestirildi IS NULL
+         AND COALESCE(z.z, 0) < ?
+       ORDER BY t.n DESC, i.il_norm, i.ilce_norm, i.mahalle_norm,
+                i.yakalanma_tarihi DESC
+       LIMIT ?`,
+    )
+    .bind(MAHALLE_KOTA, limit)
+    .all<{ id: number; ilan_no: string }>();
+
+  const satirlar = oncelikli.results ?? [];
+  if (satirlar.length > 0) return satirlar;
+
+  // Kotası dolmamış mahalle kalmadı (ya da mahalle_norm NULL olan kayıtlar
+  // JOIN'e takıldı) — kotasız ikinci geçişe düş, böylece kuyruk hiç durmaz.
+  const kalan = await db
+    .prepare(
+      `SELECT id, ilan_no FROM ilanlar
+       WHERE kaynak = 'emlakjet' AND zenginlestirildi IS NULL AND aktif = 1
+       ORDER BY yakalanma_tarihi DESC
+       LIMIT ?`,
+    )
+    .bind(limit)
+    .all<{ id: number; ilan_no: string }>();
+  return kalan.results ?? [];
 }
 
 /**
@@ -159,17 +241,9 @@ export async function emlakjetZenginlestirmeTuru(
     koordBulunan: 0, tapuBulunan: 0, hata: 0, sure_ms: 0,
   };
 
-  const kuyruk = await db
-    .prepare(
-      `SELECT id, ilan_no FROM ilanlar
-       WHERE kaynak = 'emlakjet' AND zenginlestirildi IS NULL AND aktif = 1
-       ORDER BY yakalanma_tarihi DESC
-       LIMIT ?`,
-    )
-    .bind(limit)
-    .all<{ id: number; ilan_no: string }>();
+  const kuyruk = await kuyrukGetir(db, limit);
 
-  for (const satir of kuyruk.results ?? []) {
+  for (const satir of kuyruk) {
     sonuc.denenen++;
     // ilan_no "ej_19780846" biçiminde saklanıyor — sayısal kısmı URL'de kullanılır.
     const ejId = satir.ilan_no.replace(/^ej_/, "");

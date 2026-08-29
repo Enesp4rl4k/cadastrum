@@ -76,6 +76,8 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
     m2: number | null;
     mahalle_norm: string | null;
     imar_durumu: string | null;
+    /** Zenginleştirme hattından gelir (0028) — "Hisseli Tapu" / "Müstakil Tapu". */
+    tapu_durumu: string | null;
     yakalanma_tarihi: number;
   }
   let filtered: EmsalRow[] = [];
@@ -85,7 +87,8 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
     radiusKm = r;
     const { latDelta, lngDelta } = kmToDegrees(r, body.lat!);
     const rows = await c.env.DB.prepare(
-      `SELECT fiyat_per_m2, lat, lng, m2, mahalle_norm, imar_durumu, yakalanma_tarihi
+      `SELECT fiyat_per_m2, lat, lng, m2, mahalle_norm, imar_durumu,
+              tapu_durumu, yakalanma_tarihi
        FROM ilanlar
        WHERE kategori = ? AND aktif = 1
          AND lat IS NOT NULL AND lng IS NOT NULL
@@ -93,7 +96,7 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
          AND yakalanma_tarihi >= ?
        LIMIT 1000`,
     ).bind(kategori, body.lat - latDelta, body.lat + latDelta, body.lng - lngDelta, body.lng + lngDelta, yasEsigi)
-      .all<{ fiyat_per_m2: number; lat: number; lng: number; m2: number | null; mahalle_norm: string | null; imar_durumu: string | null; yakalanma_tarihi: number }>();
+      .all<{ fiyat_per_m2: number; lat: number; lng: number; m2: number | null; mahalle_norm: string | null; imar_durumu: string | null; tapu_durumu: string | null; yakalanma_tarihi: number }>();
 
     const radiusM = r * 1000;
     filtered = (rows.results ?? [])
@@ -103,6 +106,7 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
         m2: row.m2,
         mahalle_norm: row.mahalle_norm,
         imar_durumu: row.imar_durumu,
+        tapu_durumu: row.tapu_durumu,
         yakalanma_tarihi: row.yakalanma_tarihi,
       }))
       .filter((row) => row.mesafeM <= radiusM)
@@ -116,6 +120,7 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
     m2: e.m2,
     mahalle: e.mahalle_norm,
     imar: e.imar_durumu,
+    tapu: e.tapu_durumu,
     mesafe_m: Math.round(e.mesafeM),
     yas_gun: Math.round((Date.now() - e.yakalanma_tarihi) / 86_400_000),
   }));

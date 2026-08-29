@@ -552,14 +552,9 @@ export default {
         const r = await parselTakipCalistir(env, baseUrl, 100);
         console.log("[cron-haftalik] parsel-takip:", r);
       })());
-    } else if (cron === "*/30 * * * *") {
-      // api_jobs reaper — POST /v2/batch job'ları waitUntil ortasında evict edilirse
-      // sonsuza kadar 'isleniyor' durumunda takılı kalabilir; 10dk TTL aşanları 'hata'ya çevir.
-      ctx.waitUntil(
-        apiJobsReaperCalistir(env.DB).then((r) =>
-          console.log("[cron-reaper] api_jobs temizlendi:", r.temizlenen),
-        ),
-      );
+      // NOT: "*/30 * * * *" dalı kaldırıldı — o trigger wrangler.toml'da hiç
+      // tanımlı değildi (Workers Free plan 5 trigger limiti), dolayısıyla dal
+      // asla çalışmıyordu. api_jobs reaper zaten saatlik slotta koşuyor.
     } else {
       console.warn("[cron] beklenmeyen schedule:", cron);
     }
