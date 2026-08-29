@@ -10,8 +10,10 @@
  * ilan_no/mahalle üretir ve aynı ilan iki kez girer.
  *
  * Kullanım:
- *   node scripts/hepsiemlak-scrape.mjs --maks-ilce=20 > scripts/hepsiemlak-data.sql
+ *   node scripts/hepsiemlak-scrape.mjs --maks-ilce=20
  *   node scripts/hepsiemlak-scrape.mjs --il=istanbul
+ *
+ * Çıktı: scripts/hepsiemlak-data.sql (her ilçeden sonra güncellenir)
  *   cd backend/api && npx wrangler d1 execute cadastrum-db --remote \
  *     --file ../../scripts/hepsiemlak-data.sql
  *
@@ -24,6 +26,15 @@ import { execFile } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PROGRESS = join(ROOT, "data", "hepsiemlak-progress.json");
+/**
+ * Çıktı artık stdout değil DOSYA.
+ *
+ * NEDEN: stdout'a yazınca SQL yalnızca koşu bittiğinde ortaya çıkıyordu ve
+ * süreç ölürse (bu script daha önce iki kez exit 4 ile öldü) toplanan her şey
+ * kayboluyordu. Dosyaya yazmak, her ilçeden sonra diske kaydetmeyi mümkün
+ * kılıyor — emlakjet hattı zaten böyle çalışıyor.
+ */
+const CIKTI = join(ROOT, "scripts", "hepsiemlak-data.sql");
 const BASE = "https://www.hepsiemlak.com";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
@@ -275,37 +286,48 @@ for (const i of secilen) {
   tamamSet.add(`${i.ilNorm}/${i.ilceNorm}`);
   await uyku(ILCE_ARASI_MS);
   process.stderr.write(`[${idx}/${secilen.length}] ${i.il}/${i.ilce} +${n} (toplam ${kayitlar.length})\n`);
-  if (idx % 10 === 0) {
-    mkdirSync(dirname(PROGRESS), { recursive: true });
-    writeFileSync(PROGRESS, JSON.stringify({ tamam: [...tamamSet] }));
-  }
+  // Her ilçede diske yaz — ölüm hâlinde kayıp en fazla bir ilçe.
+  durumKaydet();
 }
-mkdirSync(dirname(PROGRESS), { recursive: true });
-writeFileSync(PROGRESS, JSON.stringify({ tamam: [...tamamSet] }));
 
-// ── SQL üret ─────────────────────────────────────────────────────────────────
-const q = (v) => (v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
-const out = [
-  "-- Otomatik üretildi: scripts/hepsiemlak-scrape.mjs",
-  `-- ${kayitlar.length} ilan`,
-  "",
-];
-const PARTI = 400;
-const ts = Date.now();
-for (let i = 0; i < kayitlar.length; i += PARTI) {
-  const vals = kayitlar.slice(i, i + PARTI).map((k) =>
-    `('hepsiemlak', ${q(k.ilanNo)}, ${q(k.ilN)}, ${q(k.ilceN)}, ${q(k.mahN)}, ` +
-    `${k.tlm2}, ${k.m2}, ${q(k.kategori)}, 'TL', ${ts}, 1, ${q(k.baslik)}, ${q(k.imarDurumu)}, ` +
-    `${k.lat ?? "NULL"}, ${k.lng ?? "NULL"}, ${k.lat ? "'mahalle-merkez'" : "NULL"})`,
-  );
-  out.push(
-    "INSERT OR IGNORE INTO ilanlar\n" +
-    "  (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,\n" +
-    "   kategori, para_birimi, yakalanma_tarihi, aktif, baslik, imar_durumu,\n" +
-    "   lat, lng, koord_kaynagi)\n" +
-    "VALUES\n  " + vals.join(",\n  ") + ";",
-  );
-  out.push("");
+// ── SQL üretimi ──────────────────────────────────────────────────────────────
+// NEDEN FONKSİYON: eskiden SQL yalnızca koşunun SONUNDA yazılıyordu. Bu script
+// günlerce sürecek bir tarama yapıyor ve daha önce iki kez beklenmedik şekilde
+// öldü (exit 4) — o hâliyle ölüm, o ana kadar toplanan her şeyin kaybı demekti.
+// Artık emlakjet hattıyla aynı davranış: her partide diske yazılıyor.
+function sqlYaz() {
+  const q = (v) => (v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
+  const out = [
+    "-- Otomatik üretildi: scripts/hepsiemlak-scrape.mjs",
+    `-- ${kayitlar.length} ilan`,
+    "",
+  ];
+  const PARTI = 400;
+  const ts = Date.now();
+  for (let i = 0; i < kayitlar.length; i += PARTI) {
+    const vals = kayitlar.slice(i, i + PARTI).map((k) =>
+      `('hepsiemlak', ${q(k.ilanNo)}, ${q(k.ilN)}, ${q(k.ilceN)}, ${q(k.mahN)}, ` +
+      `${k.tlm2}, ${k.m2}, ${q(k.kategori)}, 'TL', ${ts}, 1, ${q(k.baslik)}, ${q(k.imarDurumu)}, ` +
+      `${k.lat ?? "NULL"}, ${k.lng ?? "NULL"}, ${k.lat ? "'mahalle-merkez'" : "NULL"})`,
+    );
+    out.push(
+      "INSERT OR IGNORE INTO ilanlar\n" +
+      "  (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,\n" +
+      "   kategori, para_birimi, yakalanma_tarihi, aktif, baslik, imar_durumu,\n" +
+      "   lat, lng, koord_kaynagi)\n" +
+      "VALUES\n  " + vals.join(",\n  ") + ";",
+    );
+    out.push("");
+  }
+  writeFileSync(CIKTI, out.join("\n"), "utf8");
 }
-process.stderr.write(`${kayitlar.length} ilan, SQL hazır\n`);
-process.stdout.write(out.join("\n"));
+
+function durumKaydet() {
+  mkdirSync(dirname(PROGRESS), { recursive: true });
+  writeFileSync(PROGRESS, JSON.stringify({ tamam: [...tamamSet] }));
+  sqlYaz();
+}
+
+durumKaydet();
+process.stderr.write(`${kayitlar.length} ilan → ${CIKTI}
+`);

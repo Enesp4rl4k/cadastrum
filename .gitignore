@@ -90,3 +90,5 @@ scripts/.mm-err.txt
 scripts/.mm-parts/
 scripts/ozellikli-ilanlar.sql
 scripts/.oz-err.txt
+scripts/poi-seed.sql
+scripts/.poi-err.txt
