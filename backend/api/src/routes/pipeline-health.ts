@@ -58,6 +58,25 @@ const KONTROL_ESLIKLERI = {
   MAHALLE_ISTATISTIK_MIN: 3_000,
   /** mahalle_baseline_ai tablo satırı */
   MAHALLE_BASELINE_MIN: 1_000,
+  /**
+   * mahalle_merkez tablo satırı. Seed 65.718 satır; yarısının altına düşmesi
+   * seed'in bozulduğu/silindiği anlamına gelir. Tablo HİÇ YOKKEN koordinat
+   * çözümlemesi sessizce null dönüyordu — bu kontrol o durumu yakalar.
+   */
+  MAHALLE_MERKEZ_MIN: 30_000,
+  /** poi_noktalari tablo satırı. Seed 476; boşsa /v1/harita/poi ölü. */
+  POI_MIN: 100,
+  /**
+   * Koordinatlı ilan oranı (%). mahalle_merkez seed'i sonrası %87.
+   * %50 altı, koordinat hattının (seed veya zenginleştirme) durduğunu gösterir.
+   */
+  KOORD_KAPSAM_MIN_YUZDE: 50,
+  /**
+   * Son 30 günde damgalanan tarama hedefi. Emlakjet günde 3 ilçe × 2 kategori
+   * tarıyor → ayda ~180 damga. 30'un altı rotasyonun durduğu anlamına gelir
+   * (aylarca 3 ilçeye kilitli kalma hatası tam olarak buydu).
+   */
+  ROTASYON_30_GUN_MIN: 30,
 } as const;
 
 const GUN_MS = 86_400_000;
@@ -147,10 +166,106 @@ export async function pipelineHealthKontrol(
       : "Tablo erişim hatası veya tablo boş",
   });
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // SESSİZ BOZULMA KONTROLLERİ
+  //
+  // Yukarıdaki beş kontrol yalnızca "ilan sayısı düştü mü" sorusunu soruyor.
+  // Ama bu sistemde bulunan hataların ÇOĞU sayıyı hiç düşürmedi — hata da
+  // vermediler, sadece sessizce yanlış/eksik veri ürettiler:
+  //
+  //   1. mahalle_merkez tablosu HİÇ YOKTU. Worker koordinat sorgusu try/catch
+  //      içindeydi, her zaman null dönüyordu. İlan sayısı normaldi, koordinat
+  //      kapsamı %37'ye takılıydı ve kimse fark etmedi.
+  //   2. poi_noktalari boştu. /v1/harita/poi boş dizi dönüyordu, hata değil.
+  //   3. Scraper 3 ilçeye kilitliydi. Aylardır aynı ilçeleri tarıyordu; toplam
+  //      ilan sayısı sabit kaldığı için "sağlıklı" görünüyordu.
+  //   4. Kaynak sitesi 403/429 döndüğünde scraper bunu "ilan yok" sayıyordu.
+  //
+  // Aşağıdaki kontroller bu dört sınıfı hedefliyor. Hepsi "beklenen bir şey
+  // olmuyor" biçiminde, "bir şey kötüleşti" biçiminde değil.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  await sayimKontrolEkle(db, kontroller, {
+    ad: "Mahalle merkez koordinatları",
+    sorgu: "SELECT COUNT(*) as n FROM mahalle_merkez",
+    esik: KONTROL_ESLIKLERI.MAHALLE_MERKEZ_MIN,
+    birim: "merkez",
+    // Bu tablo migration 0030'a kadar HİÇ VAR DEĞİLDİ; boşalması Worker
+    // koordinat çözümlemesinin tamamen sessizleşmesi demek.
+  });
+
+  await sayimKontrolEkle(db, kontroller, {
+    ad: "Harita POI noktaları",
+    sorgu: "SELECT COUNT(*) as n FROM poi_noktalari",
+    esik: KONTROL_ESLIKLERI.POI_MIN,
+    birim: "POI",
+    // Boşsa /v1/harita/poi sessizce boş dizi döner — hata değil, ölü özellik.
+  });
+
+  // Koordinat kapsamı — zenginleştirme/koordinat hattının sessiz durması.
+  // Oran kontrolü, çünkü mutlak sayı ilan sayısıyla birlikte büyür.
+  const koordKapsam = await db.prepare(
+    `SELECT COUNT(*) AS toplam, SUM(lat IS NOT NULL) AS koordlu
+     FROM ilanlar WHERE aktif = 1`,
+  ).first<{ toplam: number; koordlu: number }>().catch(() => null);
+  const koordYuzde = koordKapsam?.toplam
+    ? Math.round((100 * (koordKapsam.koordlu ?? 0)) / koordKapsam.toplam)
+    : 0;
+  kontroller.push({
+    ad: "Koordinat kapsamı (%)",
+    deger: koordYuzde,
+    esik: KONTROL_ESLIKLERI.KOORD_KAPSAM_MIN_YUZDE,
+    gecti: koordYuzde >= KONTROL_ESLIKLERI.KOORD_KAPSAM_MIN_YUZDE,
+    mesaj: koordKapsam
+      ? `%${koordYuzde} (${(koordKapsam.koordlu ?? 0).toLocaleString("tr-TR")}/${koordKapsam.toplam.toLocaleString("tr-TR")})`
+      : "Sorgu hatası",
+  });
+
+  // Tarama rotasyonu ilerliyor mu — "3 ilçeye kilitlenme" hatasının kontrolü.
+  // Son 30 günde kaç FARKLI hedef damgalandı? Rotasyon durursa bu sayı çakılır
+  // ama toplam ilan sayısı sabit kaldığı için başka hiçbir kontrol uyarmaz.
+  const rotasyon = await db.prepare(
+    `SELECT COUNT(*) as n FROM tarama_durum WHERE son_tarama >= ?`,
+  ).bind(ts - 30 * GUN_MS).first<{ n: number }>().catch(() => null);
+  kontroller.push({
+    ad: "Son 30 günde taranan hedef",
+    deger: rotasyon?.n ?? 0,
+    esik: KONTROL_ESLIKLERI.ROTASYON_30_GUN_MIN,
+    gecti: (rotasyon?.n ?? 0) >= KONTROL_ESLIKLERI.ROTASYON_30_GUN_MIN,
+    mesaj: rotasyon?.n != null
+      ? `${rotasyon.n} hedef damgalandı`
+      : "tarama_durum erişim hatası",
+  });
+
   const alarmSayisi = kontroller.filter((k) => !k.gecti).length;
   const saglikli = alarmSayisi === 0;
 
   return { ts, saglikli, kontroller, alarmSayisi, emailGonderildi: false };
+}
+
+/**
+ * Tek satırlık sayım kontrolü ekler.
+ *
+ * Sorgu patlarsa (tablo yok vb.) deger 0 kabul edilir ve kontrol BAŞARISIZ
+ * olur — sessizce "geçti" saymak, bu sistemde tekrar tekrar karşılaştığımız
+ * hata sınıfının ta kendisi olurdu.
+ */
+async function sayimKontrolEkle(
+  db: D1Database,
+  kontroller: PipelineKontrol[],
+  opt: { ad: string; sorgu: string; esik: number; birim: string },
+): Promise<void> {
+  const r = await db.prepare(opt.sorgu).first<{ n: number }>().catch(() => null);
+  const deger = r?.n ?? 0;
+  kontroller.push({
+    ad: opt.ad,
+    deger,
+    esik: opt.esik,
+    gecti: deger >= opt.esik,
+    mesaj: r?.n != null
+      ? `${deger.toLocaleString("tr-TR")} ${opt.birim}`
+      : "Tablo yok veya erişilemiyor",
+  });
 }
 
 // ─── Email alarm ──────────────────────────────────────────────────────────────
