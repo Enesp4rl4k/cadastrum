@@ -82,3 +82,6 @@ thinkpython*.txt
 scripts/make_thinkpython_abridged.py
 scripts/milli-emlak-seed.sql
 scripts/.me-err.txt
+scripts/hepsiemlak-data.sql
+scripts/.he-err.txt
+data/hepsiemlak-progress.json

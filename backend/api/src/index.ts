@@ -323,7 +323,11 @@ app.post("/v1/admin/zenginlestir", async (c) => {
 });
 
 // Milli Emlak ihale taraması — manuel tetikleme (Bearer SCRAPER_API_SECRET).
-// Haftalık cron'da da çalışıyor; bu endpoint ilk doldurma ve doğrulama için.
+//
+// UYARI: kaynak Cloudflare Workers ten 522 (timeout) veriyor, yerel makineden
+// 200. Bu endpoint şu an pratikte çalışmıyor; veri scripts/milli-emlak-seed-uret.mjs
+// ile yerelden toplanıyor. Kaynak CF egress ini kabul etmeye başlarsa çalışır
+// hâle gelir, bu yüzden silinmedi. Durumu /v1/admin/kaynak-testi ile ölçün.
 app.post("/v1/admin/milli-emlak-tara", async (c) => {
   const yetki = await bearerYetkilendir(
     c.req.header("Authorization"),
@@ -333,6 +337,94 @@ app.post("/v1/admin/milli-emlak-tara", async (c) => {
   const { milliEmlakTaramaTuru } = await import("./lib/milli-emlak-scraper.js");
   const sonuc = await milliEmlakTaramaTuru(c.env.DB);
   return c.json(sonuc);
+});
+
+// Hepsiemlak taraması — manuel tetikleme (Bearer SCRAPER_API_SECRET).
+//
+// UYARI: kaynak Cloudflare Workers fetch ine 403 döndürüyor (TLS parmak izi
+// filtresi). Bu endpoint şu an pratikte çalışmıyor; veri
+// scripts/hepsiemlak-scrape.mjs ile yerelden (curl) toplanıyor. Erişim açılırsa
+// çalışır hâle gelir, bu yüzden silinmedi. Durumu /v1/admin/kaynak-testi ile ölçün.
+// ?ilce= ile tek ilçe, ?limit= ile parti boyutu.
+app.post("/v1/admin/hepsiemlak-tara", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SCRAPER_API_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const limit = Math.min(Math.max(Number(c.req.query("limit")) || 3, 1), 20);
+  const tekIlce = c.req.query("ilce");
+
+  const sorgu = tekIlce
+    ? c.env.DB.prepare(
+        `SELECT il_norm, ilce_norm FROM hepsiemlak_ilce_durum WHERE ilce_norm = ? LIMIT 1`,
+      ).bind(tekIlce)
+    : c.env.DB.prepare(
+        `SELECT il_norm, ilce_norm FROM hepsiemlak_ilce_durum
+         ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
+      ).bind(limit);
+
+  const hedef = await sorgu.all<{ il_norm: string; ilce_norm: string }>();
+  const liste = (hedef.results ?? []).map((r) => ({ ilN: r.il_norm, ilceN: r.ilce_norm }));
+  if (liste.length === 0) return c.json({ hata: "Hedef ilçe bulunamadı" }, 404);
+
+  const { hepsiemlakRunBaslat } = await import("./lib/hepsiemlak-scraper.js");
+  const sonuc = await hepsiemlakRunBaslat(c.env.DB, liste, liste.length, 25);
+  return c.json(sonuc);
+});
+
+// Kaynak erişilebilirlik testi (Bearer STATS_SECRET).
+//
+// NEDEN: hepsiemlak, Node.js fetch e 403 döndürürken curl a 200 dönüyor —
+// yani TLS/HTTP2 parmak izine göre filtreleme yapıyor, header ile aşılmıyor.
+// Cloudflare Workers fetch inin hangi tarafta olduğu kaynağın kullanılabilir
+// olup olmadığını belirliyor. Bu endpoint onu ölçer ve ileride kaynak
+// erişimi sessizce bozulduğunda tespit etmeyi sağlar.
+//
+// Allowlist DIŞINDA URL kabul etmiyor — açık proxy hâline gelmesin.
+const KAYNAK_TEST_URL: Record<string, string> = {
+  hepsiemlak: "https://www.hepsiemlak.com/ceyhan-satilik/arsa",
+  emlakjet: "https://www.emlakjet.com/satilik-arsa/istanbul-catalca",
+  milliemlak: "https://mebis-s-p.csb.gov.tr/api/MileWeb/GetSatisIlanList",
+};
+
+app.get("/v1/admin/kaynak-testi", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.STATS_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+
+  const sonuclar: Record<string, unknown> = {};
+  for (const [ad, url] of Object.entries(KAYNAK_TEST_URL)) {
+    try {
+      const res = await fetch(url, {
+        method: ad === "milliemlak" ? "POST" : "GET",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+          "Accept-Language": "tr-TR,tr;q=0.9",
+          ...(ad === "milliemlak"
+            ? { "Content-Type": "application/json", Origin: "https://milliemlak.gov.tr" }
+            : { Accept: "text/html,application/xhtml+xml" }),
+        },
+        body: ad === "milliemlak" ? JSON.stringify({ offset: 0, pageSize: 1 }) : undefined,
+        signal: AbortSignal.timeout(20_000),
+      });
+      const govde = await res.text();
+      sonuclar[ad] = {
+        status: res.status,
+        ok: res.ok,
+        boyut: govde.length,
+        // Liste sayfalarında JSON-LD ilan bloğu var mı — 200 dönüp boş sayfa
+        // servis edilmesi de bir başarısızlık türü.
+        ilanIzi: /RealEstateListing|response_object/.test(govde),
+      };
+    } catch (e) {
+      sonuclar[ad] = { hata: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  return c.json(sonuclar);
 });
 
 // Pipeline health check (Bearer STATS_SECRET)
@@ -422,14 +514,14 @@ export default {
   // Workers Free plan hesap başına 5 trigger ile sınırlı — yeni işler (endeks,
   // api_jobs reaper) ayrı trigger yerine mevcut 5 slot'a gömülü çalışır:
   //   "0 3 * * *"   → istatistik + health + archive + temizlik
-  //                   + EMLAKJET İLÇE TARAMASI (8 ilçe/gün — aylıktan alındı)
+  //                   + EMLAKJET İLÇE TARAMASI (3 ilçe/gün)
   //   "0 * * * *"   → bildirim + api_jobs reaper + ilan zenginleştirme (120/tur)
   //   "0 2 1 * *"   → Sahibinden otomatik scraper + Cadex Fiyat Endeksi (ayın 1'i 02:00 UTC)
   //                   NOT: Sahibinden yolu 3 aydır her koşuda 'bot-bloke'
   //                   (PerimeterX). Endeks kısmı çalışıyor.
   //   "0 3 15 * *"  → Emlakjet aylık tarama (günlük tarama devreye girdi,
   //                   bu artık yedek/yakalama turu)
-  //   "0 5 * * 1"   → parsel polygon takibi + MİLLİ EMLAK İHALE TARAMASI
+  //   "0 5 * * 1"   → parsel polygon değişiklik takibi
   // event.cron string'i ile ayırıyoruz.
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const cron = event.cron;
@@ -488,7 +580,7 @@ export default {
         try {
           const hedefler = await env.DB.prepare(
             `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-             WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 4`,
+             WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 3`,
           ).all<{ il_norm: string; ilce_norm: string }>();
           const liste = (hedefler.results ?? []).map((r) => ({
             ilN: r.il_norm, ilceN: r.ilce_norm,
@@ -518,12 +610,25 @@ export default {
             // 120 → 871 ilçenin tam turu ~7 ay. Bu, 180 günlük emsal ömrünün
             // biraz ÜSTÜNDE: ilk tam tur derinlik kazanmaya harcanıyor,
             // sonraki turlar erken-durma sayesinde çok daha hızlı akacak.
-            const r = await emlakjetCronBaslat(env.DB, liste, 4, 25, "cron-gunluk");
+            const r = await emlakjetCronBaslat(env.DB, liste, 3, 25, "cron-gunluk");
             console.log("[cron-daily] emlakjet tarama:", r);
           }
         } catch (e) {
           console.error("[cron-daily] emlakjet tarama hatası:", e);
         }
+
+        // 5) HEPSİEMLAK CRON A BAĞLANAMIYOR — bilinçli olarak yok.
+        //
+        // ÖLÇÜM (/v1/admin/kaynak-testi): hepsiemlak Cloudflare Workers fetch ine
+        // 403 döndürüyor. Node.js fetch de 403 alıyor; curl 200 alıyor. Header
+        // setiyle aşılmıyor (sadece-UA, UA+Accept, tam tarayıcı başlık seti —
+        // üçü de 403), yani filtre TLS/HTTP2 parmak izine bakıyor.
+        //
+        // Bu yüzden hepsiemlak verisi YEREL script ile toplanıyor:
+        //   node scripts/hepsiemlak-scrape.mjs --maks-ilce=50 > scripts/hepsiemlak-data.sql
+        //   npx wrangler d1 execute cadastrum-db --remote --file ../../scripts/hepsiemlak-data.sql
+        // Parser mantığı lib/hepsiemlak-scraper.ts ile ortak ve test edilmiş
+        // durumda; Worker tarafı erişim açılırsa buraya tek çağrıyla bağlanır.
       })());
     } else if (cron === "0 * * * *") {
       ctx.waitUntil((async () => {
@@ -652,17 +757,16 @@ export default {
         const r = await parselTakipCalistir(env, baseUrl, 100);
         console.log("[cron-haftalik] parsel-takip:", r);
 
-        // Milli Emlak ihale taraması — resmi Hazine taşınmaz satışları.
-        // Aktif ilan sayısı ~390 ve sayfa boyutu 100, yani tam tarama 4 istek:
-        // haftalık çalıştırmak bedava sayılır. İhaleler haftalar önceden
-        // yayımlandığı için daha sık taramanın bilgi kazancı yok.
-        try {
-          const { milliEmlakTaramaTuru } = await import("./lib/milli-emlak-scraper.js");
-          const m = await milliEmlakTaramaTuru(env.DB);
-          console.log("[cron-haftalik] milli-emlak:", m);
-        } catch (e) {
-          console.error("[cron-haftalik] milli-emlak hatası:", e);
-        }
+        // MİLLİ EMLAK CRON A BAĞLANAMIYOR — bilinçli olarak yok.
+        //
+        // ÖLÇÜM (/v1/admin/kaynak-testi): mebis-s-p.csb.gov.tr Cloudflare
+        // Workers ten 522 (connection timed out) veriyor, üst üste denemelerde
+        // de aynı. Yerel makineden 200 dönüyor. Kaynak, CF egress ini kabul
+        // etmiyor gibi görünüyor.
+        //
+        // Veri YEREL script ile toplanıyor:
+        //   node scripts/milli-emlak-seed-uret.mjs > scripts/milli-emlak-seed.sql
+        //   npx wrangler d1 execute cadastrum-db --remote --file ../../scripts/milli-emlak-seed.sql
       })());
       // NOT: "*/30 * * * *" dalı kaldırıldı — o trigger wrangler.toml'da hiç
       // tanımlı değildi (Workers Free plan 5 trigger limiti), dolayısıyla dal
