@@ -310,6 +310,25 @@ app.post("/v1/istatistik/refresh", async (c) => {
   return c.json(result);
 });
 
+// İlan zenginleştirme — manuel tetikleme (Bearer STATS_SECRET).
+// Saatlik cron'da da çalışıyor; bu endpoint backfill'i hızlandırmak ve
+// deploy sonrası doğrulama yapmak için. ?limit= ile parti boyutu ayarlanır.
+app.post("/v1/admin/zenginlestir", async (c) => {
+  // SCRAPER_API_SECRET kullanılıyor (STATS_SECRET değil): bu bir scraping
+  // işlemi, ve STATS_SECRET production'da hiç set edilmemiş durumda —
+  // onu kullanan /v1/istatistik/refresh ve /v1/admin/pipeline-health şu an
+  // fiilen erişilemez (ayrı bir konu, bkz. deploy notları).
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SCRAPER_API_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const limit = Math.min(Math.max(Number(c.req.query("limit")) || 20, 1), 60);
+  const { emlakjetZenginlestirmeTuru } = await import("./lib/emlakjet-zenginlestirme.js");
+  const sonuc = await emlakjetZenginlestirmeTuru(c.env.DB, limit);
+  return c.json(sonuc);
+});
+
 // Pipeline health check (Bearer STATS_SECRET)
 app.get("/v1/admin/pipeline-health", async (c) => {
   const yetki = await bearerYetkilendir(
@@ -422,6 +441,22 @@ export default {
           console.log("[cron-hourly] api_jobs reaper:", rp.temizlenen, "job temizlendi");
         } catch (e) {
           console.error("[cron-hourly] api_jobs reaper hatası:", e);
+        }
+
+        // İlan zenginleştirme — detay sayfasından imar durumu + GERÇEK parsel
+        // koordinatı + tapu durumu çeker. Kademeli backfill: her turda küçük
+        // bir parti, kaynağa yük bindirmemek için istekler arası beklemeli.
+        // Ayrı cron trigger'ı açılamıyor (Workers Free plan 5 trigger limiti),
+        // bu yüzden saatlik slota gömülü.
+        try {
+          const { emlakjetZenginlestirmeTuru } = await import("./lib/emlakjet-zenginlestirme.js");
+          const z = await emlakjetZenginlestirmeTuru(env.DB, 40);
+          console.log(
+            `[cron-hourly] zenginlestirme: ${z.zenginlesen}/${z.denenen} ilan ` +
+            `(imar ${z.imarBulunan}, koord ${z.koordBulunan}, tapu ${z.tapuBulunan}, hata ${z.hata}, ${z.sure_ms}ms)`,
+          );
+        } catch (e) {
+          console.error("[cron-hourly] zenginlestirme hatası:", e);
         }
       })());
     } else if (cron === "0 2 1 * *") {

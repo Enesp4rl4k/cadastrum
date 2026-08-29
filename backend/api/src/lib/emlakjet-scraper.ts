@@ -59,6 +59,13 @@ interface IlanKayit {
   m2: number;
   lat: number | null;
   lng: number | null;
+  /**
+   * İlan başlığı — liste JSON-LD'sindeki `name` alanı, ek istek gerektirmiyor.
+   * Rafineri NLP'si (hisseli tapu / kooperatif / hobi bahçesi tespiti) ve
+   * `segmentBul()` bu metni kullanıyor; şu ana kadar backend tarafında hiç
+   * saklanmadığı için ikisi de sinyalsiz çalışıyordu.
+   */
+  baslik: string | null;
 }
 
 export interface EmlakjetRunSonuc {
@@ -135,6 +142,7 @@ function listeJsonLdParse(html: string, kategoriHedef: string): IlanKayit[] {
         m2,
         lat: null,
         lng: null,
+        baslik: typeof it.name === "string" ? it.name.slice(0, 300) : null,
       });
     }
   }
@@ -200,6 +208,14 @@ function detayParse(html: string): { il: string | null; ilce: string | null; mah
   };
 }
 
+/** Detay sayfasından ilan başlığını çıkar (h1 önce, yoksa <title>). */
+function baslikCikar(html: string): string | null {
+  const h1 = html.match(/<h1[^>]*>([^<]{3,300})<\/h1>/)?.[1];
+  if (h1) return h1.trim().slice(0, 300);
+  const t = html.match(/<title[^>]*>([^<]{3,300})<\/title>/)?.[1];
+  return t ? t.trim().slice(0, 300) : null;
+}
+
 /** İlan bağlantılarını HTML'den çıkar. */
 function ilanLinkleriCikar(html: string): string[] {
   const set = new Set<string>();
@@ -263,8 +279,8 @@ async function ilanKaydet(db: D1Database, ilan: IlanKayit): Promise<boolean> {
       .prepare(
         `INSERT OR IGNORE INTO ilanlar
          (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,
-          kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, aktif)
-         VALUES ('emlakjet', ?, ?, ?, ?, ?, ?, ?, 'TL', ?, ?, ?, ?, 1)`,
+          kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, aktif, baslik)
+         VALUES ('emlakjet', ?, ?, ?, ?, ?, ?, ?, 'TL', ?, ?, ?, ?, 1, ?)`,
       )
       .bind(
         `ej_${ilan.ejId}`,
@@ -278,6 +294,7 @@ async function ilanKaydet(db: D1Database, ilan: IlanKayit): Promise<boolean> {
         ilan.lat,
         ilan.lng,
         ilan.lat ? "mahalle-merkez" : null,
+        ilan.baslik,
       )
       .run();
     return true;
@@ -395,6 +412,9 @@ export async function emlakjetIlceTara(
         m2: r.m2,
         lat: koord?.lat ?? null,
         lng: koord?.lng ?? null,
+        // Detay fallback yolunda başlığı <title>/<h1>'den al — liste JSON-LD'si
+        // yoksa buraya düşülüyor, başlık yine de yakalanabiliyor.
+        baslik: baslikCikar(dhtml),
       };
 
       const ok = await ilanKaydet(db, ilan);
