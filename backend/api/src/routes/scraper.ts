@@ -43,8 +43,9 @@ scraperRoutes.get("/run-log", async (c) => {
 scraperRoutes.get("/ilce-durum", async (c) => {
   if (!adminMi(c)) return c.json({ hata: "Admin gerekli" }, 403);
   const rows = await c.env.DB.prepare(
-    `SELECT il_norm, ilce_norm, kategori, son_tarama, son_insert_adet, son_durum
-     FROM scraper_ilce_durum
+    `SELECT kaynak, il_norm, ilce_norm, kategori, son_tarama,
+            son_eklenen AS son_insert_adet, son_durum
+     FROM tarama_durum
      ORDER BY son_tarama ASC NULLS FIRST LIMIT 50`,
   ).all();
   return c.json({ ilceler: rows.results ?? [] });
@@ -73,8 +74,9 @@ scraperRoutes.post("/manuel-tetik", async (c) => {
 
   // Çoklu ilçe — son taranan en eski olanları seç
   const ilceler = await c.env.DB.prepare(
-    `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-     WHERE kategori = ? ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
+    `SELECT il_norm, ilce_norm FROM tarama_durum
+     WHERE kaynak = 'sahibinden' AND kategori = ?
+     ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
   ).bind(kategori, sayi).all<{ il_norm: string; ilce_norm: string }>();
 
   let hedefler: Array<{ ilNorm: string; ilceNorm: string }>;
@@ -140,9 +142,9 @@ export async function scraperRunBaslat(
     const h = hedefler[i];
     if (!h) continue;
     await db.prepare(
-      `INSERT INTO scraper_ilce_durum (il_norm, ilce_norm, kategori, son_tarama, son_durum)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(il_norm, ilce_norm, kategori) DO UPDATE
+      `INSERT INTO tarama_durum (kaynak, il_norm, ilce_norm, kategori, son_tarama, son_durum)
+       VALUES ('sahibinden', ?, ?, ?, ?, ?)
+       ON CONFLICT(kaynak, il_norm, ilce_norm, kategori) DO UPDATE
        SET son_tarama = excluded.son_tarama, son_durum = excluded.son_durum`,
     ).bind(h.ilNorm, h.ilceNorm, kategori, Date.now(), durum).run();
   }
@@ -190,8 +192,9 @@ scraperRoutes.post("/emlakjet-tetik", async (c) => {
   // Çoklu ilçe — en eski tarananları seç
   const sayi = Math.min(Math.max(body.sayi ?? 5, 1), 15);
   const ilceler = await c.env.DB.prepare(
-    `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-     WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
+    `SELECT il_norm, ilce_norm FROM tarama_durum
+     WHERE kaynak = 'sahibinden' AND kategori = 'arsa'
+     ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
   ).bind(sayi).all<{ il_norm: string; ilce_norm: string }>();
 
   let hedefler = (ilceler.results ?? []).map((r) => ({

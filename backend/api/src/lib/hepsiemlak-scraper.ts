@@ -26,6 +26,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
+import { ilanYaz, taramaDamgala } from "./veri-katmani.js";
 
 const BASE = "https://www.hepsiemlak.com";
 const UA =
@@ -241,54 +242,6 @@ async function sayfaCek(url: string, timeoutMs = 20_000): Promise<string | null>
   }
 }
 
-async function koordinatAra(
-  db: D1Database,
-  ilN: string,
-  ilceN: string,
-  mahN: string | null,
-): Promise<{ lat: number; lng: number } | null> {
-  if (!mahN) return null;
-  try {
-    const row = await db
-      .prepare(
-        `SELECT lat, lng FROM mahalle_merkez
-         WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ? LIMIT 1`,
-      )
-      .bind(ilN, ilceN, mahN)
-      .first<{ lat: number; lng: number }>();
-    return row ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function ilanKaydet(
-  db: D1Database,
-  i: HeIlan,
-  koord: { lat: number; lng: number } | null,
-): Promise<boolean> {
-  try {
-    const r = await db
-      .prepare(
-        `INSERT OR IGNORE INTO ilanlar
-         (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,
-          kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, aktif,
-          baslik, imar_durumu)
-         VALUES ('hepsiemlak', ?, ?, ?, ?, ?, ?, ?, 'TL', ?, ?, ?, ?, 1, ?, ?)`,
-      )
-      .bind(
-        i.ilanNo, i.ilN, i.ilceN, i.mahN, i.tlm2, i.m2, i.kategori,
-        Date.now(), koord?.lat ?? null, koord?.lng ?? null,
-        koord ? "mahalle-merkez" : null, i.baslik, i.imarDurumu,
-      )
-      .run();
-    // INSERT OR IGNORE: çakışmada changes=0 → kayıt zaten vardı.
-    return (r.meta?.changes ?? 0) > 0;
-  } catch {
-    return false;
-  }
-}
-
 export interface HeIlceSonuc {
   ilN: string; ilceN: string; kategori: string;
   eklenen: number; atlanan: number; sayfa: number; hata: boolean;
@@ -325,9 +278,21 @@ export async function hepsiemlakIlceTara(
     for (const it of items) {
       const ilan = ilanNormalize(it, ilN, ilceN);
       if (!ilan) { s.atlanan++; continue; }
-      const koord = await koordinatAra(db, ilan.ilN, ilan.ilceN, ilan.mahN);
-      if (await ilanKaydet(db, ilan, koord)) s.eklenen++;
-      else s.atlanan++;
+      // Koordinat, başlık, imar ve rotasyon veri katmanının işi — bkz.
+      // lib/veri-katmani.ts. Buradaki tek sorumluluk PARSE.
+      const yazildi = await ilanYaz(db, {
+        kaynak: "hepsiemlak",
+        ilanNo: ilan.ilanNo,
+        ilNorm: ilan.ilN,
+        ilceNorm: ilan.ilceN,
+        mahalleNorm: ilan.mahN,
+        fiyatPerM2: ilan.tlm2,
+        m2: ilan.m2,
+        kategori: ilan.kategori,
+        baslik: ilan.baslik,
+        imarDurumu: ilan.imarDurumu,
+      });
+      if (yazildi) s.eklenen++; else s.atlanan++;
     }
 
     await new Promise((r) => setTimeout(r, ISTEK_ARASI_MS));
@@ -368,19 +333,8 @@ export async function hepsiemlakRunBaslat(
       }
       await new Promise((r) => setTimeout(r, ISTEK_ARASI_MS));
     }
-    // Rotasyon damgası — cron hedefleri son_tarama ASC NULLS FIRST ile seçiyor.
-    // Damgalanmazsa aynı ilçe sonsuza kadar yeniden seçilirdi (emlakjet
-    // tarafında tam bu yüzden 3 ilçeye kilitlenmiştik).
-    try {
-      await db
-        .prepare(
-          `UPDATE hepsiemlak_ilce_durum
-             SET son_tarama = ?, son_eklenen = ?, son_durum = ?
-           WHERE il_norm = ? AND ilce_norm = ?`,
-        )
-        .bind(Date.now(), ilceEklenen, ilceHata ? "hata" : "tamam", ilN, ilceN)
-        .run();
-    } catch { /* tablo yoksa sessizce geç */ }
+    await taramaDamgala(db, "hepsiemlak", { ilNorm: ilN, ilceNorm: ilceN },
+                        ilceEklenen, ilceHata ? "hata" : "tamam");
 
     s.islenenIlce++;
   }

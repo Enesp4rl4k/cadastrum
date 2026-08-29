@@ -357,10 +357,12 @@ app.post("/v1/admin/hepsiemlak-tara", async (c) => {
 
   const sorgu = tekIlce
     ? c.env.DB.prepare(
-        `SELECT il_norm, ilce_norm FROM hepsiemlak_ilce_durum WHERE ilce_norm = ? LIMIT 1`,
+        `SELECT il_norm, ilce_norm FROM tarama_durum
+         WHERE kaynak = 'hepsiemlak' AND ilce_norm = ? LIMIT 1`,
       ).bind(tekIlce)
     : c.env.DB.prepare(
-        `SELECT il_norm, ilce_norm FROM hepsiemlak_ilce_durum
+        `SELECT il_norm, ilce_norm FROM tarama_durum
+         WHERE kaynak = 'hepsiemlak'
          ORDER BY son_tarama ASC NULLS FIRST LIMIT ?`,
       ).bind(limit);
 
@@ -579,8 +581,9 @@ export default {
         // Cron wall limiti 15 dk, CPU değil (fetch beklemesi CPU yakmıyor).
         try {
           const hedefler = await env.DB.prepare(
-            `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-             WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 3`,
+            `SELECT il_norm, ilce_norm FROM tarama_durum
+             WHERE kaynak = 'emlakjet' AND kategori = 'arsa'
+             ORDER BY son_tarama ASC NULLS FIRST LIMIT 3`,
           ).all<{ il_norm: string; ilce_norm: string }>();
           const liste = (hedefler.results ?? []).map((r) => ({
             ilN: r.il_norm, ilceN: r.ilce_norm,
@@ -670,8 +673,9 @@ export default {
       //   2) Sonuç ne olursa olsun admin'lere email at: "manuel Bootstrap çalıştır"
       ctx.waitUntil((async () => {
         const ilceler = await env.DB.prepare(
-          `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-           WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 5`,
+          `SELECT il_norm, ilce_norm FROM tarama_durum
+           WHERE kaynak = 'emlakjet' AND kategori = 'arsa'
+           ORDER BY son_tarama ASC NULLS FIRST LIMIT 5`,
         ).all<{ il_norm: string; ilce_norm: string }>();
         let hedefler = (ilceler.results ?? []).map((r) => ({ ilNorm: r.il_norm, ilceNorm: r.ilce_norm }));
         if (hedefler.length === 0) {
@@ -725,8 +729,9 @@ export default {
       ctx.waitUntil((async () => {
         // En eski taranan ilçeleri seç (veya hiç taranmamışları)
         const ilceler = await env.DB.prepare(
-          `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-           WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 8`,
+          `SELECT il_norm, ilce_norm FROM tarama_durum
+           WHERE kaynak = 'emlakjet' AND kategori = 'arsa'
+           ORDER BY son_tarama ASC NULLS FIRST LIMIT 8`,
         ).all<{ il_norm: string; ilce_norm: string }>();
 
         let hedefler = (ilceler.results ?? []).map((r) => ({

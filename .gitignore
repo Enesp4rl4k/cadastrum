@@ -85,3 +85,6 @@ scripts/.me-err.txt
 scripts/hepsiemlak-data.sql
 scripts/.he-err.txt
 data/hepsiemlak-progress.json
+scripts/mahalle-merkez-seed.sql
+scripts/.mm-err.txt
+scripts/.mm-parts/

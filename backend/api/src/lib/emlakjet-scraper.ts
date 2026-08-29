@@ -9,19 +9,22 @@
  *      (detay sayfası gerekmez — çok daha hızlı)
  *   2. JSON-LD yoksa link listesi çek, her detay sayfasını parse et (fallback)
  *   3. ilanlar tablosuna batch INSERT (UNIQUE constraint duplicate'leri yutar)
- *   4. scraper_ilce_durum tablosunu güncelle
+ *   4. tarama_durum tablosunu güncelle (veri katmanı üzerinden)
  *
  * Worker sınırlamaları:
  *   - CPU timeout: 30s (default) veya 5dk (Unbound plan)
  *   - Paralel fetch: context.waitUntil ile arka planda çalışır
  *   - MERKEZ_TUPLES: Worker'a bundle edilemeyecek kadar büyük — koordinatlar
- *     D1'daki mahalle_merkez tablosundan çekilir (lazy, yoksa null)
+ *     D1'daki mahalle_merkez tablosundan çekilir (lib/veri-katmani.ts).
+ *     O tablo migration 0030'a kadar HİÇ VAR DEĞİLDİ; koordinat çözümlemesi
+ *     sessizce hep null dönüyordu.
  *
  * Kullanım:
  *   import { emlakjetIlceTara, emlakjetRunBaslat } from "../lib/emlakjet-scraper.js";
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
+import { ilanYaz, taramaDamgala, type IlanKategori } from "./veri-katmani.js";
 
 const EMLAKJET_BASE = "https://www.emlakjet.com";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
@@ -248,59 +251,26 @@ async function sayfaCek(url: string, timeoutMs = 20_000): Promise<string | null>
 
 // ── Koordinat lookup (D1'dan) ─────────────────────────────────────────────────
 
-async function koordinatAra(
-  db: D1Database,
-  ilN: string,
-  ilceN: string,
-  mahN: string | null,
-): Promise<{ lat: number; lng: number } | null> {
-  if (!mahN) return null;
-  try {
-    const row = await db
-      .prepare(
-        `SELECT lat, lng FROM mahalle_merkez
-         WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ?
-         LIMIT 1`,
-      )
-      .bind(ilN, ilceN, mahN)
-      .first<{ lat: number; lng: number }>();
-    return row ?? null;
-  } catch {
-    return null;
-  }
-}
-
 // ── D1 INSERT ─────────────────────────────────────────────────────────────────
 
+/** Parse edilmiş emlakjet kaydını veri katmanı üzerinden yazar. */
 async function ilanKaydet(db: D1Database, ilan: IlanKayit): Promise<boolean> {
-  try {
-    const ts = Date.now();
-    await db
-      .prepare(
-        `INSERT OR IGNORE INTO ilanlar
-         (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,
-          kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, aktif, baslik)
-         VALUES ('emlakjet', ?, ?, ?, ?, ?, ?, ?, 'TL', ?, ?, ?, ?, 1, ?)`,
-      )
-      .bind(
-        `ej_${ilan.ejId}`,
-        ilan.ilN,
-        ilan.ilceN,
-        ilan.mahN,
-        ilan.tlm2,
-        ilan.m2,
-        ilan.kategori,
-        ts,
-        ilan.lat,
-        ilan.lng,
-        ilan.lat ? "mahalle-merkez" : null,
-        ilan.baslik,
-      )
-      .run();
-    return true;
-  } catch {
-    return false;
-  }
+  // Koordinat çözümlemesi, kolon listesi ve çakışma davranışı
+  // lib/veri-katmani.ts'te — kopyalanan koordinatAra() bu modülde de var
+  // olmayan mahalle_merkez tablosuna sorup sessizce null dönüyordu.
+  return ilanYaz(db, {
+    kaynak: "emlakjet",
+    ilanNo: `ej_${ilan.ejId}`,
+    ilNorm: ilan.ilN,
+    ilceNorm: ilan.ilceN,
+    mahalleNorm: ilan.mahN,
+    fiyatPerM2: ilan.tlm2,
+    m2: ilan.m2,
+    kategori: ilan.kategori as IlanKategori,
+    baslik: ilan.baslik,
+    // lat/lng bilinçli olarak GEÇİLMİYOR: veri katmanı mahalle merkezinden
+    // çözecek. Scraper'ın kendi koordinat kaynağı yok.
+  });
 }
 
 // ── İlçe tarama ───────────────────────────────────────────────────────────────
@@ -366,10 +336,7 @@ export async function emlakjetIlceTara(
         // ilceN'i JSON-LD'den gelen ile çakışma varsa parametre kazanır (güvenilir)
         if (!ilan.ilceN) ilan.ilceN = ilceN;
 
-        // Koordinat lookup
-        const koord = await koordinatAra(db, ilan.ilN, ilan.ilceN, ilan.mahN);
-        if (koord) { ilan.lat = koord.lat; ilan.lng = koord.lng; }
-
+        // Koordinat çözümlemesi ilanKaydet -> veri-katmani içinde yapılıyor.
         const ok = await ilanKaydet(db, ilan);
         if (ok) { sonuc.eklenen++; yeniBuSayfa++; }
         else sonuc.atlanan++;
@@ -411,7 +378,6 @@ export async function emlakjetIlceTara(
       if (tlm2 < 100 || tlm2 > 10_000_000) continue;
 
       const mahN = r.mahalle ? normalizeYerAdi(r.mahalle) : null;
-      const koord = await koordinatAra(db, ilN, ilceN, mahN);
 
       const ilan: IlanKayit = {
         ejId,
@@ -421,8 +387,8 @@ export async function emlakjetIlceTara(
         kategori: r.kategori,
         tlm2,
         m2: r.m2,
-        lat: koord?.lat ?? null,
-        lng: koord?.lng ?? null,
+        lat: null,
+        lng: null,
         // Detay fallback yolunda başlığı <title>/<h1>'den al — liste JSON-LD'si
         // yoksa buraya düşülüyor, başlık yine de yakalanabiliyor.
         baslik: baslikCikar(dhtml),
@@ -443,20 +409,9 @@ export async function emlakjetIlceTara(
     }
   }
 
-  // İlçe durum tablosunu güncelle
-  try {
-    await db
-      .prepare(
-        `INSERT INTO scraper_ilce_durum (il_norm, ilce_norm, kategori, son_tarama, son_insert_adet, son_durum)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(il_norm, ilce_norm, kategori)
-         DO UPDATE SET son_tarama = excluded.son_tarama,
-                       son_insert_adet = excluded.son_insert_adet,
-                       son_durum = excluded.son_durum`,
-      )
-      .bind(ilN, ilceN, kategori, Date.now(), sonuc.eklenen, sonuc.hata ? "hata" : "tamam")
-      .run();
-  } catch { /* scraper_ilce_durum tablosu yoksa sessizce geç */ }
+  // Rotasyon damgası — veri katmanı üzerinden (tarama_durum, migration 0030).
+  await taramaDamgala(db, "emlakjet", { ilNorm: ilN, ilceNorm: ilceN, kategori },
+                      sonuc.eklenen, sonuc.hata ? "hata" : "tamam");
 
   return sonuc;
 }
