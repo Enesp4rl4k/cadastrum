@@ -56,6 +56,7 @@ import { bearerYetkilendir, cspHeader } from "./lib/security.js";
 import { pipelineHealthKontrol, pipelineAlarmEmailGonder } from "./routes/pipeline-health.js";
 import { sentryMiddleware } from "./lib/sentry.js";
 import { requestIdMiddleware } from "./lib/request-id.js";
+import { sunucuHatasiKaydet } from "./lib/hata-kaydet.js";
 
 export interface Env {
   DB: D1Database;
@@ -176,6 +177,22 @@ app.notFound((c) => {
 app.onError((err, c) => {
   const requestId = c.get("requestId" as never) as string | undefined;
   console.error(`[unhandled-error] ${c.req.method} ${c.req.path} (requestId=${requestId ?? "?"}):`, err);
+
+  // Kalıcı kayıt — console.error yalnızca `wrangler tail` açıkken görülüyor,
+  // dolayısıyla üretimde sunucu hatalarının görünürlüğü yoktu. waitUntil ile
+  // arka plana atılıyor: 500 yanıtı D1 yazmasını beklemez.
+  try {
+    c.executionCtx.waitUntil(
+      sunucuHatasiKaydet(c.env.DB, err, {
+        method: c.req.method,
+        path: c.req.path,
+        requestId,
+      }),
+    );
+  } catch {
+    // executionCtx bazı bağlamlarda (ör. test) yok — hata kaydı best-effort.
+  }
+
   return c.json({
     success: false,
     error: {

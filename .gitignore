@@ -55,6 +55,13 @@ data/mahalle-scrape-baseline.json
 data/mahalle-centroid.json
 data/ilce-baseline-scrape.json
 
+# D1 seed SQL'leri — üreteçlerinden yeniden kurulur, track edilmez (17MB+).
+# Üret: node scripts/mahalle-baseline-ai-seed-uret.mjs > scripts/mahalle-baseline-ai-seed.sql
+#       node scripts/scraper-ilce-seed-uret.mjs      > scripts/scraper-ilce-seed.sql
+scripts/mahalle-baseline-ai-seed.sql
+scripts/scraper-ilce-seed.sql
+scripts/.baseline-ai-parts/
+
 # Wrangler / Cloudflare local state
 .wrangler/
 
