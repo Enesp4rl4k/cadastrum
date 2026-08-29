@@ -15,6 +15,16 @@ export interface BolgeBaselineSonuc {
   emsalListesi: FiyatTahmini["emsalListesi"];
   triUyumsuzluk?: number;
   triManuelReview?: boolean;
+  /**
+   * Emsal (ilan/asking) fiyatÄ±ndan kapanÄ±ÅŸ fiyatÄ±na inmek iÃ§in uygulanan
+   * iskonto oranÄ± â€” sadece gerÃ§ek emsal havuzu kullanÄ±ldÄ±ÄŸÄ±nda > 0.
+   * Statik baseline yollarÄ±nda 0 (o tablolar zaten kapanÄ±ÅŸ seviyesinde kabul edilir).
+   *
+   * DÄ±ÅŸarÄ± veriliyor Ã§Ã¼nkÃ¼ motorun HEDEFÄ° kapanÄ±ÅŸ fiyatÄ±, ama elimizdeki
+   * doÄŸrulama verisi (ilan veri setleri) asking fiyatÄ± â€” bu alan olmadan
+   * backtest, iskontoyu "hata" sanÄ±p emsal yolunu haksÄ±z yere cezalandÄ±rÄ±yordu.
+   */
+  uygulananIndirim?: number;
 }
 
 export function guvenSkoruTavani(kaynak: FiyatTahmini["baselineKaynak"]): number {
@@ -79,22 +89,22 @@ export function guvenHesapla(params: {
   if (cevreVar) {
     skor += 4;
   } else {
-    veriKalitesiNotlari.push("Çevre/POI verisi yok; eriþim etkisi nötr kabul edildi.");
+    veriKalitesiNotlari.push("ï¿½evre/POI verisi yok; eriï¿½im etkisi nï¿½tr kabul edildi.");
   }
   if (egimVar) {
     skor += 4;
   } else {
-    veriKalitesiNotlari.push("Eðim verisi yok; topoðrafya etkisi nötr kabul edildi.");
+    veriKalitesiNotlari.push("Eï¿½im verisi yok; topoï¿½rafya etkisi nï¿½tr kabul edildi.");
   }
   if (resmiImarVar) {
     skor += 8;
     veriKalitesiNotlari.push("Resmi e-Plan imar verisi fiyat sinyaline dahil edildi.");
   } else {
-    veriKalitesiNotlari.push("Resmi e-Plan verisi yok; imar sinyali ilan/parsel heuristiðinden üretildi.");
+    veriKalitesiNotlari.push("Resmi e-Plan verisi yok; imar sinyali ilan/parsel heuristiï¿½inden ï¿½retildi.");
   }
   if (multiplierClamped) {
     skor -= 6;
-    veriKalitesiNotlari.push("Heuristik çarpanlar taþmasýn diye tahmin koruma bandýna sýkýþtýrýldý.");
+    veriKalitesiNotlari.push("Heuristik ï¿½arpanlar taï¿½masï¿½n diye tahmin koruma bandï¿½na sï¿½kï¿½ï¿½tï¿½rï¿½ldï¿½.");
   }
 
   skor = clamp(Math.round(skor), 5, 95);
@@ -133,18 +143,18 @@ export function guvenHesapla(params: {
 
   const guvenAciklama =
     baseline.kaynak === "ilanGozlem-mahalle"
-      ? `${baseline.guvenAdet} aðýrlýklý emsal ile üretildi. Güven skoru ${skor}/100.`
+      ? `${baseline.guvenAdet} aï¿½ï¿½rlï¿½klï¿½ emsal ile ï¿½retildi. Gï¿½ven skoru ${skor}/100.`
       : baseline.kaynak === "ilanGozlem-ilce"
-        ? `${baseline.guvenAdet} aðýrlýklý ilçe emsali ile üretildi. Mahalle emsali gelirse daha da daralýr. Güven skoru ${skor}/100.`
+        ? `${baseline.guvenAdet} aï¿½ï¿½rlï¿½klï¿½ ilï¿½e emsali ile ï¿½retildi. Mahalle emsali gelirse daha da daralï¿½r. Gï¿½ven skoru ${skor}/100.`
         : baseline.kaynak === "mahalle-baseline"
-          ? `Mahalle bazlý baseline (AI/KNN, Bayesian shrinkage uygulanmýþ). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
+          ? `Mahalle bazlï¿½ baseline (AI/KNN, Bayesian shrinkage uygulanmï¿½ï¿½). Sahibinden'de gezinerek gerï¿½ek emsallere geï¿½. Gï¿½ven skoru ${skor}/100.`
           : baseline.kaynak === "ilce-semt-baseline"
-            ? `Bölge ortalamasý (semt düzeyi). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
+            ? `Bï¿½lge ortalamasï¿½ (semt dï¿½zeyi). Sahibinden'de gezinerek gerï¿½ek emsallere geï¿½. Gï¿½ven skoru ${skor}/100.`
             : baseline.kaynak === "ilce-baseline"
-              ? `Bölge ortalamasý (ilçe düzeyi). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
+              ? `Bï¿½lge ortalamasï¿½ (ilï¿½e dï¿½zeyi). Sahibinden'de gezinerek gerï¿½ek emsallere geï¿½. Gï¿½ven skoru ${skor}/100.`
               : baseline.kaynak === "il-baseline"
-                ? `Bölge ortalamasý (il düzeyi). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
-                : `Bölgesel emsal bulunamadý; genel ortalama kullanýldý. Güven skoru ${skor}/100.`;
+                ? `Bï¿½lge ortalamasï¿½ (il dï¿½zeyi). Sahibinden'de gezinerek gerï¿½ek emsallere geï¿½. Gï¿½ven skoru ${skor}/100.`
+                : `Bï¿½lgesel emsal bulunamadï¿½; genel ortalama kullanï¿½ldï¿½. Gï¿½ven skoru ${skor}/100.`;
 
   return { guven, guvenSkoru: skor, guvenAciklama, altRange, ustRange, veriKalitesiNotlari };
 }
@@ -200,15 +210,15 @@ export function ekGuvenKatmani(params: {
       baseline.kaynak === "ilanGozlem-mahalle"
         ? "Mahalle emsali"
         : baseline.kaynak === "ilanGozlem-ilce"
-          ? "Ýlçe emsali"
+          ? "ï¿½lï¿½e emsali"
           : baseline.kaynak === "mahalle-baseline"
             ? "Mahalle baseline"
             : baseline.kaynak === "ilce-semt-baseline"
               ? "Semt baseline"
               : baseline.kaynak === "ilce-baseline"
-                ? "Ýlçe baseline"
+                ? "ï¿½lï¿½e baseline"
                 : baseline.kaynak === "il-baseline"
-                  ? "Ýl baseline"
+                  ? "ï¿½l baseline"
                   : "Genel fallback",
     puan: baselinePuani,
     durum: baselinePuani >= 40 ? "pozitif" : baselinePuani >= 30 ? "notr" : "uyari",
@@ -216,14 +226,14 @@ export function ekGuvenKatmani(params: {
 
   if (baseline.guvenAdet > 0) {
     guvenKirilimi.push({
-      etiket: "Canlý emsal adedi",
+      etiket: "Canlï¿½ emsal adedi",
       puan: Math.min(20, baseline.guvenAdet * 2),
       durum: "pozitif",
     });
   }
   if (baseline.emsalOzeti) {
     guvenKirilimi.push({
-      etiket: "Emsal benzerliði",
+      etiket: "Emsal benzerliï¿½i",
       puan: Math.round(baseline.emsalOzeti.ortalamaBenzerlik * 12),
       durum: "pozitif",
     });
@@ -233,7 +243,7 @@ export function ekGuvenKatmani(params: {
     const puan = yas <= 30 ? 8 : yas <= 60 ? 4 : yas > 90 ? -4 : 0;
     if (puan !== 0) {
       guvenKirilimi.push({
-        etiket: "Veri tazeliði",
+        etiket: "Veri tazeliï¿½i",
         puan,
         durum: puan > 0 ? "pozitif" : "uyari",
       });
@@ -244,7 +254,7 @@ export function ekGuvenKatmani(params: {
     ekSkor += 8;
     altRangeDelta += 0.02;
     ustRangeDelta -= 0.02;
-    guvenKirilimi.push({ etiket: "Resmi e-Plan imarý", puan: 8, durum: "pozitif" });
+    guvenKirilimi.push({ etiket: "Resmi e-Plan imarï¿½", puan: 8, durum: "pozitif" });
     ekNotlar.push("Resmi e-Plan imar verisi fiyat sinyaline dahil edildi.");
   } else if (manuelImarVar) {
     const puan = manuelImarDetayAdet >= 3 ? 6 : manuelImarDetayAdet >= 1 ? 3 : 0;
@@ -253,11 +263,11 @@ export function ekGuvenKatmani(params: {
       altRangeDelta += 0.015;
       ustRangeDelta -= 0.015;
     }
-    guvenKirilimi.push({ etiket: "Manuel imar giriþi", puan, durum: puan > 0 ? "pozitif" : "notr" });
-    ekNotlar.push("Ýmar sinyali kullanýcý giriþi ile güçlendirildi.");
+    guvenKirilimi.push({ etiket: "Manuel imar giriï¿½i", puan, durum: puan > 0 ? "pozitif" : "notr" });
+    ekNotlar.push("ï¿½mar sinyali kullanï¿½cï¿½ giriï¿½i ile gï¿½ï¿½lendirildi.");
   } else {
-    guvenKirilimi.push({ etiket: "Ýmar belirsizliði", puan: -4, durum: "uyari" });
-    sonrakiHamleler.push("Kullaným kararý ile TAKS/Emsal girersen fiyat sapmasý ciddi azalýr.");
+    guvenKirilimi.push({ etiket: "ï¿½mar belirsizliï¿½i", puan: -4, durum: "uyari" });
+    sonrakiHamleler.push("Kullanï¿½m kararï¿½ ile TAKS/Emsal girersen fiyat sapmasï¿½ ciddi azalï¿½r.");
   }
 
   if (manuelEmsalAdet > 0) {
@@ -265,11 +275,11 @@ export function ekGuvenKatmani(params: {
     ekSkor += puan;
     altRangeDelta += manuelEmsalAdet >= 2 ? 0.02 : 0.01;
     ustRangeDelta -= manuelEmsalAdet >= 2 ? 0.02 : 0.01;
-    guvenKirilimi.push({ etiket: "Manuel emsal desteði", puan, durum: "pozitif" });
+    guvenKirilimi.push({ etiket: "Manuel emsal desteï¿½i", puan, durum: "pozitif" });
     ekNotlar.push(`${manuelEmsalAdet} manuel emsal fiyat havuzuna dahil edildi.`);
   } else {
     guvenKirilimi.push({ etiket: "Manuel emsal yok", puan: 0, durum: "notr" });
-    sonrakiHamleler.push("Bölgede bildiðin gerçek satýþ/ilan fiyatý varsa ekle (güven +%15).");
+    sonrakiHamleler.push("Bï¿½lgede bildiï¿½in gerï¿½ek satï¿½ï¿½/ilan fiyatï¿½ varsa ekle (gï¿½ven +%15).");
   }
 
   return {

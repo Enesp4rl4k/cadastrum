@@ -82,6 +82,13 @@ export interface FiyatTahmini {
   baselineKaynak: "spatial-radius" | "ilanGozlem-mahalle" | "ilanGozlem-ilce" | "mahalle-baseline" | "ilce-semt-baseline" | "ilce-baseline" | "il-baseline" | "fallback";
   baselineDeger: number;
   baselineNot: string;
+  /**
+   * Baseline'a uygulanan asking→kapanış iskontosu (0-1). Sadece gerçek emsal
+   * havuzu kullanıldığında > 0. Motorun hedefi kapanış fiyatı olduğu için,
+   * ilan (asking) fiyatlarıyla karşılaştırma yapan doğrulama araçları bu oranı
+   * geri ekleyerek elmayla elmayı kıyaslamalı.
+   */
+  uygulananIndirim?: number;
   /** Kullanılan ilanGozlem kayıt sayısı (0 = statik tablo) */
   baselineAdet: number;
   /** 0-100 arası özet güven skoru */
@@ -452,6 +459,7 @@ export async function fiyatTahminEt(
     baselineKaynak: baseline.kaynak,
     baselineDeger: Math.round(baseline.baseline),
     baselineNot: baseline.not,
+    uygulananIndirim: baseline.uygulananIndirim,
     baselineAdet: baseline.guvenAdet,
     guvenSkoru,
     veriKalitesiNotlari,

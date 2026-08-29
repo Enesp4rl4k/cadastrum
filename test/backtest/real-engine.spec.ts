@@ -203,9 +203,22 @@ beforeAll(async () => {
       const [lat, lng] = MERKEZ_TUPLES[`${k.il}__${k.ilce}__${k.mahalle}`]!;
       const parsel = minimalParsel(k, lat, lng);
       const tahmin = await fiyatTahminEt(parsel, null, null);
-      const ape = Math.abs(tahmin.beklenenPerM2 - k.tlm2) / k.tlm2;
+
+      // ELMAYLA ELMA: referans veri (emlakjet) ASKING fiyatı, motorun hedefi ise
+      // KAPANIŞ fiyatı — gerçek emsal havuzu kullanıldığında bilinçli bir
+      // asking→kapanış iskontosu uygulanıyor (dinamikIndirimOrani, %6-24).
+      // İskontoyu geri eklemeden karşılaştırmak, doğru çalışan motoru "hatalı"
+      // gösterip emsal yolunu haksız yere cezalandırıyordu (statik baseline
+      // yolları iskonto uygulamadığı için kayırılıyordu).
+      const indirim = tahmin.uygulananIndirim ?? 0;
+      const askingEsdeger =
+        indirim > 0 && indirim < 1
+          ? tahmin.beklenenPerM2 / (1 - indirim)
+          : tahmin.beklenenPerM2;
+
+      const ape = Math.abs(askingEsdeger - k.tlm2) / k.tlm2;
       apeler.push(ape);
-      biasToplam += (tahmin.beklenenPerM2 - k.tlm2) / k.tlm2;
+      biasToplam += (askingEsdeger - k.tlm2) / k.tlm2;
     }
     sonuclar[segment] = olc(apeler, biasToplam);
   }

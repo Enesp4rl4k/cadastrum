@@ -34,6 +34,14 @@ export interface MahalleBaselineSonuc {
   guven: number;             // 0-100
   hamMahalleFiyat: number | null;  // shrinkage öncesi mahalle fiyatı
   ilceFallback: number | null;     // shrinkage'da kullanılan ilçe değeri
+  /**
+   * Shrinkage + de-shrinkage + özellik çarpanı UYGULANMIŞ, ama enflasyon
+   * düzeltmesi UYGULANMAMIŞ ara değer. Async versiyon bunu doğrudan yeniden
+   * enflasyonlayabilsin diye dışarı veriliyor — eskiden async, shrinkage'ı
+   * sıfırdan (ve lineer uzayda, sync'in log uzayına aykırı) yeniden
+   * hesapladığı için sync'teki düzeltmeler sessizce kayboluyordu.
+   */
+  shrunkHamFiyat: number | null;
   kaynak: "ai" | "knn" | "koy" | "ilce-only" | "fallback";
   not: string;
 }
@@ -65,6 +73,24 @@ export const KAPPA_BY_KATEGORI: Record<Kategori, number> = {
   arsa: 5,
   konut: 5,
   tarla: 10,
+};
+
+/**
+ * De-shrinkage katsayısı — ilçe çıpası etrafındaki sapmayı genişletir.
+ * 1 = kapalı. Tablo değerinin KENDİSİ yumuşatılmış geldiği için (bkz.
+ * kullanıldığı yerdeki not) bu, o sıkışmayı geri açmayı amaçlar.
+ *
+ * Soğuk-başlangıç senaryosunda (yerel emsal havuzu boş — statik yolun izole
+ * edildiği tek durum, test/backtest/soguk-baslangic) ölçüldü, n=1200:
+ *   arsa  γ=1.0 → MAPE 149.4 / ±%20 15.8 · γ=1.4 → 145.1 / 17.2 · γ=1.8 → 145.5 / 14.9
+ *   tarla γ=1.0 → MAPE  38.9 / ±%20 46.6 · γ=1.4 →  41.1 / 46.1 · γ=1.8 →  46.6 / 41.4
+ * Arsa ölçülü bir genişletmeden fayda görüyor, tarla hiç görmüyor — tarla
+ * tablosu zaten daha az sıkışık (kırsal sezgisel ağırlıklı, KNN daha az).
+ */
+export const DE_SHRINK_GAMMA: Record<Kategori, number> = {
+  arsa: 1.4,
+  konut: 1.4,
+  tarla: 1.0,
 };
 
 // İlçe→mahalle skew düzeltmesi data/ilce-baseline.ts'te tanımlı (tek kaynak); re-export.
@@ -203,26 +229,15 @@ export async function mahalleBaselineGetirAsync(
   const sync = mahalleBaselineGetir(ilAd, ilceAd, mahalleAd, kategori);
   if (!sync || !ilAd) return sync;
 
-  // Sync sonucu: hamMahalleFiyat ve ilceFallback'ten ham fiyatı yeniden hesapla
-  // (sync zaten enflasyon uyguladı, biz TCMB ile yeniden uygulayalım)
-  let hamFiyat: number;
-  if (sync.hamMahalleFiyat) {
-    // Bayesian shrinkage uygulanmış halde
-    if (sync.ilceFallback) {
-      // sync.baseline = sync.hamMahalleFiyat shrunk + tüfe. Ham hâlini bul:
-      // Daha basit yol: aynı Bayesian'ı tekrar uygula, TCMB ile düzelt
-      const kappa = KAPPA_BY_KATEGORI[kategori] ?? 30;
-      const guvenIcin = Math.max(sync.guven - 5, 0); // ilçe varsa +5 eklenmiştir
-      const alpha = guvenIcin / (guvenIcin + kappa);
-      hamFiyat = alpha * sync.hamMahalleFiyat + (1 - alpha) * sync.ilceFallback;
-    } else {
-      hamFiyat = sync.hamMahalleFiyat;
-    }
-  } else if (sync.ilceFallback) {
-    hamFiyat = sync.ilceFallback;
-  } else {
-    return sync;
-  }
+  // Sync, shrinkage + de-shrinkage + özellik çarpanını zaten uyguladı ve
+  // enflasyon ÖNCESİ ara değeri `shrunkHamFiyat` ile veriyor. Burada tek yapılacak
+  // iş onu TCMB KFE ile yeniden enflasyonlamak.
+  //
+  // Eskiden bu blok Bayesian'ı sıfırdan (ve LİNEER uzayda, sync'in log uzayına
+  // aykırı) yeniden hesaplıyordu; bu yüzden sync'te yapılan her düzeltme —
+  // de-shrinkage dahil — async yolda sessizce kayboluyordu.
+  const hamFiyat = sync.shrunkHamFiyat ?? sync.ilceFallback;
+  if (!hamFiyat) return sync;
 
   const { guncelFiyat, carpan } = await enflasyonDuzeltAsync(Math.round(hamFiyat), MAHALLE_BASELINE_TARIH, ilAd);
   const enfNot = carpan.yontem === "tcmb-kfe"
@@ -269,6 +284,7 @@ export function mahalleBaselineGetir(
       baseline: guncelFiyat,
       guven: 30,
       hamMahalleFiyat: null,
+      shrunkHamFiyat: ilceFiyatHam,
       ilceFallback: ilceFiyatHam,
       kaynak: "ilce-only",
       not: `İlçe baseline (mahalle veri yok) — ${ilceAd}`,
@@ -287,6 +303,7 @@ export function mahalleBaselineGetir(
       baseline: guncelFiyat,
       guven: 30,
       hamMahalleFiyat: null,
+      shrunkHamFiyat: ilceFiyatHam,
       ilceFallback: ilceFiyatHam,
       kaynak: "ilce-only",
       not: `İlçe baseline (${kategori} segment yok) — ${ilceAd}`,
@@ -302,10 +319,25 @@ export function mahalleBaselineGetir(
   if (ilceFiyatHam) {
     const kappa = KAPPA_BY_KATEGORI[kategori] ?? 30;
     const alpha = mahalleGuven / (mahalleGuven + kappa);
-    
+
     // Log-space shrinkage
     const logNihai = alpha * Math.log(mahalleTlm2) + (1 - alpha) * Math.log(ilceFiyatHam);
     nihai = Math.exp(logNihai);
+
+    // De-shrinkage — tablo değerinin KENDİSİ zaten yumuşatılmış geliyor.
+    // MAHALLE_BASELINE'ın %59'u KNN interpolasyonu, %33'ü kırsal sezgisel;
+    // yalnızca %2'si gerçek scrape. KNN komşulardan interpolasyon yaptığı için
+    // sonuç ortalamaya doğru sıkışıyor: ucuz kırsal yukarı, pahalı kent aşağı
+    // çekiliyor. Ölçümde bu, gerçek fiyat bandına göre sistematik bir sapma
+    // olarak görülüyordu (<500 TL/m² bandında +%296, >20k bandında -%78).
+    // İlçe çıpası etrafındaki sapmayı γ ile genişleterek telafi ediyoruz.
+    const gamma = DE_SHRINK_GAMMA[kategori] ?? 1;
+    if (gamma !== 1) {
+      const logCipa = Math.log(ilceFiyatHam);
+      const genisletilmis = Math.exp(logCipa + (Math.log(nihai) - logCipa) * gamma);
+      // Güvenlik: γ gürültüyü de büyütür — sonucu çıpanın makul bir katına sınırla.
+      nihai = Math.min(ilceFiyatHam * 8, Math.max(ilceFiyatHam / 8, genisletilmis));
+    }
   }
 
   // Mahalle özellik çarpanı (sahil/metro/üniversite yakınlığı)
@@ -329,6 +361,7 @@ export function mahalleBaselineGetir(
     baseline: guncelFiyat,
     guven: nihaiGuven,
     hamMahalleFiyat: mahalleTlm2,
+    shrunkHamFiyat: Math.round(nihai),
     ilceFallback: ilceFiyatHam,
     kaynak: nihaiKaynak,
     not: `Mahalle baseline (${nihaiKaynak}, ${MAHALLE_BASELINE_TARIH}) — ${kategori} ${mahalleTlm2.toLocaleString("tr-TR")} TL/m²${ilceFiyatHam ? `, ilçe ${ilceFiyatHam.toLocaleString("tr-TR")} ile shrunk` : ""}${ozellik.carpan !== 1.0 ? ` · özellik ×${ozellik.carpan} (${ozellik.notlar.join(", ")})` : ""}${enfNot}`,

@@ -38,12 +38,63 @@ import {
 import { apiFiyatMahalleSorgula } from "../api-fiyat";
 import type { BolgeBaselineSonuc } from "./guven-motoru";
 
+/**
+ * İl baseline tablolarında normalize edilmiş anahtarla arama.
+ *
+ * Tablolar düzgün Türkçe anahtarlarla yazılmış ("İstanbul"), ama `parsel.ilAd`
+ * her zaman o biçimde gelmiyor (normalize edilmiş / küçük harf / farklı kaynak).
+ * Ham indeksleme sessizce `undefined` dönüp fallback'e (1.000 TL/m²) düşüyordu —
+ * backtest'te `fallback` kaynağının -%60 sapmasının sebebi buydu.
+ */
+function ilBaselineBul(
+  tablo: Record<string, number>,
+  ilAd: string | null | undefined,
+): number | undefined {
+  if (!ilAd) return undefined;
+  const dogrudan = tablo[ilAd];
+  if (dogrudan != null) return dogrudan;
+  const hedef = normalizeYerAdi(ilAd);
+  if (!hedef) return undefined;
+  for (const [anahtar, deger] of Object.entries(tablo)) {
+    if (normalizeYerAdi(anahtar) === hedef) return deger;
+  }
+  return undefined;
+}
+
+/**
+ * Gerçek emsal havuzuna, statik destek baseline'ına karşı verilecek ağırlık.
+ *
+ * Kategori tavanı (`YEREL_AGIRLIK_TAVAN`) bias-varyans dengesinden geliyor,
+ * hold-out backtest'le ölçüldü: arsa'da gerçek emsal statik tabloyu açık ara
+ * yeniyor (MAPE 132→88), ama tarla'da tersi — bir mahalledeki tarla fiyatları
+ * sulama/yol/toprak gibi modellenmeyen faktörlerle çok değişken olduğu için
+ * 1-12 emsalin medyanı gürültülü kalıyor; KNN ile yumuşatılmış statik tablo
+ * daha az sapmalı olmasa da daha az dağınık. Bu yüzden tarlada harman statik
+ * tarafa daha çok yaslanır.
+ */
+const YEREL_AGIRLIK_TAVAN: Record<"arsa" | "tarla", number> = {
+  arsa: 0.94,
+  // Ölçüm (n=1200, iskonto geri eklenmiş ADİL karşılaştırma):
+  //   tavan 0.94 → MAPE 55.0 / ±%20 32.2
+  //   tavan 0.40 → MAPE 44.9 / ±%20 38.3
+  //   tavan 0.10 → MAPE 38.5 / ±%20 47.3
+  //   tavan 0.05 → MAPE 38.0 / ±%20 48.8
+  // Tarlada gerçek emsal ne kadar az ağırlık alırsa o kadar iyi. Bu, ilk
+  // bakışta ters görünüyor (gerçek satış verisi > interpolasyon) ama sebebi
+  // bias değil VARYANS: aynı mahalledeki tarla fiyatları sulama/yol/toprak
+  // gibi modellenmeyen faktörlerle çok dağınık, 1-12 emsalin medyanı gürültülü
+  // kalıyor. 0.05 yerine 0.10 seçildi — ölçüm farkı ihmal edilebilir, ama
+  // kullanıcı manuel emsal girdiğinde tahmine bir miktar yansıması korunuyor.
+  tarla: 0.10,
+};
+
 export function yerelBaselineAgirligi(args: {
   secilenAdet: number;
   ortalamaBenzerlik: number;
   ortalamaYasGun: number;
   mahalleOrani: number;
   alanBandUyumOrani: number;
+  kategori?: "arsa" | "tarla";
 }): number {
   const adetSkoru = clamp(args.secilenAdet / 8, 0.25, 1);
   const benzerlikSkoru = clamp(args.ortalamaBenzerlik, 0, 1);
@@ -54,14 +105,15 @@ export function yerelBaselineAgirligi(args: {
     args.ortalamaYasGun <= 120 ? 0.66 : 0.55;
   const mahalleSkoru = clamp(0.55 + args.mahalleOrani * 0.45, 0.55, 1);
   const bandSkoru = clamp(0.5 + args.alanBandUyumOrani * 0.5, 0.5, 1);
+  const tavan = YEREL_AGIRLIK_TAVAN[args.kategori ?? "arsa"];
   return clamp(
     adetSkoru * 0.32 +
       benzerlikSkoru * 0.24 +
       tazelikSkoru * 0.18 +
       mahalleSkoru * 0.14 +
       bandSkoru * 0.12,
-    0.35,
-    0.94,
+    Math.min(0.35, tavan),
+    tavan,
   );
 }
 
@@ -97,7 +149,7 @@ export async function destekBaselineGetir(
 
   if (kategori === "tarla") {
     const tarlaBaselineHam =
-      IL_BASELINE_TARLA_TL_M2[parsel.ilAd] ?? FALLBACK_TARLA_BASELINE_TL_M2;
+      ilBaselineBul(IL_BASELINE_TARLA_TL_M2, parsel.ilAd) ?? FALLBACK_TARLA_BASELINE_TL_M2;
     const { guncelFiyat: tarlaBaseline } = enflasyonDuzelt(tarlaBaselineHam);
     return {
       baseline: tarlaBaseline,
@@ -106,7 +158,7 @@ export async function destekBaselineGetir(
     };
   }
 
-  const ilBaselineHam = IL_BASELINE_ARSA_TL_M2[parsel.ilAd];
+  const ilBaselineHam = ilBaselineBul(IL_BASELINE_ARSA_TL_M2, parsel.ilAd);
   if (ilBaselineHam) {
     const { guncelFiyat: ilBaseline } = enflasyonDuzelt(ilBaselineHam);
     return {
@@ -244,11 +296,21 @@ export async function bolgeBaseliniGetir(
       ortalamaYasGun,
       mahalleOrani,
       alanBandUyumOrani,
+      kategori: isTarimsal ? "tarla" : "arsa",
     });
     const baselineHarman =
       destekBaseline && destekBaseline.baseline > 0
         ? Math.round(hamYerelBaseline * yerelAgirlik + destekBaseline.baseline * (1 - yerelAgirlik))
         : hamYerelBaseline;
+    // Aynı harmanın iskonto UYGULANMAMIŞ hâli — nihai baseline'a etki eden
+    // efektif iskontoyu tam olarak hesaplamak için (iskonto sadece yerel emsal
+    // payına uygulanıyor, statik destek payına değil).
+    const indirimsizHarman =
+      destekBaseline && destekBaseline.baseline > 0
+        ? Math.round(weightedAsk * yerelAgirlik + destekBaseline.baseline * (1 - yerelAgirlik))
+        : weightedAsk;
+    const uygulananIndirim =
+      indirimsizHarman > 0 ? Math.max(0, 1 - baselineHarman / indirimsizHarman) : 0;
     const indirim = dinamikIndirimOrani(temizEmsaller.length, 0);
     const baseline = baselineHarman;
     const ozet = bolgeFiyatOzetiHesapla(temizEmsaller.map((a) => a.fiyatPerM2TL));
@@ -310,6 +372,7 @@ export async function bolgeBaseliniGetir(
 
     return {
       baseline,
+      uygulananIndirim,
       kaynak,
       not:
         kaynak === "ilanGozlem-mahalle"
@@ -473,7 +536,7 @@ export async function bolgeBaseliniGetir(
 
   if (isTarimsal) {
     const tarlaBaselineHam =
-      IL_BASELINE_TARLA_TL_M2[parsel.ilAd] ?? FALLBACK_TARLA_BASELINE_TL_M2;
+      ilBaselineBul(IL_BASELINE_TARLA_TL_M2, parsel.ilAd) ?? FALLBACK_TARLA_BASELINE_TL_M2;
     const { guncelFiyat: tarlaBaseline, carpan: tarlaCarpan } = enflasyonDuzelt(tarlaBaselineHam);
     return {
       baseline: tarlaBaseline,
@@ -491,7 +554,7 @@ export async function bolgeBaseliniGetir(
     };
   }
 
-  const ilBaselineHam = IL_BASELINE_ARSA_TL_M2[parsel.ilAd];
+  const ilBaselineHam = ilBaselineBul(IL_BASELINE_ARSA_TL_M2, parsel.ilAd);
   if (ilBaselineHam) {
     const { guncelFiyat: ilBaseline, carpan: ilCarpan } = enflasyonDuzelt(ilBaselineHam);
     return {

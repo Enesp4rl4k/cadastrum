@@ -418,6 +418,15 @@ export function alanBandUyumu(parselAlan: number, ilanM2: number | null): number
 export function segmentUyumu(parselSegment: EmsalSegment, ilanSegment: EmsalSegment): number {
   if (parselSegment === "road" || ilanSegment === "road") return 0;
   if (parselSegment === ilanSegment) return 1;
+  // "other" = segment SINYALI YOK (segmentBul girdi metninde hiçbir anahtar kelime
+  // bulamadı), segment UYUMSUZ demek değil. Eskiden bu durum uyumsuzluk sayılıp
+  // arsa'da 0.75, tarla'da 0.40 ceza uygulanıyordu — yani bilgi yokluğu, yanlış
+  // segmentte olma kanıtı gibi işleniyordu. Bu ceza benzerlik ağırlığını
+  // EMSAL_MIN_BENZERLIK eşiğinin altına düşürüp gerçek emsallerin havuzdan
+  // elenmesine yol açıyordu: aynı-ilçe arsa tavanı 0.402 (< 0.45) ile
+  // "ilanGozlem-ilce" yapısal olarak imkânsız, tarla aynı-mahalle tavanı 0.289
+  // ile tarla gerçek emsale hiç ulaşamıyordu. Bilgi yoksa nötr say.
+  if (parselSegment === "other" || ilanSegment === "other") return 1;
   const tarimsal = new Set<EmsalSegment>(["tarla", "bahce", "bag", "zeytinlik"]);
   const pTarim = tarimsal.has(parselSegment);
   const iTarim = tarimsal.has(ilanSegment);

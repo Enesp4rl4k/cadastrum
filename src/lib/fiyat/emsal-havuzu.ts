@@ -31,13 +31,13 @@ export interface EmsalAdayi {
   locationScore: number;
   segmentScore: number;
   imarScore: number;
-  /** Ya� a��rl��� (0-1) � taze ilanlar 1.0, 90+ g�n 0.3 */
+  /** Ya� a��rl��� (0-1) � taze ilanlar 1.0, 90+ g�n 0.3 */
   yasW: number;
-  /** �lan�n g�n cinsinden ya�� */
+  /** �lan�n g�n cinsinden ya�� */
   yasGun: number;
-  /** TL'ye �evrilmi� fiyat/m� (USD/EUR ilanlar� i�in kur uygulanm��) */
+  /** TL'ye �evrilmi� fiyat/m� (USD/EUR ilanlar� i�in kur uygulanm��) */
   fiyatPerM2TL: number;
-  /** �lan kuru�alt� d�vizli mi (UI'da g�stermek i�in) */
+  /** �lan kuru�alt� d�vizli mi (UI'da g�stermek i�in) */
   dovizDonusumYapildi: boolean;
   segment: EmsalSegment;
   isSameMahalle: boolean;
@@ -143,12 +143,23 @@ export function emsalAdaylariniOlustur(parsel: Parsel, kayitlar: IlanGozlem[]): 
     if (kayit.imarDurumu) qualityBonus += 0.04;
     if (kayit.baslik) qualityBonus += 0.03;
 
-    const weight = clamp(
-      locationScore * segmentScore * imarScore * areaScore * bandScore * qualityBonus * yasW,
+    // UYGUNLUK ve AĞIRLIK ayrı: eşik yaştan bağımsız benzerliğe uygulanır,
+    // yaş sadece ağırlıklandırmada rol alır.
+    //
+    // NEDEN: eskiden yasW de çarpımın içindeydi ve sonuç sabit
+    // EMSAL_MIN_BENZERLIK eşiğiyle karşılaştırılıyordu. Bu, veri yaşlandıkça
+    // TÜM emsallerin elenmesine yol açan bir zaman bombasıydı — mevcut veri
+    // setiyle ~2026-10 civarında arsa tavanı eşiğin altına inip gerçek emsal
+    // payı kod değişmeden %0'a düşecekti (backtest de tekrarlanamaz hale
+    // geliyordu). Yaş için sert kesme zaten yukarıda ayrı bir kapı olarak var
+    // (yasW === 0 → MAX_ILAN_YASI_GUN aşıldı).
+    const benzerlik = clamp(
+      locationScore * segmentScore * imarScore * areaScore * bandScore * qualityBonus,
       0,
       1.25,
     );
-    if (weight < EMSAL_MIN_BENZERLIK) continue;
+    if (benzerlik < EMSAL_MIN_BENZERLIK) continue;
+    const weight = clamp(benzerlik * yasW, 0, 1.25);
 
     adaylar.push({
       kayit,
