@@ -481,27 +481,37 @@ export default {
         try {
           const hedefler = await env.DB.prepare(
             `SELECT il_norm, ilce_norm FROM scraper_ilce_durum
-             WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 6`,
+             WHERE kategori = 'arsa' ORDER BY son_tarama ASC NULLS FIRST LIMIT 4`,
           ).all<{ il_norm: string; ilce_norm: string }>();
           const liste = (hedefler.results ?? []).map((r) => ({
             ilN: r.il_norm, ilceN: r.ilce_norm,
           }));
           if (liste.length > 0) {
-            // maxSayfa 3 → 10: ölçüm, tek bir ilçenin (istanbul/catalca) en az
-            // 10 sayfa × 30 = 300+ ilan taşıdığını gösterdi. 3 sayfada durmak
-            // her ilçenin envanterinin ~%70'ini bırakıyordu — mevcut 33.7k
-            // ilanlık havuzun (11.5k mahalleye yayılınca mahalle başına ~2.9)
-            // asıl sebebi bu.
+            // maxSayfa 3 → 25.
             //
+            // ÖLÇÜM: emlakjet liste sayfası "Toplam N sayfa" yazıyor; bunu 6
+            // ilçede DB'mizle karşılaştırdık:
+            //   catalca/arsa   18 sayfa (~540) · bizde 261 → %48
+            //   silivri/arsa   25 sayfa (~750) · bizde 232 → %30
+            //   milas/arsa     22 sayfa (~660) · bizde 224 → %33
+            //   menderes/tarla 11 sayfa (~330) · bizde 111 → %33
+            //   karatay/arsa    6 sayfa (~180) · bizde  55 → %30
+            //   cubuk/tarla     3 sayfa  (~90) · bizde  55 → %61
+            // Ortalama kapsam ~%39 — yani emlakjet'te bizdekinin ~2.5 katı
+            // ilan var. Mahalle başına 2.9 ilana düşmemizin sebebi piyasada
+            // ilan olmaması değil, taramanın sığ kalmasıydı.
+            //
+            // 25, ölçülen en derin ilçeyi (silivri) kapsıyor.
             // Derinlik bir kereye mahsus maliyet: emlakjetIlceTara zaten
-            // "bu sayfada yeni ilan yok" görünce duruyor, dolayısıyla daha
-            // önce taranmış bir ilçenin tekrar taraması ucuz kalıyor.
+            // "bu sayfada yeni ilan yok" görünce duruyor (satır 375),
+            // dolayısıyla taranmış bir ilçenin tekrar turu ucuz kalıyor.
             //
-            // Genişlik 8 → 6: derinlik 3.3x arttığı için wall time bütçesini
-            // korumak gerekiyordu (Ağustos: 3 ilçe/3 sayfa = 118 sn).
-            // 6 ilçe/gün → ayda 180 → 871 ilçenin tam turu ~4.8 ay, hâlâ
-            // 180 günlük emsal ömrünün içinde.
-            const r = await emlakjetCronBaslat(env.DB, liste, 6, 10, "cron-gunluk");
+            // Genişlik 8 → 4: derinlik 8x arttı, wall time bütçesi korunuyor
+            // (Ağustos ölçümü: 3 ilçe × 3 sayfa = 118 sn). 4 ilçe/gün → ayda
+            // 120 → 871 ilçenin tam turu ~7 ay. Bu, 180 günlük emsal ömrünün
+            // biraz ÜSTÜNDE: ilk tam tur derinlik kazanmaya harcanıyor,
+            // sonraki turlar erken-durma sayesinde çok daha hızlı akacak.
+            const r = await emlakjetCronBaslat(env.DB, liste, 4, 25, "cron-gunluk");
             console.log("[cron-daily] emlakjet tarama:", r);
           }
         } catch (e) {
