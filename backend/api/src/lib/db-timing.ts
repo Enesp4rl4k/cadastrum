@@ -31,6 +31,18 @@ class TimedStatement {
     private readonly context: string,
   ) {}
 
+  /**
+   * Sarmalanan gerçek D1 statement'ı açar.
+   *
+   * NEDEN: `db.batch()` statement'ları D1 runtime'ına serileştiriyor ve
+   * TimedStatement'ı tanımıyor — sarmalayıcılar doğrudan geçirilince
+   * "D1_ERROR: Malformed input: [{},{},...]" ile patlıyordu. wrapD1'in batch
+   * proxy'si bu metotla açıp gerçek statement'ları gönderiyor.
+   */
+  icStatement(): D1PreparedStatement {
+    return this.stmt;
+  }
+
   bind(...values: unknown[]): TimedStatement {
     return new TimedStatement(this.stmt.bind(...values), this.sql, this.context);
   }
@@ -83,7 +95,12 @@ export function wrapD1(db: D1Database, context: string): D1Database {
       if (prop === "batch") {
         return async (statements: D1PreparedStatement[]) => {
           const t0 = Date.now();
-          const result = await target.batch(statements);
+          // TimedStatement sarmalayıcılarını aç — D1 batch yalnızca gerçek
+          // prepared statement'ları serileştirebiliyor (bkz. icStatement()).
+          const gercek = statements.map((s) =>
+            s instanceof TimedStatement ? s.icStatement() : s,
+          );
+          const result = await target.batch(gercek);
           const ms = Date.now() - t0;
           if (ms >= SLOW_QUERY_MS) {
             log.warn("db.yavassorgus.batch", { ms, context, adet: statements.length });

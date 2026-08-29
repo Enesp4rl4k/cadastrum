@@ -297,6 +297,58 @@ app.route("/v1/ai-fiyat", aiFiyatRoutes);
 // AI Arazi Uygunluk Scorecard (5 boyut — tüm tier, kota paylaşımlı)
 app.route("/v1/ai-scorecard", aiScorecardRoutes);
 
+// ── Bearer-secret ile korunan /v1/admin endpoint'leri ───────────────────────
+//
+// DİKKAT — SIRALAMA KRİTİK: bu üç endpoint, aşağıdaki
+// `app.route("/v1/admin", adminRoutes)` mount'undan ÖNCE tanımlanmak zorunda.
+// adminRoutes `admin.use("*", jwtMiddleware)` ile TÜM /v1/admin/* yollarına
+// JWT zorunluluğu koyuyor (routes/admin.ts:50). Hono ilk eşleşeni çalıştırdığı
+// için mount'tan sonra tanımlanan bu handler'lara istek hiç ulaşmıyor, JWT
+// middleware 401 "Geçersiz token" döndürüyordu — üçü de fiilen erişilemezdi.
+// Bunlar cron/scraper tarafından Bearer secret ile çağrılıyor, JWT oturumu yok.
+
+// İlan zenginleştirme — manuel tetikleme (Bearer SCRAPER_API_SECRET).
+// Saatlik cron'da da çalışıyor; bu endpoint backfill'i hızlandırmak ve
+// deploy sonrası doğrulama yapmak için. ?limit= ile parti boyutu ayarlanır.
+app.post("/v1/admin/zenginlestir", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SCRAPER_API_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const limit = Math.min(Math.max(Number(c.req.query("limit")) || 20, 1), 200);
+  const { emlakjetZenginlestirmeTuru } = await import("./lib/emlakjet-zenginlestirme.js");
+  const sonuc = await emlakjetZenginlestirmeTuru(c.env.DB, limit);
+  return c.json(sonuc);
+});
+
+// Milli Emlak ihale taraması — manuel tetikleme (Bearer SCRAPER_API_SECRET).
+// Haftalık cron'da da çalışıyor; bu endpoint ilk doldurma ve doğrulama için.
+app.post("/v1/admin/milli-emlak-tara", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.SCRAPER_API_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const { milliEmlakTaramaTuru } = await import("./lib/milli-emlak-scraper.js");
+  const sonuc = await milliEmlakTaramaTuru(c.env.DB);
+  return c.json(sonuc);
+});
+
+// Pipeline health check (Bearer STATS_SECRET)
+app.get("/v1/admin/pipeline-health", async (c) => {
+  const yetki = await bearerYetkilendir(
+    c.req.header("Authorization"),
+    c.env.STATS_SECRET,
+  );
+  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
+  const sonuc = await pipelineHealthKontrol(c.env.DB);
+  if (c.req.query("email") === "1" && !sonuc.saglikli) {
+    sonuc.emailGonderildi = await pipelineAlarmEmailGonder(c.env, sonuc);
+  }
+  return c.json(sonuc, sonuc.saglikli ? 200 : 503);
+});
+
 // Admin dashboard (JWT + admin=1 zorunlu)
 app.route("/v1/admin", adminRoutes);
 
@@ -327,52 +379,7 @@ app.post("/v1/istatistik/refresh", async (c) => {
   return c.json(result);
 });
 
-// İlan zenginleştirme — manuel tetikleme (Bearer STATS_SECRET).
-// Saatlik cron'da da çalışıyor; bu endpoint backfill'i hızlandırmak ve
-// deploy sonrası doğrulama yapmak için. ?limit= ile parti boyutu ayarlanır.
-app.post("/v1/admin/zenginlestir", async (c) => {
-  // SCRAPER_API_SECRET kullanılıyor (STATS_SECRET değil): bu bir scraping
-  // işlemi, ve STATS_SECRET production'da hiç set edilmemiş durumda —
-  // onu kullanan /v1/istatistik/refresh ve /v1/admin/pipeline-health şu an
-  // fiilen erişilemez (ayrı bir konu, bkz. deploy notları).
-  const yetki = await bearerYetkilendir(
-    c.req.header("Authorization"),
-    c.env.SCRAPER_API_SECRET,
-  );
-  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
-  const limit = Math.min(Math.max(Number(c.req.query("limit")) || 20, 1), 60);
-  const { emlakjetZenginlestirmeTuru } = await import("./lib/emlakjet-zenginlestirme.js");
-  const sonuc = await emlakjetZenginlestirmeTuru(c.env.DB, limit);
-  return c.json(sonuc);
-});
 
-// Milli Emlak ihale taraması — manuel tetikleme (Bearer SCRAPER_API_SECRET).
-// Haftalık cron'da da çalışıyor; bu endpoint ilk doldurma ve deploy sonrası
-// doğrulama için.
-app.post("/v1/admin/milli-emlak-tara", async (c) => {
-  const yetki = await bearerYetkilendir(
-    c.req.header("Authorization"),
-    c.env.SCRAPER_API_SECRET,
-  );
-  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
-  const { milliEmlakTaramaTuru } = await import("./lib/milli-emlak-scraper.js");
-  const sonuc = await milliEmlakTaramaTuru(c.env.DB);
-  return c.json(sonuc);
-});
-
-// Pipeline health check (Bearer STATS_SECRET)
-app.get("/v1/admin/pipeline-health", async (c) => {
-  const yetki = await bearerYetkilendir(
-    c.req.header("Authorization"),
-    c.env.STATS_SECRET,
-  );
-  if (!yetki) return c.json({ error: "Unauthorized" }, 401);
-  const sonuc = await pipelineHealthKontrol(c.env.DB);
-  if (c.req.query("email") === "1" && !sonuc.saglikli) {
-    sonuc.emailGonderildi = await pipelineAlarmEmailGonder(c.env, sonuc);
-  }
-  return c.json(sonuc, sonuc.saglikli ? 200 : 503);
-});
 
 // AI Ajan — Fırsat Avcısı + Portföy Optimizasyonu + Bölge Analizi (JWT auth, Gemini)
 app.use("/v1/ai-ajan/firsat",         rateLimitMiddleware(10, "ai-ajan-firsat"));

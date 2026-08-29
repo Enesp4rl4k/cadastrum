@@ -330,6 +330,8 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
   ];
   let eklenen = 0;
   let patternIdx = 0;
+  /** Detay-fallback yolunda üst üste kaç sayfa hiç yeni ilan getirdi. */
+  let ardisikBos = 0;
 
   for (let sayfa = 1; sayfa <= maxSayfa; sayfa++) {
     const suffix = sayfa > 1 ? `?sayfa=${sayfa}` : "";
@@ -344,6 +346,22 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
       }
     }
     if (!html) break;
+
+    // ── Hızlı yol: JSON-LD liste parse (ilTara ile aynı) ────────────────────
+    // Eskiden ilceTara doğrudan detay-sayfası yoluna gidiyordu: sayfa başına
+    // 30 ek istek. JSON-LD listesi aynı ilanları TEK istekte veriyor.
+    const jsonLd = listeJsonLdParse(html, kategori, MERKEZ);
+    if (jsonLd.length > 0) {
+      for (const ilan of jsonLd) {
+        if (gorulenler.has(ilan.id)) continue;
+        gorulenler.add(ilan.id);
+        kayitlar.push(ilan);
+        eklenen++;
+      }
+      await uyku(delayMs + Math.random() * 350);
+      continue;
+    }
+
     const linkler = listeLinkleri(html);
     if (linkler.length === 0) {
       if (patternIdx < urlPatterns.length - 1) {
@@ -360,7 +378,21 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
         yeni++;
       }
     }
-    if (yeni === 0) break;
+    // NOT: eskiden burada `if (yeni === 0) break;` vardı — SESSİZ VERİ KAYBI.
+    // "Bu sayfada yeni ilan yok" ile "sayfalama bitti" aynı şey değil: dedupe
+    // seti önceki taramadan gelen 33.445 ilanla dolu olduğu için 1. sayfa hep
+    // tanıdık çıkıyor, döngü anında kırılıyor ve 4+ sayfalara HİÇ
+    // ulaşılamıyordu. Derin tarama denemesi tam da bu yüzden 1946 ilçenin
+    // hepsinde "+0" verip 10 dakikada bitmişti.
+    //
+    // Bu yol ilan başına 1 detay isteği yaptığından pahalı; üst üste 2 boş
+    // sayfadan sonra gerçekten bittiğini kabul ediyoruz. Asıl bitiş koşulu
+    // yukarıdaki `linkler.length === 0`.
+    if (yeni === 0) {
+      if (++ardisikBos >= 2) break;
+    } else {
+      ardisikBos = 0;
+    }
     await uyku(700);
   }
   return eklenen;

@@ -336,6 +336,8 @@ export async function emlakjetIlceTara(
   ];
   let patIdx = 0;
   const gorulenler = new Set<string>();
+  /** Fallback yolunda üst üste kaç sayfa hiç yeni ilan getirmedi. */
+  let ardisikBosSayfa = 0;
 
   for (let sayfa = 1; sayfa <= maxSayfa; sayfa++) {
     const suffix = sayfa > 1 ? `?sayfa=${sayfa}` : "";
@@ -372,7 +374,16 @@ export async function emlakjetIlceTara(
         if (ok) { sonuc.eklenen++; yeniBuSayfa++; }
         else sonuc.atlanan++;
       }
-      if (yeniBuSayfa === 0) break; // Tüm ilanlar zaten DB'de — son sayfa
+      // NOT: eskiden burada `if (yeniBuSayfa === 0) break;` vardı ve bu
+      // sessiz bir veri kaybıydı. "Bu sayfada yeni ilan yok" ile "sayfalama
+      // bitti" AYNI ŞEY DEĞİL: daha önce sığ taranmış (ilk 3 sayfası alınmış)
+      // bir ilçede 1. sayfa tamamen tanıdık çıkıyor, döngü anında kırılıyor ve
+      // 4+ sayfalara HİÇ ulaşılamıyordu. Ölçüm: 6 ilçede kapsam ~%39.
+      //
+      // Doğru bitiş koşulu sayfanın HİÇ ilan döndürmemesi — o da yukarıdaki
+      // `ilanlar.length > 0` dalına girmeyerek zaten aşağıda ele alınıyor.
+      // Üst sınır maxSayfa; taranmış ilçede maliyet maxSayfa sayfa isteği
+      // (ilan başına değil), yani kabul edilebilir.
       continue;
     }
 
@@ -421,7 +432,15 @@ export async function emlakjetIlceTara(
       if (ok) { sonuc.eklenen++; yeniBuSayfa++; }
       else sonuc.atlanan++;
     }
-    if (yeniBuSayfa === 0) break;
+    // Aynı düzeltme hızlı yoldaki gibi: "yeni ilan yok" ≠ "sayfalama bitti".
+    // Bu fallback yolu ilan başına 1 detay isteği yaptığından pahalı; bu yüzden
+    // burada tamamen sınırsız gitmiyoruz — üst üste 2 sayfa hiç yeni ilan
+    // getirmediyse gerçekten sonun geldiğini kabul ediyoruz.
+    if (yeniBuSayfa === 0) {
+      if (++ardisikBosSayfa >= 2) break;
+    } else {
+      ardisikBosSayfa = 0;
+    }
   }
 
   // İlçe durum tablosunu güncelle
