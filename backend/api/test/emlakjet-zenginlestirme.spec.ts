@@ -9,6 +9,7 @@ import {
   imarDurumuCikar,
   tapuDurumuCikar,
   parselKoordinatCikar,
+  baslikCikar,
   detaySayfasiParse,
 } from "../src/lib/emlakjet-zenginlestirme.js";
 
@@ -70,17 +71,54 @@ describe("parselKoordinatCikar", () => {
   });
 });
 
+// Gerçek detay sayfasından alınmış başlık işaretleyicileri
+const H1 = `<h1 class="text-base font-semibold text-(--color-fg-default) md:text-2xl">Değirmenköy&#x27;de 220 M² Değeri Günden Güne Artan Yatırım Fırsatı</h1>`;
+const OGTITLE = `<meta property="og:title" content="Emre Demirkiran Arsa Ofisi İstanbul Silivri Satılık Tarla 850,000 TL #19780846">`;
+
+describe("baslikCikar", () => {
+  it("<h1>'i tercih eder ve HTML varlıklarını çözer", () => {
+    // <h1> satıcının kendi başlığı; rafinerinin aradığı sinyaller (hisseli,
+    // kooperatif, hobi bahçesi) burada geçiyor. <title>/og:title ise SEO kalıbı.
+    expect(baslikCikar(H1)).toBe("Değirmenköy'de 220 M² Değeri Günden Güne Artan Yatırım Fırsatı");
+  });
+
+  it("<h1> yoksa og:title'a düşer", () => {
+    expect(baslikCikar(OGTITLE)).toContain("Silivri Satılık Tarla");
+  });
+
+  it("<h1> varsa og:title'ı KULLANMAZ", () => {
+    const b = baslikCikar(H1 + OGTITLE)!;
+    expect(b).toContain("Yatırım Fırsatı");
+    expect(b).not.toContain("Emre");
+  });
+
+  it("hiçbiri yoksa null döner", () => {
+    expect(baslikCikar("<html><body>bos</body></html>")).toBeNull();
+  });
+
+  it("çok kısa başlığı kabul etmez", () => {
+    expect(baslikCikar("<h1>Arsa</h1>")).toBeNull();
+  });
+
+  it("rafinerinin aradığı sinyalleri korur", () => {
+    const b = baslikCikar("<h1>HİSSELİ TAPU Kooperatif Hobi Bahçesi Satılık</h1>")!;
+    expect(b).toContain("HİSSELİ");
+    expect(b).toContain("Kooperatif");
+  });
+});
+
 describe("detaySayfasiParse", () => {
   it("tüm alanları birlikte çıkarır", () => {
-    const z = detaySayfasiParse(JSONLD + GEOMETRY + TAPU);
+    const z = detaySayfasiParse(JSONLD + GEOMETRY + TAPU + H1);
     expect(z.imarDurumu).toBe("Tarla");
     expect(z.tapuDurumu).toBe("Hisseli Tapu");
+    expect(z.baslik).toContain("Değirmenköy");
     expect(z.lat).not.toBeNull();
     expect(z.lng).not.toBeNull();
   });
 
   it("hiçbir alan yoksa hepsini null döner (çökmeden)", () => {
     const z = detaySayfasiParse("<html><body>alakasiz</body></html>");
-    expect(z).toEqual({ imarDurumu: null, tapuDurumu: null, lat: null, lng: null });
+    expect(z).toEqual({ imarDurumu: null, tapuDurumu: null, baslik: null, lat: null, lng: null });
   });
 });

@@ -37,8 +37,52 @@ const ISTEK_ARASI_MS = 350;
 export interface DetayZenginlik {
   imarDurumu: string | null;
   tapuDurumu: string | null;
+  baslik: string | null;
   lat: number | null;
   lng: number | null;
+}
+
+/** HTML varlıklarını çöz — başlıklarda &#x27; (kesme işareti) yaygın. */
+function htmlCoz(s: string): string {
+  return s
+    .replace(/&#x27;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * İlan başlığını çıkarır.
+ *
+ * NEDEN ÖNEMLİ: `baslik` üretimde 34.246 satırda boştu. Veri rafinerisinin
+ * NLP'si (hisseli tapu / kooperatif / hobi bahçesi tespiti) ve `segmentBul()`
+ * bu metne bakıyor — ikisi de sinyalsiz çalışıyordu.
+ *
+ * <h1> SATICININ KENDİ BAŞLIĞI ("Değirmenköy'de 220 M² Yatırım Fırsatı"),
+ * <title> ise SEO için üretilmiş kalıp metin (ofis adı + konum + fiyat).
+ * Rafinerinin aradığı sinyaller satıcının kendi ifadesinde olduğu için <h1>
+ * tercih ediliyor; og:title yedek.
+ *
+ * Ek istek maliyeti YOK — detay sayfası zaten imar/koordinat/tapu için
+ * çekiliyor.
+ */
+export function baslikCikar(html: string): string | null {
+  const h1 = html.match(/<h1[^>]*>([^<]{8,300})<\/h1>/);
+  if (h1?.[1]) {
+    const t = htmlCoz(h1[1]);
+    if (t.length >= 8) return t.slice(0, 300);
+  }
+  const og = html.match(/property="og:title"\s+content="([^"]{8,300})"/);
+  if (og?.[1]) {
+    const t = htmlCoz(og[1]);
+    if (t.length >= 8) return t.slice(0, 300);
+  }
+  return null;
 }
 
 /**
@@ -106,6 +150,7 @@ export function detaySayfasiParse(html: string): DetayZenginlik {
   return {
     imarDurumu: imarDurumuCikar(html),
     tapuDurumu: tapuDurumuCikar(html),
+    baslik: baslikCikar(html),
     lat: koord?.lat ?? null,
     lng: koord?.lng ?? null,
   };
@@ -148,6 +193,7 @@ export interface ZenginlestirmeSonuc {
   imarBulunan: number;
   koordBulunan: number;
   tapuBulunan: number;
+  baslikBulunan: number;
   hata: number;
   sure_ms: number;
 }
@@ -238,7 +284,7 @@ export async function emlakjetZenginlestirmeTuru(
   const basladi = Date.now();
   const sonuc: ZenginlestirmeSonuc = {
     denenen: 0, zenginlesen: 0, imarBulunan: 0,
-    koordBulunan: 0, tapuBulunan: 0, hata: 0, sure_ms: 0,
+    koordBulunan: 0, tapuBulunan: 0, baslikBulunan: 0, hata: 0, sure_ms: 0,
   };
 
   const kuyruk = await kuyrukGetir(db, limit);
@@ -267,8 +313,9 @@ export async function emlakjetZenginlestirmeTuru(
     const z = detaySayfasiParse(html);
     if (z.imarDurumu) sonuc.imarBulunan++;
     if (z.tapuDurumu) sonuc.tapuBulunan++;
+    if (z.baslik) sonuc.baslikBulunan++;
     if (z.lat != null) sonuc.koordBulunan++;
-    if (z.imarDurumu || z.tapuDurumu || z.lat != null) sonuc.zenginlesen++;
+    if (z.imarDurumu || z.tapuDurumu || z.baslik || z.lat != null) sonuc.zenginlesen++;
 
     try {
       // COALESCE: sadece yeni değer varsa üzerine yaz, yoksa mevcudu koru.
@@ -280,13 +327,15 @@ export async function emlakjetZenginlestirmeTuru(
           `UPDATE ilanlar SET
              imar_durumu   = COALESCE(?, imar_durumu),
              tapu_durumu   = COALESCE(?, tapu_durumu),
+             baslik        = COALESCE(?, baslik),
              lat           = COALESCE(?, lat),
              lng           = COALESCE(?, lng),
              koord_kaynagi = CASE WHEN ? IS NOT NULL THEN 'parsel' ELSE koord_kaynagi END,
              zenginlestirildi = ?
            WHERE id = ?`,
         )
-        .bind(z.imarDurumu, z.tapuDurumu, z.lat, z.lng, z.lat, Date.now(), satir.id)
+        .bind(z.imarDurumu, z.tapuDurumu, z.baslik, z.lat, z.lng, z.lat,
+              Date.now(), satir.id)
         .run();
     } catch {
       sonuc.hata++;
