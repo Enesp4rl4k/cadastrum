@@ -27,7 +27,11 @@ const PROGRESS = join(ROOT, "data", "hepsiemlak-progress.json");
 const BASE = "https://www.hepsiemlak.com";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
-const ISTEK_ARASI_MS = 700;
+// ÖLÇÜM: 700 ms ile 25 dakikada 254 ilçe tarandı ve site HTTP 429 vermeye
+// başladı; o noktadan sonra script çöp üretti. Sürdürülebilir hız bunun çok
+// altında. 2500 ms sayfa arası + 4000 ms ilçe arası ≈ dakikada ~20 istek.
+const ISTEK_ARASI_MS = 2500;
+const ILCE_ARASI_MS = 4000;
 const MAX_SAYFA = 25;
 
 const args = process.argv.slice(2);
@@ -145,23 +149,65 @@ function ilanNormalize(it, ilN, ilceN) {
  * (`Allow: /`) açıkça izinli kılıyor. Tarayıcı taklidi, CAPTCHA çözümü veya
  * engel atlatma yapılmıyor.
  */
+/**
+ * @returns {Promise<{status:number, govde:string|null}>}
+ *
+ * HTTP DURUMU MUTLAKA DÖNDÜRÜLÜR. Önceki sürüm hatayı yutup `null` dönüyordu;
+ * site 429 verdiğinde script bunu "bu ilçede ilan yok" gibi gösterip `+0`
+ * yazarak taramaya devam ediyordu — engellenmeyi veri yokluğu gibi raporlayan
+ * sessiz bir başarısızlık. 254 ilçe bu şekilde çöp olarak işlendi.
+ */
 function getir(url) {
   return new Promise((resolve) => {
     execFile(
       "curl",
-      ["-sL", "--compressed", "--max-time", "25",
+      ["-sL", "--compressed", "--max-time", "30",
+       "-w", "\\n__HTTP__%{http_code}",
        "-A", UA, "-H", "Accept-Language: tr-TR,tr;q=0.9", url],
       { maxBuffer: 32 * 1024 * 1024 },
-      (err, stdout) => resolve(err ? null : (stdout || null)),
+      (err, stdout) => {
+        if (err || !stdout) return resolve({ status: 0, govde: null });
+        const i = stdout.lastIndexOf("\n__HTTP__");
+        if (i === -1) return resolve({ status: 0, govde: null });
+        const status = parseInt(stdout.slice(i + 9), 10) || 0;
+        resolve({ status, govde: status === 200 ? stdout.slice(0, i) : null });
+      },
     );
   });
+}
+
+/** Üst üste kaç 429 sonrası tarama tamamen durur. */
+const MAX_ARDISIK_429 = 3;
+let ardisik429 = 0;
+
+/** 429 görülürse artan bekleme; kalıcıysa çağıran taramayı durdurur. */
+async function geriCekil(sayac) {
+  const bekle = Math.min(60_000, 5_000 * 2 ** (sayac - 1));
+  process.stderr.write(`  ! HTTP 429 — ${Math.round(bekle / 1000)} sn bekleniyor\n`);
+  await uyku(bekle);
 }
 
 async function ilceTara(ilN, ilceN, kategori, gorulen, kayitlar) {
   let eklenen = 0;
   for (let sayfa = 1; sayfa <= MAX_SAYFA; sayfa++) {
     const url = `${BASE}/${ilceN}-satilik/${kategori}${sayfa > 1 ? `?page=${sayfa}` : ""}`;
-    const html = await getir(url);
+    const { status, govde: html } = await getir(url);
+
+    if (status === 429) {
+      ardisik429++;
+      if (ardisik429 >= MAX_ARDISIK_429) {
+        throw new Error(
+          `HTTP 429 üst üste ${ardisik429} kez — tarama durduruluyor. ` +
+          `Kaynak bizi kısıtlıyor; bir süre bekleyip resume ile devam edin.`,
+        );
+      }
+      await geriCekil(ardisik429);
+      sayfa--; // aynı sayfayı tekrar dene
+      continue;
+    }
+    if (status !== 200) break;
+    ardisik429 = 0;
+
     if (!html) break;
     const items = listeJsonLdCikar(html);
     // Bitiş koşulu SAYFANIN BOŞ OLMASI — "yeni ilan yok" değil. (emlakjet
@@ -172,6 +218,8 @@ async function ilceTara(ilN, ilceN, kategori, gorulen, kayitlar) {
       const ilan = ilanNormalize(it, ilN, ilceN);
       if (!ilan || gorulen.has(ilan.ilanNo)) continue;
       gorulen.add(ilan.ilanNo);
+      const t = ilan.mahN ? MERKEZ[`${ilan.ilN}__${ilan.ilceN}__${ilan.mahN}`] : null;
+      if (t) { ilan.lat = t[0]; ilan.lng = t[1]; }
       kayitlar.push(ilan);
       eklenen++;
     }
@@ -179,6 +227,16 @@ async function ilceTara(ilN, ilceN, kategori, gorulen, kayitlar) {
   }
   return eklenen;
 }
+
+// ── Mahalle merkezleri ───────────────────────────────────────────────────────
+// NEDEN BURADA: Worker modülündeki koordinatAra() D1 deki `mahalle_merkez`
+// tablosuna bakıyor ama O TABLO ÜRETİMDE YOK — sessizce hep null dönüyor.
+// Koordinat üretebilen tek yol bu yerel script; koordinatsız ilan spatial
+// emsal motoruna görünmez olurdu.
+const { objeyiCikar } = await import("./emlakjet-lib.mjs");
+const MERKEZ = objeyiCikar(join(ROOT, "src/lib/data/mahalle-merkezleri.ts"), "MERKEZ_TUPLES");
+process.stderr.write(`${Object.keys(MERKEZ).length} mahalle merkezi yüklendi
+`);
 
 // ── İlçe listesi (emlakjet bootstrap listesinden) ────────────────────────────
 const ilceTs = readFileSync(join(ROOT, "src/lib/data/ilce-listesi-bootstrap.ts"), "utf8");
@@ -204,10 +262,18 @@ let idx = 0;
 for (const i of secilen) {
   idx++;
   let n = 0;
-  for (const kat of ["arsa", "tarla"]) {
-    n += await ilceTara(i.ilNorm, i.ilceNorm, kat, gorulen, kayitlar);
+  try {
+    for (const kat of ["arsa", "tarla"]) {
+      n += await ilceTara(i.ilNorm, i.ilceNorm, kat, gorulen, kayitlar);
+    }
+  } catch (e) {
+    // Kalıcı 429 — toplanmış veriyi ve ilerlemeyi kaybetmeden dur.
+    process.stderr.write(`DURDURULDU: ${e.message}
+`);
+    break;
   }
   tamamSet.add(`${i.ilNorm}/${i.ilceNorm}`);
+  await uyku(ILCE_ARASI_MS);
   process.stderr.write(`[${idx}/${secilen.length}] ${i.il}/${i.ilce} +${n} (toplam ${kayitlar.length})\n`);
   if (idx % 10 === 0) {
     mkdirSync(dirname(PROGRESS), { recursive: true });
@@ -229,12 +295,14 @@ const ts = Date.now();
 for (let i = 0; i < kayitlar.length; i += PARTI) {
   const vals = kayitlar.slice(i, i + PARTI).map((k) =>
     `('hepsiemlak', ${q(k.ilanNo)}, ${q(k.ilN)}, ${q(k.ilceN)}, ${q(k.mahN)}, ` +
-    `${k.tlm2}, ${k.m2}, ${q(k.kategori)}, 'TL', ${ts}, 1, ${q(k.baslik)}, ${q(k.imarDurumu)})`,
+    `${k.tlm2}, ${k.m2}, ${q(k.kategori)}, 'TL', ${ts}, 1, ${q(k.baslik)}, ${q(k.imarDurumu)}, ` +
+    `${k.lat ?? "NULL"}, ${k.lng ?? "NULL"}, ${k.lat ? "'mahalle-merkez'" : "NULL"})`,
   );
   out.push(
     "INSERT OR IGNORE INTO ilanlar\n" +
     "  (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,\n" +
-    "   kategori, para_birimi, yakalanma_tarihi, aktif, baslik, imar_durumu)\n" +
+    "   kategori, para_birimi, yakalanma_tarihi, aktif, baslik, imar_durumu,\n" +
+    "   lat, lng, koord_kaynagi)\n" +
     "VALUES\n  " + vals.join(",\n  ") + ";",
   );
   out.push("");
