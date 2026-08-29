@@ -53,6 +53,15 @@ export interface IlanGozlem {
   ilceNorm?: string | null;
   mahalleNorm?: string | null;
   imarDurumu?: string | null;
+  /**
+   * Tapu durumu — "Hisseli Tapu" / "Müstakil Tapu" vb.
+   *
+   * Yapısal alan; zenginleştirme hattı (backend) detay sayfasından çekiyor.
+   * Rafineri bunu daha önce başlıktan REGEX ile tahmin etmeye çalışıyordu —
+   * hisseli tapu Türkiye'de arsa fiyatını en çok kıran etkenlerden biri ve
+   * tahmin etmekle bilmek arasında ciddi fark var.
+   */
+  tapuDurumu?: string | null;
   fiyat: number | null;
   m2: number | null;
   fiyatPerM2: number | null;

@@ -106,14 +106,35 @@ function iceriyorMu(metin: string, kelimeler: string[]): boolean {
   return kelimeler.some((k) => lower.includes(k.toLocaleLowerCase("tr")));
 }
 
-/** Birleşik metin — başlık + imar durumu + açıklama */
+/** Birleşik metin — başlık + imar durumu + tapu durumu */
 function birlesikMetin(ilan: IlanGozlem): string {
   return [
     ilan.baslik ?? "",
     ilan.imarDurumu ?? "",
+    ilan.tapuDurumu ?? "",
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+/**
+ * Tapu durumu YAPISAL olarak biliniyorsa mülkiyet tipini kesin döner.
+ *
+ * NEDEN: hisseli tespiti şimdiye kadar yalnızca serbest metinden regex ile
+ * yapılıyordu. Bu iki yönde de yanılıyor:
+ *   - "hisseli DEĞİLDİR" yazan bir ilan hisseli sayılıyordu
+ *   - hiç bahsetmeyen hisseli bir ilan müstakil sayılıyordu
+ * Zenginleştirme hattı artık tapu_durumu'nu yapısal alan olarak getiriyor;
+ * varsa metin tahminini EZER.
+ *
+ * @returns "hisseli" | "mustakil" | null (bilgi yok → metne düş)
+ */
+function tapuTipi(tapuDurumu: string | null | undefined): "hisseli" | "mustakil" | null {
+  if (!tapuDurumu) return null;
+  const t = tapuDurumu.toLocaleLowerCase("tr");
+  if (/hisseli|payl[ıi]/.test(t)) return "hisseli";
+  if (/m[üu]stakil|tam|kat m[üu]lkiyet/.test(t)) return "mustakil";
+  return null;
 }
 
 // ─── Ana kalifikasyon fonksiyonu ─────────────────────────────────────────────
@@ -143,7 +164,14 @@ export function emsalKalifiye(
   }
 
   // ─── Test 2: Hukuki durum ───────────────────────────────────────────────────
-  if (iceriyorMu(metin, HISSELI_KELIMELER)) {
+  // Yapısal tapu bilgisi metin tahminini EZER — bkz. tapuTipi().
+  const yapisalTapu = tapuTipi(ilan.tapuDurumu);
+  if (yapisalTapu === "hisseli") {
+    diskalifikasyonlar.push("hisseli-pay");
+  } else if (yapisalTapu === "mustakil") {
+    // Müstakil olduğu KESİN — başlıkta "hisse" geçse bile ceza uygulanmaz
+    // (satıcı çoğu zaman "hisseli değildir" diye yazıyor).
+  } else if (iceriyorMu(metin, HISSELI_KELIMELER)) {
     // Hisseli — kısmen satışta mı tam satışta mı?
     const tamHisseli = /\b(hisseli)\b/i.test(metin) &&
       !/1\/1|tam hisse|tamamı/.test(metin);

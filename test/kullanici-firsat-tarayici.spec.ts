@@ -22,7 +22,12 @@ describe("Kullanıcı Tanımlı Otonom Fırsat Tarayıcı (Deal Scanner)", () =>
       {
         ilanNo: "101",
         baslik: "Gölbaşı İncek Konut İmarlı Kelepir Arsa",
-        fiyatTL: 5_000_000,
+        // NOT: fiyat kasten piyasa değerinin BELİRGİN altında tutuluyor.
+        // Testin amacı hisseli ilanın elenip temizinin yüzeye çıkması; bu
+        // davranış motorun mutlak fiyat kalibrasyonundan bağımsız olmalı.
+        // Önceki değer (5.000.000) kalibrasyon değişince %20 eşiğinin altına
+        // düştü ve test kırıldı — fixture eski kalibrasyonu kodluyordu.
+        fiyatTL: 4_000_000,
         m2: 1200,
         il: "ankara",
         ilce: "golbasi",
