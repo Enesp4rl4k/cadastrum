@@ -95,7 +95,15 @@ export class MockD1Database {
     const files = fs
       .readdirSync(dbDir)
       .filter((f) => f.endsWith(".sql") && f !== "schema.sql" && !f.includes("template") && !f.startsWith("migrate-"))
-      .sort();
+      // SAYISAL sırala, alfabetik DEĞİL. Eski migration'lar 3 haneli (004_,
+      // 005_), yeniler 4 haneli (0020_). Alfabetik sırada "0020_" < "005_"
+      // olduğu için 0020, newsletter tablosunu kuran 005'ten ÖNCE çalışıyor ve
+      // o tablonun indekslerini kuramadan sessizce patlıyordu.
+      .sort((a, b) => {
+        const na = parseInt(/^(\d+)/.exec(a)?.[1] ?? "0", 10);
+        const nb = parseInt(/^(\d+)/.exec(b)?.[1] ?? "0", 10);
+        return na !== nb ? na - nb : a.localeCompare(b);
+      });
 
     for (const file of files) {
       try {
