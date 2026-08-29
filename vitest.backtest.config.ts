@@ -25,7 +25,10 @@ export default defineConfig({
     include: ["test/backtest/**/*.spec.ts"],
     globals: false,
     setupFiles: ["./test/setup.ts"],
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    testTimeout: 60_000,
+    // A/B ölçümü beforeAll içinde İKİ kol koşuyor (kontrol + deney), her kol
+    // segment başına MAX_TEST_PER_SEGMENT kadar fiyatTahminEt() çağırıyor.
+    // 30 sn tek kol için yeterliydi, iki kol için değil.
+    hookTimeout: 300_000,
   },
 });
