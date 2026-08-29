@@ -68,4 +68,50 @@ describe("POST /v1/ilan/katki (crowdsource)", () => {
     const cok = Array.from({ length: 101 }, (_, i) => gecerli("n" + i));
     expect((await post({ ilanlar: cok })).status).toBe(400);
   });
+
+  /**
+   * REGRESYON: başlık ve tapu durumu ingest'te DÜŞÜYORDU.
+   *
+   * Extension her ilanda başlığı yakalıyor ve yerel olarak kullanıyor
+   * (kategori çıkarımı, rafineri NLP'si) ama IlanIngestSchema bu alanı
+   * tanımadığı için payload'dan sessizce eleniyordu — üretimde 530 extension
+   * ilanının HİÇBİRİNDE başlık yoktu. Rafinerinin hisseli/kooperatif tespiti
+   * bu metne baktığı için backend emsalleri sinyalsiz kalıyordu.
+   */
+  it("baslik ve tapu_durumu alanlarını D1'e yazar", async () => {
+    const DB = fakeDB();
+    const res = await ilanRoutes.request(
+      "/katki",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ilanlar: [gecerli("baslik-1", {
+            baslik: "HİSSELİ TAPU Yalıkavak'ta Satılık Arsa",
+            tapu_durumu: "Hisseli Tapu",
+          })],
+        }),
+      },
+      env(DB),
+    );
+    expect(res.status).toBe(200);
+    const bind = (DB as unknown as { _rows: unknown[][] })._rows[0]!;
+    expect(bind).toContain("HİSSELİ TAPU Yalıkavak'ta Satılık Arsa");
+    expect(bind).toContain("Hisseli Tapu");
+  });
+
+  it("baslik yoksa null yazar, kayıt düşmez", async () => {
+    const DB = fakeDB();
+    const res = await ilanRoutes.request(
+      "/katki",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ilanlar: [gecerli("baslik-2")] }),
+      },
+      env(DB),
+    );
+    expect(res.status).toBe(200);
+    expect((DB as unknown as { _rows: unknown[][] })._rows.length).toBe(1);
+  });
 });

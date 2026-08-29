@@ -15,6 +15,15 @@ export interface IlanBilgisi {
   parselNo: number | null;
   pafta: string | null;
   imarDurumu: string | null;
+  /**
+   * Tapu durumu — "Hisseli Tapu" / "Müstakil Tapu".
+   *
+   * Content script'ler henüz doldurmuyor (sitelerin çoğu bunu yapısal
+   * vermiyor); backend zenginleştirme hattı detay sayfasından çekiyor. Burada
+   * opsiyonel olarak duruyor ki bir content script bulduğunda payload'a
+   * eklemek için başka değişiklik gerekmesin.
+   */
+  tapuDurumu?: string | null;
   ilanNo: string | null;
   aciklamadaAdaParsel: { ada?: number; parsel?: number }[];
   yakalanmaZamani: number;

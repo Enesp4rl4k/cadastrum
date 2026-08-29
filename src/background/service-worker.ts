@@ -59,6 +59,12 @@ async function backendIlanGonder(ilan: IlanBilgisi, force = false): Promise<void
         kategori,
         imar_durumu: ilan.imarDurumu ?? undefined,
         para_birimi: ilan.paraBirimi ?? "TL",
+        // Başlık YEREL olarak kategori çıkarımında kullanılıyordu ama
+        // payload'a HİÇ KONULMUYORDU — üretimde 530 extension ilanının
+        // hiçbirinde başlık yoktu. Rafinerinin hisseli/kooperatif tespiti
+        // bu metne bakıyor, backend emsalleri bu yüzden sinyalsizdi.
+        baslik: ilan.baslik ?? undefined,
+        tapu_durumu: ilan.tapuDurumu ?? undefined,
         lat,
         lng,
         koord_kaynagi: koordKaynagi,

@@ -4,14 +4,14 @@ import type { Context } from "hono";
 export const KategoriSchema = z.enum(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik", "diger"]);
 
 export const CoordinatesSchema = z.object({
-  lat: z.coerce.number().min(35.5, "Enlem Türkiye sýnýrlarý dýþýnda").max(42.5, "Enlem Türkiye sýnýrlarý dýþýnda"),
-  lng: z.coerce.number().min(25.5, "Boylam Türkiye sýnýrlarý dýþýnda").max(45.0, "Boylam Türkiye sýnýrlarý dýþýnda"),
+  lat: z.coerce.number().min(35.5, "Enlem Tï¿½rkiye sï¿½nï¿½rlarï¿½ dï¿½ï¿½ï¿½nda").max(42.5, "Enlem Tï¿½rkiye sï¿½nï¿½rlarï¿½ dï¿½ï¿½ï¿½nda"),
+  lng: z.coerce.number().min(25.5, "Boylam Tï¿½rkiye sï¿½nï¿½rlarï¿½ dï¿½ï¿½ï¿½nda").max(45.0, "Boylam Tï¿½rkiye sï¿½nï¿½rlarï¿½ dï¿½ï¿½ï¿½nda"),
   kategori: KategoriSchema.default("arsa"),
   radiusKm: z.coerce.number().min(0.1).max(100).default(5),
 });
 
 export const IlceAnalizQuerySchema = z.object({
-  ilceKodu: z.coerce.number().int().positive("Geçersiz ilçe kodu"),
+  ilceKodu: z.coerce.number().int().positive("Geï¿½ersiz ilï¿½e kodu"),
   analizTip: z.coerce.number().int().min(1).max(5).default(1),
   yil: z.coerce.number().int().min(2000).max(new Date().getFullYear()).optional(),
   birlesik: z.enum(["0", "1"]).optional(),
@@ -19,15 +19,29 @@ export const IlceAnalizQuerySchema = z.object({
 
 export const IlanIngestSchema = z.object({
   kaynak: z.enum(["sahibinden", "hepsiemlak", "extension", "emlakjet"]),
-  ilanNo: z.string().min(1, "Ýlan numarasý boþ olamaz").max(64),
+  ilanNo: z.string().min(1, "ï¿½lan numarasï¿½ boï¿½ olamaz").max(64),
   il: z.string().min(1).max(50),
   ilce: z.string().min(1).max(50),
   mahalle: z.string().max(100).optional().nullable(),
-  fiyatPerM2: z.number().positive("Fiyat/m2 pozitif olmalý"),
+  fiyatPerM2: z.number().positive("Fiyat/m2 pozitif olmalï¿½"),
   m2: z.number().positive().max(50_000_000).optional().nullable(),
   paraBirimi: z.string().default("TL"),
   kategori: KategoriSchema.default("arsa"),
   imarDurumu: z.string().max(100).optional().nullable(),
+  /**
+   * Ilan basligi.
+   *
+   * Extension her ilanda basligi YAKALIYOR ve yerel olarak kullaniyor
+   * (background/scraping-runtime.ts kategori cikarimi, rafineri NLP'si), ama
+   * bu sema alani tanimadigi icin backend'e yuklerken sessizce ATILIYORDU â€”
+   * uretimde 530 extension ilaninin hicbirinde baslik yoktu.
+   *
+   * Rafinerinin hisseli/kooperatif tespiti bu metne bakiyor; backend
+   * tarafindaki emsaller bu yuzden sinyalsiz kaliyordu.
+   */
+  baslik: z.string().max(300).optional().nullable(),
+  /** Tapu durumu â€” "Hisseli Tapu" / "Mustakil Tapu". Yapisal alan. */
+  tapuDurumu: z.string().max(100).optional().nullable(),
   lat: z.number().min(35.5).max(42.5).optional().nullable(),
   lng: z.number().min(25.5).max(45.0).optional().nullable(),
 });
@@ -59,7 +73,7 @@ export async function validateBody<T>(schema: z.ZodSchema<T>, c: Context): Promi
       return {
         errorResponse: c.json({
           success: false,
-          error: { code: "INVALID_JSON", message: "Geçersiz JSON gövdesi" },
+          error: { code: "INVALID_JSON", message: "Geï¿½ersiz JSON gï¿½vdesi" },
         }, 400),
       };
     }
@@ -72,7 +86,7 @@ export async function validateBody<T>(schema: z.ZodSchema<T>, c: Context): Promi
     return {
       errorResponse: c.json({
         success: false,
-        error: { code: "BAD_REQUEST", message: "Ýstek doðrulanamadý" },
+        error: { code: "BAD_REQUEST", message: "ï¿½stek doï¿½rulanamadï¿½" },
       }, 400),
     };
   }

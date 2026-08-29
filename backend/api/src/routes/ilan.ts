@@ -22,6 +22,8 @@ interface IlanInput {
   m2?: number;
   kategori?: string;
   imar_durumu?: string;
+  baslik?: string;
+  tapu_durumu?: string;
   para_birimi?: string;
   ilan_tarihi?: number;
   /** Faz 2 — koord (opsiyonel). Server-side 3 ondalık quantize edilir. */
@@ -62,6 +64,8 @@ function ilanValidate(input: unknown) {
     fiyatPerM2: raw.fiyatPerM2 ?? raw.fiyat_per_m2,
     paraBirimi: raw.paraBirimi ?? raw.para_birimi,
     imarDurumu: raw.imarDurumu ?? raw.imar_durumu,
+    baslik: raw.baslik,
+    tapuDurumu: raw.tapuDurumu ?? raw.tapu_durumu,
   };
   const result = IlanIngestSchema.safeParse(normalized);
   if (!result.success) {
@@ -100,8 +104,8 @@ ilanRoutes.post("/", rateLimitMiddleware(100, "ilan-post"), async (c) => {
       `INSERT INTO ilanlar (
         kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2,
         m2, kategori, imar_durumu, para_birimi, ilan_tarihi, yakalanma_tarihi,
-        lat, lng, koord_kaynagi
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        lat, lng, koord_kaynagi, baslik, tapu_durumu
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(kaynak, ilan_no) DO UPDATE SET
         lat = COALESCE(ilanlar.lat, excluded.lat),
         lng = COALESCE(ilanlar.lng, excluded.lng),
@@ -109,6 +113,11 @@ ilanRoutes.post("/", rateLimitMiddleware(100, "ilan-post"), async (c) => {
         fiyat_per_m2 = excluded.fiyat_per_m2,
         m2 = COALESCE(excluded.m2, ilanlar.m2),
         imar_durumu = COALESCE(excluded.imar_durumu, ilanlar.imar_durumu),
+        -- Başlık/tapu: sadece YENİ değer varsa yaz. Zenginleştirme hattı bu
+        -- alanları detay sayfasından daha güvenilir doldurabiliyor; boş bir
+        -- extension payload'ı onların üzerine yazmamalı.
+        baslik = COALESCE(excluded.baslik, ilanlar.baslik),
+        tapu_durumu = COALESCE(excluded.tapu_durumu, ilanlar.tapu_durumu),
         yakalanma_tarihi = excluded.yakalanma_tarihi,
         aktif = 1`,
     ).bind(
@@ -127,6 +136,8 @@ ilanRoutes.post("/", rateLimitMiddleware(100, "ilan-post"), async (c) => {
       koord.lat,
       koord.lng,
       koordKaynagi,
+      ilan.baslik ?? null,
+      ilan.tapuDurumu ?? null,
     ).run();
     const guncellendiMi = (res.meta?.changes ?? 0) > 0;
     return c.json({ ok: true, upsert: guncellendiMi }, 201);
@@ -162,8 +173,8 @@ ilanRoutes.post("/batch", async (c) => {
   const stmt = c.env.DB.prepare(
     `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
       fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi,
-      lat, lng, koord_kaynagi)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      lat, lng, koord_kaynagi, baslik, tapu_durumu)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const now = Date.now();
   const stmts = gecerli.map(v => {
@@ -188,6 +199,8 @@ ilanRoutes.post("/batch", async (c) => {
       koord.lat,
       koord.lng,
       koordKaynagi,
+      ilan.baslik ?? null,
+      ilan.tapuDurumu ?? null,
     );
   });
   let basarili = 0, duplicate = 0;
@@ -229,8 +242,8 @@ ilanRoutes.post("/katki", async (c) => {
   const stmt = c.env.DB.prepare(
     `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
       fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi,
-      lat, lng, koord_kaynagi)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      lat, lng, koord_kaynagi, baslik, tapu_durumu)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const now = Date.now();
   const stmts = gecerli.map((v) => {
@@ -255,6 +268,8 @@ ilanRoutes.post("/katki", async (c) => {
       koord.lat,
       koord.lng,
       koordKaynagi,
+      ilan.baslik ?? null,
+      ilan.tapuDurumu ?? null,
     );
   });
 
