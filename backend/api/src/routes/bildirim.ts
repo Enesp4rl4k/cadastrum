@@ -46,6 +46,36 @@ interface AboneInput {
   parametre?: Record<string, unknown>;
 }
 
+// ── POST /kontrol ────────────────────────────────────────────────────────────
+/**
+ * Giriş yapmış kullanıcının abonelikleri için bildirim kontrolü çalıştırır ve
+ * TETİKLENENLERİ döndürür.
+ *
+ * NEDEN SONRADAN EKLENDİ: uzantının zamanlayıcısı (background/scheduler.ts)
+ * bu yolu zaten çağırıyordu ama route hiç tanımlanmamıştı. `bildirimRoutes`
+ * `use("/*", jwtMiddleware)` ile korunduğu için istek 404 değil 401 dönüyor,
+ * çağıran da `!res.ok` görüp sessizce geri dönüyordu — yani "route yok" ile
+ * "token geçersiz" dışarıdan ayırt edilemiyordu (Sprint A.2'nin mount
+ * gölgeleme imzası). Masaüstü bildirimleri bu yüzden hiç çalışmadı.
+ *
+ * Mantık cron ile ORTAK (routes/bildirim-cron.ts) — kopyalanmadı; 23 saatlik
+ * tetik aralığı orada uygulanıyor, dolayısıyla uzantı saatlik çağırsa bile
+ * mükerrer bildirim üretmiyor.
+ */
+bildirimRoutes.post("/kontrol", async (c) => {
+  const kullaniciId = c.get("kullaniciId" as never) as number | undefined;
+  if (!kullaniciId) return c.json({ hata: "Kimlik bulunamadı" }, 401);
+
+  const { bildirimKontroluCalistir } = await import("./bildirim-cron.js");
+  const sonuc = await bildirimKontroluCalistir(c.env, kullaniciId);
+
+  return c.json({
+    tetiklenen: sonuc.detaylar,
+    tetiklenen_adet: sonuc.tetiklenen,
+    hata: sonuc.hata,
+  });
+});
+
 // ── GET /list ────────────────────────────────────────────────────────────────
 bildirimRoutes.get("/list", async (c) => {
   const kullaniciId = c.get("kullaniciId" as never) as number;

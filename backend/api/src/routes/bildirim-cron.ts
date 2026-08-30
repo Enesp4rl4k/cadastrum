@@ -146,21 +146,59 @@ async function aboneligiTetikle(
   ).bind(abone.id, Date.now(), abone.tip, ozet, basarili ? 1 : 0).run();
 }
 
+/** Tetiklenen bir bildirimin çağırana dönen özeti. */
+export interface TetiklenenBildirim {
+  id: number;
+  tip: string;
+  ozet: string;
+}
+
+export interface BildirimKontrolSonuc {
+  tetiklenen: number;
+  hata: number;
+  /** Tetiklenenlerin detayı — uzantı masaüstü bildirimi için buna bakıyor. */
+  detaylar: TetiklenenBildirim[];
+}
+
 /**
- * Cron giriş noktası — index.ts'in scheduled handler'ından çağrılır.
+ * Bildirim kontrolü.
+ *
+ * İKİ ÇAĞIRANI VAR:
+ *   - index.ts scheduled handler (saatlik cron, TÜM kullanıcılar)
+ *   - POST /v1/bildirim/kontrol (tek kullanıcı, uzantı zamanlayıcısı)
+ *
+ * İkincisi eskiden YOKTU: uzantı `background/scheduler.ts` içinden bu yolu
+ * çağırıyordu ama route hiç tanımlanmamıştı; JWT ara katmanı önce cevapladığı
+ * için istek 404 bile değil 401 dönüyordu ve çağıran `!res.ok` görüp SESSİZCE
+ * geri dönüyordu. Masaüstü bildirimleri aylarca hiç çalışmadı.
+ *
+ * @param kullaniciId verilirse yalnızca o kullanıcının abonelikleri kontrol edilir.
+ *
  * Min son_tetik 23 saat önce: spam koruması (günde max 1 tetik per abonelik).
+ * Bu koruma sayesinde uzantı saatlik çağırsa da tekrar tetikleme olmuyor.
  */
-export async function bildirimKontroluCalistir(env: Env): Promise<{ tetiklenen: number; hata: number }> {
+export async function bildirimKontroluCalistir(
+  env: Env,
+  kullaniciId?: number,
+): Promise<BildirimKontrolSonuc> {
   const minSonTetik = Date.now() - 23 * SAAT_MS;
-  const abonelikler = await env.DB.prepare(
-    `SELECT id, kullanici_id, tip, parametre_json, son_tetik, son_baseline
-     FROM bildirim_aboneligi
-     WHERE durum = 'aktif' AND (son_tetik IS NULL OR son_tetik < ?)
-     LIMIT 500`,
-  ).bind(minSonTetik).all<AbonelikRow>();
+  const abonelikler = kullaniciId
+    ? await env.DB.prepare(
+        `SELECT id, kullanici_id, tip, parametre_json, son_tetik, son_baseline
+         FROM bildirim_aboneligi
+         WHERE durum = 'aktif' AND kullanici_id = ? AND (son_tetik IS NULL OR son_tetik < ?)
+         LIMIT 50`,
+      ).bind(kullaniciId, minSonTetik).all<AbonelikRow>()
+    : await env.DB.prepare(
+        `SELECT id, kullanici_id, tip, parametre_json, son_tetik, son_baseline
+         FROM bildirim_aboneligi
+         WHERE durum = 'aktif' AND (son_tetik IS NULL OR son_tetik < ?)
+         LIMIT 500`,
+      ).bind(minSonTetik).all<AbonelikRow>();
 
   let tetiklenen = 0;
   let hata = 0;
+  const detaylar: TetiklenenBildirim[] = [];
 
   for (const abone of abonelikler.results ?? []) {
     let par: AbonelikParametre;
@@ -201,6 +239,7 @@ export async function bildirimKontroluCalistir(env: Env): Promise<{ tetiklenen: 
         const ozet = `${kategori} bölgesi medyan fiyatı %${Math.abs(yuzde).toFixed(1)} ${yon} (₺${abone.son_baseline.toLocaleString("tr-TR")} → ₺${sonuc.medyan.toLocaleString("tr-TR")}/m²)`;
         await aboneligiTetikle(env, abone, kul, sonuc.medyan, ozet);
         tetiklenen++;
+        detaylar.push({ id: abone.id, tip: abone.tip, ozet });
       }
     } else if (abone.tip === "yeni-emsal") {
       // Basit: son_baseline'ı son adet olarak kullan, artış varsa tetikle
@@ -210,6 +249,7 @@ export async function bildirimKontroluCalistir(env: Env): Promise<{ tetiklenen: 
         const ozet = `Bölgede ${artis} yeni emsal eklendi (toplam ${sonuc.adet})`;
         await aboneligiTetikle(env, abone, kul, sonuc.adet, ozet);
         tetiklenen++;
+        detaylar.push({ id: abone.id, tip: abone.tip, ozet });
       } else {
         await env.DB.prepare(
           `UPDATE bildirim_aboneligi SET son_baseline = ? WHERE id = ?`,
@@ -221,9 +261,10 @@ export async function bildirimKontroluCalistir(env: Env): Promise<{ tetiklenen: 
         const ozet = `Bölge medyan fiyatı ₺${sonuc.medyan.toLocaleString("tr-TR")}/m² hedef eşiğin (₺${esik.toLocaleString("tr-TR")}) altına düştü`;
         await aboneligiTetikle(env, abone, kul, sonuc.medyan, ozet);
         tetiklenen++;
+        detaylar.push({ id: abone.id, tip: abone.tip, ozet });
       }
     }
   }
 
-  return { tetiklenen, hata };
+  return { tetiklenen, hata, detaylar };
 }

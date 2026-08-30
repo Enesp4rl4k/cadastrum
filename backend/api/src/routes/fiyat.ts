@@ -133,6 +133,17 @@ fiyatRoutes.get("/ilce/:il/:ilce", async (c) => {
     }
   }
 
+  // YOKLUK KARARI: `ilceIstatistik` undefined ise spread hiçbir şey eklemiyor
+  // ve gövde `{"mahalleler":[]}` olarak 200 dönüyordu. Site yalnızca `res.ok`e
+  // baktığı için boş durum kartı HİÇ tetiklenmiyor, kullanıcıya "— TL/m²",
+  // "— güncellendi", "Kaynak —" dolu bir kart gösteriliyordu. Aynı dosyadaki
+  // mahalle yolu (yukarıda) zaten 404 dönüyor — davranış birleştirildi.
+  // 404 yalnızca HİÇBİR ŞEY yokken: ilçe özeti düşmüş ama mahalle listesi
+  // doluysa yanıt hâlâ işe yarıyor, onu atmak yeni bir kayıp olurdu.
+  if (!ilceIstatistik && (mahalleler.results?.length ?? 0) === 0) {
+    return c.json({ error: "Veri bulunamadı" }, 404);
+  }
+
   c.header("Cache-Control", "public, s-maxage=3600");
   return c.json({
     ...ilceIstatistik,
@@ -191,6 +202,13 @@ fiyatRoutes.get("/il/:il", async (c) => {
       };
       ilceler = { results: aiList, success: true } as never;
     }
+  }
+
+  // Yokluk kararı — bkz. /ilce yolundaki not. 200 + boş gövde, "veri yok" ile
+  // "istek başarılı ama içerik boş"u ayırt edilemez kılıyordu.
+  // Bkz. /ilce yolundaki not — 404 yalnızca il özeti DE ilçe listesi DE boşken.
+  if (!ilIstatistik && (ilceler.results?.length ?? 0) === 0) {
+    return c.json({ error: "Veri bulunamadı" }, 404);
   }
 
   c.header("Cache-Control", "public, s-maxage=3600");

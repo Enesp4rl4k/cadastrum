@@ -29,12 +29,20 @@ export function cdpWmsTileUrlDirect(wmsSlug: string): string {
   return `${TUCBS_WMS_BASE}/${wmsSlug}?${getMapQuery()}&BBOX={bbox-epsg-3857}`;
 }
 
-/** Cloudflare proxy üzerinden (CORS fallback) */
+/**
+ * Cloudflare proxy üzerinden (CORS fallback).
+ *
+ * SÖZLEŞME DÜZELTMESİ: burada eskiden `?wms=..&bbox=..` query biçimi vardı ama
+ * backend rotası PATH parametreli: `/proxy/tucbs/tile/:wms/:z/:x/:y`
+ * (routes/proxy.ts:215). Ölçüldü — query biçimi 404 dönüyordu. Fonksiyonun
+ * hiç çağıranı olmadığı için (site ve uzantı doğrudan CSB WMS'e gidiyor,
+ * bkz. cdpWmsTileUrls) fark edilmemişti; R2 tile cache bu yüzden hiç
+ * beslenmiyor.
+ *
+ * MapLibre {z}/{x}/{y} yer tutucularını kendisi dolduruyor.
+ */
 export function cdpWmsTileUrlProxy(wmsSlug: string): string {
-  return (
-    `${API_BASE}/proxy/tucbs/tile?wms=${encodeURIComponent(wmsSlug)}` +
-    `&bbox={bbox-epsg-3857}`
-  );
+  return `${API_BASE}/proxy/tucbs/tile/${encodeURIComponent(wmsSlug)}/{z}/{x}/{y}`;
 }
 
 /** MapLibre raster source tiles — doğrudan CSB WMS (extension host_permissions) */

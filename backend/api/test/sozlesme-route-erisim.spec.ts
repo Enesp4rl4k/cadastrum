@@ -66,6 +66,51 @@ describe("sözleşme: /v1/admin bearer route'ları JWT mount'u tarafından gölg
     expect(typeof govde.saglikli).toBe("boolean");
   });
 
+  /**
+   * VAR OLMAYAN ROUTE ile GEÇERSİZ TOKEN dışarıdan aynı görünüyor.
+   *
+   * `bildirimRoutes.use("/*", jwtMiddleware)` her /v1/bildirim/* isteğine önce
+   * cevap verdiği için tanımlanmamış bir alt yol da 404 değil 401 dönüyor.
+   * Uzantı `POST /v1/bildirim/kontrol` çağırıyordu, route hiç yoktu ve çağıran
+   * `!res.ok` görüp sessizce dönüyordu: masaüstü bildirimleri aylarca çalışmadı.
+   *
+   * Bu testin ayırt edici sinyali: route VARSA geçerli token ile 200 döner.
+   */
+  it("POST /v1/bildirim/kontrol GERÇEKTEN tanımlı — 401 yalnızca token yokluğundan", async () => {
+    const env = createMockEnv();
+
+    // Token yokken JWT ara katmanı cevaplıyor.
+    const tokensuz = await app.request("/v1/bildirim/kontrol", { method: "POST" }, env);
+    expect(tokensuz.status).toBe(401);
+
+    // Geçerli token ile handler'a ulaşılmalı. Route tanımlı değilse burada
+    // 404 gelir — testin yakaladığı fark tam olarak bu.
+    const kayit = await app.request(
+      "/v1/auth/kayit",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: `rota-${Date.now()}@cadastrum-test.com`,
+          sifre: "abcdef12",
+          ad: "Test",
+        }),
+      },
+      env,
+    );
+    const { token } = (await kayit.json()) as { token: string };
+
+    const res = await app.request(
+      "/v1/bildirim/kontrol",
+      { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      env,
+    );
+    expect(res.status).toBe(200);
+
+    const govde = (await res.json()) as Record<string, unknown>;
+    expect(Array.isArray(govde.tetiklenen)).toBe(true);
+  });
+
   it("JWT korumalı admin route'ları JWT davranışını KORUYOR", async () => {
     // Karşı taraf: gerçekten JWT isteyen admin route'ları bearer secret'a
     // açılmamalı. Düzeltmenin kapsamı taşmadığını sabitliyor.

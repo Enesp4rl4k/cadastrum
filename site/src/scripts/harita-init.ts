@@ -501,7 +501,8 @@ async function likiditToggle(kategori: "arsa" | "tarla" = "arsa") {
 
 interface IlTrendSonuc {
   il_norm: string;
-  degisim_yuzde: number;
+  /** Karşılaştırılacak iki dönem yoksa NULL — 0 değil. */
+  degisim_yuzde: number | null;
   son3_ort: number | null;
   once3_ort: number | null;
   veri_var: boolean;
@@ -512,7 +513,14 @@ let trendKatmanAcik = false;
 let trendKategori: "arsa" | "tarla" = "arsa";
 let trendVerisi: IlTrendSonuc[] = [];
 
-function trendRenk(degisim: number): string {
+/** Veri yok rengi — "stabil" grisinden AYRI olmalı, bkz. trendKatmanEkle. */
+const TREND_VERI_YOK_RENK = "#334155";
+
+function trendRenk(degisim: number | null): string {
+  // null = hesaplanamadı. Eskiden çağıran burada 0 gönderiyordu ve il "stabil"
+  // grisiyle boyanıyordu; ölçümde 67 ilin 67'si veri yoksundu, yani harita
+  // baştan sona uydurma bir "her yer stabil" tablosuydu.
+  if (degisim === null) return TREND_VERI_YOK_RENK;
   if (degisim > 15)  return "#dc2626"; // kırmızı — çok ısınıyor
   if (degisim > 5)   return "#f97316"; // turuncu — ısınıyor
   if (degisim > -5)  return "#94a3b8"; // gri — stabil
@@ -543,19 +551,22 @@ function trendKatmanEkle(veri: IlTrendSonuc[]) {
   const features: GeoJSON.Feature[] = [];
   for (const [ilNorm, centroid] of Object.entries(IL_CENTROID)) {
     const bilgi = trendMap.get(ilNorm);
-    const degisim = bilgi?.veri_var ? bilgi.degisim_yuzde : 0;
+    const veriVar = (bilgi?.veri_var ?? false) && bilgi?.degisim_yuzde != null;
+    const degisim = veriVar ? bilgi!.degisim_yuzde! : null;
     features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [centroid[1], centroid[0]] },
       properties: {
         il_norm: ilNorm,
-        degisim: degisim,
-        veri_var: bilgi?.veri_var ?? false,
-        etiket: bilgi?.etiket ?? "Veri Yok",
+        degisim: degisim ?? 0,
+        veri_var: veriVar,
+        etiket: bilgi?.etiket ?? "Veri yetersiz",
         son3_ort: bilgi?.son3_ort ?? null,
         once3_ort: bilgi?.once3_ort ?? null,
         renk: trendRenk(degisim),
-        degisim_text: degisim > 0 ? `+${degisim.toFixed(1)}%` : `${degisim.toFixed(1)}%`,
+        degisim_text: degisim === null
+          ? "—"
+          : degisim > 0 ? `+${degisim.toFixed(1)}%` : `${degisim.toFixed(1)}%`,
       },
     });
   }
@@ -584,7 +595,9 @@ function trendKatmanEkle(veri: IlTrendSonuc[]) {
       source: srcId,
       minzoom: 5,
       layout: {
-        "text-field": ["case", ["get", "veri_var"], ["get", "degisim_text"], ""],
+        // Veri yoksa boş etiket yerine "—": kullanıcı dairenin neden soluk
+        // olduğunu görsün, "ölçüm yapıldı ve stabil çıktı" sanmasın.
+        "text-field": ["case", ["get", "veri_var"], ["get", "degisim_text"], "—"],
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 5, 8, 8, 11],
         "text-offset": [0, 0],
@@ -657,9 +670,12 @@ async function trendToggle(kategori: "arsa" | "tarla" = "arsa") {
 interface GelIlSonuc {
   il_norm: string;
   skor: number;
-  sinif: "yuksek" | "orta" | "izle";
+  sinif: "yuksek" | "orta" | "izle" | "veri-yok";
   etiket: string;
-  fiyat_momentum: number;
+  /** Fiyat verisi yoksa null — skorun üçte biri eksik demek. */
+  fiyat_momentum: number | null;
+  /** Skorun fiyat boyutu gerçek veriye dayanıyor mu. */
+  fiyat_verisi_var: boolean;
   likidite_skoru: number;
   altyapi_skoru: number;
 }
@@ -667,7 +683,11 @@ interface GelIlSonuc {
 let gelAcik = false;
 let gelVerisi: GelIlSonuc[] = [];
 
-function gelSkorRenk(skor: number): string {
+function gelSkorRenk(skor: number, fiyatVerisiVar: boolean): string {
+  // Fiyat boyutu yoksa skor 100 üzerinden değil 60 üzerinden; aynı renk
+  // rampasına sokmak "ölçüldü" yanılsaması üretir. ÖLÇÜLDÜ: canlıda 81 ilin
+  // 81'inde fiyat verisi yoktu ve harita yine de 5 ili yeşil boyuyordu.
+  if (!fiyatVerisiVar) return "#334155";
   if (skor >= 70) return "#16a34a"; // yeşil — yüksek
   if (skor >= 60) return "#22c55e";
   if (skor >= 50) return "#84cc16"; // sarı-yeşil — orta
@@ -709,7 +729,15 @@ function gelKatmanEkle(veri: GelIlSonuc[]) {
         skor: bilgi.skor,
         sinif: bilgi.sinif,
         etiket: bilgi.etiket,
-        renk: gelSkorRenk(bilgi.skor),
+        fiyat_verisi_var: bilgi.fiyat_verisi_var !== false,
+        // Bu üç alan popup'ta gösteriliyordu ama feature'a HİÇ konmamıştı:
+        // `Number(p["fiyat_momentum"])` her tıklamada NaN veriyordu ve popup
+        // "NaN/40" yazıyordu. MapLibre properties'te olmayan anahtar undefined
+        // döner — sessiz.
+        fiyat_momentum: bilgi.fiyat_momentum ?? -1,
+        likidite_skoru: bilgi.likidite_skoru,
+        altyapi_skoru: bilgi.altyapi_skoru,
+        renk: gelSkorRenk(bilgi.skor, bilgi.fiyat_verisi_var !== false),
         boyut: Math.round(8 + (bilgi.skor / 100) * 22), // 8–30px
       },
     });
@@ -778,10 +806,17 @@ function gelKatmanEkle(veri: GelIlSonuc[]) {
           </div>
           <div style="font-size:13px;font-weight:600;color:${renk};margin-bottom:8px">${etiket}</div>
           <div style="font-size:10px;color:#64748b">
-            <div>Fiyat momentum: <strong>${Number(p["fiyat_momentum"])}/40</strong></div>
-            <div>Likidite: <strong>${Number(p["likidite_skoru"])}/35</strong></div>
-            <div>Altyapı: <strong>${Number(p["altyapi_skoru"])}/25</strong></div>
+            <div>Fiyat momentum: <strong>${
+              Number(p["fiyat_momentum"]) < 0 ? "veri yok" : `${Number(p["fiyat_momentum"])}/40`
+            }</strong></div>
+            <div>Likidite: <strong>${Number(p["likidite_skoru"])}/35</strong> <span style="color:#94a3b8">(statik tablo)</span></div>
+            <div>Altyapı: <strong>${Number(p["altyapi_skoru"])}/25</strong> <span style="color:#94a3b8">(statik tablo)</span></div>
           </div>
+          ${Number(p["fiyat_momentum"]) < 0 ? `
+            <div style="margin-top:6px;padding:6px;background:#f1f5f9;border-radius:6px;font-size:10px;color:#475569">
+              Bu skorun fiyat boyutu hesaplanamadı — karşılaştırılacak iki dönemlik
+              zaman serisi yok. Gösterilen puan yalnızca likidite ve altyapıdan geliyor.
+            </div>` : ""}
           <div style="margin-top:8px;text-align:right">
             <a href="/veri/${ilNorm}" style="color:#16a34a;font-size:9px;text-decoration:none">
               Detaylı veri sayfası →

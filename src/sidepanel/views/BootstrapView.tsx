@@ -52,6 +52,14 @@ export function BootstrapView() {
 
   const [durum, setDurum] = useState<Durum | null>(null);
   const [scraperSecret, setScraperSecret] = useState<string>("");
+  /**
+   * STATS_SECRET, SCRAPER_API_SECRET'tan AYRI bir sırdır (bkz. index.ts:468).
+   * İstatistik yenileme eskiden scraper sırrını query param olarak GET ile
+   * gönderiyordu — metot, taşıyıcı ve sırrın ÜÇÜ de yanlıştı; endpoint 404
+   * dönüyor, panel "hata" gösteriyor ve sebebi hiçbir yerde yazmıyordu.
+   */
+  const [statsSecret, setStatsSecret] = useState<string>("");
+  const [statsSecretKayitli, setStatsSecretKayitli] = useState(false);
   const [secretKayitli, setSecretKayitli] = useState(false);
 
   // Mevcut secret'i yükle
@@ -60,6 +68,10 @@ export function BootstrapView() {
       if (typeof d.scraper_api_secret === "string" && d.scraper_api_secret.length > 0) {
         setScraperSecret(d.scraper_api_secret);
         setSecretKayitli(true);
+      }
+      if (typeof d.stats_secret === "string" && d.stats_secret.length > 0) {
+        setStatsSecret(d.stats_secret);
+        setStatsSecretKayitli(true);
       }
     });
   }, []);
@@ -73,6 +85,17 @@ export function BootstrapView() {
     }
     await chrome.storage.local.set({ scraper_api_secret: s });
     setSecretKayitli(true);
+  }
+
+  async function statsSecretKaydet() {
+    const s = statsSecret.trim();
+    if (!s) {
+      await chrome.storage.local.remove("stats_secret");
+      setStatsSecretKayitli(false);
+      return;
+    }
+    await chrome.storage.local.set({ stats_secret: s });
+    setStatsSecretKayitli(true);
   }
 
   // Background'tan durum poll et
@@ -103,20 +126,34 @@ export function BootstrapView() {
     if (!confirm("Tüm detay kuyruğu silinecek. Devam?")) return;
     await chrome.runtime.sendMessage({ tip: "detay-kuyrugu-temizle" });
   }
+  const [refreshHata, setRefreshHata] = useState<string | null>(null);
+
   async function istatistikRefresh() {
-    if (!scraperSecret) {
-      alert("Önce scraper_api_secret kaydet — istatistik refresh için gerekli.");
+    if (!statsSecret) {
+      alert("Önce STATS_SECRET kaydet — istatistik yenileme bu sırrı ister (scraper sırrı değil).");
       return;
     }
     setRefreshDurum("yukleniyor");
+    setRefreshHata(null);
     try {
       const { BACKEND_API } = await import("../../lib/api-constants");
-      const res = await fetch(
-        `${BACKEND_API}/istatistik/refresh?secret=${encodeURIComponent(scraperSecret)}`,
-      );
-      setRefreshDurum(res.ok ? "tamam" : "hata");
-    } catch {
+      // Sözleşme: POST + Authorization: Bearer + STATS_SECRET (index.ts:468).
+      const res = await fetch(`${BACKEND_API}/istatistik/refresh`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${statsSecret}` },
+      });
+      if (res.ok) {
+        setRefreshDurum("tamam");
+        return;
+      }
+      // Hata SEBEBİ görünür olsun: eskiden 404 ile 401 aynı "hata" rozetine
+      // düşüyordu ve panelde yanlış sırrın mı yoksa yanlış yolun mu olduğu
+      // anlaşılmıyordu.
       setRefreshDurum("hata");
+      setRefreshHata(`HTTP ${res.status} — ${(await res.text()).slice(0, 120)}`);
+    } catch (e) {
+      setRefreshDurum("hata");
+      setRefreshHata(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -201,6 +238,30 @@ export function BootstrapView() {
         </div>
         <div className="mt-1 text-3xs text-slate-500">
           Bu olmadan backend /v1/ilan/batch 401 döner. Ayar chrome.storage.local'da saklanır.
+        </div>
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+        <label className="block text-2xs font-semibold mb-1">
+          Stats Secret {statsSecretKayitli && <span className="text-emerald-600">✓ kayıtlı</span>}
+        </label>
+        <div className="flex gap-1.5">
+          <input
+            type="password"
+            value={statsSecret}
+            onChange={(e) => setStatsSecret(e.target.value)}
+            placeholder="wrangler secret STATS_SECRET ile aynı"
+            className="flex-1 rounded border px-2 py-1 text-xs"
+          />
+          <button
+            onClick={statsSecretKaydet}
+            className="rounded bg-slate-800 px-2 py-1 text-2xs font-semibold text-white hover:bg-slate-700"
+          >
+            Kaydet
+          </button>
+        </div>
+        <div className="mt-1 text-3xs text-slate-500">
+          İstatistik yenileme (/v1/istatistik/refresh) SCRAPER_API_SECRET'ı değil bunu ister.
         </div>
       </div>
 
@@ -417,6 +478,11 @@ export function BootstrapView() {
             refreshDurum === "hata" ? "✗ Hata — tekrar dene" :
             "Refresh tetikle"}
         </button>
+        {refreshHata && (
+          <div className="mt-1 rounded bg-rose-50 p-1.5 text-3xs text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+            {refreshHata}
+          </div>
+        )}
       </div>
     </div>
   );

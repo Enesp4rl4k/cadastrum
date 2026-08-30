@@ -42,8 +42,32 @@ export const IlanIngestSchema = z.object({
   baslik: z.string().max(300).optional().nullable(),
   /** Tapu durumu — "Hisseli Tapu" / "Mustakil Tapu". Yapisal alan. */
   tapuDurumu: z.string().max(100).optional().nullable(),
-  lat: z.number().min(35.5).max(42.5).optional().nullable(),
-  lng: z.number().min(25.5).max(45.0).optional().nullable(),
+  /**
+   * Koordinat kaynagi — "dom" (ilan sayfasindan), "mahalle-merkez" (cozumlendi),
+   * "manuel". Spatial emsal motoru GERCEK parsel koordinati ile mahalle
+   * merkezini bu alanla ayirt ediyor.
+   *
+   * SEMADA YOKTU: `baslik` hatasinin birebir ikizi. Extension bu alani
+   * gonderiyordu (background/scraping-runtime.ts, service-worker.ts) ama zod
+   * bilinmeyen anahtarlari strip ettigi icin /ilan/batch ve /ilan/katki
+   * yollarinda HER ZAMAN NULL yaziliyordu. Tekil POST /ilan yolu ham govdeden
+   * okudugu icin calisiyordu — yani ayni alan bir yolda dogru, iki yolda kayip.
+   */
+  koordKaynagi: z.enum(["dom", "mahalle-merkez", "manuel"]).optional().nullable(),
+  /**
+   * Ilanin yayin tarihi (ms). `yakalanma_tarihi` ile KARISTIRILMAMALI: biri
+   * ilanin ne zaman yayinlandigi, digeri bizim ne zaman gordugumuz. Zaman
+   * agirlikli fiyat modelleri (lib/fiyat/time-decay-engine) ilkini ister.
+   */
+  ilanTarihi: z.number().int().positive().optional().nullable(),
+  /**
+   * Koordinat araligi BILEREK genis: Turkiye bbox kontrolu ve 3 ondalik
+   * quantize `koordSanitize` icinde yapiliyor (routes/ilan.ts). Burada dar bir
+   * aralik kullanmak, koordinati bozuk bir ilanin TAMAMINI 422 ile dusururdu —
+   * oysa fiyat/m2 verisi saglam; kaybedilmesi gereken sadece koordinat.
+   */
+  lat: z.number().finite().optional().nullable(),
+  lng: z.number().finite().optional().nullable(),
 });
 
 export interface ApiErrorResponse {

@@ -299,18 +299,32 @@ haritaRoutes.get("/likidite", (c) => {
     // Tarla kategorisinde kırsal iller biraz daha likit
     const kategoriDuzeltme = kategori === "tarla" && (veri?.nufusM ?? 0.5) < 0.5 ? 0.1 : 0;
     const nihai = Math.min(1.0, Math.round((skor + kategoriDuzeltme) * 100) / 100);
+    // `veri` yoksa skor sabit 0.5 fallback'ten geliyor (ilLikiditeSkoru).
+    // Bunu belirtmezsek tabloda olmayan iller de haritada dolu bir renk alıyor
+    // ve "ölçüldü" gibi görünüyor.
     return {
       il_norm: ilNorm,
       skor: nihai,
+      veri_var: !!veri,
       yillik_satis: veri?.yillikSatis ?? 0,
       ipotekli_oran: veri?.ipotekliOran ?? 0.15,
       nufus_m: veri?.nufusM ?? 0.3,
-      etiket: nihai >= 0.85 ? "Çok Aktif" : nihai >= 0.70 ? "Aktif" : nihai >= 0.50 ? "Normal" : "Düşük",
+      etiket: !veri ? "Veri yok"
+        : nihai >= 0.85 ? "Çok Aktif" : nihai >= 0.70 ? "Aktif" : nihai >= 0.50 ? "Normal" : "Düşük",
     };
   });
 
+  // `kaynak` alanı bilinçli: bu endpoint D1'e HİÇ bakmıyor, statik TÜİK
+  // tablosundan (data/harita-data.ts) üretiyor. "guncelleme" sabit bir dize —
+  // canlı bir tarih değil, tablonun derlendiği dönem.
   return c.json(
-    { kategori, guncelleme: "2025-12", iller },
+    {
+      kategori,
+      kaynak: "statik-tuik-tablosu",
+      guncelleme: "2025-12",
+      veri_olan_il: iller.filter((x) => x.veri_var).length,
+      iller,
+    },
     200,
     { "Cache-Control": "public, max-age=2592000, stale-while-revalidate=86400" }, // 30 gün
   );
@@ -386,13 +400,20 @@ haritaRoutes.get("/trend", async (c) => {
     if (ortSon3 !== null && ortOnce3 !== null && ortOnce3 > 0) {
       degisimYuzde = Math.round(((ortSon3 - ortOnce3) / ortOnce3) * 1000) / 10;
     }
+    // YOKLUK KARARI: karşılaştırılacak iki dönem yoksa değişim HESAPLANAMAZ.
+    // Eskiden bu durumda `degisim_yuzde: 0` + `etiket: "Stabil"` dönüyordu ve
+    // site bunu gri "piyasa stabil" dairesi olarak çiziyordu. ÖLÇÜLDÜ: canlıda
+    // 67 ilin 67'sinde `veri_var: false`, yani harita tamamen uydurma bir
+    // "her yer stabil" tablosu gösteriyordu. Veri yoksa öyle söylenir.
+    const veriVar = ortSon3 !== null && ortOnce3 !== null;
     return {
       il_norm: ilNorm,
-      degisim_yuzde: degisimYuzde,
+      degisim_yuzde: veriVar ? degisimYuzde : null,
       son3_ort: ortSon3 !== null ? Math.round(ortSon3) : null,
       once3_ort: ortOnce3 !== null ? Math.round(ortOnce3) : null,
-      veri_var: ortSon3 !== null && ortOnce3 !== null,
-      etiket: degisimYuzde > 15 ? "Çok Isınıyor"
+      veri_var: veriVar,
+      etiket: !veriVar ? "Veri yetersiz"
+        : degisimYuzde > 15 ? "Çok Isınıyor"
         : degisimYuzde > 5 ? "Isınıyor"
         : degisimYuzde < -5 ? "Soğuyor"
         : "Stabil",
@@ -457,8 +478,11 @@ haritaRoutes.get("/gelisen-bolgeler", async (c) => {
   const sonuclar: Array<{
     il_norm: string;
     skor: number;
-    sinif: "yuksek" | "orta" | "izle";
-    fiyat_momentum: number;
+    sinif: "yuksek" | "orta" | "izle" | "veri-yok";
+    /** Fiyat verisi yoksa null — nötr bir sayı DEĞİL. */
+    fiyat_momentum: number | null;
+    /** Skorun fiyat boyutu gerçek veriye mi dayanıyor. */
+    fiyat_verisi_var: boolean;
     likidite_skoru: number;
     altyapi_skoru: number;
     etiket: string;
@@ -469,12 +493,19 @@ haritaRoutes.get("/gelisen-bolgeler", async (c) => {
     const altyapi = IL_ALTYAPI_PUAN[ilNorm] ?? 30;
 
     // Boyut 1: Fiyat momentum (0–40) — son 6 ay vs önceki 6 ay
-    let fiyatMomentum = 20; // neutral fallback
+    //
+    // YOKLUK KARARI: karşılaştırılacak iki dönem yoksa momentum HESAPLANAMAZ.
+    // Eskiden sessizce 20 (nötr) yazılıyordu ve skor sanki üç boyuttan
+    // üretilmiş gibi sunuluyordu. ÖLÇÜLDÜ: canlıda 81 ilin 81'inde fiyat verisi
+    // yoktu, yani "🔥 Yüksek Potansiyel" etiketleri TAMAMEN statik likidite +
+    // altyapı tablosundan geliyordu — canlı analiz kılığında sabit veri.
+    let fiyatMomentum: number | null = null;
     if (fiyat?.son6_ort && fiyat?.once6_ort && fiyat.once6_ort > 0) {
       const degisim = (fiyat.son6_ort - fiyat.once6_ort) / fiyat.once6_ort;
       // -50% ile +100% arasını 0-40'a normalize
       fiyatMomentum = Math.max(0, Math.min(40, Math.round((degisim + 0.5) / 1.5 * 40)));
     }
+    const fiyatVerisiVar = fiyatMomentum !== null;
 
     // Boyut 2: Likidite skoru (0–35) — yıllık satış hacmi log normalize
     const logSatis = Math.log10(Math.max(likidite.yillikSatis, 100));
@@ -483,15 +514,18 @@ haritaRoutes.get("/gelisen-bolgeler", async (c) => {
     // Boyut 3: Altyapı skoru (0–25) — statik tablo
     const altyapiSkor = Math.round((altyapi / 100) * 25);
 
-    const toplamSkor = fiyatMomentum + likiditeSkor + altyapiSkor;
+    // Fiyat boyutu yoksa skor 60 üzerinden; 100'lük eşiklerle kıyaslanamaz.
+    const toplamSkor = (fiyatMomentum ?? 0) + likiditeSkor + altyapiSkor;
 
-    const sinif: "yuksek" | "orta" | "izle" =
-      toplamSkor >= 70 ? "yuksek"
+    const sinif: "yuksek" | "orta" | "izle" | "veri-yok" =
+      !fiyatVerisiVar ? "veri-yok"
+      : toplamSkor >= 70 ? "yuksek"
       : toplamSkor >= 50 ? "orta"
       : "izle";
 
     const etiket =
-      sinif === "yuksek" ? "🔥 Yüksek Potansiyel"
+      sinif === "veri-yok" ? "Fiyat verisi yetersiz"
+      : sinif === "yuksek" ? "🔥 Yüksek Potansiyel"
       : sinif === "orta" ? "📈 Orta Potansiyel"
       : "👀 İzle";
 
@@ -500,6 +534,7 @@ haritaRoutes.get("/gelisen-bolgeler", async (c) => {
       skor: toplamSkor,
       sinif,
       fiyat_momentum: fiyatMomentum,
+      fiyat_verisi_var: fiyatVerisiVar,
       likidite_skoru: likiditeSkor,
       altyapi_skoru: altyapiSkor,
       etiket,
@@ -508,8 +543,17 @@ haritaRoutes.get("/gelisen-bolgeler", async (c) => {
 
   sonuclar.sort((a, b) => b.skor - a.skor);
 
+  // Kaç ilin skoru gerçek fiyat verisine dayanıyor — çağıran katmanın
+  // "bu harita anlamlı mı" sorusuna cevap verebilmesi için.
+  const fiyatVerisiOlan = sonuclar.filter((x) => x.fiyat_verisi_var).length;
+
   return c.json(
-    { iller: sonuclar, guncelleme: new Date().toISOString() },
+    {
+      iller: sonuclar,
+      fiyat_verisi_olan_il: fiyatVerisiOlan,
+      toplam_il: sonuclar.length,
+      guncelleme: new Date().toISOString(),
+    },
     200,
     { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" },
   );

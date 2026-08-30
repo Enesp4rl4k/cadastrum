@@ -58,7 +58,8 @@ async function katkiGonder(env: ReturnType<typeof createMockEnv>, ilanlar: unkno
 async function d1denOku(env: ReturnType<typeof createMockEnv>, ilanNo: string) {
   return env.DB.prepare(
     `SELECT kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2,
-            kategori, imar_durumu, baslik, tapu_durumu, lat, lng, koord_kaynagi
+            kategori, imar_durumu, baslik, tapu_durumu, lat, lng, koord_kaynagi,
+            ilan_tarihi
      FROM ilanlar WHERE ilan_no = ?`,
   ).bind(ilanNo).first<Record<string, unknown>>();
 }
@@ -73,6 +74,8 @@ describe("sözleşme: alan yolculuğu (payload → şema → D1)", () => {
         tapu_durumu: "Hisseli Tapu",
         lat: 41.1417,
         lng: 28.4631,
+        koord_kaynagi: "dom",
+        ilan_tarihi: 1_780_000_000_000,
       }),
     ]);
     expect(res.status).toBe(200);
@@ -90,6 +93,8 @@ describe("sözleşme: alan yolculuğu (payload → şema → D1)", () => {
     expect(satir!.tapu_durumu).toBe("Hisseli Tapu");
     expect(satir!.lat).toBeCloseTo(41.142, 2);
     expect(satir!.lng).toBeCloseTo(28.463, 2);
+    expect(satir!.koord_kaynagi).toBe("dom");
+    expect(satir!.ilan_tarihi).toBe(1_780_000_000_000);
   });
 
   /**
@@ -108,6 +113,97 @@ describe("sözleşme: alan yolculuğu (payload → şema → D1)", () => {
     await katkiGonder(env, [payload("tapu-yolculuk", { tapu_durumu: "Müstakil Tapu" })]);
     const satir = await d1denOku(env, "tapu-yolculuk");
     expect(satir!.tapu_durumu).toBe("Müstakil Tapu");
+  });
+
+  /**
+   * REGRESYON: `koord_kaynagi` bu yolculuğu tamamlayamıyordu — `baslik`
+   * hatasının birebir ikizi.
+   *
+   * Alan `IlanIngestSchema`'da tanımlı değildi; zod bilinmeyen anahtarları
+   * strip ediyordu. Tekil `POST /ilan` yolu ham gövdeden okuduğu için ÇALIŞIYOR,
+   * `/batch` ve `/katki` parse edilmiş nesneden okuduğu için HER ZAMAN NULL
+   * yazıyordu. `type ValidIlan = z.infer<...> & { koord_kaynagi?: string }`
+   * kesişimi de derleyiciyi susturuyordu.
+   *
+   * Bu testin kendisi de eksikti: `d1denOku` kolonu SELECT ediyordu ama hiçbir
+   * assert ona bakmıyordu. Sözleşme testinin kör noktası.
+   */
+  it("koord_kaynagi ÜÇ ingest yolunda da düşmez", async () => {
+    const env = createMockEnv();
+
+    // 1) katkı (crowdsource)
+    await katkiGonder(env, [
+      payload("koord-katki", { lat: 41.1417, lng: 28.4631, koord_kaynagi: "dom" }),
+    ]);
+    expect((await d1denOku(env, "koord-katki"))!.koord_kaynagi).toBe("dom");
+
+    // 2) tekil
+    await app.request(
+      "/v1/ilan",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          payload("koord-tekil", { lat: 41.1417, lng: 28.4631, koord_kaynagi: "mahalle-merkez" }),
+        ),
+      },
+      env,
+    );
+    expect((await d1denOku(env, "koord-tekil"))!.koord_kaynagi).toBe("mahalle-merkez");
+
+    // 3) batch (scraper)
+    await app.request(
+      "/v1/ilan/batch",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.SCRAPER_API_SECRET}`,
+        },
+        body: JSON.stringify({
+          ilanlar: [
+            payload("koord-batch", { lat: 41.1417, lng: 28.4631, koord_kaynagi: "manuel" }),
+          ],
+        }),
+      },
+      env,
+    );
+    expect((await d1denOku(env, "koord-batch"))!.koord_kaynagi).toBe("manuel");
+  });
+
+  it("koordinat yoksa koord_kaynagi de yazılmaz (uydurma kaynak yok)", async () => {
+    const env = createMockEnv();
+    await katkiGonder(env, [payload("koord-yok", { koord_kaynagi: "dom" })]);
+    const satir = await d1denOku(env, "koord-yok");
+    expect(satir!.lat).toBeNull();
+    expect(satir!.koord_kaynagi).toBeNull();
+  });
+
+  it("BOZUK koordinat ilanın TAMAMINI düşürmez — sadece koordinat kaybolur", async () => {
+    // Zod aralığı (35.5–42.5) `koordSanitize`in bbox'undan (35–43) dardı;
+    // aralık dışı bir koordinat 422 ile tüm kaydı düşürüyordu. Oysa fiyat/m²
+    // verisi sağlam — kaybedilmesi gereken sadece koordinat.
+    const env = createMockEnv();
+    const res = await katkiGonder(env, [
+      payload("koord-bozuk", { lat: 0, lng: 0, koord_kaynagi: "dom" }),
+    ]);
+    expect(res.status).toBe(200);
+
+    const satir = await d1denOku(env, "koord-bozuk");
+    expect(satir).not.toBeNull();
+    expect(satir!.fiyat_per_m2).toBe(5044);   // ilan kurtarıldı
+    expect(satir!.lat).toBeNull();            // koordinat elendi
+    expect(satir!.koord_kaynagi).toBeNull();
+  });
+
+  it("ilan_tarihi toplu yollarda da yazılır", async () => {
+    // `ilan_tarihi` kolonu /batch ve /katki INSERT'lerinde HİÇ YOKTU: alan
+    // gönderilse bile yazılmıyordu. İlanın yayın tarihi ile bizim yakalama
+    // tarihimiz farklı şeyler; zaman ağırlıklı modeller ilkini istiyor.
+    const env = createMockEnv();
+    await katkiGonder(env, [payload("tarih-katki", { ilan_tarihi: 1_775_000_000_000 })]);
+    const satir = await d1denOku(env, "tarih-katki");
+    expect(satir!.ilan_tarihi).toBe(1_775_000_000_000);
   });
 
   it("konum normalize edilerek yazılır (İstanbul → istanbul)", async () => {

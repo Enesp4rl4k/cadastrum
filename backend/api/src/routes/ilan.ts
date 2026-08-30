@@ -52,7 +52,13 @@ const VALID_KAYNAK = new Set(["sahibinden", "hepsiemlak", "extension", "emlakjet
 const VALID_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik", "diger"]);
 
 import { IlanIngestSchema } from "../lib/validation.js";
-type ValidIlan = z.infer<typeof IlanIngestSchema> & { koord_kaynagi?: string };
+/**
+ * DIKKAT: burada eskiden `z.infer<...> & { koord_kaynagi?: string }` vardi.
+ * Bu kesisim tipi TS'e "alan var" diyordu ama zod onu semada tanimadigi icin
+ * RUNTIME'da strip ediyordu — derleyici susuyor, kolon NULL yaziliyordu.
+ * Tip artik semanin kendisi: sema ne diyorsa o.
+ */
+type ValidIlan = z.infer<typeof IlanIngestSchema>;
 
 function ilanValidate(input: unknown) {
   // Extension/scraper'ın eski snake_case payload'larını yeni API sözleşmesine
@@ -66,12 +72,14 @@ function ilanValidate(input: unknown) {
     imarDurumu: raw.imarDurumu ?? raw.imar_durumu,
     baslik: raw.baslik,
     tapuDurumu: raw.tapuDurumu ?? raw.tapu_durumu,
+    koordKaynagi: raw.koordKaynagi ?? raw.koord_kaynagi,
+    ilanTarihi: raw.ilanTarihi ?? raw.ilan_tarihi,
   };
   const result = IlanIngestSchema.safeParse(normalized);
   if (!result.success) {
     return { ok: false as const, error: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ") };
   }
-  return { ok: true as const, ilan: result.data, ilanTarihi: raw.ilanTarihi ?? raw.ilan_tarihi };
+  return { ok: true as const, ilan: result.data, ilanTarihi: result.data.ilanTarihi ?? null };
 }
 
 // Merkezi rate-limit middleware — ilan POST endpoint'leri için 100 req/saat.
@@ -171,18 +179,21 @@ ilanRoutes.post("/batch", async (c) => {
   // Batch insert — D1 batch() tek round-trip'te çalışır.
   // INSERT OR IGNORE ile UNIQUE çakışmaları sessizce atlanır (duplicate sayısı changes ile hesaplanır)
   const stmt = c.env.DB.prepare(
+    // `ilan_tarihi` KOLONU EKSİKTİ: tekil POST /ilan yolu yazıyordu, bu iki toplu
+    // yol yazmıyordu. Alan gönderilse bile sessizce düşüyordu — ilanın yayın
+    // tarihi ile bizim yakalama tarihimiz farklı şeyler.
     `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
-      fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi,
+      fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi, ilan_tarihi,
       lat, lng, koord_kaynagi, baslik, tapu_durumu)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const now = Date.now();
   const stmts = gecerli.map(v => {
     const ilan = (v as unknown as { ilan: ValidIlan }).ilan;
     const koord = koordSanitize(ilan.lat ?? undefined, ilan.lng ?? undefined);
     const koordKaynagi =
-      koord.lat != null && ilan.koord_kaynagi && VALID_KOORD_KAYNAK.has(ilan.koord_kaynagi)
-        ? ilan.koord_kaynagi
+      koord.lat != null && ilan.koordKaynagi && VALID_KOORD_KAYNAK.has(ilan.koordKaynagi)
+        ? ilan.koordKaynagi
         : null;
     return stmt.bind(
       ilan.kaynak,
@@ -196,6 +207,7 @@ ilanRoutes.post("/batch", async (c) => {
       ilan.imarDurumu ?? null,
       ilan.paraBirimi ?? "TL",
       now,
+      ilan.ilanTarihi ?? null,
       koord.lat,
       koord.lng,
       koordKaynagi,
@@ -240,18 +252,21 @@ ilanRoutes.post("/katki", async (c) => {
   }
 
   const stmt = c.env.DB.prepare(
+    // `ilan_tarihi` KOLONU EKSİKTİ: tekil POST /ilan yolu yazıyordu, bu iki toplu
+    // yol yazmıyordu. Alan gönderilse bile sessizce düşüyordu — ilanın yayın
+    // tarihi ile bizim yakalama tarihimiz farklı şeyler.
     `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
-      fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi,
+      fiyat_per_m2, m2, kategori, imar_durumu, para_birimi, yakalanma_tarihi, ilan_tarihi,
       lat, lng, koord_kaynagi, baslik, tapu_durumu)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const now = Date.now();
   const stmts = gecerli.map((v) => {
     const ilan = (v as unknown as { ilan: ValidIlan }).ilan;
     const koord = koordSanitize(ilan.lat ?? undefined, ilan.lng ?? undefined);
     const koordKaynagi =
-      koord.lat != null && ilan.koord_kaynagi && VALID_KOORD_KAYNAK.has(ilan.koord_kaynagi)
-        ? ilan.koord_kaynagi
+      koord.lat != null && ilan.koordKaynagi && VALID_KOORD_KAYNAK.has(ilan.koordKaynagi)
+        ? ilan.koordKaynagi
         : null;
     return stmt.bind(
       "extension",
@@ -265,6 +280,7 @@ ilanRoutes.post("/katki", async (c) => {
       ilan.imarDurumu ?? null,
       ilan.paraBirimi ?? "TL",
       now,
+      ilan.ilanTarihi ?? null,
       koord.lat,
       koord.lng,
       koordKaynagi,

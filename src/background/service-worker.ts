@@ -1,7 +1,7 @@
 import type { IlanBilgisi } from "../types/ilan";
 import { alarmlariKaydet, alarmIsle } from "./scheduler";
 import { SCRAPING_ENABLED } from "../lib/build-flags";
-import { getMahalleMerkez } from "../lib/data/mahalle-merkezleri";
+import { ilanPayloadKur } from "../lib/ilan-payload";
 import { telemetriKur } from "../lib/telemetri";
 
 const scrapingMod = SCRAPING_ENABLED
@@ -22,53 +22,17 @@ async function backendIlanGonder(ilan: IlanBilgisi, force = false): Promise<void
       if (ayar.backendTelemetri === false) return;
     }
 
-    if (!ilan.ilanNo || !ilan.il || !ilan.ilce || !ilan.fiyat || !ilan.m2) return;
-    const fiyatPerM2 = ilan.fiyat / ilan.m2;
-    if (fiyatPerM2 <= 0 || fiyatPerM2 > 10_000_000) return;
-
-    const baslik = (ilan.baslik ?? "").toLocaleLowerCase("tr");
-    let kategori = "arsa";
-    if (/tarla/.test(baslik)) kategori = "tarla";
-    else if (/bahçe|bahce/.test(baslik)) kategori = "bahce";
-    else if (/zeytin/.test(baslik)) kategori = "zeytinlik";
-    else if (/villa|müstakil|mustakil|daire|apartman|ev|konut|kiraz/.test(baslik)) kategori = "konut";
-
-    let lat = ilan.lat ?? undefined;
-    let lng = ilan.lng ?? undefined;
-    let koordKaynagi = ilan.koordKaynagi ?? undefined;
-    if (lat == null || lng == null) {
-      const merkez = getMahalleMerkez(ilan.il, ilan.ilce, ilan.mahalle);
-      if (merkez) {
-        lat = merkez.lat;
-        lng = merkez.lng;
-        koordKaynagi = "mahalle-merkez";
-      }
-    }
+    // Payload kurulumu ORTAK modülde — bkz. lib/ilan-payload.ts. Bu blok
+    // scraping-runtime.ts'teki ikizinden hafifçe FARKLIYDI (koordinat
+    // çözümlemesi yalnızca burada vardı); iki kopyanın ayrışması tam olarak
+    // backend'deki koordinatAra() hatasının uzantı karşılığıydı.
+    const govde = ilanPayloadKur(ilan);
+    if (!govde) return;
 
     await fetch(`${BACKEND_API}/ilan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        kaynak: "extension",
-        ilan_no: ilan.ilanNo,
-        il: ilan.il,
-        ilce: ilan.ilce,
-        mahalle: ilan.mahalle ?? undefined,
-        fiyat_per_m2: Math.round(fiyatPerM2),
-        m2: ilan.m2,
-        kategori,
-        imar_durumu: ilan.imarDurumu ?? undefined,
-        para_birimi: ilan.paraBirimi ?? "TL",
-        // Başlık YEREL olarak kategori çıkarımında kullanılıyordu ama
-        // payload'a HİÇ KONULMUYORDU — üretimde 530 extension ilanının
-        // hiçbirinde başlık yoktu. Rafinerinin hisseli/kooperatif tespiti
-        // bu metne bakıyor, backend emsalleri bu yüzden sinyalsizdi.
-        baslik: ilan.baslik ?? undefined,
-        tapu_durumu: ilan.tapuDurumu ?? undefined,
-        lat,
-        lng,
-        koord_kaynagi: koordKaynagi,
-      }),
+      body: JSON.stringify(govde),
       signal: AbortSignal.timeout(5000),
     });
   } catch {

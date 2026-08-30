@@ -152,6 +152,13 @@ export async function gercekFiyatBackendGonder(
     girisTarihi: kayit.girisTarihi,
   };
 
+  // DİKKAT — BACKEND'DE BU YOL YOK. Ölçüldü:
+  //   POST /v1/gercek-satis → 404 (NOT_FOUND)
+  // Bu modülün dışa açık fonksiyonlarının hiçbirinin çağıranı da yok; özellik
+  // uçtan uca yarım kalmış durumda. `gercekFiyatKaydet` yerel Dexie'ye yazıyor
+  // ve veri orada duruyor — kayıp yok, ama kalibrasyona da hiç dönmüyor.
+  // Kararlaştırılana kadar (route açılacak mı, özellik sökülecek mi) bu çağrı
+  // başarısızlığını SESSİZ geçmiyor: aşağıdaki hata yolu görünür.
   try {
     const res = await fetch(`${backendUrl}/v1/gercek-satis`, {
       method: "POST",
@@ -183,9 +190,12 @@ export async function bekleyenGercekFiyatlariSenkronla(
   backendUrl: string,
   jwtToken: string,
 ): Promise<{ gonderilen: number; basarisiz: number }> {
+  // IndexedDB BOOLEAN İNDEKSLEMEZ. Kayıt `backendSenkronlandi: false` olarak
+  // yazılıyor (yukarıda `gercekFiyatKaydet`), `.equals(0)` ise sayı arıyor —
+  // bu sorgu HER ZAMAN boş dönüyordu, yani "bekleyen yok" ile "sorgu hiç
+  // eşleşmiyor" ayırt edilemiyordu. Boolean alanlarda indeks yerine filtre.
   const bekleyenler = await db.gercekFiyatlar
-    .where("backendSenkronlandi")
-    .equals(0) // false → 0 (Dexie boolean indexing)
+    .filter((k) => k.backendSenkronlandi !== true)
     .toArray();
 
   let gonderilen = 0;

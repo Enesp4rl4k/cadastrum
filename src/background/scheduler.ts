@@ -254,22 +254,28 @@ async function bildirimKontrol(): Promise<void> {
 
     if (!res.ok) {
       if (res.status === 401) {
-        // Token geçersiz — sessiz geç (kullanıcı çıkış yapmış olabilir)
+        // beklenen yokluk: token süresi dolmuş / kullanıcı çıkış yapmış.
+        // Sessiz geçilir, kullanıcıya gösterilecek bir şey yok.
         return;
       }
+      // Diğer durumlar SESSİZ GEÇİLMEZ: bu çağrı aylarca 401 dönen, hiç
+      // tanımlanmamış bir route'a gidiyordu ve buradaki sessiz `return`
+      // sayesinde kimse fark etmedi.
+      console.warn(`[arsa] bildirim kontrolü başarısız: HTTP ${res.status}`);
       return;
     }
 
+    // SÖZLEŞME: backend `routes/bildirim.ts` POST /kontrol.
+    //
+    // Buradaki tip eskiden `{ tur, il, ilce, mahalle, mesaj }` bekliyordu ama
+    // abonelik kaydında il/ilçe YOK — abonelikler lat/lng + yarıçap ile
+    // tanımlanıyor. Beklenen şekil hiç var olmamış bir yanıta göre yazılmıştı;
+    // zaten endpoint de tanımlı olmadığı için fark edilmedi. Şimdi backend'in
+    // gerçekten döndürdüğü şekil.
     const veri = await res.json() as {
-      tetiklenen?: Array<{
-        id: number;
-        tur: string;
-        il: string;
-        ilce: string;
-        mahalle?: string;
-        mesaj: string;
-      }>;
-      toplam?: number;
+      tetiklenen?: Array<{ id: number; tip: string; ozet: string }>;
+      tetiklenen_adet?: number;
+      hata?: number;
     };
 
     const tetiklenenler = veri.tetiklenen ?? [];
@@ -285,12 +291,15 @@ async function bildirimKontrol(): Promise<void> {
     if (chrome.notifications) {
       for (const b of tetiklenenler.slice(0, 5)) {
         // Max 5 bildirim — spam önleme
-        const lokasyon = [b.mahalle, b.ilce, b.il].filter(Boolean).join(", ");
         chrome.notifications.create(`bildirim-${b.id}-${Date.now()}`, {
           type: "basic",
           iconUrl: "public/icon-48.png",
-          title: `Cadastrum — ${b.tur === "fiyat-degisimi" ? "Fiyat Değişimi" : "Yeni Emsal"}`,
-          message: b.mesaj || `${lokasyon} bölgesinde değişiklik tespit edildi.`,
+          title: `Cadastrum — ${
+            b.tip === "fiyat-degisimi" ? "Fiyat Değişimi"
+            : b.tip === "yeni-emsal" ? "Yeni Emsal"
+            : "Eşik Aşıldı"
+          }`,
+          message: b.ozet || "Takip ettiğiniz bölgede değişiklik tespit edildi.",
         });
       }
 
@@ -310,7 +319,7 @@ async function bildirimKontrol(): Promise<void> {
     const logRaw = await chrome.storage.local.get(logKey);
     const log = (logRaw[logKey] as Array<{ ts: number; mesaj: string; tur: string }> | undefined) ?? [];
     for (const b of tetiklenenler) {
-      log.unshift({ ts: Date.now(), mesaj: b.mesaj, tur: b.tur });
+      log.unshift({ ts: Date.now(), mesaj: b.ozet, tur: b.tip });
     }
     await chrome.storage.local.set({ [logKey]: log.slice(0, 50) }); // son 50 bildirim
 

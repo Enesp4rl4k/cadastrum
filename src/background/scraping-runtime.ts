@@ -3,6 +3,7 @@
  * Store build'de bu modül bundle'a dahil edilmez (VITE_SCRAPING_ENABLED=false).
  */
 import type { IlanBilgisi } from "../types/ilan";
+import { ilanPayloadlariKur } from "../lib/ilan-payload";
 import {
   bootstrapHedefler,
   type BootstrapAyar,
@@ -189,38 +190,14 @@ async function backendIlanBatchGonder(ilanlar: IlanBilgisi[]): Promise<void> {
     if (ayar.backendTelemetri === false) return;
     if (ilanlar.length === 0) return;
 
-    const batch = ilanlar.flatMap((ilan) => {
-      if (!ilan.ilanNo || !ilan.il || !ilan.ilce || !ilan.fiyat || !ilan.m2) return [];
-      const fiyatPerM2 = ilan.fiyat / ilan.m2;
-      if (fiyatPerM2 <= 0 || fiyatPerM2 > 10_000_000) return [];
-      const baslik = (ilan.baslik ?? "").toLocaleLowerCase("tr");
-      let kategori = "arsa";
-      if (/tarla/.test(baslik)) kategori = "tarla";
-      else if (/bahçe|bahce/.test(baslik)) kategori = "bahce";
-      else if (/zeytin/.test(baslik)) kategori = "zeytinlik";
-      else if (/villa|müstakil|mustakil|daire|apartman|ev|konut/.test(baslik)) kategori = "konut";
-      return [{
-        kaynak: "extension",
-        ilan_no: ilan.ilanNo,
-        il: ilan.il,
-        ilce: ilan.ilce,
-        mahalle: ilan.mahalle ?? undefined,
-        fiyat_per_m2: Math.round(fiyatPerM2),
-        m2: ilan.m2,
-        kategori,
-        imar_durumu: ilan.imarDurumu ?? undefined,
-        para_birimi: ilan.paraBirimi ?? "TL",
-        // Başlık YEREL olarak kategori çıkarımında kullanılıyordu ama
-        // payload'a HİÇ KONULMUYORDU — üretimde 530 extension ilanının
-        // hiçbirinde başlık yoktu. Rafinerinin hisseli/kooperatif tespiti
-        // bu metne bakıyor, backend emsalleri bu yüzden sinyalsizdi.
-        baslik: ilan.baslik ?? undefined,
-        tapu_durumu: ilan.tapuDurumu ?? undefined,
-        lat: ilan.lat ?? undefined,
-        lng: ilan.lng ?? undefined,
-        koord_kaynagi: ilan.koordKaynagi ?? undefined,
-      }];
-    });
+    // Payload kurulumu ORTAK modülde — bkz. lib/ilan-payload.ts. Burada
+    // kopyalanan sürüm koordinat çözümlemesi YAPMIYORDU; service-worker'daki
+    // sürüm yapıyordu. Liste parser'ları koordinat üretmediği için bu hattan
+    // gelen ilanlar lat=NULL yükleniyor ve spatial emsale hiç giremiyordu.
+    const { payloadlar: batch, atlanan } = ilanPayloadlariKur(ilanlar);
+    if (atlanan > 0) {
+      console.warn(`[arsa] ${atlanan}/${ilanlar.length} ilan payload'a çevrilemedi (eksik alan)`);
+    }
 
     if (batch.length === 0) return;
 
