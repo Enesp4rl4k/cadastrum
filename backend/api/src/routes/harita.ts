@@ -33,6 +33,7 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { IL_LIKIDITE, ilLikiditeSkoru, IL_ALTYAPI_PUAN } from "../data/harita-data.js";
+import { ILLER_81 } from "../data/iller.js";
 
 export const haritaRoutes = new Hono<{ Bindings: Env }>();
 
@@ -280,20 +281,11 @@ haritaRoutes.get("/likidite", (c) => {
 
   // Tüm 81 il için veri üret — IL_LIKIDITE'de olmayanlar için fallback skor.
   // harita-init.ts'deki IL_CENTROID ile eşleşmesi için tüm iller dahil edilmeli.
-  const TUM_ILLER_NORM = [
-    "adana","adiyaman","afyonkarahisar","agri","amasya","ankara","antalya","artvin",
-    "aydin","balikesir","bilecik","bingol","bitlis","bolu","burdur","bursa",
-    "canakkale","cankiri","corum","denizli","diyarbakir","edirne","elazig","erzincan",
-    "erzurum","eskisehir","gaziantep","giresun","gumushane","hakkari","hatay","isparta",
-    "mersin","istanbul","izmir","kars","kastamonu","kayseri","kirklareli","kirsehir",
-    "kocaeli","konya","kutahya","malatya","manisa","kahramanmaras","mardin","mugla",
-    "mus","nevsehir","nigde","ordu","rize","sakarya","samsun","siirt","sinop","sivas",
-    "tekirdag","tokat","trabzon","tunceli","sanliurfa","usak","van","yozgat","zonguldak",
-    "aksaray","bayburt","karaman","kirikkale","batman","sirnak","bartin","ardahan",
-    "igdir","yalova","karabuk","kilis","osmaniye","duzce",
-  ];
+  // Kopya liste kaldırıldı: 81 il artık `data/iller.ts`ten geliyor. Aynı listenin
+  // iki yerde durması, birinin güncellenip diğerinin unutulması demekti — ve bu
+  // depoda o sınıf hatanın maliyeti zaten ölçüldü.
 
-  const iller = TUM_ILLER_NORM.map((ilNorm) => {
+  const iller = ILLER_81.map((ilNorm) => {
     const veri = IL_LIKIDITE[ilNorm];
     const skor = ilLikiditeSkoru(ilNorm); // fallback 0.5 eğer yoksa
     // Tarla kategorisinde kırsal iller biraz daha likit

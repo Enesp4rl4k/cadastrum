@@ -38,7 +38,7 @@ describe("POST /v1/ilan/katki (crowdsource)", () => {
     const DB = fakeDB();
     const res = await post({ ilanlar: [gecerli("a1"), gecerli("a2")] }, DB);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ basarili: 2, hata: 0, duplicate: 0 });
+    expect(await res.json()).toEqual({ basarili: 2, hata: 0, duplicate: 0, bilinmeyen_il: 0 });
   });
 
   it("kaynak spoofing'i engeller — her zaman 'extension' yazar", async () => {
@@ -50,7 +50,7 @@ describe("POST /v1/ilan/katki (crowdsource)", () => {
   it("aynı ilan_no'yu duplicate sayar", async () => {
     const DB = fakeDB();
     const r = await post({ ilanlar: [gecerli("dup"), gecerli("dup")] }, DB);
-    expect(await r.json()).toEqual({ basarili: 1, hata: 0, duplicate: 1 });
+    expect(await r.json()).toEqual({ basarili: 1, hata: 0, duplicate: 1, bilinmeyen_il: 0 });
   });
 
   it("geçersiz satırları (kötü fiyat / eksik il) eler", async () => {
@@ -60,7 +60,7 @@ describe("POST /v1/ilan/katki (crowdsource)", () => {
       gecerli("bad2", { il: undefined }),
       gecerli("bad3", { kategori: "uzay" }),
     ] });
-    expect(await r.json()).toEqual({ basarili: 1, hata: 3, duplicate: 0 });
+    expect(await r.json()).toEqual({ basarili: 1, hata: 3, duplicate: 0, bilinmeyen_il: 0 });
   });
 
   it("boş liste 400, >100 ilan 400", async () => {

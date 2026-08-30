@@ -84,6 +84,17 @@ const KONTROL_ESLIKLERI = {
    * diğerlerinin AKSİNE üst sınır: değer eşiğin ALTINDA olmalı.
    */
   BOT_ENGEL_MAX: 40,
+  /**
+   * `ilanlar` tablosundaki FARKLI il_norm sayısı (ÜST sınır). Türkiye'de 81 il
+   * var; fazlası bir yerde uydurulmuş demektir.
+   *
+   * Üretimde 83 vardı: "el zig" (Elâzığ'ın bozuk charset ile normalizasyonu) ve
+   * "emlak endeksi" (parser sayfa etiketini il sanmış). Hiçbir katman itiraz
+   * etmiyordu çünkü ingest'te il alanı bilinen listeye karşı doğrulanmıyordu.
+   * Doğrulama eklendi; bu kontrol de nöbette kalıyor — yeni bir kaçak
+   * (ör. doğrudan SQL ile seed) sessizce girerse burada görünür.
+   */
+  IL_SAYISI_MAX: 81,
 } as const;
 
 const GUN_MS = 86_400_000;
@@ -258,6 +269,20 @@ export async function pipelineHealthKontrol(
     mesaj: botEngel?.n != null
       ? `${botEngel.n} hedef 'bot-engel' damgalı`
       : "tarama_durum erişim hatası",
+  });
+
+  // Hayalet il kontrolü — bkz. IL_SAYISI_MAX notu.
+  const ilSayisi = await db.prepare(
+    `SELECT COUNT(DISTINCT il_norm) AS n FROM ilanlar WHERE aktif = 1`,
+  ).first<{ n: number }>().catch(() => null);
+  kontroller.push({
+    ad: "Farklı il sayısı (üst sınır)",
+    deger: ilSayisi?.n ?? 0,
+    esik: KONTROL_ESLIKLERI.IL_SAYISI_MAX,
+    gecti: (ilSayisi?.n ?? 0) <= KONTROL_ESLIKLERI.IL_SAYISI_MAX,
+    mesaj: ilSayisi?.n != null
+      ? `${ilSayisi.n} farklı il_norm (Türkiye'de 81 il var)`
+      : "ilanlar erişim hatası",
   });
 
   const alarmSayisi = kontroller.filter((k) => !k.gecti).length;

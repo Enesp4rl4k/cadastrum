@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import type { z } from "zod";
 import type { Env } from "../index.js";
 import { normalizeYerAdi } from "../lib/normalize.js";
+import { log } from "../lib/logger.js";
 import { rateLimitMiddleware } from "../lib/rate-limit.js";
 
 export const ilanRoutes = new Hono<{ Bindings: Env }>();
@@ -52,6 +53,7 @@ const VALID_KAYNAK = new Set(["sahibinden", "hepsiemlak", "extension", "emlakjet
 const VALID_KATEGORI = new Set(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik", "diger"]);
 
 import { IlanIngestSchema } from "../lib/validation.js";
+import { ilKanonik } from "../data/iller.js";
 /**
  * DIKKAT: burada eskiden `z.infer<...> & { koord_kaynagi?: string }` vardi.
  * Bu kesisim tipi TS'e "alan var" diyordu ama zod onu semada tanimadigi icin
@@ -79,7 +81,38 @@ function ilanValidate(input: unknown) {
   if (!result.success) {
     return { ok: false as const, error: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ") };
   }
-  return { ok: true as const, ilan: result.data, ilanTarihi: result.data.ilanTarihi ?? null };
+
+  /**
+   * İL DOĞRULAMASI — bilinen 81 ile karşı.
+   *
+   * Bu kontrol YOKTU ve üretimde iki hayalet il birikti:
+   *   "el zig"        ← Elâzığ, kaynak sayfa bozuk charset ile çözülmüş
+   *   "emlak endeksi" ← parser sayfa etiketini il alanına yazmış
+   * `/v1/fiyat/toplu-ozet` 81 yerine 83 il döndürüyordu.
+   *
+   * Normalizasyon bilinmeyen karakteri boşluğa çevirdiği için sonuç geçerli bir
+   * yer adı GİBİ görünüyor; hiçbir katman itiraz etmiyor. Tek savunma, sonucu
+   * bilinen listeye sormak.
+   *
+   * Reddedilen kayıt SESSİZCE kaybolmuyor: `ok:false` + ayırt edici `sebep`
+   * dönüyor, çağıran sayıyor ve logluyor.
+   */
+  const ilKanonikAd = ilKanonik(normalizeYerAdi(result.data.il));
+  if (!ilKanonikAd) {
+    return {
+      ok: false as const,
+      sebep: "bilinmeyen-il" as const,
+      error: `il: "${result.data.il}" bilinen 81 ilden biri değil`,
+    };
+  }
+
+  return {
+    ok: true as const,
+    // Kanonik ad geri yazılıyor: "afyon" gibi geçerli bir alternatif geldiğinde
+    // D1'e ikinci bir il adı olarak düşmesin.
+    ilan: { ...result.data, il: ilKanonikAd },
+    ilanTarihi: result.data.ilanTarihi ?? null,
+  };
 }
 
 // Merkezi rate-limit middleware — ilan POST endpoint'leri için 100 req/saat.
@@ -92,7 +125,12 @@ ilanRoutes.post("/", rateLimitMiddleware(100, "ilan-post"), async (c) => {
   if (!body) return c.json({ error: "Geçersiz JSON" }, 400);
 
   const v = ilanValidate(body);
-  if (!v.ok) return c.json({ error: v.error }, 422);
+  if (!v.ok) {
+    if (v.sebep === "bilinmeyen-il") {
+      log.warn("ilan.bilinmeyen-il", { il: body.il, ilanNo: body.ilan_no });
+    }
+    return c.json({ error: v.error, sebep: v.sebep ?? "gecersiz-payload" }, 422);
+  }
 
   const { ilan } = v;
   const il_norm = normalizeYerAdi(ilan.il);
@@ -168,11 +206,19 @@ ilanRoutes.post("/batch", async (c) => {
   if (body.ilanlar.length > 100) return c.json({ error: "Max 100 ilan" }, 400);
 
   let hata = 0;
+  let bilinmeyenIl = 0;
   // Validate first
   const gecerli: Array<ReturnType<typeof ilanValidate>> = [];
   for (const item of body.ilanlar) {
     const v = ilanValidate(item);
-    if (!v.ok) { hata++; continue; }
+    if (!v.ok) {
+      // "Bilinmeyen il" ile "bozuk payload" ayrı sayılıyor: ikisi farklı
+      // sorunlar (biri kaynak/charset, diğeri şema) ve tek sayaçta toplanınca
+      // hangisinin arttığı görünmüyor.
+      if (v.sebep === "bilinmeyen-il") bilinmeyenIl++;
+      else hata++;
+      continue;
+    }
     gecerli.push(v);
   }
 
@@ -228,7 +274,12 @@ ilanRoutes.post("/batch", async (c) => {
       hata += stmts.length;
     }
   }
-  return c.json({ basarili, hata, duplicate });
+  if (bilinmeyenIl > 0) {
+    // Görünür kalsın: bu sayının artması kaynağın yanlış çözümlendiğini ya da
+    // parser'ın il alanına alakasız metin yazdığını gösterir.
+    log.warn("ilan.bilinmeyen-il.toplu", { adet: bilinmeyenIl });
+  }
+  return c.json({ basarili, hata, duplicate, bilinmeyen_il: bilinmeyenIl });
 });
 
 // ── POST /v1/ilan/katki ─────────────────────────────────────────────────
@@ -243,11 +294,19 @@ ilanRoutes.post("/katki", async (c) => {
   if (body.ilanlar.length > 100) return c.json({ error: "Max 100 ilan" }, 400);
 
   let hata = 0;
+  let bilinmeyenIl = 0;
   const gecerli: Array<Extract<ReturnType<typeof ilanValidate>, { ok: true }>> = [];
   for (const item of body.ilanlar) {
     // Güven spoofing'i engelle — crowdsource her zaman 'extension' kaynaklıdır.
     const v = ilanValidate({ ...item, kaynak: "extension" });
-    if (!v.ok) { hata++; continue; }
+    if (!v.ok) {
+      // "Bilinmeyen il" ile "bozuk payload" ayrı sayılıyor: ikisi farklı
+      // sorunlar (biri kaynak/charset, diğeri şema) ve tek sayaçta toplanınca
+      // hangisinin arttığı görünmüyor.
+      if (v.sebep === "bilinmeyen-il") bilinmeyenIl++;
+      else hata++;
+      continue;
+    }
     gecerli.push(v);
   }
 
@@ -302,5 +361,10 @@ ilanRoutes.post("/katki", async (c) => {
       hata += stmts.length;
     }
   }
-  return c.json({ basarili, hata, duplicate });
+  if (bilinmeyenIl > 0) {
+    // Görünür kalsın: bu sayının artması kaynağın yanlış çözümlendiğini ya da
+    // parser'ın il alanına alakasız metin yazdığını gösterir.
+    log.warn("ilan.bilinmeyen-il.toplu", { adet: bilinmeyenIl });
+  }
+  return c.json({ basarili, hata, duplicate, bilinmeyen_il: bilinmeyenIl });
 });

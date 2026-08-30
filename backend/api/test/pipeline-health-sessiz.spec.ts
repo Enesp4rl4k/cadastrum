@@ -131,6 +131,36 @@ describe("pipeline-health sessiz bozulma kontrolleri", () => {
     expect(k.gecti).toBe(true);
   });
 
+  it("HAYALET İL birikirse ALARM verir", async () => {
+    // GERÇEK OLAY: üretimde 83 farklı il_norm vardı. "el zig" (Elâzığ'ın bozuk
+    // charset ile normalizasyonu) ve "emlak endeksi" (parser sayfa etiketini il
+    // sanmış). İlan sayısı normaldi, hiçbir kontrol uyarmadı.
+    const env = createMockEnv();
+    const satirlar = Array.from({ length: 83 }, (_, i) =>
+      `('emlakjet','g-${i}','il${i}','ilce','arsa',5000,unixepoch(),1)`).join(",");
+    await env.DB.prepare(
+      `INSERT INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, kategori,
+         fiyat_per_m2, yakalanma_tarihi, aktif) VALUES ${satirlar}`,
+    ).run();
+
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Farklı il sayısı (üst sınır)");
+    expect(k.deger).toBe(83);
+    expect(k.gecti).toBe(false);
+  });
+
+  it("81 il ve altı GEÇER", async () => {
+    const env = createMockEnv();
+    const satirlar = Array.from({ length: 81 }, (_, i) =>
+      `('emlakjet','n-${i}','il${i}','ilce','arsa',5000,unixepoch(),1)`).join(",");
+    await env.DB.prepare(
+      `INSERT INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, kategori,
+         fiyat_per_m2, yakalanma_tarihi, aktif) VALUES ${satirlar}`,
+    ).run();
+
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Farklı il sayısı (üst sınır)");
+    expect(k.gecti).toBe(true);
+  });
+
   it("olmayan tabloyu 'geçti' saymaz — hata yutma korumasi", async () => {
     // Bu, tüm sınıfın kök nedeni: sorgu patlayınca sessizce devam edip
     // kontrolü başarılı saymak. sayimKontrolEkle bunu 0/başarısız sayıyor.
