@@ -1,0 +1,46 @@
+---
+/**
+ * 404 sayfası.
+ *
+ * NEDEN VAR: Cloudflare Pages, eşleşmeyen bir yol için `404.html` YOKSA
+ * `index.html`i sunuyordu. Yani `/veri/uydurma-il` gibi her hatalı adres
+ * kullanıcıya HTTP 200 ile ANASAYFA döndürüyordu — ne kullanıcı yanlış adreste
+ * olduğunu anlıyor, ne arama motoru (aynı içerik onlarca URL'de "geçerli" sayılıyor).
+ *
+ * Bu dosyanın varlığı, "bulunamadı"nın gerçekten bulunamadı olarak görünmesini
+ * sağlıyor.
+ */
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="Sayfa bulunamadı | Cadastrum"
+  description="Aradığınız sayfa bulunamadı."
+  robots="noindex, follow"
+>
+  <main class="min-h-[60vh] flex items-center justify-center px-4 py-20">
+    <div class="max-w-lg text-center">
+      <div class="font-display text-6xl font-bold text-imperial-700 mb-3">404</div>
+      <h1 class="font-display text-2xl font-bold text-imperial-700 mb-3">
+        Bu sayfayı bulamadık
+      </h1>
+      <p class="text-slate-600 mb-8">
+        Adres değişmiş ya da hiç var olmamış olabilir. Aşağıdan devam edebilirsiniz.
+      </p>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <a href="/veri"
+           class="px-5 py-2.5 rounded-lg bg-imperial text-white font-semibold text-sm hover:bg-imperial-700 transition">
+          İl ve ilçe fiyat verisi
+        </a>
+        <a href="/sorgu"
+           class="px-5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-sm hover:border-imperial transition">
+          Parsel sorgula
+        </a>
+        <a href="/"
+           class="px-5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-sm hover:border-imperial transition">
+          Anasayfa
+        </a>
+      </div>
+    </div>
+  </main>
+</Base>

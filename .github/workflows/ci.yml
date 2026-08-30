@@ -98,5 +98,18 @@ jobs:
       - name: Site check
         run: npm run check
 
+      # Üretilmiş ilçe listesi kaynağıyla güncel mi? (scripts/site-ilce-listesi-uret.mjs)
+      # Bayatlarsa yeni ilçelerin sayfası sessizce üretilmez.
+      - name: Üretilmiş veri güncel mi
+        working-directory: .
+        run: |
+          node scripts/site-ilce-listesi-uret.mjs
+          git diff --exit-code site/src/data/ilceler.ts
+
       - name: Site build
         run: npm run build
+
+      # Build'den SONRA: rota sözleşmesi testleri dist'e de bakıyor —
+      # sitemap'in bildirdiği her URL için gerçek bir sayfa üretilmiş mi.
+      - name: Site tests
+        run: npm test

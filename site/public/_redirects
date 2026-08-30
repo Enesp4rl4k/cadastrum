@@ -1,5 +1,15 @@
 # www → apex (SEO için tek canonical)
 https://www.cadastrum.com.tr/* https://cadastrum.com.tr/:splat 301!
 
-# /veri/* dynamic SPA fallback
-/veri/* /veri/detay/index.html 200!
+# NOT: burada eskiden bir SPA fallback kuralı vardı:
+#   /veri/* /veri/detay/index.html 200!
+# `200!` (force rewrite) Netlify sözdizimidir; Cloudflare Pages'te ÇALIŞMIYOR.
+# Sonuç: /veri/istanbul/catalca gibi derin yollar 404 fallback'ine düşüyor ve
+# kullanıcıya HTTP 200 ile ANASAYFA dönüyordu — il sayfasındaki her ilçe
+# bağlantısı ve sitemap'teki 90 derin URL bozuktu, üstelik "200" döndüğü için
+# hiçbir izleme aracı bunu hata saymadı.
+#
+# Yerine gerçek sayfalar üretiliyor:
+#   src/pages/veri/[il]/[ilce].astro            (973 ilçe)
+#   src/pages/veri/[il]/[ilce]/[mahalle].astro  (curated mahalleler)
+# Kapsam site/test/veri-rotalari.spec.ts ile sabitlendi.

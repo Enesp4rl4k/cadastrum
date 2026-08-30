@@ -244,12 +244,21 @@ function fiyatKatmanEkle(veri: IlFiyatOzet[]) {
         const ilcelerEl = document.getElementById(`${popupId}-ilceler`);
         if (!ilcelerEl) return;
         try {
-          const res = await fetch(`${API_BASE}/fiyat/ilce/${ilNorm}?kategori=${fiyatKategori}`);
+          // DİKKAT: burada eskiden `/fiyat/ilce/${ilNorm}` çağrılıyordu — backend'de
+          // o yol İKİ segment ister (`/fiyat/ilce/:il/:ilce`), dolayısıyla istek
+          // hiçbir route'a düşmüyor ve 404 dönüyordu. Sonuç: haritada bir ile her
+          // tıklayışta "İlçe verisi alınamadı". İl bazlı ilçe özeti için doğru
+          // endpoint bu:
+          const res = await fetch(`${API_BASE}/fiyat/toplu-ilce-ozet/${ilNorm}?kategori=${fiyatKategori}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          // Zarf alanı da farklı: `ilceler`, `mahalleler` değil. İkisi birlikte
+          // düzeltilmezse `ilce.ilce_norm` undefined olur ve aynı catch'e düşer.
           const data = await res.json() as {
-            mahalleler?: Array<{ ilce_norm: string; medyan: number; ilan_adet: number }>;
+            ilceler?: Array<{ ilce_norm: string; medyan: number; ilan_adet: number }>;
           };
-          const ilceler = (data.mahalleler ?? []).slice(0, 8);
+          const ilceler = (data.ilceler ?? [])
+            .filter((i) => i && typeof i.ilce_norm === "string" && Number.isFinite(i.medyan))
+            .slice(0, 8);
           if (ilceler.length === 0) {
             ilcelerEl.textContent = "İlçe verisi yok";
             return;
@@ -275,7 +284,11 @@ function fiyatKatmanEkle(veri: IlFiyatOzet[]) {
               <a href="/veri/${ilNorm}" style="color:#60a5fa;font-size:9px;text-decoration:none">Tüm mahalleler →</a>
             </div>`,
           ].join("");
-        } catch {
+        } catch (e) {
+          // Sessiz kalmıyor: kullanıcıya görünür mesaj + konsola sebep. Bu catch
+          // 404'ü aylarca yuttu; hata metni "veri yok" ile karıştırılmasın diye
+          // ayrı yazılıyor.
+          console.warn("[harita] ilçe özeti alınamadı:", e);
           if (ilcelerEl) ilcelerEl.textContent = "İlçe verisi alınamadı";
         }
       })();
@@ -1780,14 +1793,22 @@ export async function initHarita() {
       // servisi ile düzeltildi.
       glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
       sources: {
+        // ALTLIK SAĞLAYICI (Ağustos 2026): CARTO'dan Esri'ye geçildi.
+        // CARTO anahtarsız isteklere artık HTTP 200 + üzerine "API KEY REQUIRED"
+        // filigranı basılmış döşeme dönüyor. İstek başarısız OLMADIĞI için
+        // MapLibre de biz de hiçbir hata görmüyorduk; harita canlıda aylarca
+        // filigranlı çizildi. Sağlayıcı değişikliğinin kendisi kadar önemli olan
+        // ders: "200 döndü" ile "doğru içerik geldi" aynı şey değil.
+        //
+        // DİKKAT: Esri döşeme yolu {z}/{y}/{x} sırasındadır ({z}/{x}/{y} DEĞİL).
         basemap: {
           type: "raster",
           tiles: [
-            "https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
-            "https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+            "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
           ],
           tileSize: 256,
-          attribution: "© CARTO · © OpenStreetMap",
+          maxzoom: 16,
+          attribution: "Esri, HERE, Garmin · © OpenStreetMap katkıcıları",
         },
       },
       layers: [{ id: "bg", type: "raster", source: "basemap" }],

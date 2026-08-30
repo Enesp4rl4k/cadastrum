@@ -38,7 +38,44 @@ export const haritaRoutes = new Hono<{ Bindings: Env }>();
 
 const VALID_TIP = new Set([1, 2, 3, 4, 5]);
 const YIL_MIN = 2003;
-const YIL_MAX = new Date().getFullYear();
+
+/**
+ * Üst sınır yıl — HER İSTEKTE hesaplanır.
+ *
+ * ASLA modül seviyesinde `new Date()` ÇAĞIRMA. Cloudflare Workers global
+ * kapsamda saati ilerletmez: `Date.now()` orada 0 döner, yani
+ * `new Date().getFullYear()` = **1970**. Bu satır eskiden modül seviyesindeydi
+ * ve üretimde tam olarak bunu yapıyordu:
+ *
+ *   GET /v1/harita/analiz?...&yil=2024 → {"error":"yil 2003–1970 arasında olmalı"}
+ *
+ * Yani endpoint her istekte 400 dönüyordu; yıl verilmediğinde de varsayılan
+ * `YIL_MAX - 1` = 1969 sorgulanıp hep boş sonuç veriliyordu. Veri D1'de duruyordu,
+ * yalnızca erişilemiyordu. Hata mesajındaki "1970" bunu aylarca söyledi ama
+ * kimse bakmadı — sessiz değil, GÖRÜNMEZ bir hataydı.
+ */
+function yilMax(): number {
+  return new Date().getFullYear();
+}
+
+/**
+ * Varsayılan yıl: D1'de o tip için VERİSİ OLAN en yeni yıl.
+ *
+ * Eskiden sabit `YIL_MAX - 1` idi. Saat düzeltilse bile bu varsayım bozuktu:
+ * seed verisi 2024'te donmuşken 2026'da "geçen yıl" 2025'i sorup boş dönerdi.
+ * Takvim ilerledikçe sessizce boşalan bir endpoint yerine, veriye soruyoruz.
+ */
+async function varsayilanYil(
+  db: Env["DB"],
+  analizTip: number,
+  tablo: "tkgm_analiz_noktalari" | "tkgm_analiz_ozet",
+): Promise<number | null> {
+  const r = await db
+    .prepare(`SELECT MAX(yil) AS y FROM ${tablo} WHERE analiz_tip = ?`)
+    .bind(analizTip)
+    .first<{ y: number | null }>();
+  return r?.y ?? null;
+}
 
 // ── Tek ilçe / tek yıl noktaları ──────────────────────────────────────────────
 
@@ -50,11 +87,22 @@ haritaRoutes.get("/analiz", async (c) => {
   if (!ilceKodu || !VALID_TIP.has(analizTip)) {
     return c.json({ error: "ilceKodu ve analizTip (1–5) zorunlu" }, 400);
   }
-  if (yil && (yil < YIL_MIN || yil > YIL_MAX)) {
-    return c.json({ error: `yil ${YIL_MIN}–${YIL_MAX} arasında olmalı` }, 400);
+  const ustSinir = yilMax();
+  if (yil && (yil < YIL_MIN || yil > ustSinir)) {
+    return c.json({ error: `yil ${YIL_MIN}–${ustSinir} arasında olmalı` }, 400);
   }
 
-  const hedefYil = yil || (YIL_MAX - 1);
+  const hedefYil = yil || (await varsayilanYil(c.env.DB, analizTip, "tkgm_analiz_noktalari"));
+  if (hedefYil === null) {
+    // Yokluk kararı: bu tip için D1'de HİÇ yıl yok — "boş nokta listesi" ile
+    // "bu tip hiç seed edilmemiş" aynı şey değil, çağıran ayırt edebilmeli.
+    return c.json(
+      { ilceKodu, analizTip, yil: null, noktalar: [], veri_var: false,
+        not: "Bu analiz tipi için seed edilmiş yıl yok" },
+      200,
+      { "Cache-Control": "public, max-age=3600" },
+    );
+  }
 
   const rows = await c.env.DB.prepare(
     `SELECT parsel_id, enlem, boylam, sayi
@@ -66,7 +114,7 @@ haritaRoutes.get("/analiz", async (c) => {
   }>();
 
   return c.json(
-    { ilceKodu, analizTip, yil: hedefYil, noktalar: rows.results ?? [] },
+    { ilceKodu, analizTip, yil: hedefYil, veri_var: true, noktalar: rows.results ?? [] },
     200,
     { "Cache-Control": "public, max-age=604800" }, // 7 gün
   );
@@ -123,7 +171,17 @@ haritaRoutes.get("/ozet", async (c) => {
       ilce_kodu: number; nokta_sayisi: number; toplam_islem: number;
     }>();
   } else {
-    const yil = yilRaw ? Number(yilRaw) : (YIL_MAX - 1);
+    // Varsayılan: veriye sor. Sabit "geçen yıl" varsayımı takvim ilerledikçe
+    // sessizce boşalıyordu (üretimde /ozet hiçbir şey döndürmüyordu).
+    const yil = yilRaw ? Number(yilRaw) : await varsayilanYil(c.env.DB, analizTip, "tkgm_analiz_ozet");
+    if (yil === null) {
+      return c.json(
+        { analizTip, birlesik: false, yil: null, veri_var: false, ozet: [],
+          not: "Bu analiz tipi için seed edilmiş yıl yok" },
+        200,
+        { "Cache-Control": "public, max-age=3600" },
+      );
+    }
     rows = await c.env.DB.prepare(
       `SELECT ilce_kodu, nokta_sayisi, toplam_islem
        FROM tkgm_analiz_ozet

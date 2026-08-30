@@ -356,7 +356,19 @@ proxyRoutes.get("/tkgm-idari/:tip/:kod?", async (c) => {
 const TKGM_ANALIZ_BASE = "https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz";
 const VALID_ANALIZ_TIP = new Set([1, 2, 3, 4, 5]);
 const ANALIZ_YIL_MIN = 2003;
-const ANALIZ_YIL_MAX = new Date().getFullYear();
+
+/**
+ * Üst sınır yıl — HER İSTEKTE hesaplanır, modül seviyesinde DEĞİL.
+ *
+ * Cloudflare Workers global kapsamda saati ilerletmez; orada
+ * `new Date().getFullYear()` = 1970 döner. Bu sabit modül seviyesindeyken
+ * endpoint üretimde HER istekte 400 veriyordu:
+ *   {"error":"yil 2003–1970 arasında olmalı"}
+ * Aynı tuzak routes/harita.ts'te de vardı; ikisi birlikte düzeltildi.
+ */
+function analizYilMax(): number {
+  return new Date().getFullYear();
+}
 
 proxyRoutes.get("/tkgm-analiz", async (c) => {
   const analizTipRaw = c.req.query("analizTip");
@@ -374,8 +386,9 @@ proxyRoutes.get("/tkgm-analiz", async (c) => {
   if (!VALID_ANALIZ_TIP.has(analizTip)) {
     return c.json({ error: "analizTip 1–5 arasında olmalı" }, 400);
   }
-  if (!Number.isInteger(yil) || yil < ANALIZ_YIL_MIN || yil > ANALIZ_YIL_MAX) {
-    return c.json({ error: `yil ${ANALIZ_YIL_MIN}–${ANALIZ_YIL_MAX} arasında olmalı` }, 400);
+  const analizUstSinir = analizYilMax();
+  if (!Number.isInteger(yil) || yil < ANALIZ_YIL_MIN || yil > analizUstSinir) {
+    return c.json({ error: `yil ${ANALIZ_YIL_MIN}–${analizUstSinir} arasında olmalı` }, 400);
   }
   if (!Number.isInteger(ilceKodu) || ilceKodu <= 0 || ilceKodu > 99999) {
     return c.json({ error: "ilceKodu geçersiz" }, 400);

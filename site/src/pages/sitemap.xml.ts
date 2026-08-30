@@ -10,6 +10,7 @@
  */
 import type { APIRoute } from "astro";
 import { BLOG_YAZILAR } from "../data/blog-yazilar.ts";
+import { TOP_MAHALLELER as ORTAK_TOP_MAHALLELER } from "../data/top-mahalleler.ts";
 
 export const prerender = true;
 
@@ -33,59 +34,10 @@ const ILLER_NORM = [
   "zonguldak",
 ];
 
-// Top mahalleler — AI-tarama gelene kadar manuel curated liste (büyük şehir popüler).
-// İleride: build script mahalle-baseline-final.json'dan AI-research kaynaklı top 1000'i çıkartır.
-// Format: il__ilce__mahalle (URL'de tire ile değil boşluksuz)
-const TOP_MAHALLELER = [
-  // İstanbul
-  "istanbul__besiktas__bebek", "istanbul__besiktas__etiler", "istanbul__besiktas__levent",
-  "istanbul__besiktas__arnavutkoy", "istanbul__besiktas__ortakoy",
-  "istanbul__sariyer__tarabya", "istanbul__sariyer__yenikoy", "istanbul__sariyer__istinye",
-  "istanbul__sariyer__buyukdere", "istanbul__sariyer__zekeriyakoy",
-  "istanbul__sisli__nisantasi", "istanbul__sisli__tesvikiye", "istanbul__sisli__mecidiyekoy",
-  "istanbul__kadikoy__moda", "istanbul__kadikoy__caddebostan", "istanbul__kadikoy__fenerbahce",
-  "istanbul__kadikoy__goztepe", "istanbul__kadikoy__suadiye",
-  "istanbul__atasehir__icerenkoy", "istanbul__atasehir__acibadem",
-  "istanbul__beykoz__anadoluhisari", "istanbul__beykoz__kandilli", "istanbul__beykoz__cubuklu",
-  "istanbul__uskudar__kuzguncuk", "istanbul__uskudar__beylerbeyi",
-  "istanbul__bakirkoy__atakoy", "istanbul__bakirkoy__yesilkoy", "istanbul__bakirkoy__florya",
-  "istanbul__zeytinburnu__kazlicesme", "istanbul__fatih__sultanahmet", "istanbul__fatih__balat",
-  "istanbul__beyoglu__galata", "istanbul__beyoglu__cihangir", "istanbul__beyoglu__karakoy",
-  "istanbul__sile__sahilkoy",
-  // Ankara
-  "ankara__cankaya__cukurambar", "ankara__cankaya__gaziosmanpasa", "ankara__cankaya__kavaklidere",
-  "ankara__cankaya__bahcelievler", "ankara__cankaya__ayranci",
-  "ankara__yenimahalle__batikent", "ankara__yenimahalle__demetevler",
-  "ankara__golbasi__incek",
-  // İzmir
-  "izmir__konak__alsancak", "izmir__karsiyaka__bostanli", "izmir__cesme__alacati",
-  "izmir__cesme__ilica", "izmir__urla__kalabak", "izmir__seferihisar__sigacik",
-  "izmir__foca__kucuk-foca",
-  // Antalya
-  "antalya__muratpasa__lara", "antalya__konyaalti__hurma",
-  "antalya__alanya__mahmutlar", "antalya__alanya__oba", "antalya__alanya__tosmur",
-  "antalya__manavgat__side", "antalya__kemer__cirali", "antalya__kas__kalkan",
-  "antalya__belek__belek-merkez",
-  // Muğla
-  "mugla__bodrum__yalikavak", "mugla__bodrum__turgutreis", "mugla__bodrum__gumusluk",
-  "mugla__bodrum__bitez", "mugla__bodrum__turkbuku",
-  "mugla__fethiye__calis", "mugla__fethiye__oludeniz", "mugla__fethiye__hisaronu",
-  "mugla__marmaris__icmeler", "mugla__datca__merkez",
-  // Bursa
-  "bursa__nilufer__gorukle", "bursa__nilufer__odunluk", "bursa__mudanya__guzelyali",
-  "bursa__osmangazi__cekirge",
-  // Balıkesir
-  "balikesir__bandirma__yali", "balikesir__bandirma__edincik",
-  "balikesir__edremit__akcay", "balikesir__ayvalik__cunda",
-  "balikesir__erdek__merkez", "balikesir__gomec__merkez",
-  // Aydın
-  "aydin__kusadasi__kadinlar-denizi", "aydin__didim__altinkum",
-  // Diğer önemliler
-  "tekirdag__corlu__merkez", "kocaeli__izmit__merkez", "kocaeli__gebze__merkez",
-  "yalova__cinarcik__merkez", "yalova__armutlu__merkez",
-  "trabzon__ortahisar__akcaabat", "samsun__atakum__merkez",
-  "denizli__pamukkale__pamukkale-merkez", "konya__selcuklu__merkez",
-];
+// Top mahalleler — TEK KAYNAK: src/data/top-mahalleler.ts.
+// Aynı liste /veri/{il}/{ilce}/{mahalle} sayfalarını da üretiyor; sitemap'in
+// vaat ettiği her URL'in karşılığında gerçek bir sayfa olsun diye ortaklaştırıldı.
+const TOP_MAHALLELER = ORTAK_TOP_MAHALLELER;
 
 interface UrlEntry {
   loc: string;

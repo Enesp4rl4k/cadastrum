@@ -1,0 +1,39 @@
+---
+/**
+ * /veri/{il}/{ilce} — ilçe fiyat detayı (973 sayfa, statik üretim).
+ *
+ * NEDEN VAR: bu URL biçimi hem `veri/[il].astro`'daki ilçe bağlantılarının hem
+ * de `sitemap.xml`in vaat ettiği adres. Daha önce karşılığında HİÇBİR sayfa
+ * üretilmiyordu; `public/_redirects` içindeki Netlify sözdizimli SPA kuralı
+ * Cloudflare Pages'te çalışmadığı için istek 404 fallback'ine düşüyor ve
+ * kullanıcıya HTTP 200 ile ANASAYFA dönüyordu.
+ *
+ * Başlık/açıklama burada sunucu tarafında üretiliyor — istemci betiği fiyat
+ * geldikten sonra `document.title`ı zenginleştiriyor, ama tarayıcıya ve arama
+ * motoruna ilk giden metin artık doğru.
+ */
+import Base from "../../../layouts/Base.astro";
+import VeriDetayIcerik from "../../../components/VeriDetayIcerik.astro";
+import { tumIlceler, ilceAdi } from "../../../data/ilceler.ts";
+
+export function getStaticPaths() {
+  return tumIlceler().map(({ il, ilce }) => ({ params: { il, ilce } }));
+}
+
+const { il, ilce } = Astro.params;
+const ilAd = il!.split("-").map((w) => w.charAt(0).toLocaleUpperCase("tr") + w.slice(1)).join(" ");
+const ilceAd = ilceAdi(il!, ilce!);
+---
+
+<Base
+  title={`${ilceAd} Arsa Fiyatları m² 2026 — ${ilAd} | Cadastrum`}
+  description={`${ilAd} ${ilceAd} güncel arsa, konut ve tarla TL/m² fiyatları. Mahalle bazlı ilan medyanı, fiyat trendi ve TKGM parsel sorgu.`}
+  breadcrumb={[
+    { ad: "Anasayfa", url: "/" },
+    { ad: "Veri", url: "/veri" },
+    { ad: ilAd, url: `/veri/${il}` },
+    { ad: ilceAd, url: `/veri/${il}/${ilce}` },
+  ]}
+>
+  <VeriDetayIcerik />
+</Base>

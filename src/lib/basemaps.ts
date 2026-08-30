@@ -37,23 +37,41 @@ const BASEMAPS: BasemapDef[] = [
   },
   {
     id: "carto-light",
-    ad: "Açık (Carto)",
+    ad: "Açık (Esri)",
     ikon: "☀",
     style: {
       version: 8,
       // MapLibre symbol layer'ları text-field için PBF glyph fontu ister.
       // Demotiles "Noto Sans Regular" sunar — symbol layer'larda text-font olarak bunu kullanıyoruz.
       glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+      // ALTLIK SAĞLAYICI NOTU (Ağustos 2026): burada eskiden CARTO
+      // (basemaps.cartocdn.com) vardı. CARTO anahtarsız isteklere artık HTTP
+      // 200 + ÜZERİNE "API KEY REQUIRED" filigranı basılmış döşeme dönüyor —
+      // istek başarısız olmadığı için hiçbir hata yakalanmıyor, harita sessizce
+      // filigranlı çiziliyordu. Esri'nin gri kanvas servisi anahtarsız ve
+      // filigransız çalışıyor; uygulama zaten uydu katmanı için aynı servisi
+      // kullanıyor.
+      //
+      // `carto-light` / `carto-dark` KİMLİKLERİ korunuyor: kullanıcının seçimi
+      // localStorage'da bu anahtarla saklı, değiştirmek herkesin tercihini
+      // sıfırlardı.
+      //
+      // DİKKAT: Esri döşeme yolu {z}/{y}/{x} sırasındadır — XYZ'nin
+      // {z}/{x}/{y}'sinden FARKLI. Ters yazılırsa harita sessizce yanlış yeri
+      // gösterir (hata vermez).
       sources: {
         carto: {
           type: "raster",
           tiles: [
-            "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-            "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-            "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+            "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
           ],
           tileSize: 256,
-          attribution: "© OpenStreetMap, © CARTO",
+          // Gri kanvasta gerçek görüntü z16'ya kadar; üstünde Esri 200 ile BOŞ
+          // döşeme dönüyor (yine "200 ama içerik yok"). maxzoom verilmezse
+          // harita yakınlaşınca sessizce bomboş kalır — MapLibre bunun yerine
+          // z16 döşemesini büyütsün.
+          maxzoom: 16,
+          attribution: "Esri, HERE, Garmin, © OpenStreetMap katkıcıları",
         },
       },
       layers: [{ id: "carto", type: "raster", source: "carto" }],
@@ -61,7 +79,7 @@ const BASEMAPS: BasemapDef[] = [
   },
   {
     id: "carto-dark",
-    ad: "Koyu (Carto)",
+    ad: "Koyu (Esri)",
     ikon: "🌙",
     style: {
       version: 8,
@@ -71,13 +89,17 @@ const BASEMAPS: BasemapDef[] = [
       sources: {
         carto: {
           type: "raster",
+          // Bkz. yukarıdaki altlık sağlayıcı notu (CARTO → Esri, filigran).
           tiles: [
-            "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-            "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-            "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+            "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
           ],
           tileSize: 256,
-          attribution: "© OpenStreetMap, © CARTO",
+          // Gri kanvasta gerçek görüntü z16'ya kadar; üstünde Esri 200 ile BOŞ
+          // döşeme dönüyor (yine "200 ama içerik yok"). maxzoom verilmezse
+          // harita yakınlaşınca sessizce bomboş kalır — MapLibre bunun yerine
+          // z16 döşemesini büyütsün.
+          maxzoom: 16,
+          attribution: "Esri, HERE, Garmin, © OpenStreetMap katkıcıları",
         },
       },
       layers: [{ id: "carto", type: "raster", source: "carto" }],

@@ -1,0 +1,46 @@
+---
+/**
+ * /veri/{il}/{ilce}/{mahalle} — mahalle fiyat detayı.
+ *
+ * Sitemap bu URL'leri Google'a bildiriyordu ama karşılığında hiç sayfa
+ * üretilmiyordu; istek 404 fallback'ine düşüp HTTP 200 ile ANASAYFA dönüyordu
+ * (90 URL, sitemap'in yarısı). Artık üretiliyor.
+ *
+ * Kapsam bilinçli olarak `data/top-mahalleler.ts` ile sınırlı: 65 bin mahallenin
+ * hepsini statik üretmek hem build'i şişirir hem de çoğunda veri yok. Sitemap DE
+ * aynı listeden okuyor — yani "bildirilen URL" ile "üretilen sayfa" tanım gereği
+ * aynı küme.
+ */
+import Base from "../../../../layouts/Base.astro";
+import VeriDetayIcerik from "../../../../components/VeriDetayIcerik.astro";
+import { topMahalleParcalari } from "../../../../data/top-mahalleler.ts";
+import { ilceAdi } from "../../../../data/ilceler.ts";
+
+export function getStaticPaths() {
+  return topMahalleParcalari().map(({ il, ilce, mahalle }) => ({
+    params: { il, ilce, mahalle },
+  }));
+}
+
+const { il, ilce, mahalle } = Astro.params;
+const buyukHarf = (s: string) =>
+  s.split("-").map((w) => w.charAt(0).toLocaleUpperCase("tr") + w.slice(1)).join(" ");
+
+const ilAd = buyukHarf(il!);
+const ilceAd = ilceAdi(il!, ilce!);
+const mahalleAd = buyukHarf(mahalle!);
+---
+
+<Base
+  title={`${mahalleAd} Mahallesi Arsa Fiyatları m² 2026 — ${ilceAd}, ${ilAd} | Cadastrum`}
+  description={`${ilAd} ${ilceAd} ${mahalleAd} Mahallesi güncel arsa, konut ve tarla TL/m² fiyatları. İlan medyanı, fiyat trendi ve komşu mahalle karşılaştırması.`}
+  breadcrumb={[
+    { ad: "Anasayfa", url: "/" },
+    { ad: "Veri", url: "/veri" },
+    { ad: ilAd, url: `/veri/${il}` },
+    { ad: ilceAd, url: `/veri/${il}/${ilce}` },
+    { ad: mahalleAd, url: `/veri/${il}/${ilce}/${mahalle}` },
+  ]}
+>
+  <VeriDetayIcerik />
+</Base>
