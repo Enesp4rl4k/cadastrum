@@ -14,22 +14,28 @@
 
 ## Özet tablo
 
-| # | Bulgu | Yüzey | Kanıt | Öncelik |
-|---|---|---|---|---|
-| 1 | Harita altlığı "API KEY REQUIRED" filigranlı | Site + Uzantı | canlı | **P0** |
-| 2 | `/veri/{il}/{ilce}` derin bağlantıları ANASAYFA döndürüyor | Site | canlı | **P0** |
-| 3 | Harita il popup'ı her tıklamada bozuk (404) | Site | canlı | **P0** |
-| 4 | `YIL_MAX = 1970` — Workers global saat tuzağı | Backend | canlı | **P0** |
-| 5 | `koord_kaynagi` batch/katkı yolunda her zaman NULL | Uzantı→Backend | kod+test | **P1** |
-| 6 | Crowdsource ilanlar koordinatsız → spatial emsalde görünmez | Uzantı | kod | **P1** |
-| 7 | Uzantının 3 endpoint çağrısı boşa gidiyor | Uzantı | canlı | **P1** |
-| 8 | Fiyat endpoint'leri veri yokken 200 + boş dönüyor | Backend→Site | canlı | **P1** |
-| 9 | Trend ve "gelişen bölgeler" katmanları sahte-nötr | Site | canlı | **P1** |
-| 10 | Otoyol katmanı: dosya deposunda yok | Site | canlı | P2 |
-| 11 | Endeks baz dönemi 882 ilanlık gürültü | Site | canlı | P2 |
-| 12 | Sabit sayılar "canlı veri" rozetiyle sunuluyor | Site | kod | P2 |
-| 13 | `content/` + `background/` (~4.400 satır) sıfır test | Uzantı | kod | P2 |
-| 14 | `site/` sıfır davranış testi | Site | kod | P2 |
+> **DURUM (30 Ağustos 2026, deploy sonrası):** P0–P2'nin tamamı düzeltildi,
+> deploy edildi ve canlıda doğrulandı. Commit'ler: `630e8d7` (P0), `373007b` (P1),
+> `484830b` (P2), `6cf6eca` (deploy dalı). Kalan tek başlık 13/14'ün bir kısmı —
+> aşağıda "Sırada ne var" bölümüne taşındı.
+
+| # | Bulgu | Yüzey | Durum |
+|---|---|---|---|
+| 1 | Harita altlığı "API KEY REQUIRED" filigranlı | Site + Uzantı | ✅ Esri, canlıda doğrulandı |
+| 2 | `/veri/{il}/{ilce}` derin bağlantıları ANASAYFA döndürüyor | Site | ✅ 1.174 sayfa, canlıda doğrulandı |
+| 3 | Harita il popup'ı her tıklamada bozuk (404) | Site | ✅ `/fiyat/toplu-ilce-ozet` |
+| 4 | `YIL_MAX = 1970` — Workers global saat tuzağı | Backend | ✅ istek içine taşındı + test |
+| 5 | `koord_kaynagi` batch/katkı yolunda her zaman NULL | Uzantı→Backend | ✅ şemaya eklendi + 3 yol testi |
+| 6 | Crowdsource ilanlar koordinatsız | Uzantı | ✅ `lib/ilan-payload.ts` ortak kurucu |
+| 7 | Uzantının 4 endpoint çağrısı boşa gidiyor | Uzantı | ✅ dördü de düzeltildi |
+| 8 | Fiyat endpoint'leri veri yokken 200 + boş | Backend→Site | ✅ 404, canlıda doğrulandı |
+| 9 | Trend ve "gelişen bölgeler" sahte-nötr | Site+Backend | ✅ "veri yetersiz" açıkça |
+| 10 | Otoyol katmanı: dosya deposunda yok | Site | ✅ 12.087 nokta, canlıda |
+| 11 | Endeks: okunamayan eksen + zayıf taban | Site+Backend | ✅ `baz_zayif`, canlıda |
+| 12 | Sabit sayılar "canlı veri" rozetiyle | Site | ✅ build-time canlı veri |
+| 13 | `content/` + `background/` sıfır test | Uzantı | ◐ `background/` payload kurucu testli; `content/` parser'ları hâlâ testsiz |
+| 14 | `site/` sıfır davranış testi | Site | ◐ 22 test (rota + varlık sözleşmesi); sayfa render/boş durum testi yok |
+| 15 | Deploy `--branch production` sessizce PREVIEW'a gidiyordu | Deploy | ✅ `master` + doğrulama notu |
 
 ---
 
