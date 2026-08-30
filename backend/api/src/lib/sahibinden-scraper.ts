@@ -157,7 +157,11 @@ async function detaySayfaParse(url: string): Promise<{ ok: boolean; data?: Detay
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        // beklenen yokluk: JSON-LD bloğu bozuk/eksik olabilir. lat/lng null
+        // kalır ve aşağıdaki alan çıkarımları normal akışta sürer — koordinat
+        // yokluğu ilanın yazılmasını engellemiyor.
+      }
     }
 
     // Fiyat — `<div class="classifiedPrice">123.456 TL</div>` benzeri

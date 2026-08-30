@@ -32,6 +32,11 @@ jobs:
       - name: Extension typecheck
         run: npm run lint
 
+      # Sprint B.1 — sessiz hata yasağı. Boş/yorum-only catch bloğu sayısı
+      # dosya bazında dondurulmuş baseline'ı AŞAMAZ. Ayrıntı: scripts/catch-disiplini.mjs
+      - name: catch disiplini (sessiz hata yasağı)
+        run: npm run lint:catch
+
       - name: Extension tests
         run: npm test
 

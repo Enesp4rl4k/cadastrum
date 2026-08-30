@@ -123,7 +123,7 @@ uydu.post(
         }
       }
     } catch {
-      // Cache hatası — devam et
+      // beklenen yokluk: R2 cache MISS/erişilemez — aşağıda görüntü taze çekiliyor.
     }
 
     // Copernicus Data Space WMS isteği
@@ -180,7 +180,8 @@ uydu.post(
           },
         });
       } catch {
-        // R2 yazma hatası kritik değil
+        // beklenen yokluk: cache yazımı başarısızsa sonraki istek yeniden çeker;
+        // yanıtın kendisi zaten üretildi.
       }
 
       return c.json({
@@ -218,7 +219,8 @@ uydu.post(
           kullaniciId = payload.sub ?? null;
         }
       } catch {
-        // JWT parse hatası — anonim devam
+        // beklenen yokluk: token biçimi bozuk olabilir. Burada doğrulama YAPILMIYOR,
+        // yalnızca loglama için sub okunuyor — kullanıcı anonim sayılır.
       }
     }
 
@@ -251,7 +253,8 @@ uydu.post(
         gorsel = await gorselRes.json();
       }
     } catch {
-      // Görüntü alınamazsa sadece AI olmadan dön
+      // beklenen yokluk: görüntü servisi erişilemezse yanıt AI yorumu olmadan
+      // döner — `gorsel` null kalır, çağıran bunu ayırt edebilir.
     }
 
     if (!gorsel?.base64) {
@@ -359,7 +362,8 @@ fiyatCarpani hesabı:
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
       } catch {
-        // Parse başarısız — ham metni kullan
+        // beklenen yokluk: LLM yanıtı JSON olmayabilir; `parsed` null kalır ve
+        // aşağıda ham metin kullanılır — görünür fallback.
       }
 
       // fiyatCarpani güvenlik sınırı: 0.70–1.35 arası

@@ -138,10 +138,30 @@ describe("taramaDamgala", () => {
     expect(cagrilar[0]!.args).toContain("tamam");
   });
 
-  it("D1 patlarsa THROW ETMEZ — damga kaybı taramayı bozmamalı", async () => {
+  it("D1 patlarsa THROW ETMEZ — damga kaybı taramayı bozmamalı, ama false döner", async () => {
     const patlayan = { prepare: () => { throw new Error("x"); } } as never;
     await expect(
       taramaDamgala(patlayan, "emlakjet", { ilNorm: "a", ilceNorm: "b" }, 0, "hata"),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
+  });
+
+  it("başarılı damga true döner — çağıran kaybı ayırt edebilir", async () => {
+    const { db } = sahteDb();
+    await expect(
+      taramaDamgala(db, "emlakjet", { ilNorm: "a", ilceNorm: "b" }, 3, "tamam"),
+    ).resolves.toBe(true);
+  });
+
+  it("bot-engel damgası son_tarama'yı İLERLETMEZ (rotasyon sırasını korur)", async () => {
+    // Engellenen ilçe "tarandı" sayılırsa `son_tarama ASC NULLS FIRST` sırasında
+    // en sona düşer ve bir daha bakılmaz — hepsiemlak'ta 254 ilçe böyle kayboldu.
+    const { db, cagrilar } = sahteDb();
+    await taramaDamgala(db, "emlakjet", { ilNorm: "a", ilceNorm: "b" }, 0, "bot-engel");
+    expect(cagrilar[0]!.args[4]).toBeNull();          // son_tarama parametresi
+    expect(cagrilar[0]!.sql).toContain("CASE WHEN excluded.son_durum = 'bot-engel'");
+
+    const { db: db2, cagrilar: c2 } = sahteDb();
+    await taramaDamgala(db2, "emlakjet", { ilNorm: "a", ilceNorm: "b" }, 4, "tamam");
+    expect(typeof c2[0]!.args[4]).toBe("number");     // normal damgada ilerler
   });
 });

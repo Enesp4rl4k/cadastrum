@@ -27,6 +27,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
+import { log } from "./logger.js";
 
 const API = "https://mebis-s-p.csb.gov.tr/api/MileWeb/GetSatisIlanList";
 const ORIGIN = "https://milliemlak.gov.tr";
@@ -144,7 +145,13 @@ export function tasinmazNormalize(t: MeTasinmaz, ilanId?: number): MeKayit | nul
  * 792 taşınmazın 696'sı kopya çıktı. Doğrulama: offset 0..3 → 100+100+100+90
  * = 390 = totalRow, offset 4 → boş.
  */
-async function sayfaCek(offset: number): Promise<MeIlan[] | null> {
+interface MeSayfaSonuc {
+  /** HTTP durumu; 0 → yanıt hiç alınamadı, -1 → gövdede hasError. */
+  status: number;
+  ilanlar: MeIlan[] | null;
+}
+
+async function sayfaCek(offset: number): Promise<MeSayfaSonuc> {
   try {
     const res = await fetch(API, {
       method: "POST",
@@ -157,16 +164,24 @@ async function sayfaCek(offset: number): Promise<MeIlan[] | null> {
       body: JSON.stringify({ offset, pageSize: SAYFA_BOYUT }),
       signal: AbortSignal.timeout(25_000),
     });
-    if (!res.ok) return null;
+    // Sprint B.4: durum kodu çağırana döner. "Boş sayfa" (sayfalama sonu) ile
+    // "istek başarısız" ayrımı buna bağlı; ikisi karışırsa taşınmazların bir
+    // kısmı sessizce alınmamış olur.
+    if (!res.ok) return { status: res.status, ilanlar: null };
     const j = (await res.json()) as { response_object?: MeIlan[]; hasError?: boolean };
-    if (j.hasError) return null;
-    return j.response_object ?? [];
-  } catch {
-    return null;
+    if (j.hasError) return { status: -1, ilanlar: null };
+    return { status: res.status, ilanlar: j.response_object ?? [] };
+  } catch (e) {
+    log.warn("milli-emlak.sayfa-cek.ag-hatasi", {
+      offset, hata: e instanceof Error ? e.message : String(e),
+    });
+    return { status: 0, ilanlar: null };
   }
 }
 
 export interface MeTaramaSonuc {
+  /** Başarısız istekte son görülen HTTP durumu (0 = ağ hatası, -1 = hasError). */
+  sonDurum?: number;
   sayfa: number;
   gorulenTasinmaz: number;
   araziOlan: number;
@@ -194,9 +209,16 @@ export async function milliEmlakTaramaTuru(
   };
 
   for (let p = 0; p < maxSayfa; p++) {
-    const ilanlar = await sayfaCek(p);
-    if (ilanlar === null) { s.hata++; break; }
-    if (ilanlar.length === 0) break;
+    const { status, ilanlar } = await sayfaCek(p);
+    if (ilanlar === null) {
+      // İstek başarısız — "kayıt bitti" DEĞİL. Durum kodu loglanıyor ki
+      // engellenme ile gerçek son ayırt edilebilsin.
+      s.hata++;
+      s.sonDurum = status;
+      log.warn("milli-emlak.sayfa-basarisiz", { offset: p, status });
+      break;
+    }
+    if (ilanlar.length === 0) break; // gerçek sayfalama sonu (kaynağın sinyali)
     s.sayfa++;
 
     for (const ilan of ilanlar) {

@@ -27,6 +27,7 @@
 
 import type { D1Database } from "@cloudflare/workers-types";
 import { ilanYaz, taramaDamgala } from "./veri-katmani.js";
+import { log } from "./logger.js";
 
 const BASE = "https://www.hepsiemlak.com";
 const UA =
@@ -225,7 +226,27 @@ export function ilanNormalize(it: LdItem, ilN: string, ilceN: string): HeIlan | 
   };
 }
 
-async function sayfaCek(url: string, timeoutMs = 20_000): Promise<string | null> {
+/**
+ * Sayfa çekme sonucu — HTTP DURUMU ÇAĞIRANA MUTLAKA DÖNER (Sprint B.4).
+ *
+ * Yerel hatta (scripts/hepsiemlak-scrape.mjs) bu düzeltildi ama WORKER hattında
+ * aynı kusur duruyordu: `!res.ok → null` ve çağıran bunu "sayfalama bitti"
+ * sayıyordu. 3. sayfada gelen 429, ilçeyi "tarandı" diye damgalayıp taramayı
+ * bitiriyordu — yerelde 254 ilçeyi kaybettiren hatanın birebir aynısı.
+ *
+ * `status: 0` → ağ hatası / zaman aşımı.
+ */
+interface HeSayfaSonuc {
+  status: number;
+  govde: string | null;
+}
+
+/** Kaynağın bizi kısıtladığını söyleyen durumlar — veri yokluğu DEĞİL. */
+export function heBotEngelMi(status: number): boolean {
+  return status === 429 || status === 403 || status === 503;
+}
+
+async function sayfaCek(url: string, timeoutMs = 20_000): Promise<HeSayfaSonuc> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -235,16 +256,23 @@ async function sayfaCek(url: string, timeoutMs = 20_000): Promise<string | null>
       },
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
+    if (!res.ok) return { status: res.status, govde: null };
+    return { status: res.status, govde: await res.text() };
+  } catch (e) {
+    log.warn("hepsiemlak.sayfa-cek.ag-hatasi", {
+      url, hata: e instanceof Error ? e.message : String(e),
+    });
+    return { status: 0, govde: null };
   }
 }
 
 export interface HeIlceSonuc {
   ilN: string; ilceN: string; kategori: string;
   eklenen: number; atlanan: number; sayfa: number; hata: boolean;
+  /** Kaynak bizi kısıtladı (429/403/503) — "ilan yok" ile karıştırılmamalı. */
+  botEngel: boolean;
+  /** Son görülen HTTP durumu; 0 ise yanıt hiç alınamadı. */
+  sonDurum: number;
 }
 
 /**
@@ -264,11 +292,21 @@ export async function hepsiemlakIlceTara(
 ): Promise<HeIlceSonuc> {
   const s: HeIlceSonuc = {
     ilN, ilceN, kategori, eklenen: 0, atlanan: 0, sayfa: 0, hata: false,
+    botEngel: false, sonDurum: 0,
   };
 
   for (let sayfa = 1; sayfa <= maxSayfa; sayfa++) {
     const url = `${BASE}/${ilceN}-satilik/${kategori}${sayfa > 1 ? `?page=${sayfa}` : ""}`;
-    const html = await sayfaCek(url);
+    const r = await sayfaCek(url);
+    s.sonDurum = r.status;
+    if (heBotEngelMi(r.status)) {
+      // Engellenme sayfalama sonu DEĞİL: burada durup ilçeyi 'bot-engel'
+      // damgalıyoruz ki rotasyonda yeniden sıraya girsin.
+      s.botEngel = true;
+      log.warn("hepsiemlak.bot-engel", { il: ilN, ilce: ilceN, kategori, sayfa, status: r.status });
+      break;
+    }
+    const html = r.govde;
     if (!html) { if (sayfa === 1) s.hata = true; break; }
 
     const items = listeJsonLdCikar(html);
@@ -302,8 +340,11 @@ export async function hepsiemlakIlceTara(
 
 export interface HeRunSonuc {
   islenenIlce: number; toplamEklenen: number; toplamAtlanan: number;
-  hataAdet: number; sure_ms: number;
+  hataAdet: number; botEngelAdet: number; erkenDurdu: boolean; sure_ms: number;
 }
+
+/** Üst üste kaç bot engeli sonrası koşu, toplananı koruyarak durur. */
+const MAX_ARDISIK_BOT_ENGEL = 3;
 
 /** Verilen ilçeleri arsa + tarla için tarar. */
 export async function hepsiemlakRunBaslat(
@@ -314,12 +355,15 @@ export async function hepsiemlakRunBaslat(
 ): Promise<HeRunSonuc> {
   const t0 = Date.now();
   const s: HeRunSonuc = {
-    islenenIlce: 0, toplamEklenen: 0, toplamAtlanan: 0, hataAdet: 0, sure_ms: 0,
+    islenenIlce: 0, toplamEklenen: 0, toplamAtlanan: 0, hataAdet: 0,
+    botEngelAdet: 0, erkenDurdu: false, sure_ms: 0,
   };
+  let ardisikBotEngel = 0;
 
   for (const { ilN, ilceN } of hedefler.slice(0, maxIlce)) {
     let ilceEklenen = 0;
     let ilceHata = false;
+    let ilceBotEngel = false;
     for (const kat of ["arsa", "tarla"] as const) {
       try {
         const r = await hepsiemlakIlceTara(db, ilN, ilceN, kat, maxSayfa);
@@ -327,16 +371,37 @@ export async function hepsiemlakRunBaslat(
         s.toplamAtlanan += r.atlanan;
         ilceEklenen += r.eklenen;
         if (r.hata) { s.hataAdet++; ilceHata = true; }
-      } catch {
+        if (r.botEngel) { s.botEngelAdet++; ilceBotEngel = true; }
+      } catch (e) {
         s.hataAdet++;
         ilceHata = true;
+        log.warn("hepsiemlak.ilce-tara.istisna", {
+          il: ilN, ilce: ilceN, kategori: kat,
+          hata: e instanceof Error ? e.message : String(e),
+        });
       }
       await new Promise((r) => setTimeout(r, ISTEK_ARASI_MS));
     }
-    await taramaDamgala(db, "hepsiemlak", { ilNorm: ilN, ilceNorm: ilceN },
-                        ilceEklenen, ilceHata ? "hata" : "tamam");
+    // Bot engeli 'hata'dan ayrı damgalanır: veri katmanı bu durumda son_tarama'yı
+    // ilerletmez, ilçe rotasyonun önünde kalır.
+    await taramaDamgala(db, "hepsiemlak", { ilNorm: ilN, ilceNorm: ilceN }, ilceEklenen,
+                        ilceBotEngel ? "bot-engel" : ilceHata ? "hata" : "tamam");
 
     s.islenenIlce++;
+
+    // Üst üste engelleniyorsak devam etmek hem kısıtlamayı derinleştirir hem de
+    // kalan ilçeleri boş yere "tarandı" damgalar — toplananı koruyup duruyoruz.
+    if (ilceBotEngel) {
+      if (++ardisikBotEngel >= MAX_ARDISIK_BOT_ENGEL) {
+        s.erkenDurdu = true;
+        log.error("hepsiemlak.run.bot-engel-durdu", {
+          ardisik: ardisikBotEngel, islenenIlce: s.islenenIlce, toplamEklenen: s.toplamEklenen,
+        });
+        break;
+      }
+    } else {
+      ardisikBotEngel = 0;
+    }
   }
 
   s.sure_ms = Date.now() - t0;

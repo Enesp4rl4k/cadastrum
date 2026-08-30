@@ -10,6 +10,7 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { bearerYetkilendir } from "../lib/security.js";
+import { log } from "../lib/logger.js";
 
 export const seedRoutes = new Hono<{ Bindings: Env }>();
 
@@ -46,6 +47,13 @@ seedRoutes.post("/baseline/seed", async (c) => {
 
   const NORM_MAX = 80;
   let inserted = 0;
+  // Atlanan satırlar SAYILIR. Eskiden hem doğrulamada `continue`, hem INSERT
+  // hatasında boş catch vardı; yanıt yalnızca `inserted` döndürdüğü için
+  // "500 satır gönderdim, 0 yazıldı" ile "500 satır yazıldı" arasındaki fark
+  // çağıran tarafta görünmüyordu.
+  let atlananGecersiz = 0;
+  let atlananHata = 0;
+  let ilkHata: string | null = null;
 
   for (const r of body.rows) {
     if (
@@ -54,7 +62,7 @@ seedRoutes.post("/baseline/seed", async (c) => {
       !r.mahalle_norm || typeof r.mahalle_norm !== "string" || r.mahalle_norm.length > NORM_MAX ||
       !r.kategori || !GECERLI_SEED_KATEGORI.has(r.kategori) ||
       typeof r.tlm2 !== "number" || r.tlm2 <= 0 || r.tlm2 > 1_000_000_000
-    ) continue;
+    ) { atlananGecersiz++; continue; }
 
     try {
       await c.env.DB.prepare(
@@ -70,12 +78,27 @@ seedRoutes.post("/baseline/seed", async (c) => {
         r.yakalandi ?? Date.now(),
       ).run();
       inserted++;
-    } catch {
-      // Malformed row — sessizce atla
+    } catch (e) {
+      atlananHata++;
+      if (!ilkHata) ilkHata = e instanceof Error ? e.message : String(e);
     }
   }
 
-  return c.json({ inserted, requested: body.rows.length });
+  if (atlananHata > 0) {
+    log.warn("seed.baseline-ai.satir-hatasi", {
+      atlanan: atlananHata,
+      istenen: body.rows.length,
+      ilkHata,
+    });
+  }
+
+  return c.json({
+    inserted,
+    requested: body.rows.length,
+    atlanan_gecersiz: atlananGecersiz,
+    atlanan_hata: atlananHata,
+    ilk_hata: ilkHata,
+  });
 });
 
 // ── POST /v1/ilan/batch-seed ─────────────────────────────────────────────────

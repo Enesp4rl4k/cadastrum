@@ -83,7 +83,8 @@ raporRoutes.get("/:id", async (c) => {
       `UPDATE raporlar SET goruntulenme = goruntulenme + 1 WHERE id = ?`,
     ).bind(id).run();
   } catch {
-    /* sayaç kritik değil */
+    // beklenen yokluk: görüntülenme sayacı raporun kendisini bloklamamalı;
+    // kaybı yalnızca istatistiği etkiler, kullanıcı verisi değil.
   }
 
   // CSP header — rapor sayfasının XSS saldırısı yapamaması için

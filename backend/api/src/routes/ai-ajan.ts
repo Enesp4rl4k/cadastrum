@@ -856,7 +856,10 @@ JSON döndür:
     try {
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-    } catch { /* parse başarısız */ }
+    } catch {
+      // beklenen yokluk: LLM yanıtı JSON olmayabilir. `parsed` null kalır ve
+      // aşağıdaki dal ham metne düşer — görünür fallback.
+    }
   } else {
     log.warn("ai-ajan.portfoy-optimize.gemini-hata", { status: res.status });
   }

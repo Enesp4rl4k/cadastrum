@@ -488,7 +488,8 @@ apiV2Routes.post(
         c.executionCtx.waitUntil(asyncIslem);
       }
     } catch {
-      // Direct request environment without ExecutionContext
+      // beklenen yokluk: ExecutionContext yalnızca gerçek Worker isteğinde var;
+      // doğrudan fetch/test çağrısında yok. Arka plan işi o bağlamda atlanır.
     }
 
     return c.json(

@@ -89,7 +89,9 @@ function detayParse(html) {
           detayParse._bc = names;
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      // beklenen yokluk: bozuk JSON-LD blogu — diger bloklar denenir.
+    }
   }
   const bc = detayParse._bc || [];
   // breadcrumb'tan il/ilçe/mahalle/kategori
@@ -152,7 +154,10 @@ async function ilceTara(ilSlug, ilceSlug, kategori, maxSayfa, kayitlar, gorulenl
         }
         kayitlar.push({ id, ilN, ilceN, mahN, kategori: r.kategori, tlm2, m2: r.m2, lat, lng });
         eklenen++;
-      } catch { /* detay hata */ }
+      } catch {
+        // beklenen yokluk: tek ilanin detay sayfasi parse edilemedi; ilce
+        // taramasi surer. Bu ilan `eklenen` sayacina girmez.
+      }
       await uyku(800 + Math.random() * 700); // kibar tempo
     }
     await uyku(1000);

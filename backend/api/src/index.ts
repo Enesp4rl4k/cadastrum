@@ -190,7 +190,9 @@ app.onError((err, c) => {
       }),
     );
   } catch {
-    // executionCtx bazı bağlamlarda (ör. test) yok — hata kaydı best-effort.
+    // beklenen yokluk: executionCtx bazı bağlamlarda (ör. test, doğrudan
+    // fetch çağrısı) tanımlı değil. Hata kaydı best-effort; asıl 500 yanıtı
+    // aşağıda zaten dönüyor, buradan atılan hata onu maskelerdi.
   }
 
   return c.json({

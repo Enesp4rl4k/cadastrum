@@ -8,6 +8,7 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { log } from "../lib/logger.js";
 
 export const telemetriRoutes = new Hono<{ Bindings: Env }>();
 
@@ -31,9 +32,15 @@ telemetriRoutes.post("/hata", async (c) => {
   }
 
   let yazilan = 0;
+  // Yazılamayan satır SAYILIR: `hata_log`'a yazamamak, hata görünürlüğünü
+  // topyekûn kaybettiğimiz anlamına gelir ve tam da o an fark edilmesi gerekir.
+  let basarisiz = 0;
+  let gecersiz = 0;
+  let ilkHata: string | null = null;
+
   for (const h of hatalar) {
     const mesaj = typeof h?.mesaj === "string" ? h.mesaj.slice(0, MAX_MESAJ) : "";
-    if (!mesaj) continue;
+    if (!mesaj) { gecersiz++; continue; }
     const kaynak = String(h.kaynak ?? "bilinmiyor").slice(0, 60);
     const stack = h.stack ? String(h.stack).slice(0, MAX_STACK) : null;
     const surum = h.surum ? String(h.surum).slice(0, 20) : null;
@@ -47,11 +54,22 @@ telemetriRoutes.post("/hata", async (c) => {
         `INSERT INTO hata_log (kaynak, mesaj, stack, surum, meta, ts, request_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       ).bind(kaynak, mesaj, stack, surum, meta, ts, kayitRequestId).run();
       yazilan++;
-    } catch {
-      /* tek satır hatası tüm batch'i düşürmesin */
+    } catch (e) {
+      // Tek satır hatası tüm batch'i düşürmesin — ama sayılır ve loglanır.
+      basarisiz++;
+      if (!ilkHata) ilkHata = e instanceof Error ? e.message : String(e);
     }
   }
-  return c.json({ yazilan });
+
+  if (basarisiz > 0) {
+    log.error("telemetri.hata-log.yazilamadi", {
+      basarisiz,
+      istenen: hatalar.length,
+      ilkHata,
+    });
+  }
+
+  return c.json({ yazilan, basarisiz, gecersiz });
 });
 
 // ── GET /v1/telemetri/ozet (admin) ──────────────────────────────────────

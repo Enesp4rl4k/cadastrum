@@ -173,7 +173,8 @@ export function detayParse(html) {
         }
       }
     } catch {
-      /* ignore */
+      // beklenen yokluk: sayfadaki JSON-LD bloklarindan biri bozuk olabilir;
+      // dongu diger bloklara devam eder, alanlar null kalir.
     }
   }
   const bc = _bc || [];

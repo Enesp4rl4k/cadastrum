@@ -68,7 +68,8 @@ export const sentryMiddleware: MiddlewareHandler<AppCtx> = async (c, next) => {
         },
       });
     } catch {
-      // Sentry bildirimi başarısız — orijinal hatayı yine fırlat
+      // beklenen yokluk: SENTRY_DSN üretimde boş olabilir, o durumda captureException
+      // no-op/undefined. Orijinal hata aşağıda yine fırlatılıyor, kayıp yok.
     }
     throw err;
   }
@@ -87,6 +88,8 @@ export function sentryHataBildir(
       sentryRef.captureException(err, { extra: ctx });
     }
   } catch {
-    // sessiz
+    // beklenen yokluk: Sentry yapılandırılmamış olabilir. Hata raporlamanın kendisi
+    // hata fırlatırsa çağıranın akışını bozmamalı — kalıcı kayıt zaten hata_log'da
+    // (bkz. lib/hata-kaydet.ts), Sentry ikincil kanal.
   }
 }

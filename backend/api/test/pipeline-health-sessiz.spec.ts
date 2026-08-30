@@ -108,6 +108,29 @@ describe("pipeline-health sessiz bozulma kontrolleri", () => {
     expect(k.gecti).toBe(false);
   });
 
+  it("bot-engel damgaları birikince ALARM verir (Sprint B.4)", async () => {
+    // GERÇEK OLAY: hepsiemlak 429 verdi, engellenme "ilan yok" sayıldı ve 254
+    // ilçe sessizce "tarandı" damgalandı. Artık damga 'bot-engel' oluyor —
+    // ama damga da sessiz kalırsa aynı körlüğe döneriz, bu yüzden sayılıyor.
+    const env = createMockEnv();
+    const satirlar = Array.from({ length: 45 }, (_, i) =>
+      `('hepsiemlak','il${i}','ilce${i}','arsa',NULL,'bot-engel')`).join(",");
+    await env.DB.prepare(
+      `INSERT INTO tarama_durum (kaynak, il_norm, ilce_norm, kategori, son_tarama, son_durum)
+       VALUES ${satirlar}`,
+    ).run();
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Bot engelli hedef (üst sınır)");
+    expect(k.deger).toBe(45);
+    expect(k.gecti).toBe(false);
+  });
+
+  it("bot-engel damgası yokken GEÇER", async () => {
+    const env = createMockEnv();
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Bot engelli hedef (üst sınır)");
+    expect(k.deger).toBe(0);
+    expect(k.gecti).toBe(true);
+  });
+
   it("olmayan tabloyu 'geçti' saymaz — hata yutma korumasi", async () => {
     // Bu, tüm sınıfın kök nedeni: sorgu patlayınca sessizce devam edip
     // kontrolü başarılı saymak. sayimKontrolEkle bunu 0/başarısız sayıyor.

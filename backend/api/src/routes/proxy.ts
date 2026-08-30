@@ -513,7 +513,10 @@ proxyRoutes.post("/uydu-analiz", rateLimitMiddleware(5, "uydu-analiz"), async (c
           },
         });
       }
-    } catch { /* KV hata → devam et, fresh analiz yap */ }
+    } catch {
+      // beklenen yokluk: KV cache MISS ya da erişilemez — görünür fallback,
+      // aşağıda taze analiz üretiliyor (X-Cache header'ı HIT yazmıyor).
+    }
   }
 
   // Web Mercator tile koordinatları hesapla

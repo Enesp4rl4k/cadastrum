@@ -19,6 +19,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
+import { log } from "./logger.js";
 
 /** ilanlar.kaynak CHECK kısıtındaki değerler. */
 export type IlanKaynak = "emlakjet" | "hepsiemlak" | "extension" | "sahibinden";
@@ -86,7 +87,15 @@ export async function mahalleKoordinatBul(
       guven: row.guven,
       kaynak: row.guven >= 0.85 ? "mahalle-merkez" : "ilce-fallback",
     };
-  } catch {
+  } catch (e) {
+    // "Tablo yok" ile "bu mahalle tabloda yok" AYNI ŞEY DEĞİL. Eskiden ikisi de
+    // sessizce null dönüyordu ve `mahalle_merkez` tablosunun hiç var olmadığı
+    // aylarca fark edilmedi — koordinat kapsamı %37'de takılıydı. Sorgu HATASI
+    // artık loglanır; satır bulunamaması (yukarıdaki `!row`) sessiz kalır.
+    log.error("veri-katmani.koordinat.sorgu-hatasi", {
+      il: ilNorm, ilce: ilceNorm, mahalle: mahalleNorm,
+      hata: e instanceof Error ? e.message : String(e),
+    });
     return null;
   }
 }
@@ -128,7 +137,14 @@ export async function ilanYaz(db: D1Database, ilan: YeniIlan): Promise<boolean> 
       )
       .run();
     return (r.meta?.changes ?? 0) > 0;
-  } catch {
+  } catch (e) {
+    // Çakışma zaten INSERT OR IGNORE ile sessizce ele alınıyor; buraya düşmek
+    // gerçek bir yazma hatası demek (şema kayması, CHECK ihlali, D1 erişimi).
+    // Sessizce false dönmek bunu "duplicate" gibi gösterirdi.
+    log.error("veri-katmani.ilan-yaz.hata", {
+      kaynak: ilan.kaynak, ilanNo: ilan.ilanNo,
+      hata: e instanceof Error ? e.message : String(e),
+    });
     return false;
   }
 }
@@ -172,14 +188,23 @@ export async function taramaHedefleriGetir(
   }));
 }
 
-/** Bir hedefi taranmış olarak damgalar. Tabloya yazamamak taramayı bozmamalı. */
+/**
+ * Bir hedefi taranmış olarak damgalar. Tabloya yazamamak taramayı bozmamalı.
+ *
+ * Yazma başarısız olursa GÖRÜNÜR olur: rotasyon sırası bu tablodan okunuyor,
+ * damga düşerse aynı ilçe sonsuza kadar yeniden seçilir ve rotasyon birkaç
+ * ilçeye kilitlenir — `scraper_ilce_durum` tam olarak böyle aylarca fark
+ * edilmeden 3 ilçeye kilitlenmişti. Sessizce yutulursa hiçbir yerde iz kalmaz.
+ *
+ * @returns damga yazıldıysa true.
+ */
 export async function taramaDamgala(
   db: D1Database,
   kaynak: IlanKaynak,
   hedef: { ilNorm: string; ilceNorm: string; kategori?: string },
   eklenen: number,
   durum: "tamam" | "hata" | "bot-engel",
-): Promise<void> {
+): Promise<boolean> {
   try {
     await db
       .prepare(
@@ -187,14 +212,28 @@ export async function taramaDamgala(
            (kaynak, il_norm, ilce_norm, kategori, son_tarama, son_eklenen, son_durum)
          VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(kaynak, il_norm, ilce_norm, kategori) DO UPDATE SET
-           son_tarama = excluded.son_tarama,
+           -- Bot engelinde son_tarama İLERLETİLMEZ. Rotasyon 'son_tarama ASC
+           -- NULLS FIRST' ile seçiyor; engellenen ilçeyi taranmış saymak onu
+           -- sıranın en sonuna atar ve aylarca bir daha bakılmaz — hepsiemlak'ta
+           -- 254 ilçe tam olarak böyle kayboldu.
+           son_tarama = CASE WHEN excluded.son_durum = 'bot-engel'
+                             THEN tarama_durum.son_tarama
+                             ELSE excluded.son_tarama END,
            son_eklenen = excluded.son_eklenen,
            son_durum = excluded.son_durum`,
       )
       .bind(kaynak, hedef.ilNorm, hedef.ilceNorm, hedef.kategori ?? "_",
-            Date.now(), eklenen, durum)
+            durum === "bot-engel" ? null : Date.now(), eklenen, durum)
       .run();
-  } catch {
-    /* rotasyon damgası kaybı taramayı bozmamalı */
+    return true;
+  } catch (e) {
+    log.error("veri-katmani.tarama-damgala.basarisiz", {
+      kaynak,
+      il: hedef.ilNorm,
+      ilce: hedef.ilceNorm,
+      kategori: hedef.kategori ?? "_",
+      hata: e instanceof Error ? e.message : String(e),
+    });
+    return false;
   }
 }

@@ -77,6 +77,13 @@ const KONTROL_ESLIKLERI = {
    * (aylarca 3 ilçeye kilitli kalma hatası tam olarak buydu).
    */
   ROTASYON_30_GUN_MIN: 30,
+  /**
+   * 'bot-engel' damgalı hedef sayısı (ÜST sınır). Engellenme artık sessizce
+   * "tarandı" sayılmıyor (Sprint B.4); bu sayının şişmesi kaynağın bizi kalıcı
+   * olarak kısıtladığı anlamına gelir ve hız ayarı gerektirir. Bu kontrol
+   * diğerlerinin AKSİNE üst sınır: değer eşiğin ALTINDA olmalı.
+   */
+  BOT_ENGEL_MAX: 40,
 } as const;
 
 const GUN_MS = 86_400_000;
@@ -234,6 +241,22 @@ export async function pipelineHealthKontrol(
     gecti: (rotasyon?.n ?? 0) >= KONTROL_ESLIKLERI.ROTASYON_30_GUN_MIN,
     mesaj: rotasyon?.n != null
       ? `${rotasyon.n} hedef damgalandı`
+      : "tarama_durum erişim hatası",
+  });
+
+  // Bot engeli birikiyor mu — B.4'ün görünür yüzü. Engellenme artık damgalanıyor;
+  // damga birikirse hızı düşürmek ya da kaynağı beklemek gerekiyor demektir.
+  // Sessiz kalırsa eski davranışa döneriz: engellenen ilçe "ilan yok" sayılır.
+  const botEngel = await db.prepare(
+    `SELECT COUNT(*) as n FROM tarama_durum WHERE son_durum = 'bot-engel'`,
+  ).first<{ n: number }>().catch(() => null);
+  kontroller.push({
+    ad: "Bot engelli hedef (üst sınır)",
+    deger: botEngel?.n ?? 0,
+    esik: KONTROL_ESLIKLERI.BOT_ENGEL_MAX,
+    gecti: (botEngel?.n ?? 0) <= KONTROL_ESLIKLERI.BOT_ENGEL_MAX,
+    mesaj: botEngel?.n != null
+      ? `${botEngel.n} hedef 'bot-engel' damgalı`
       : "tarama_durum erişim hatası",
   });
 

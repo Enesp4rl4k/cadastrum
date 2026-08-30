@@ -13,6 +13,7 @@
     "release:store": "npm run build:store && npm run zip:store",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "lint:catch": "node scripts/catch-disiplini.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

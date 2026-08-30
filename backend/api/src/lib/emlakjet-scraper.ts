@@ -25,6 +25,7 @@
 
 import type { D1Database } from "@cloudflare/workers-types";
 import { ilanYaz, taramaDamgala, type IlanKategori } from "./veri-katmani.js";
+import { log } from "./logger.js";
 
 const EMLAKJET_BASE = "https://www.emlakjet.com";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
@@ -52,7 +53,7 @@ function normalizeYerAdi(s: string): string {
 
 // ── Veri tipleri ─────────────────────────────────────────────────────────────
 
-interface IlanKayit {
+export interface IlanKayit {
   ejId: string;
   ilN: string;
   ilceN: string;
@@ -76,6 +77,10 @@ export interface EmlakjetRunSonuc {
   toplam_insert: number;
   toplam_skip: number;
   hata_adet: number;
+  /** Kaynağın bizi kısıtladığı (429/403/503) ilçe-kategori sayısı. */
+  bot_engel_adet: number;
+  /** Üst üste bot engeli nedeniyle run erken durduysa true. */
+  erken_durdu: boolean;
   sure_ms: number;
 }
 
@@ -85,7 +90,7 @@ export interface EmlakjetRunSonuc {
  * Liste sayfasındaki JSON-LD @graph'tan RealEstateListing objelerini çıkar.
  * Detay sayfasına gitmeden 30 ilan/sayfa parse eder — çok daha hızlı.
  */
-function listeJsonLdParse(html: string, kategoriHedef: string): IlanKayit[] {
+export function listeJsonLdParse(html: string, kategoriHedef: string): IlanKayit[] {
   const sonuc: IlanKayit[] = [];
 
   for (const m of html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)) {
@@ -156,7 +161,7 @@ function listeJsonLdParse(html: string, kategoriHedef: string): IlanKayit[] {
  * Detay sayfası JSON-LD parse (liste JSON-LD yoksa fallback).
  * BreadcrumbList + Product @type kullanır.
  */
-function detayParse(html: string): { il: string | null; ilce: string | null; mahalle: string | null; kategori: "arsa" | "tarla"; fiyat: number | null; m2: number | null } {
+export function detayParse(html: string): { il: string | null; ilce: string | null; mahalle: string | null; kategori: "arsa" | "tarla"; fiyat: number | null; m2: number | null } {
   let fiyat: number | null = null;
   let bc: string[] = [];
   let kategori: "arsa" | "tarla" = "arsa";
@@ -212,7 +217,7 @@ function detayParse(html: string): { il: string | null; ilce: string | null; mah
 }
 
 /** Detay sayfasından ilan başlığını çıkar (h1 önce, yoksa <title>). */
-function baslikCikar(html: string): string | null {
+export function baslikCikar(html: string): string | null {
   const h1 = html.match(/<h1[^>]*>([^<]{3,300})<\/h1>/)?.[1];
   if (h1) return h1.trim().slice(0, 300);
   const t = html.match(/<title[^>]*>([^<]{3,300})<\/title>/)?.[1];
@@ -220,7 +225,7 @@ function baslikCikar(html: string): string | null {
 }
 
 /** İlan bağlantılarını HTML'den çıkar. */
-function ilanLinkleriCikar(html: string): string[] {
+export function ilanLinkleriCikar(html: string): string[] {
   const set = new Set<string>();
   for (const m of html.matchAll(/\/ilan\/[a-z0-9-]+-\d{7,}/g)) set.add(m[0]);
   return [...set];
@@ -228,7 +233,27 @@ function ilanLinkleriCikar(html: string): string[] {
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
 
-async function sayfaCek(url: string, timeoutMs = 20_000): Promise<string | null> {
+/**
+ * Sayfa çekme sonucu — HTTP DURUMU ÇAĞIRANA MUTLAKA DÖNER (Sprint B.4).
+ *
+ * Eskiden bu fonksiyon `!res.ok` durumunda `null` dönüyordu ve çağıran bunu
+ * "bu ilçede ilan yok" ile aynı şey sanıyordu. hepsiemlak'ta aynı kusur 254
+ * ilçenin "tarandı, ilan yok" diye damgalanmasına yol açtı; engellenme veri
+ * yokluğu gibi raporlandı. Durum kodu olmadan bu ikisi ayırt edilemez.
+ *
+ * `status: 0` → ağ hatası / zaman aşımı (yanıt hiç alınamadı).
+ */
+interface SayfaSonuc {
+  status: number;
+  govde: string | null;
+}
+
+/** Kaynağın bizi kısıtladığını söyleyen durumlar — veri yokluğu DEĞİL. */
+export function botEngelMi(status: number): boolean {
+  return status === 429 || status === 403 || status === 503;
+}
+
+async function sayfaCek(url: string, timeoutMs = 20_000): Promise<SayfaSonuc> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -240,10 +265,14 @@ async function sayfaCek(url: string, timeoutMs = 20_000): Promise<string | null>
       },
       signal: ctrl.signal,
     });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
+    if (!res.ok) return { status: res.status, govde: null };
+    return { status: res.status, govde: await res.text() };
+  } catch (e) {
+    log.warn("emlakjet.sayfa-cek.ag-hatasi", {
+      url,
+      hata: e instanceof Error ? e.message : String(e),
+    });
+    return { status: 0, govde: null };
   } finally {
     clearTimeout(t);
   }
@@ -283,6 +312,14 @@ export interface IlceTaramaSonuc {
   atlanan: number;
   sayfa: number;
   hata: boolean;
+  /**
+   * Kaynak bizi kısıtladı (429/403/503). `hata`dan AYRI tutuluyor: bot engeli
+   * "burada ilan yok" değil "bakamadık" demek. Rotasyon damgası bunu
+   * `son_durum='bot-engel'` olarak yazar ki ilçe yeniden sıraya girsin.
+   */
+  botEngel: boolean;
+  /** Son görülen HTTP durumu — 0 ise yanıt hiç alınamadı. */
+  sonDurum: number;
 }
 
 /**
@@ -297,7 +334,10 @@ export async function emlakjetIlceTara(
   kategori: "arsa" | "tarla",
   maxSayfa = 3,
 ): Promise<IlceTaramaSonuc> {
-  const sonuc: IlceTaramaSonuc = { ilN, ilceN, kategori, eklenen: 0, atlanan: 0, sayfa: 0, hata: false };
+  const sonuc: IlceTaramaSonuc = {
+    ilN, ilceN, kategori, eklenen: 0, atlanan: 0, sayfa: 0,
+    hata: false, botEngel: false, sonDurum: 0,
+  };
 
   // URL pattern'ları — il-ilce önce, sadece ilce fallback
   const urlPat = [
@@ -314,10 +354,24 @@ export async function emlakjetIlceTara(
     let html: string | null = null;
 
     for (let p = patIdx; p < urlPat.length; p++) {
-      html = await sayfaCek(urlPat[p](suffix));
+      const r = await sayfaCek(urlPat[p](suffix));
+      sonuc.sonDurum = r.status;
+      // Bot engeli URL kalıbı denemesini anlamsız kılar: ikinci kalıbı denemek
+      // kısıtlamayı derinleştirir. Hemen çık, damga 'bot-engel' olsun.
+      if (botEngelMi(r.status)) {
+        sonuc.botEngel = true;
+        break;
+      }
+      html = r.govde;
       if (html) { patIdx = p; break; }
     }
+    if (sonuc.botEngel) {
+      log.warn("emlakjet.bot-engel", { il: ilN, ilce: ilceN, kategori, sayfa, status: sonuc.sonDurum });
+      break;
+    }
     if (!html) {
+      // 404/başka bir hata ya da ağ hatası — ilçe için VERİ YOK diyemeyiz,
+      // yalnızca bu koşuda alamadık. `hata` bayrağı damgaya taşınıyor.
       sonuc.hata = true;
       break;
     }
@@ -369,7 +423,15 @@ export async function emlakjetIlceTara(
       if (gorulenler.has(ejId)) { sonuc.atlanan++; continue; }
       gorulenler.add(ejId);
 
-      const dhtml = await sayfaCek(`${EMLAKJET_BASE}${link}`);
+      const detay = await sayfaCek(`${EMLAKJET_BASE}${link}`);
+      sonuc.sonDurum = detay.status;
+      if (botEngelMi(detay.status)) {
+        // Detay yolunda engel: kalan linkleri denemek kısıtlamayı derinleştirir.
+        sonuc.botEngel = true;
+        log.warn("emlakjet.bot-engel", { il: ilN, ilce: ilceN, kategori, sayfa, status: detay.status });
+        break;
+      }
+      const dhtml = detay.govde;
       if (!dhtml) continue;
 
       const r = detayParse(dhtml);
@@ -402,6 +464,7 @@ export async function emlakjetIlceTara(
     // Bu fallback yolu ilan başına 1 detay isteği yaptığından pahalı; bu yüzden
     // burada tamamen sınırsız gitmiyoruz — üst üste 2 sayfa hiç yeni ilan
     // getirmediyse gerçekten sonun geldiğini kabul ediyoruz.
+    if (sonuc.botEngel) break;
     if (yeniBuSayfa === 0) {
       if (++ardisikBosSayfa >= 2) break;
     } else {
@@ -410,8 +473,11 @@ export async function emlakjetIlceTara(
   }
 
   // Rotasyon damgası — veri katmanı üzerinden (tarama_durum, migration 0030).
+  // Bot engeli 'hata'dan ayrı damgalanır: rotasyon 'bot-engel' gören ilçeyi
+  // "tarandı, ilan yok" saymamalı, yeniden sıraya almalı.
+  const damgaDurum = sonuc.botEngel ? "bot-engel" : sonuc.hata ? "hata" : "tamam";
   await taramaDamgala(db, "emlakjet", { ilNorm: ilN, ilceNorm: ilceN, kategori },
-                      sonuc.eklenen, sonuc.hata ? "hata" : "tamam");
+                      sonuc.eklenen, damgaDurum);
 
   return sonuc;
 }
@@ -431,6 +497,9 @@ export interface EmlakjetRunGirdi {
 /** Kategori taramaları arası bekleme — bkz. emlakjetRunBaslat içindeki not. */
 const KATEGORI_ARASI_MS = 400;
 
+/** Üst üste kaç bot engeli sonrası koşu, toplananı koruyarak durur. */
+const MAX_ARDISIK_BOT_ENGEL = 3;
+
 export async function emlakjetRunBaslat(
   db: D1Database,
   hedefler: EmlakjetRunGirdi[],
@@ -444,7 +513,11 @@ export async function emlakjetRunBaslat(
   let toplamInsert = 0;
   let toplamSkip = 0;
   let hataAdet = 0;
+  let botEngelAdet = 0;
   let islenen = 0;
+  /** Üst üste bot engeli — kaynağı zorlamak yerine koşuyu bitiriyoruz. */
+  let ardisikBotEngel = 0;
+  let erkenDurdu = false;
 
   // Run kaydı oluştur
   let runId: number | null = null;
@@ -457,9 +530,14 @@ export async function emlakjetRunBaslat(
       .bind(t0, `emlakjet-${tetik}`)
       .run();
     runId = r.meta.last_row_id as number;
-  } catch { /* scraper_run yoksa sessiz */ }
+  } catch (e) {
+    // scraper_run kaydı açılamadı — run görünmez olur ama tarama sürer.
+    // Sessizce geçilmiyor: bu tablo panonun tek koşu geçmişi kaynağı.
+    log.warn("emlakjet.run-kaydi.acilamadi", { hata: e instanceof Error ? e.message : String(e) });
+  }
 
   for (const { ilN, ilceN } of hedeflerSlice) {
+    if (erkenDurdu) break;
     for (const kat of ["arsa", "tarla"] as const) {
       if (!GECERLI_KATEGORI.has(kat)) continue;
       try {
@@ -467,8 +545,26 @@ export async function emlakjetRunBaslat(
         toplamInsert += s.eklenen;
         toplamSkip += s.atlanan;
         if (s.hata) hataAdet++;
-      } catch {
+        if (s.botEngel) {
+          botEngelAdet++;
+          // Engellenme veri yokluğu değil: üst üste görüyorsak devam etmek hem
+          // kısıtlamayı derinleştirir hem de ilçeleri "tarandı" diye damgalar.
+          if (++ardisikBotEngel >= MAX_ARDISIK_BOT_ENGEL) {
+            erkenDurdu = true;
+            log.error("emlakjet.run.bot-engel-durdu", {
+              ardisik: ardisikBotEngel, islenen, toplamInsert,
+            });
+            break;
+          }
+        } else {
+          ardisikBotEngel = 0;
+        }
+      } catch (e) {
         hataAdet++;
+        log.warn("emlakjet.ilce-tara.istisna", {
+          il: ilN, ilce: ilceN, kategori: kat,
+          hata: e instanceof Error ? e.message : String(e),
+        });
       }
       // Kategori taramaları arası nezaket beklemesi. Tarama sıklığı aylıktan
       // günlüğe çıkarıldı (~30x hacim); kaynağa bindirilen anlık yükü aynı
@@ -486,11 +582,19 @@ export async function emlakjetRunBaslat(
       await db
         .prepare(
           `UPDATE scraper_run SET bitis = ?, islenen_ilce = ?, toplam_insert = ?,
-           hata_adet = ?, durum = ? WHERE id = ?`,
+           bot_engel_adet = ?, hata_adet = ?, durum = ? WHERE id = ?`,
         )
-        .bind(Date.now(), islenen, toplamInsert, hataAdet, hataAdet > islenen * 2 ? "hata" : "tamam", runId)
+        .bind(
+          Date.now(), islenen, toplamInsert, botEngelAdet, hataAdet,
+          erkenDurdu ? "bot-bloke" : hataAdet > islenen * 2 ? "hata" : "tamam",
+          runId,
+        )
         .run();
-    } catch { /* sessiz */ }
+    } catch (e) {
+      log.warn("emlakjet.run-kaydi.kapatilamadi", {
+        runId, hata: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   return {
@@ -498,6 +602,8 @@ export async function emlakjetRunBaslat(
     toplam_insert: toplamInsert,
     toplam_skip: toplamSkip,
     hata_adet: hataAdet,
+    bot_engel_adet: botEngelAdet,
+    erken_durdu: erkenDurdu,
     sure_ms: sureMs,
   };
 }
