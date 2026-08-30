@@ -100,14 +100,18 @@ import Base from "../layouts/Base.astro";
       >
         <span class="text-xs text-slate-500 font-medium uppercase tracking-wider pr-1">Katmanlar:</span>
 
-        <!-- Otoyol & D-yolları -->
+        <!-- Otoyollar.
+             ETİKET NOTU: eskiden "Otoyol & D-yol" yazıyordu ama veri setinde
+             (src/lib/data/otoyollar.ts) 12.087 noktanın TAMAMI motorway; hiç
+             trunk (D-yolu) kaydı yok. Katman kodu trunk'ı da çiziyor — veri
+             gelirse hazır — ama düğme olmayan bir şeyi vaat etmemeli. -->
         <button
           data-katman="otoyol"
           aria-pressed="false"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-xs font-medium transition hover:border-red-400 hover:text-red-300 aria-pressed:bg-slate-600 aria-pressed:text-white aria-pressed:border-red-400"
         >
           <span class="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" aria-hidden="true"></span>
-          🛣️ Otoyol & D-yol
+          🛣️ Otoyollar
         </button>
 
         <!-- Havalimanları -->

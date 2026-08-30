@@ -901,8 +901,14 @@ const katmanDurum: Record<string, boolean> = {
   "otoyol": false,
 };
 
-// ─── Otoyol & D-yol layer ─────────────────────────────────────────────────────
-// /geo/otoyollar.geojson — extract-otoyollar.mjs ile üretilir
+// ─── Otoyol layer ─────────────────────────────────────────────────────────────
+// /geo/otoyollar.geojson — `node scripts/site-otoyol-geojson-uret.mjs` ile
+// üretilir (kaynak: src/lib/data/otoyollar.ts, OSM/ODbL).
+//
+// BU DOSYA DEPODA HİÇ YOKTU. Fetch 200 dönüyordu (Cloudflare Pages eşleşmeyen
+// yola anasayfayı sunuyor), `res.json()` HTML'de patlıyor, hata mesajı da
+// aşağıdaki `finally` ile anında siliniyordu: düğmeye basılıyor, hiçbir şey
+// olmuyordu. Artık build'de üretiliyor ve CI güncelliğini kontrol ediyor.
 
 let otoyolVeriYuklendi = false;
 
@@ -919,12 +925,14 @@ async function otoyolLayerEkle() {
       const data = await res.json() as GeoJSON.FeatureCollection;
       harita.addSource("otoyol-src", { type: "geojson", data });
       otoyolVeriYuklendi = true;
+      // Başarı yolunda durum satırı temizlenir; hata yolunda BIRAKILIR.
+      durumGuncelle("");
     } catch (e) {
+      // Hata mesajı `finally` ile silinmiyor: eskiden "alınamadı" yazısı bir
+      // sonraki satırda temizleniyordu ve kullanıcı hiçbir şey göremiyordu.
       console.warn("[otoyol] GeoJSON yüklenemedi:", e);
       durumGuncelle("Otoyol verisi alınamadı");
       return;
-    } finally {
-      durumGuncelle("");
     }
   }
 

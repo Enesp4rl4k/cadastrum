@@ -98,13 +98,15 @@ jobs:
       - name: Site check
         run: npm run check
 
-      # Üretilmiş ilçe listesi kaynağıyla güncel mi? (scripts/site-ilce-listesi-uret.mjs)
-      # Bayatlarsa yeni ilçelerin sayfası sessizce üretilmez.
+      # Üretilmiş site verileri kaynaklarıyla güncel mi?
+      # Bayatlarsa yeni ilçelerin sayfası sessizce üretilmez, otoyol katmanı
+      # sessizce boş kalır. İkisi de "hata yok ama içerik yok" sınıfı.
       - name: Üretilmiş veri güncel mi
         working-directory: .
         run: |
           node scripts/site-ilce-listesi-uret.mjs
-          git diff --exit-code site/src/data/ilceler.ts
+          node scripts/site-otoyol-geojson-uret.mjs
+          git diff --exit-code site/src/data/ilceler.ts site/public/geo/otoyollar.geojson
 
       - name: Site build
         run: npm run build

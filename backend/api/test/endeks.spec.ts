@@ -87,3 +87,64 @@ describe("Cadex Fiyat Endeksi API", () => {
     expect(body.noktalar[0].donem).toBe("2026-07");
   });
 });
+
+/**
+ * TABAN DÖNEM ZAYIFLIĞI.
+ *
+ * Canlıda ölçüldü (Türkiye geneli, arsa):
+ *
+ *   2026-06    882 ilan  ← taban (endeks 100)
+ *   2026-07 11.558 ilan
+ *   2026-08 11.474 ilan
+ *
+ * 882 ilan MIN_BAZ_ILAN_ADET eşiğini (50) geçiyor, yani teknik olarak geçerli
+ * bir taban. Ama veri toplamanın ilk kısmi ayı ve serinin ~%8'i kadar hacimde;
+ * sitede sunulan "+%11,7" bu zayıf tabana göre hesaplanıyor. Eşiği yükseltip
+ * ayı atmak seriyi iki noktaya düşürürdü — doğru yanıt veriyi atmak değil,
+ * zayıflığı BİLDİRMEK.
+ */
+describe("endeks taban dönemi zayıflığı bildiriliyor", () => {
+  /** Endpoint Türkiye genelini `mahalle_zaman_serisi`den ağırlıklı topluyor. */
+  async function seriYaz(env: ReturnType<typeof createMockEnv>, satirlar: Array<[number, number, number, number]>) {
+    for (const [yil, ay, medyan, adet] of satirlar) {
+      await env.DB.prepare(
+        `INSERT INTO mahalle_zaman_serisi
+           (il_norm, ilce_norm, mahalle_norm, kategori, yil, ay, medyan, ilan_adet)
+         VALUES ('istanbul', 'catalca', 'nakkas', 'arsa', ?, ?, ?, ?)`,
+      ).bind(yil, ay, medyan, adet).run();
+    }
+  }
+
+  it("ince taban `baz_zayif: true` ile işaretlenir", async () => {
+    const env = createMockEnv();
+    await seriYaz(env, [
+      [2026, 6, 6495, 882],
+      [2026, 7, 6305, 11558],
+      [2026, 8, 7254, 11474],
+    ]);
+
+    const res = await app.request("/v1/api/endeks?kategori=arsa", { method: "GET" }, env);
+    const body = await res.json() as { baz_donem: string; baz_ilan_adet: number; baz_zayif: boolean };
+
+    expect(body.baz_donem).toBe("2026-06");
+    expect(body.baz_ilan_adet).toBe(882);
+    expect(body.baz_zayif).toBe(true);
+  });
+
+  it("hacmi dengeli seride taban zayıf SAYILMAZ", () => {
+    // Karşı taraf: uyarı her seride çıkarsa anlamını yitirir.
+    return (async () => {
+      const env = createMockEnv();
+      await seriYaz(env, [
+        [2026, 6, 6495, 9800],
+        [2026, 7, 6305, 11558],
+        [2026, 8, 7254, 11474],
+      ]);
+
+      const res = await app.request("/v1/api/endeks?kategori=arsa", { method: "GET" }, env);
+      const body = await res.json() as { baz_zayif: boolean; baz_ilan_adet: number };
+      expect(body.baz_ilan_adet).toBe(9800);
+      expect(body.baz_zayif).toBe(false);
+    })();
+  });
+});

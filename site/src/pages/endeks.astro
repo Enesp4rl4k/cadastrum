@@ -158,6 +158,9 @@ const ILLER = [
       kategori: string;
       noktalar: EndeksNokta[];
       baz_donem: string | null;
+      baz_ilan_adet?: number;
+      /** Taban, serinin tipik hacminin dörtte birinden az veriyle kuruldu. */
+      baz_zayif?: boolean;
     }
 
     const SVG_W = 800, SVG_H = 280;
@@ -182,10 +185,26 @@ const ILLER = [
       const pathD = noktalar.map((n, i) => `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(n.medyan_tl_m2).toFixed(1)}`).join(" ");
       const alanD = `${pathD} L ${xOf(noktalar.length - 1).toFixed(1)} ${(PAD_T + GH).toFixed(1)} L ${PAD_L} ${(PAD_T + GH).toFixed(1)} Z`;
 
+      /**
+       * Y ekseni etiketi — hassasiyet ADIM BÜYÜKLÜĞÜNE göre seçilir.
+       *
+       * Eskiden sabit `Math.round(v/1000)` kullanılıyordu. Canlıda seri
+       * 6.305–7.254 ₺/m² aralığındaydı; beş tick de aynı sayıya yuvarlanıp
+       * eksen "6K, 7K, 7K, 7K, 7K" oluyordu — yani grafik okunamıyordu ve
+       * hiçbir hata da vermiyordu.
+       */
+      const adim = aralik / 4;
+      const eksenEtiket = (v: number): string => {
+        if (adim >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+        if (adim >= 100_000) return `${(v / 1_000_000).toFixed(2)}M`;
+        if (adim >= 1_000) return `${Math.round(v / 1_000)}K`;
+        if (adim >= 100) return `${(v / 1_000).toFixed(1)}K`;
+        return Math.round(v).toLocaleString("tr-TR");
+      };
+
       const yAdimlar = Array.from({ length: 5 }, (_, i) => {
         const v = minV + (aralik * i) / 4;
-        const etiket = v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v/1_000)}K` : String(Math.round(v));
-        return { y: yOf(v), etiket };
+        return { y: yOf(v), etiket: eksenEtiket(v) };
       });
 
       const xEtiketler = noktalar.filter((_, i) => i === 0 || i === noktalar.length - 1 || i % Math.max(1, Math.floor(noktalar.length / 6)) === 0)
@@ -258,7 +277,16 @@ const ILLER = [
           statDeg.textContent = degisim ? `${parseFloat(degisim) >= 0 ? "+" : ""}${degisim}%` : "—";
           statDeg.className = `text-xl font-bold ${degisim && parseFloat(degisim) >= 0 ? "text-emerald-600" : "text-red-600"}`;
         }
-        if (statDonem) statDonem.textContent = `son ${noktalar.length} ay`;
+        if (statDonem) {
+          // Taban zayıfsa yüzde değişim onun gürültüsünü taşıyor — söylenmeli.
+          // Canlı örnek: taban 2026-06 (882 ilan), sonraki aylar ~11.500 ilan.
+          statDonem.textContent = data.baz_zayif
+            ? `son ${noktalar.length} ay · zayıf taban${
+                data.baz_ilan_adet ? ` (${data.baz_ilan_adet.toLocaleString("tr-TR")} ilan)` : ""
+              }`
+            : `son ${noktalar.length} ay`;
+          if (data.baz_zayif) statDonem.className = "text-xs text-amber-600 mt-0.5";
+        }
         if (statIlan) statIlan.textContent = noktalar.reduce((s,n) => s + n.ilan_adet, 0).toLocaleString("tr-TR");
 
         // Grafik

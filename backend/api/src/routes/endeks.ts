@@ -203,12 +203,36 @@ endeksRoutes.get("/", rateLimitMiddleware(30, "endeks"), async (c) => {
       ilan_adet: r.ilan_adet,
     }));
 
+    /**
+     * BAZ DÖNEM İNCELİĞİ AÇIKÇA BİLDİRİLİYOR.
+     *
+     * Eşiği (MIN_BAZ_ILAN_ADET) geçen ama serinin geri kalanına göre çok ince
+     * bir taban, tüm endeksi kendi gürültüsü üzerine kuruyor. Canlı örnek
+     * (Türkiye geneli, arsa):
+     *
+     *   2026-06    882 ilan  ← taban (endeks 100)
+     *   2026-07 11.558 ilan
+     *   2026-08 11.474 ilan
+     *
+     * 882 ilan eşiği geçiyor, yani teknik olarak geçerli; ama veri toplamanın
+     * ilk (kısmi) ayı ve serinin %8'i kadar hacme sahip. "+%11,7" bu tabana
+     * göre hesaplanıyor. Eşiği yükseltip bu ayı atmak seriyi iki noktaya
+     * düşürürdü — doğru yanıt veriyi atmak değil, zayıflığı SÖYLEMEK.
+     */
+    const medyanHacim = [...rows].map((r) => r.ilan_adet).sort((a, b) => a - b)[
+      Math.floor(rows.length / 2)
+    ] ?? 0;
+    const bazZayif = medyanHacim > 0 && bazSatir.ilan_adet < medyanHacim * 0.25;
+
     return c.json(
       {
         il: ilNorm,
         kategori,
         noktalar,
         baz_donem: donemStr(bazSatir.yil, bazSatir.ay),
+        baz_ilan_adet: bazSatir.ilan_adet,
+        /** Taban, serinin tipik hacminin dörtte birinden az veriyle kuruldu. */
+        baz_zayif: bazZayif,
         son_guncelleme: Math.floor(Date.now() / 1000),
       },
       200,

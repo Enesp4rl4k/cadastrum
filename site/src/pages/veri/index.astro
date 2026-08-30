@@ -3,17 +3,71 @@ import Base from "../../layouts/Base.astro";
 
 const norm = (s: string) => s.toLocaleLowerCase("tr").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ö/g,"o").replace(/ç/g,"c").replace(/\s+/g, "-");
 
-// Featured cities — dashboard'da öne çıkar
-const FEATURED = [
-  { il: "İstanbul", aciklama: "39 ilçe, 970+ mahalle", fiyat: "20.5K", kategori: "ortalama" },
-  { il: "Ankara", aciklama: "25 ilçe, 1300+ mahalle", fiyat: "12K", kategori: "ortalama" },
-  { il: "İzmir", aciklama: "30 ilçe, 1300+ mahalle", fiyat: "18K", kategori: "ortalama" },
-  { il: "Antalya", aciklama: "19 ilçe, sahil bölgesi", fiyat: "20K", kategori: "ortalama" },
-  { il: "Muğla", aciklama: "13 ilçe, lüks sahil", fiyat: "45K", kategori: "Bodrum" },
-  { il: "Bursa", aciklama: "17 ilçe, sanayi+turizm", fiyat: "9K", kategori: "ortalama" },
-  { il: "Balıkesir", aciklama: "20 ilçe, kıyı+iç", fiyat: "8.4K", kategori: "Bandırma Yalı" },
-  { il: "Aydın", aciklama: "17 ilçe, Ege sahil", fiyat: "18K", kategori: "Kuşadası" },
+/**
+ * Öne çıkan iller — fiyatlar BUILD ANINDA canlı API'den çekiliyor.
+ *
+ * NEDEN DEĞİŞTİ: burada elle yazılmış sabit fiyatlar vardı ("İstanbul 20.5K
+ * TL/m²") ve sayfanın başında "Canlı veri · Saat başı güncelleme" rozeti
+ * duruyordu. Ölçüldü: API İstanbul için 8.000 TL/m² diyordu — kullanıcıya
+ * gösterilen sayı gerçeğin 2,5 katıydı ve "canlı" diye etiketliydi.
+ *
+ * Veri gelmezse sayı UYDURULMUYOR: "—" gösterilip kart "veri bekleniyor"
+ * durumuna düşüyor (anasayfadaki `index.astro` ile aynı desen).
+ */
+const FEATURED_ILLER = [
+  { il: "İstanbul", aciklama: "39 ilçe, 970+ mahalle" },
+  { il: "Ankara", aciklama: "25 ilçe, 1300+ mahalle" },
+  { il: "İzmir", aciklama: "30 ilçe, 1300+ mahalle" },
+  { il: "Antalya", aciklama: "19 ilçe, sahil bölgesi" },
+  { il: "Muğla", aciklama: "13 ilçe, lüks sahil" },
+  { il: "Bursa", aciklama: "17 ilçe, sanayi+turizm" },
+  { il: "Balıkesir", aciklama: "20 ilçe, kıyı+iç" },
+  { il: "Aydın", aciklama: "17 ilçe, Ege sahil" },
 ];
+
+const { PUBLIC_API_BASE } = await import("../../lib/config");
+
+/** Tek istek: tüm illerin arsa medyanı. Build'i uzatmasın diye 6 sn çit. */
+async function topluOzetGetir(): Promise<Map<string, { medyan: number; ilan: number }>> {
+  const cit = new Promise<null>((res) => setTimeout(() => res(null), 6000));
+  try {
+    const res = await Promise.race([
+      fetch(`${PUBLIC_API_BASE}/fiyat/toplu-ozet?kategori=arsa`),
+      cit,
+    ]);
+    if (!res || !res.ok) {
+      // Build sırasında API erişilemezse sayfa yine üretilir ama fiyat
+      // gösterilmez — sessizce eski sabit sayıya dönmek en kötüsü olurdu.
+      console.warn("[veri] toplu-ozet alınamadı, fiyat kartları boş kalacak");
+      return new Map();
+    }
+    const d = (await res.json()) as { iller?: Array<{ il_norm: string; medyan: number; ilan_adet: number }> };
+    return new Map((d.iller ?? []).map((x) => [x.il_norm, { medyan: x.medyan, ilan: x.ilan_adet }]));
+  } catch (e) {
+    console.warn("[veri] toplu-ozet hatası:", e);
+    return new Map();
+  }
+}
+
+const ozetMap = await topluOzetGetir();
+
+function kisaTL(n: number): string {
+  if (n < 1000) return String(Math.round(n));
+  const bin = n / 1000;
+  // 8.0K yerine 8K — gereksiz ondalık sayıyı "ölçülmüş" göstermiyor.
+  const metin = bin >= 10 ? bin.toFixed(0) : bin.toFixed(1).replace(/\.0$/, "");
+  return `${metin}K`;
+}
+
+const FEATURED = FEATURED_ILLER.map((c) => {
+  const v = ozetMap.get(norm(c.il));
+  return {
+    ...c,
+    fiyat: v?.medyan ? kisaTL(v.medyan) : "—",
+    kategori: v?.ilan ? `${v.ilan.toLocaleString("tr-TR")} ilan` : "veri bekleniyor",
+    varVeri: !!v?.medyan,
+  };
+});
 
 // Top 5 ücretsiz şehir (acquisition + SEO için tam erişim)
 const FREE_ILLER_DISPLAY = new Set(["İstanbul", "Ankara", "İzmir", "Antalya", "Muğla"]);
@@ -32,7 +86,7 @@ const ALL_ILLER = [
 ---
 
 <Base title="Türkiye Mahalle Bazlı Arsa Konut Tarla Fiyat Verisi 2026 | Cadastrum"
-      description="65.000 mahalle, 81 il, 957 ilçe — güncel TL/m² verisi. Sahibinden + Hepsiemlak ilan medyanı, AI baseline, topluluk verisi. Her mahalle için arsa, konut, tarla fiyatı."
+      description="65.000 mahalle, 81 il, 973 ilçe — güncel TL/m² verisi. Emlakjet + Hepsiemlak ilan medyanı, AI baseline, topluluk verisi. Her mahalle için arsa, konut, tarla fiyatı."
       breadcrumb={[
         { ad: "Anasayfa", url: "/" },
         { ad: "Veri", url: "/veri" },
@@ -63,7 +117,10 @@ const ALL_ILLER = [
 
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-champagne-200 text-xs font-medium mb-4">
         <span class="w-1.5 h-1.5 rounded-full bg-champagne-400 animate-pulse"></span>
-        Canlı veri · Saat başı güncelleme
+        {/* "Saat başı güncelleme" yazıyordu ama bu sayfa STATİK: rakamlar
+            build anında çekiliyor, saat başı değil her deploy'da tazeleniyor.
+            İl/ilçe/mahalle sayfaları ise gerçekten canlı (istemciden API). */}
+        Canlı fiyat verisi · her deploy'da tazelenir
       </div>
 
       <h1 class="font-display text-4xl md:text-6xl font-bold leading-tight mb-4 max-w-4xl text-white">
@@ -71,8 +128,9 @@ const ALL_ILLER = [
         <span class="text-champagne-200">Arsa & Konut Fiyat Verisi</span>
       </h1>
       <p class="text-imperial-50 text-lg md:text-xl max-w-2xl mb-8 leading-relaxed">
-        81 il · 957 ilçe · 65.000 mahalle. Sahibinden + Hepsiemlak ilanlarından canlı medyan,
-        AI destekli baseline, topluluk verisi.
+        81 il · 973 ilçe · 65.000 mahalle taranıyor. Emlakjet ve Hepsiemlak taramasından
+        canlı medyan, Sahibinden'de gezen kullanıcılardan topluluk katkısı, veri yetersiz
+        yerlerde AI baseline.
       </p>
 
       <div class="flex flex-wrap gap-6 text-sm">
@@ -82,7 +140,7 @@ const ALL_ILLER = [
         </div>
         <div class="hidden sm:block w-px bg-white/20"></div>
         <div>
-          <div class="font-display text-3xl font-bold">957</div>
+          <div class="font-display text-3xl font-bold">973</div>
           <div class="text-imperial-100 text-xs uppercase tracking-wider">İlçe</div>
         </div>
         <div class="hidden sm:block w-px bg-white/20"></div>
@@ -193,7 +251,9 @@ const ALL_ILLER = [
             <div class="relative">
               <div class="font-display text-xl font-bold text-imperial-700 mb-1 group-hover:text-imperial-500 transition">{c.il}</div>
               <div class="text-[11px] text-slate-500 mb-3 leading-tight">{c.aciklama}</div>
-              <div class="font-display text-2xl font-bold text-imperial mb-0.5">{c.fiyat}<span class="text-sm text-slate-400 font-normal ml-1">TL/m²</span></div>
+              <div class={`font-display text-2xl font-bold mb-0.5 ${c.varVeri ? "text-imperial" : "text-slate-300"}`}>
+                {c.fiyat}{c.varVeri && <span class="text-sm text-slate-400 font-normal ml-1">TL/m²</span>}
+              </div>
               <div class="text-[10px] text-slate-400">{c.kategori}</div>
             </div>
           </a>
@@ -319,6 +379,9 @@ const ALL_ILLER = [
     kategori: string;
     noktalar: EndeksNokta[];
     baz_donem: string | null;
+    baz_ilan_adet?: number;
+    /** Taban, serinin tipik hacminin dörtte birinden az veriyle kuruldu. */
+    baz_zayif?: boolean;
     son_guncelleme: number;
   }
 
@@ -564,7 +627,13 @@ const ALL_ILLER = [
           <span class="font-medium text-slate-700">${ilAd}</span>
         </span>
         <span class="text-slate-400">·</span>
-        <span>Baz dönem: <strong>${data.baz_donem ?? "—"}</strong> = 100</span>
+        <span>Baz dönem: <strong>${data.baz_donem ?? "—"}</strong> = 100${
+          data.baz_zayif
+            ? ` <span title="Taban dönem serinin tipik hacminin dörtte birinden az veriyle kuruldu; yüzde değişim bu zayıf tabana göre." style="color:#b45309">(zayıf taban${
+                data.baz_ilan_adet ? `, ${data.baz_ilan_adet.toLocaleString("tr-TR")} ilan` : ""
+              })</span>`
+            : ""
+        }</span>
         <span class="ml-auto text-slate-400">Kaynak: Cadastrum crowdsource + scraper</span>`;
 
     } catch {

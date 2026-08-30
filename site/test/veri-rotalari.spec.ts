@@ -94,6 +94,46 @@ describe("sitemap ↔ üretilen sayfa kümesi", () => {
   });
 });
 
+describe("harita statik varlıkları", () => {
+  it("otoyollar.geojson VAR ve dolu", () => {
+    // Bu dosya depoda hiç yoktu; harita düğmesi ona fetch atıyordu. Cloudflare
+    // Pages eşleşmeyen yola anasayfayı sunduğu için istek 200 dönüyor,
+    // res.json() HTML'de patlıyor ve hata mesajı anında siliniyordu.
+    const p = join(KOK, "public", "geo", "otoyollar.geojson");
+    expect(existsSync(p)).toBe(true);
+
+    const g = JSON.parse(readFileSync(p, "utf8")) as {
+      type: string;
+      features: Array<{ properties: { tip: string; ad: string }; geometry: { coordinates: number[] } }>;
+    };
+    expect(g.type).toBe("FeatureCollection");
+    expect(g.features.length).toBeGreaterThan(5000);
+  });
+
+  it("otoyol feature'ları katmanın beklediği alanları taşıyor", () => {
+    // Katman `filter: ["==", ["get","tip"], "motorway"]` ve `text-field: ad`
+    // kullanıyor; alan adları değişirse katman sessizce boş çizer.
+    const g = JSON.parse(
+      readFileSync(join(KOK, "public", "geo", "otoyollar.geojson"), "utf8"),
+    ) as { features: Array<{ properties: { tip: string; ad: string }; geometry: { coordinates: number[] } }> };
+
+    const f = g.features[0]!;
+    expect(f.properties.tip).toBe("motorway");
+    expect(typeof f.properties.ad).toBe("string");
+
+    // GeoJSON sırası [lng, lat] — ters yazılırsa noktalar Somali açıklarına düşer.
+    const [lng, lat] = f.geometry.coordinates as [number, number];
+    expect(lat).toBeGreaterThan(35);
+    expect(lat).toBeLessThan(43);
+    expect(lng).toBeGreaterThan(25);
+    expect(lng).toBeLessThan(46);
+  });
+
+  it("POI dosyası da yerinde", () => {
+    expect(existsSync(join(KOK, "public", "geo", "poi-katmanlari.json"))).toBe(true);
+  });
+});
+
 describe("_redirects", () => {
   it("çalışmayan Netlify SPA kuralı geri gelmemiş", () => {
     const r = readFileSync(join(KOK, "public", "_redirects"), "utf8");
