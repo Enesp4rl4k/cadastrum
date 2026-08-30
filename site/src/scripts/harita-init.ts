@@ -370,7 +370,8 @@ function likiditRenk(skor: number): string {
 }
 
 async function likiditVerisiCek(kategori: "arsa" | "tarla"): Promise<IlLikiditeSonuc[]> {
-  const cacheKey = `likidite-v2:${kategori}`;
+  // v3: `veri_var` alanı eklendi (statik tabloda olmayan iller artık işaretli).
+  const cacheKey = `likidite-v3:${kategori}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
@@ -529,7 +530,10 @@ function trendRenk(degisim: number | null): string {
 }
 
 async function trendVerisiCek(kategori: "arsa" | "tarla"): Promise<IlTrendSonuc[]> {
-  const cacheKey = `trend-v1:${kategori}`;
+  // v2: yanıt şekli değişti (degisim_yuzde artık null olabilir, etiket
+  // "Veri yetersiz"). Anahtar yükseltilmezse oturumundaki eski kayıt 1 saat
+  // daha ESKİ (sahte-nötr) tabloyu göstermeye devam ederdi.
+  const cacheKey = `trend-v2:${kategori}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
@@ -696,7 +700,9 @@ function gelSkorRenk(skor: number, fiyatVerisiVar: boolean): string {
 }
 
 async function gelVerisiCek(): Promise<GelIlSonuc[]> {
-  const cacheKey = "gelisen-bolgeler-v1";
+  // v2: `fiyat_verisi_var` alanı eklendi. Eski kayıtta bu alan yok ve kod onu
+  // "var" sayıyor — 24 saat boyunca eski renklendirme sürerdi.
+  const cacheKey = "gelisen-bolgeler-v2";
   try {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {

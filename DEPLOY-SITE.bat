@@ -17,7 +17,13 @@ call npm run build
 if errorlevel 1 (echo BUILD HATASI & pause & exit /b 1)
 echo.
 echo Deploying to Cloudflare Pages...
-call npx wrangler pages deploy dist --project-name cadastrum-site --branch production
+REM DAL ADI KRITIK: bu Pages projesinin production dali `master`.
+REM `--branch production` verilirse deploy PREVIEW olarak gider; komut
+REM "Deployment complete!" yazar ama cadastrum.com.tr HIC DEGISMEZ.
+REM Sessiz basarisizlik — 2026-08-30'da bu sekilde bir deploy kaybedildi.
+REM Dogrulama: npx wrangler pages deployment list --project-name cadastrum-site
+REM            (Environment sutunu "Production" olmali)
+call npx wrangler pages deploy dist --project-name cadastrum-site --branch master --commit-dirty=true
 echo.
 echo TAMAM. Site guncellendi: https://cadastrum.com.tr
 pause
