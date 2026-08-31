@@ -272,6 +272,9 @@ interface KayitOlcum {
    * kalibrasyonun ekseni bu.
    */
   baselineKaynak: string;
+  /** Teshis icin — en kotu kayitlari elle inceleyebilmek. */
+  etiket: string;
+  tahmin: number;
 }
 
 /** Emsal yoğunluğu kovası — H1'in ölçüldüğü eksen. */
@@ -354,6 +357,12 @@ const ozellikliTestAdet: Record<"arsa" | "tarla", number> = { arsa: 0, tarla: 0 
 /** Kırılım raporu — DENEY kolundan (özellikler açık) toplanır. */
 type KirilimRapor = Record<string, Record<string, OlcumSonucu>>;
 const kirilimlar: Record<"arsa" | "tarla", KirilimRapor> = { arsa: {}, tarla: {} };
+/**
+ * En kötü 10 kayıt. Kova ortalaması "hata nerede yoğunlaşıyor" der; bu liste
+ * "hangi kayıt" der. Ağır kuyruklu bir dağılımda (arsa: medyan %69, ortalama
+ * %277) ikincisi olmadan düz bir çarpan yazmak yanlış tedavidir.
+ */
+const enKotular: Record<"arsa" | "tarla", KayitOlcum[]> = { arsa: [], tarla: [] };
 
 /**
  * Tek bir kolu koşar.
@@ -457,12 +466,15 @@ async function koluKostur(
         m2: k.m2,
         tlm2: k.tlm2,
         baselineKaynak: tahmin.baselineKaynak,
+        etiket: `${k.il}/${k.ilce}/${k.mahalle ?? "-"}`,
+        tahmin: Math.round(askingEsdeger),
       });
     }
     hedef[segment] = olc(apeler, biasToplam);
 
     // Kırılım yalnızca DENEY kolundan: özellikler açıkken imar ekseni anlamlı.
     if (ozellikAc) {
+      enKotular[segment] = [...kayitOlcumleri].sort((a, b) => b.ape - a.ape).slice(0, 10);
       kirilimlar[segment] = {
         emsalYogunlugu: kirilimHesapla(kayitOlcumleri, (k) => yogunlukKovasi(k.emsalAdet)),
         imar: kirilimHesapla(kayitOlcumleri, (k) => (k.imarVar ? "imar biliniyor" : "imar yok")),
@@ -656,6 +668,21 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
         }
       }
     }
+
+    const kotuSatirlar: string[] = [];
+    for (const segment of ["arsa", "tarla"] as const) {
+      const liste = enKotular[segment];
+      if (liste.length === 0) continue;
+      kotuSatirlar.push(`  ${segment.toUpperCase()}`);
+      for (const k of liste) {
+        kotuSatirlar.push(
+          `    ${k.etiket.padEnd(42).slice(0, 42)} gerçek ${String(k.tlm2).padStart(7)}` +
+          ` → tahmin ${String(k.tahmin).padStart(8)}  (%${(k.ape * 100).toFixed(0)})` +
+          `  ${k.baselineKaynak}`,
+        );
+      }
+    }
+    console.log("\n── EN KÖTÜ 10 KAYIT (kuyruğun kimliği) ──\n" + kotuSatirlar.join("\n") + "\n");
 
     console.log(
       "\n── HATA KIRILIMI (deney kolu — özellikler açık) ──" +
