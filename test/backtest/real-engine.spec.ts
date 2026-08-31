@@ -201,7 +201,59 @@ function hamKayitlariParseEt(): HamKayit[] {
       (x.imarDurumu ? 2 : 0) + (x.baslik ? 1 : 0) + (x.tapuDurumu ? 1 : 0);
     if (puan(k) > puan(mevcut)) secilen.set(anahtar, k);
   }
-  return [...secilen.values()];
+  return referansKalitesiSuz([...secilen.values()]);
+}
+
+/**
+ * Referans veri kalitesi süzgeci — ölçümün kendisi kirliyken motoru
+ * kalibre etmek, hataya doğru fit etmektir.
+ *
+ * Somut vaka (en kötü kayıt listesinden): istanbul/umraniye/esenkent,
+ * 4.360 m² arsa, 161 TL/m². Toplam 702 bin TL. Ümraniye'de bu fiyat gerçek
+ * olamaz — hisseli satış ya da parser hatası. Motor 20.500 TL/m² diyor ve
+ * MUHTEMELEN HAKLI; buna "%12.633 hata" demek ölçüm aracının yalanı.
+ *
+ * Kural: kayıt, KENDİ ilçesinin medyanının 1/10'undan ucuz ya da 10 katından
+ * pahalıysa düşer. Neden mutlak bir fiyat eşiği DEĞİL: Mardin köyünde 400
+ * TL/m² tarla gerçek, Ümraniye'de 161 TL/m² arsa değil. Fark ilçenin kendi
+ * seviyesinde — süzgeç de oraya bakıyor. Medyan yalnızca n>=20 ilçelerde
+ * hesaplanır; daha azında hiçbir kayıt elenmez (dayanaksız eleme yapmamak
+ * için).
+ *
+ * Elenen sayısı konsola YAZILIR. Sessizce veri atmak, tam da bu projede
+ * yasakladığımız şey.
+ */
+function referansKalitesiSuz(kayitlar: HamKayit[]): HamKayit[] {
+  const gruplar = new Map<string, number[]>();
+  for (const k of kayitlar) {
+    const g = `${k.il}__${k.ilce}__${k.kategori}`;
+    (gruplar.get(g) ?? gruplar.set(g, []).get(g)!).push(k.tlm2);
+  }
+  const medyanlar = new Map<string, number>();
+  for (const [g, liste] of gruplar) {
+    if (liste.length < 20) continue;
+    liste.sort((a, b) => a - b);
+    medyanlar.set(g, liste[Math.floor(liste.length / 2)]!);
+  }
+
+  const kalan: HamKayit[] = [];
+  const elenen: HamKayit[] = [];
+  for (const k of kayitlar) {
+    const med = medyanlar.get(`${k.il}__${k.ilce}__${k.kategori}`);
+    if (med && (k.tlm2 < med / 10 || k.tlm2 > med * 10)) elenen.push(k);
+    else kalan.push(k);
+  }
+
+  console.log(
+    `[backtest] referans kalite süzgeci: ${elenen.length} kayıt elendi ` +
+    `(%${((100 * elenen.length) / Math.max(1, kayitlar.length)).toFixed(2)}) — ` +
+    `ilçe medyanının 10 katı dışında. Ölçülen küme: ${kalan.length}`,
+  );
+  for (const k of elenen.slice(0, 5)) {
+    const med = medyanlar.get(`${k.il}__${k.ilce}__${k.kategori}`)!;
+    console.log(`           örnek: ${k.il}/${k.ilce} ${k.tlm2} TL/m² (ilçe medyanı ${med})`);
+  }
+  return kalan;
 }
 
 /** Deterministik hash → [0,1) — scripts/baseline-cekirdek.mjs:hash01 ile aynı. */
