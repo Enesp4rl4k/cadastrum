@@ -89,6 +89,7 @@ describe("guvenSkoruTavani (kaynak-bazlı üst sınır)", () => {
     expect(guvenSkoruTavani("fallback")).toBeLessThanOrEqual(50);
   });
 
+  // Ölçüm bağlantısı ve statik-tablo koruması test/guven-motoru.spec.ts'te.
   it("monoton: mahalle > ilçe > il > fallback", () => {
     expect(guvenSkoruTavani("ilanGozlem-mahalle"))
       .toBeGreaterThan(guvenSkoruTavani("ilanGozlem-ilce"));

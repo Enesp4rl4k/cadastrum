@@ -27,12 +27,39 @@ export interface BolgeBaselineSonuc {
   uygulananIndirim?: number;
 }
 
-export function guvenSkoruTavani(kaynak: FiyatTahmini["baselineKaynak"]): number {
+/**
+ * Baseline kaynağına göre güven skoru tavanı — ÖLÇÜMDEN türetilmiş.
+ *
+ * Bu tablo eskiden elle yazılmıştı ve ölçülen doğrulukla TERS orantılıydı:
+ * `mahalle-baseline` 90 tavan alıyordu, `ilanGozlem-ilce` ise 88. Oysa
+ * 2026-08-31 backtest koşumu (test/backtest/real-engine.spec.ts, n=2.400,
+ * referans kalite süzgeci uygulanmış) şunu ölçtü:
+ *
+ *   kaynak                ARSA ±%20   ARSA bias   TARLA ±%20   TARLA bias
+ *   ilanGozlem-mahalle      30,1        +7,3        40,8         +8,4
+ *   ilanGozlem-ilce         19,2       +17,9        49,1         +5,1
+ *   mahalle-baseline        19,4      +221,6        47,9        +14,0
+ *
+ * Yani statik mahalle tablosu ARSA'da felaket (bias +%222 — köy arsasını
+ * şehir fiyatıyla etiketliyor), TARLA'da makul. Tek bir sayı iki kategoriyi
+ * birden temsil edemez; tavan artık kategoriye de bakıyor.
+ *
+ * Tavanlar ölçülen ±%20 isabetiyle kabaca orantılı tutuldu. Kesin bir formül
+ * DEĞİL — amaç, kullanıcıya gösterilen güvenin ölçülen doğruluğu geçmemesi.
+ * Ölçüm değişince bu tablo da güncellenmeli (test/guven-motoru.spec.ts
+ * sıralamayı kilitliyor).
+ */
+export function guvenSkoruTavani(
+  kaynak: FiyatTahmini["baselineKaynak"],
+  kategori: "arsa" | "tarla" = "arsa",
+): number {
   switch (kaynak) {
     case "spatial-radius":     return 98;
     case "ilanGozlem-mahalle": return 98;
     case "ilanGozlem-ilce":    return 88;
-    case "mahalle-baseline":   return 90;
+    // ARSA'da ölçülen bias +%222. Bu rakamın 90 güvenle sunulması, projede
+    // ayıkladığımız "uydurma sayıyı veri gibi göstermek" deseninin ta kendisi.
+    case "mahalle-baseline":   return kategori === "tarla" ? 78 : 45;
     case "ilce-semt-baseline": return 80;
     case "ilce-baseline":      return 70;
     case "il-baseline":        return 55;

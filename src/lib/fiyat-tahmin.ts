@@ -417,12 +417,27 @@ export async function fiyatTahminEt(
     manuelEmsalAdet: manuelVeri.emsaller.length,
   });
 
-  const kaynakTavan = guvenSkoruTavani(baseline.kaynak);
+  const kaynakTavan = guvenSkoruTavani(baseline.kaynak, baseline.kategori);
   const guvenSkoru = Math.min(
     kaynakTavan,
     clamp(guvenBilgisi.guvenSkoru + ekGuven.ekSkor, 5, 98),
   );
   const veriKalitesiNotlari = [...guvenBilgisi.veriKalitesiNotlari, ...ekGuven.ekNotlar];
+
+  // Statik mahalle tablosuna düşüldüyse kullanıcı bunu BİLMELİ. Tablonun
+  // 65.925 satırının yalnızca ~1.371'i gerçekten gözlemden geliyor; kalanı
+  // KNN/kırsal türetmesi ve arsada ölçülen sapması +%222. Sayıyı gizlemiyoruz
+  // ama neye dayandığını da saklamıyoruz.
+  if (baseline.kaynak === "mahalle-baseline" && baseline.guvenAdet === 0) {
+    veriKalitesiNotlari.unshift(
+      baseline.kategori === "arsa"
+        ? "⚠️ Bu mahalle için gözlemlenmiş ilan yok — değer statik tablodan geliyor. " +
+          "Arsa segmentinde bu kaynağın ölçülen sapması yüksek (backtest: ±%20 isabet %19). " +
+          "Rakamı bağlayıcı değil, kaba bir referans olarak okuyun."
+        : "Bu mahalle için gözlemlenmiş ilan yok — değer statik tablodan geliyor " +
+          "(backtest: tarlada ±%20 isabet %48).",
+    );
+  }
 
   const ilNorm = parsel.ilAd ? normalizeYerAdi(parsel.ilAd) : "";
   const likidite = ilLikiditeCarpani(ilNorm);
