@@ -1,15 +1,15 @@
 {
-  "olusturuldu": "2026-08-31T01:23:26.386Z",
+  "olusturuldu": "2026-08-31T01:25:32.000Z",
   "not": "Teşhis raporu — eşik DEĞİL. Kovalar n<20 ise raporlanmaz (gürültü).",
   "kirilimlar": {
     "arsa": {
       "emsalYogunlugu": {
         "0 (emsal yok)": {
           "n": 198,
-          "mape": 178.92,
+          "mape": 178.24,
           "medyanApe": 67.19,
           "p90Ape": 229.92,
-          "bias": 116.26,
+          "bias": 115.61,
           "within10": 7.6,
           "within20": 14.1
         },
@@ -24,19 +24,19 @@
         },
         "20+": {
           "n": 107,
-          "mape": 60.01,
+          "mape": 60.02,
           "medyanApe": 34,
           "p90Ape": 90.32,
-          "bias": 18.48,
+          "bias": 18.47,
           "within10": 14,
-          "within20": 28
+          "within20": 27.1
         },
         "5-19": {
           "n": 453,
-          "mape": 50.35,
+          "mape": 50.41,
           "medyanApe": 37.59,
-          "p90Ape": 90.55,
-          "bias": 4.56,
+          "p90Ape": 91.26,
+          "bias": 4.61,
           "within10": 17,
           "within20": 28.7
         }
@@ -44,12 +44,12 @@
       "imar": {
         "imar yok": {
           "n": 1166,
-          "mape": 87.85,
-          "medyanApe": 44.39,
+          "mape": 87.76,
+          "medyanApe": 44.38,
           "p90Ape": 134.78,
-          "bias": 37.39,
+          "bias": 37.3,
           "within10": 13.2,
-          "within20": 24.1
+          "within20": 24
         },
         "imar biliniyor": {
           "n": 34,
@@ -64,7 +64,7 @@
       "alanBandi": {
         "1k-5k": {
           "n": 387,
-          "mape": 102.81,
+          "mape": 102.82,
           "medyanApe": 46.84,
           "p90Ape": 125.69,
           "bias": 50.23,
@@ -82,59 +82,88 @@
         },
         "5k+": {
           "n": 248,
-          "mape": 116.82,
+          "mape": 116.79,
           "medyanApe": 56.42,
           "p90Ape": 207,
-          "bias": 68.8,
+          "bias": 68.78,
           "within10": 8.9,
           "within20": 18.1
         },
         "250-1k": {
           "n": 463,
-          "mape": 65.2,
+          "mape": 64.98,
           "medyanApe": 37.52,
-          "p90Ape": 92.13,
-          "bias": 16.48,
+          "p90Ape": 92.18,
+          "bias": 16.26,
           "within10": 16.2,
-          "within20": 30
+          "within20": 29.8
         }
       },
       "fiyatBandi": {
         "1k-5k": {
           "n": 468,
-          "mape": 57.08,
+          "mape": 57.09,
           "medyanApe": 40.56,
           "p90Ape": 109.4,
-          "bias": 11.87,
+          "bias": 11.86,
           "within10": 13.7,
-          "within20": 26.9
+          "within20": 26.7
         },
         "20k+": {
           "n": 87,
-          "mape": 64.13,
+          "mape": 64.11,
           "medyanApe": 75.05,
           "p90Ape": 92.18,
-          "bias": -62.94,
+          "bias": -62.92,
           "within10": 8,
           "within20": 11.5
         },
         "<1k TL/m²": {
           "n": 319,
-          "mape": 187.6,
+          "mape": 187.27,
           "medyanApe": 52.79,
-          "p90Ape": 367.45,
-          "bias": 170.98,
+          "p90Ape": 369.67,
+          "bias": 170.64,
           "within10": 12.5,
           "within20": 19.7
         },
         "5k-20k": {
           "n": 326,
-          "mape": 43.02,
+          "mape": 43,
           "medyanApe": 38.96,
           "p90Ape": 79.48,
-          "bias": -28.66,
+          "bias": -28.65,
           "within10": 13.8,
           "within20": 27
+        }
+      },
+      "baselineKaynak": {
+        "ilanGozlem-ilce": {
+          "n": 502,
+          "mape": 88.72,
+          "medyanApe": 56.13,
+          "p90Ape": 181.35,
+          "bias": 32.19,
+          "within10": 9,
+          "within20": 19.1
+        },
+        "mahalle-baseline": {
+          "n": 91,
+          "mape": 335.12,
+          "medyanApe": 69.01,
+          "p90Ape": 422.97,
+          "bias": 276.59,
+          "within10": 9.9,
+          "within20": 17.6
+        },
+        "ilanGozlem-mahalle": {
+          "n": 602,
+          "mape": 50.47,
+          "medyanApe": 37.01,
+          "p90Ape": 87.26,
+          "bias": 6.06,
+          "within10": 16.9,
+          "within20": 28.9
         }
       }
     },
@@ -146,24 +175,24 @@
           "medyanApe": 11.18,
           "p90Ape": 38,
           "bias": 0.09,
-          "within10": 46,
+          "within10": 45.5,
           "within20": 73.2
         },
         "1-4": {
           "n": 537,
-          "mape": 39.99,
+          "mape": 40.02,
           "medyanApe": 25.78,
           "p90Ape": 81.32,
-          "bias": 4.08,
-          "within10": 22.3,
+          "bias": 4.11,
+          "within10": 22.2,
           "within20": 39.9
         },
         "5-19": {
           "n": 383,
-          "mape": 50.08,
+          "mape": 50.05,
           "medyanApe": 26.58,
           "p90Ape": 93.36,
-          "bias": 14.39,
+          "bias": 14.36,
           "within10": 19.3,
           "within20": 40.2
         },
@@ -184,7 +213,7 @@
           "medyanApe": 22.64,
           "p90Ape": 85.57,
           "bias": 7.52,
-          "within10": 25.5,
+          "within10": 25.3,
           "within20": 45.7
         }
       },
@@ -194,17 +223,17 @@
           "mape": 40.99,
           "medyanApe": 21.35,
           "p90Ape": 80.56,
-          "bias": 13.66,
+          "bias": 13.67,
           "within10": 23.9,
           "within20": 47.2
         },
         "1k-5k": {
           "n": 464,
-          "mape": 34.92,
+          "mape": 34.93,
           "medyanApe": 20.08,
           "p90Ape": 83.8,
-          "bias": 9.33,
-          "within10": 31.3,
+          "bias": 9.34,
+          "within10": 30.8,
           "within20": 49.8
         },
         "250-1k": {
@@ -229,11 +258,11 @@
       "fiyatBandi": {
         "<1k TL/m²": {
           "n": 641,
-          "mape": 42.9,
+          "mape": 42.91,
           "medyanApe": 19.86,
           "p90Ape": 85.92,
-          "bias": 25.72,
-          "within10": 28.2,
+          "bias": 25.73,
+          "within10": 27.9,
           "within20": 50.4
         },
         "1k-5k": {
@@ -253,6 +282,35 @@
           "bias": -50.42,
           "within10": 12.4,
           "within20": 21
+        }
+      },
+      "baselineKaynak": {
+        "ilanGozlem-ilce": {
+          "n": 605,
+          "mape": 37.77,
+          "medyanApe": 20.3,
+          "p90Ape": 78.31,
+          "bias": 5.12,
+          "within10": 28.1,
+          "within20": 49.1
+        },
+        "ilanGozlem-mahalle": {
+          "n": 522,
+          "mape": 41.47,
+          "medyanApe": 26.44,
+          "p90Ape": 88.79,
+          "bias": 8.43,
+          "within10": 21.3,
+          "within20": 40.8
+        },
+        "mahalle-baseline": {
+          "n": 73,
+          "mape": 61,
+          "medyanApe": 20.45,
+          "p90Ape": 95.93,
+          "bias": 13.98,
+          "within10": 28.8,
+          "within20": 47.9
         }
       }
     }

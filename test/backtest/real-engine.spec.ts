@@ -264,6 +264,14 @@ interface KayitOlcum {
   imarVar: boolean;
   m2: number;
   tlm2: number;
+  /**
+   * Motorun hangi fallback basamagindan fiyat aldigi (mahalle → ilce → il →
+   * sabit). emsalAdet'ten FARKI: emsalAdet backtest'in disaridan hesapladigi
+   * bir sey, baselineKaynak ise motorun tahmin aninda KENDI bildigi deger.
+   * Duzeltme ancak motorun bildigi bir anahtara baglanabilir — bu yuzden
+   * kalibrasyonun ekseni bu.
+   */
+  baselineKaynak: string;
 }
 
 /** Emsal yoğunluğu kovası — H1'in ölçüldüğü eksen. */
@@ -448,6 +456,7 @@ async function koluKostur(
         imarVar: !!k.imarDurumu,
         m2: k.m2,
         tlm2: k.tlm2,
+        baselineKaynak: tahmin.baselineKaynak,
       });
     }
     hedef[segment] = olc(apeler, biasToplam);
@@ -459,6 +468,7 @@ async function koluKostur(
         imar: kirilimHesapla(kayitOlcumleri, (k) => (k.imarVar ? "imar biliniyor" : "imar yok")),
         alanBandi: kirilimHesapla(kayitOlcumleri, (k) => alanKovasi(k.m2)),
         fiyatBandi: kirilimHesapla(kayitOlcumleri, (k) => fiyatKovasi(k.tlm2)),
+        baselineKaynak: kirilimHesapla(kayitOlcumleri, (k) => k.baselineKaynak),
       };
     }
   }
