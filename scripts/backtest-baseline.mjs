@@ -12,6 +12,12 @@
  * İlçe tahmini SADECE train mahallelerinden hesaplanır (test mahallesi sızdırılmaz).
  *
  * Çıktı: data/backtest-rapor.json + konsol özeti.
+ *
+ * DİKKAT — bu bir KAPI DEĞİL, keşif aracıdır. Bunu CI'ya bağlayan
+ * scripts/backtest-guard.mjs 2026-08-31'de silindi: gerçek motoru
+ * (fiyatTahminEt) hiç çağırmadığı için 'doğruluk' adı altında motorun
+ * değil, baseline-cekirdek.mjs kopyasının hatasını ölçüyordu. Tek doğruluk
+ * kapısı artık test/backtest/real-engine.spec.ts.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";

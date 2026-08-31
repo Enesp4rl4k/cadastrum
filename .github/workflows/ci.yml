@@ -40,9 +40,10 @@ jobs:
       - name: Extension tests
         run: npm test
 
-      - name: Accuracy regression guard (proxy)
-        run: node scripts/backtest-guard.mjs
-
+      # Vekil (proxy) backtest guard'i 2026-08-31'de emekliye ayrildi:
+      # ilce-ortalamasi taklidi olcuyordu, motorun kendisini degil. Iki ayri
+      # "dogruluk" sayisi ayni anda yasarken hangisinin bozuldugu belirsizdi.
+      # Tek olcu: asagidaki gercek motor backtest'i (fiyatTahminEt).
       - name: Accuracy regression guard (real engine)
         run: npm run backtest:real
 

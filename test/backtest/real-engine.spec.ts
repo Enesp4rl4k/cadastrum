@@ -2,10 +2,11 @@
  * Gerçek motor backtest'i — fiyatTahminEt()'i tracked emlakjet SQL'inden
  * kurulan hold-out (train/test) verisiyle çalıştırıp gerçek MAPE/within20 ölçer.
  *
- * NEDEN bu dosya var: scripts/backtest-baseline.mjs ve scripts/backtest-guard.mjs
- * gerçek motoru (fiyatTahminEt, bolgeBaseliniGetir) HİÇ çağırmıyor — yalnızca
+ * NEDEN bu dosya var: scripts/backtest-baseline.mjs — ve onu CI'ya bağlayan,
+ * 2026-08-31'de silinen scripts/backtest-guard.mjs — gerçek motoru
+ * (fiyatTahminEt, bolgeBaseliniGetir) HİÇ çağırmıyordu; yalnızca
  * scripts/baseline-cekirdek.mjs'teki elle senkronize tutulan basit bir JS
- * kopyasını ("ilçe medyanı × özellik çarpanı × skew") ölçüyorlar. Bu dosya,
+ * kopyasını ("ilçe medyanı × özellik çarpanı × skew") ölçüyorlardı. Bu dosya,
  * motora yapılan gerçek doğruluk iyileştirmelerinin (emsal ağırlıklandırma,
  * enflasyon endeksleme, rafineri, triangülasyon, spatial-emsal, log-hedonic
  * damping…) görünür olmasını sağlar.
@@ -59,6 +60,23 @@ const MAX_TEST_PER_SEGMENT = 1200; // CI suresini makul tut — deterministik or
 const MAPE_TOLERANS = 5.0;
 const WITHIN_TOLERANS = 3.0;
 const YAZ_MODU = process.env.BACKTEST_YAZ === "1";
+
+/**
+ * SLO — motorun "güvenilir" sayılabilmesi için ulaşması gereken seviye.
+ *
+ * Eşiklerden (mape_max/within20_min) FARKI önemli: eşik "dün ne kadardıysa
+ * bugün daha kötü olmasın" der, yani regresyon kapısıdır ve motor berbatken
+ * de yeşil yanar. SLO ise "ne zaman iyi olur"un tanımı — bugün ikisi de
+ * karşılanmıyor, kasten. Mesafe her koşumda raporlanır ki ilerleme
+ * ölçülebilsin ve "iyileşiyoruz" iddiası sayıya bağlansın.
+ *
+ * within20 ≥ %50: tahminlerin yarısı gerçek fiyatın ±%20'sinde.
+ * |bias| ≤ %10  : sistematik olarak yüksek/düşük tahmin etmiyoruz.
+ *
+ * Assert EDİLMEZ — bugün kırmızı yanan bir kapı CI'yı kalıcı kırmızıya
+ * çevirir, o da hiçbir şey ölçmez hâle gelir.
+ */
+const SLO = { within20_min: 50, bias_mutlak_max: 10 } as const;
 
 // ── Ham SQL parse ────────────────────────────────────────────────────────────
 interface HamKayit {
@@ -221,6 +239,75 @@ function olc(apeler: number[], biasToplam: number): OlcumSonucu {
   };
 }
 
+// ── Kırılım (segment breakdown) ──────────────────────────────────────────────
+/**
+ * NEDEN: tek bir MAPE sayısı motorun NEREDE yanıldığını söylemiyor. İki rakip
+ * hipotez var ve ikisi TAMAMEN FARKLI yatırım gerektiriyor:
+ *
+ *   H1 — KAPSAM:  hata, yakınında emsal olmayan mahallelerde yoğunlaşıyor.
+ *                 Çare: tarama hacmi (mahalle başına ilan).
+ *   H2 — ÖZELLİK: hata, parselin ne olduğunu bilmemekten geliyor.
+ *                 Çare: zenginleştirme hattı (ilan başına imar/tapu).
+ *
+ * Ölçmeden birine yatırım yapmak, bu depoda tekrar tekrar düşülen tuzağın
+ * aynısı olur. Kırılım bu ikisini ayırt etmek için var; ikincil eksenler
+ * (alan/fiyat bandı) hatanın başka yerde yoğunlaşıp yoğunlaşmadığını gösterir.
+ *
+ * Kırılım bir EŞİK DEĞİL, rapor. Genel sayılar hesaplanış biçimini
+ * değiştirmiyor — mevcut eşik kapısı aynen çalışmaya devam ediyor.
+ */
+interface KayitOlcum {
+  ape: number;
+  biasKatki: number;
+  /** Tahmin anında train kümesinde bu mahalle için kaç kayıt vardı. */
+  emsalAdet: number;
+  imarVar: boolean;
+  m2: number;
+  tlm2: number;
+}
+
+/** Emsal yoğunluğu kovası — H1'in ölçüldüğü eksen. */
+function yogunlukKovasi(adet: number): string {
+  if (adet === 0) return "0 (emsal yok)";
+  if (adet < 5) return "1-4";
+  if (adet < 20) return "5-19";
+  return "20+";
+}
+
+function alanKovasi(m2: number): string {
+  if (m2 < 250) return "<250 m²";
+  if (m2 < 1000) return "250-1k";
+  if (m2 < 5000) return "1k-5k";
+  return "5k+";
+}
+
+function fiyatKovasi(tlm2: number): string {
+  if (tlm2 < 1000) return "<1k TL/m²";
+  if (tlm2 < 5000) return "1k-5k";
+  if (tlm2 < 20000) return "5k-20k";
+  return "20k+";
+}
+
+/** Kayıtları bir eksene göre kovalara ayırıp her kova için ölçüm üretir. */
+function kirilimHesapla(
+  kayitlar: KayitOlcum[],
+  kovala: (k: KayitOlcum) => string,
+): Record<string, OlcumSonucu> {
+  const kovalar = new Map<string, KayitOlcum[]>();
+  for (const k of kayitlar) {
+    const ad = kovala(k);
+    if (!kovalar.has(ad)) kovalar.set(ad, []);
+    kovalar.get(ad)!.push(k);
+  }
+  const cikti: Record<string, OlcumSonucu> = {};
+  for (const [ad, grup] of kovalar) {
+    // Küçük kovalar yanıltıcı: 3 kayıtlık bir kovanın MAPE'si gürültüdür.
+    if (grup.length < 20) continue;
+    cikti[ad] = olc(grup.map((g) => g.ape), grup.reduce((t, g) => t + g.biasKatki, 0));
+  }
+  return cikti;
+}
+
 function minimalParsel(k: HamKayit, lat: number, lng: number): Parsel {
   return {
     mahalleKodu: null,
@@ -255,6 +342,10 @@ const sonuclar: Record<"arsa" | "tarla", OlcumSonucu | null> = { arsa: null, tar
 const deneySonuclari: Record<"arsa" | "tarla", OlcumSonucu | null> = { arsa: null, tarla: null };
 /** Deney kolunda özelliği olan test kaydı sayısı — katkı yorumlanırken şart. */
 const ozellikliTestAdet: Record<"arsa" | "tarla", number> = { arsa: 0, tarla: 0 };
+
+/** Kırılım raporu — DENEY kolundan (özellikler açık) toplanır. */
+type KirilimRapor = Record<string, Record<string, OlcumSonucu>>;
+const kirilimlar: Record<"arsa" | "tarla", KirilimRapor> = { arsa: {}, tarla: {} };
 
 /**
  * Tek bir kolu koşar.
@@ -300,6 +391,16 @@ async function koluKostur(
 
   vi.mocked(db.ilanGozlem.toArray).mockResolvedValue(trainIlanGozlem);
 
+  // Mahalle başına train kayıt sayısı — emsal yoğunluğu ekseninin kaynağı.
+  // `bolgeBaseliniGetir` bu havuz üzerinde çalışıyor, dolayısıyla bir tahminin
+  // arkasında kaç emsal olduğunu birebir bu sayı veriyor.
+  const trainYogunluk = new Map<string, number>();
+  for (const k of train) {
+    if (!k.mahalle) continue;
+    const anahtar = `${k.il}__${k.ilce}__${k.mahalle}`;
+    trainYogunluk.set(anahtar, (trainYogunluk.get(anahtar) ?? 0) + 1);
+  }
+
   for (const segment of ["arsa", "tarla"] as const) {
     const segmentTest = test
       .filter((k) => k.kategori === segment && k.mahalle)
@@ -314,6 +415,7 @@ async function koluKostur(
     }
 
     const apeler: number[] = [];
+    const kayitOlcumleri: KayitOlcum[] = [];
     let biasToplam = 0;
     for (const k of segmentTest) {
       const [lat, lng] = MERKEZ_TUPLES[`${k.il}__${k.ilce}__${k.mahalle}`]!;
@@ -336,10 +438,29 @@ async function koluKostur(
           : tahmin.beklenenPerM2;
 
       const ape = Math.abs(askingEsdeger - k.tlm2) / k.tlm2;
+      const biasKatki = (askingEsdeger - k.tlm2) / k.tlm2;
       apeler.push(ape);
-      biasToplam += (askingEsdeger - k.tlm2) / k.tlm2;
+      biasToplam += biasKatki;
+      kayitOlcumleri.push({
+        ape,
+        biasKatki,
+        emsalAdet: trainYogunluk.get(`${k.il}__${k.ilce}__${k.mahalle}`) ?? 0,
+        imarVar: !!k.imarDurumu,
+        m2: k.m2,
+        tlm2: k.tlm2,
+      });
     }
     hedef[segment] = olc(apeler, biasToplam);
+
+    // Kırılım yalnızca DENEY kolundan: özellikler açıkken imar ekseni anlamlı.
+    if (ozellikAc) {
+      kirilimlar[segment] = {
+        emsalYogunlugu: kirilimHesapla(kayitOlcumleri, (k) => yogunlukKovasi(k.emsalAdet)),
+        imar: kirilimHesapla(kayitOlcumleri, (k) => (k.imarVar ? "imar biliniyor" : "imar yok")),
+        alanBandi: kirilimHesapla(kayitOlcumleri, (k) => alanKovasi(k.m2)),
+        fiyatBandi: kirilimHesapla(kayitOlcumleri, (k) => fiyatKovasi(k.tlm2)),
+      };
+    }
   }
 }
 
@@ -375,7 +496,15 @@ beforeAll(async () => {
     writeFileSync(
       ESIK_YOLU,
       JSON.stringify(
-        { olusturuldu: new Date().toISOString(), tolerans: { mape: MAPE_TOLERANS, within20: WITHIN_TOLERANS }, esikler },
+        {
+          olusturuldu: new Date().toISOString(),
+          tolerans: { mape: MAPE_TOLERANS, within20: WITHIN_TOLERANS },
+          slo: {
+            ...SLO,
+            not: "Hedef seviye — regresyon eşiği DEĞİL, assert edilmez. Mesafe her koşumda raporlanır.",
+          },
+          esikler,
+        },
         null,
         2,
       ),
@@ -451,5 +580,99 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
     for (const segment of ["arsa", "tarla"] as const) {
       if (sonuclar[segment]) expect(deneySonuclari[segment]).not.toBeNull();
     }
+  });
+
+  /**
+   * SLO MESAFESİ — "motor ne zaman güvenilir olur"un tek sayfalık cevabı.
+   *
+   * Eşik testi yeşil yanarken bu rapor kırmızı okunabilir; ikisi farklı soruyu
+   * cevaplıyor. Eşik: "dünden kötü müyüz?". Bu: "hedeften ne kadar uzağız?".
+   */
+  it("SLO mesafesini raporlar", () => {
+    const satirlar: string[] = [];
+    for (const segment of ["arsa", "tarla"] as const) {
+      const s = sonuclar[segment];
+      if (!s) continue;
+      const w = SLO.within20_min - s.within20;
+      const b = Math.abs(s.bias) - SLO.bias_mutlak_max;
+      satirlar.push(
+        `  ${segment.padEnd(5)} ±%20 ${s.within20.toFixed(1)} / hedef ${SLO.within20_min}` +
+        `  → ${w <= 0 ? "KARŞILANDI" : `${w.toFixed(1)} puan eksik`}\n` +
+        `        |bias| ${Math.abs(s.bias).toFixed(2)} / hedef ≤${SLO.bias_mutlak_max}` +
+        `  → ${b <= 0 ? "KARŞILANDI" : `${b.toFixed(2)} puan fazla`}`,
+      );
+    }
+    console.log("\n── SLO MESAFESİ (hedef; kapı değil) ──\n" + satirlar.join("\n") + "\n");
+
+    // Güvence: ölçüm var. SLO'nun kendisi assert edilmiyor (bkz. SLO yorumu).
+    expect(satirlar.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * KIRILIM RAPORU — hatanın NEREDE yoğunlaştığı.
+   *
+   * Bu da bir eşik testi değil, teşhis çıktısıdır. Tek bir MAPE sayısı
+   * "motor kötü" der ama ne yapılacağını söylemez. İki rakip hipotez ancak
+   * kırılımla ayrışır:
+   *
+   *   emsalYogunlugu ekseninde hata düşük kovalarda toplanıyorsa → H1 (kapsam),
+   *   imar ekseninde "imar yok" kovası belirgin kötüyse            → H2 (özellik).
+   *
+   * Yatırım kararı (tarama hacmi mi, zenginleştirme hattı mı) bu tabloya bakılarak
+   * verilir. `data/backtest-kirilim.json` dosyası da yazılır ki değişim
+   * koşumlar arasında karşılaştırılabilsin.
+   */
+  it("hatanın nerede yoğunlaştığını raporlar (kırılım)", () => {
+    const satirlar: string[] = [];
+
+    for (const segment of ["arsa", "tarla"] as const) {
+      const kirilim = kirilimlar[segment];
+      if (!kirilim || Object.keys(kirilim).length === 0) continue;
+
+      satirlar.push(`\n  ${segment.toUpperCase()}`);
+      for (const [eksen, kovalar] of Object.entries(kirilim)) {
+        const adlar = Object.keys(kovalar);
+        if (adlar.length === 0) continue;
+        satirlar.push(`    ${eksen}:`);
+        for (const ad of adlar) {
+          const o = kovalar[ad]!;
+          satirlar.push(
+            `      ${ad.padEnd(16)} n=${String(o.n).padStart(5)}` +
+            `  MAPE ${String(o.mape).padStart(7)}` +
+            `  medyan ${String(o.medyanApe).padStart(6)}` +
+            `  ±%20 ${String(o.within20).padStart(5)}` +
+            `  bias ${String(o.bias).padStart(7)}`,
+          );
+        }
+      }
+    }
+
+    console.log(
+      "\n── HATA KIRILIMI (deney kolu — özellikler açık) ──" +
+      satirlar.join("\n") +
+      "\n\n  Okuma: emsalYogunlugu'nda düşük kovalar belirgin kötüyse KAPSAM (H1)," +
+      "\n         imar'da 'imar yok' belirgin kötüyse ÖZELLİK (H2) baskın.\n",
+    );
+
+    writeFileSync(
+      join(ROOT, "data/backtest-kirilim.json"),
+      JSON.stringify(
+        {
+          olusturuldu: new Date().toISOString(),
+          not: "Teşhis raporu — eşik DEĞİL. Kovalar n<20 ise raporlanmaz (gürültü).",
+          kirilimlar,
+        },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+
+    // Güvence: en az bir eksende kova üretilmiş olmalı. Üretilmiyorsa ölçüm
+    // aracı sessizce boş rapor veriyor demektir — tam da yasakladığımız şey.
+    const toplamKova = (["arsa", "tarla"] as const)
+      .flatMap((seg) => Object.values(kirilimlar[seg] ?? {}))
+      .reduce((t, kovalar) => t + Object.keys(kovalar).length, 0);
+    expect(toplamKova).toBeGreaterThan(0);
   });
 });
