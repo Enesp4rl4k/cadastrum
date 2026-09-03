@@ -24,6 +24,7 @@ import { MAHALLE_BASELINE, MAHALLE_BASELINE_TARIH, type MahalleBaselineTuple } f
 import { ILCE_BASELINE_ARSA, ILCE_BASELINE_TARLA, ilceKey, mahalleTipiBelirle, ilceFallbackCarpani } from "./data/ilce-baseline";
 import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./data/ilce-baseline-ai";
 import { MAHALLE_OZELLIK, OZELLIK_ESIK } from "./data/mahalle-ozellik";
+import { mahalleKanonik } from "./data/mahalle-kanonik";
 import { enflasyonDuzelt, enflasyonDuzeltAsync } from "./enflasyon-duzeltme";
 import { normalizeYerAdi } from "./tkgm-api";
 
@@ -118,7 +119,12 @@ export function mahalleKeyOlustur(
   const ilce = normalizeYerAdi(ilceAd);
   const mahalle = normalizeYerAdi(mahalleAd);
   if (!il || !ilce || !mahalle) return null;
-  return `${il}__${ilce}__${mahalle}`;
+  const ham = `${il}__${ilce}__${mahalle}`;
+  // Kaynak sitede bileşik mahalle adları bitişik yazılıyor ("yenikonacik"),
+  // kanonik listede boşluklu ("yeni konacik"). Eşleşmeyen anahtar, toplanmış
+  // emsalin sessizce çöpe gitmesi demek — korpusun %12,9'u bu durumdaydı.
+  // Ayrıntı: data/mahalle-kanonik.ts
+  return mahalleKanonik(ham) ?? ham;
 }
 
 /**
