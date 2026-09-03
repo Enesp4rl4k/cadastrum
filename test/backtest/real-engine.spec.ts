@@ -60,6 +60,7 @@ const MAX_TEST_PER_SEGMENT = 1200; // CI suresini makul tut — deterministik or
 const MAPE_TOLERANS = 5.0;
 const WITHIN_TOLERANS = 3.0;
 const YAZ_MODU = process.env.BACKTEST_YAZ === "1";
+const GUN_MS = 24 * 60 * 60 * 1000;
 
 /**
  * SLO — motorun "güvenilir" sayılabilmesi için ulaşması gereken seviye.
@@ -545,6 +546,29 @@ beforeAll(async () => {
   );
 
   const hamKayitlar = hamKayitlariParseEt();
+
+  /**
+   * SAATİ DONDUR — yoksa ölçüm her gün başka sonuç verir.
+   *
+   * Motor emsal ağırlığını tazeliğe göre veriyor (emsal-havuzu.ts, 30/60/90/120
+   * gün eşikleri) ve enflasyon düzeltmesini `bugün`e göre yapıyor. İkisi de
+   * `Date.now()` okuyor. Aynı kodla arka arkaya koşulan iki ölçüm arasında
+   * arsa ±%20 24,8 → 25,5 oynaması bu yüzden görüldü: gün dönünce bir grup
+   * ilan tazelik eşiğini atladı.
+   *
+   * Dalgalanma küçük ama zararı büyük: "düzeltme işe yaradı mı" sorusunun
+   * cevabı gürültünün içinde kaybolur. Sabit tarih, veri kümesinin EN YENİ
+   * kaydından türetiliyor — böylece veri büyüdükçe referans da ilerler, ama
+   * takvim tek başına ölçümü değiştiremez.
+   */
+  const enYeniKayit = hamKayitlar.reduce((m, k) => Math.max(m, k.tarihTs), 0);
+  const olcumAni = enYeniKayit > 0 ? enYeniKayit + GUN_MS : Date.UTC(2026, 8, 1);
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(olcumAni);
+  console.log(
+    `[backtest] ölçüm saati donduruldu: ${new Date(olcumAni).toISOString().slice(0, 10)} ` +
+    `(en yeni kayıt + 1 gün) — sonuçlar takvimden bağımsız.`,
+  );
   const ozellikliHam = hamKayitlar.filter((k) => k.imarDurumu).length;
   console.log(
     `[backtest] ${hamKayitlar.length} kayıt · imar durumu olan: ${ozellikliHam} ` +
@@ -593,6 +617,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
