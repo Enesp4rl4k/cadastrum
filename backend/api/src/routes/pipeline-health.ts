@@ -85,6 +85,26 @@ const KONTROL_ESLIKLERI = {
    */
   BOT_ENGEL_MAX: 40,
   /**
+   * Bir mahallenin "emsal havuzu var" sayılması için gereken ilan sayısı.
+   *
+   * 5 seçildi çünkü backtest'te hatanın çöktüğü yer tam orası: arsa MAPE
+   * 1-4 emsalde %94, 5-19 emsalde %50. Motorun kendi eşiği
+   * (MIN_MAHALLE_BASELINE_SAMPLES = 3) daha düşük ama o eşik güven skoru
+   * içindir; buradaki soru "tahmin ne zaman iyileşiyor" sorusu.
+   */
+  EMSAL_HAVUZ_ESIGI: 5,
+  /**
+   * Emsal havuzuna sahip mahalle sayısı (arsa). Kapsamın TEK gerçek ölçüsü.
+   *
+   * Neden toplam ilan sayısı yetmiyor: 40 bin ilan sağlıklı görünür ama hepsi
+   * aynı mahallelere yığılmışsa motor kör kalır. 2026-08-31 yerel ölçüm:
+   * 65.718 mahallenin yalnızca 1.268'i (%1,9) arsa havuzuna sahip.
+   *
+   * Eşik bugünkü seviyenin altına konuldu — amaç "iyi mi" demek değil,
+   * GERİLEMEYİ yakalamak. Kapsam arttıkça bu sayı da yükseltilmeli.
+   */
+  HAVUZLU_MAHALLE_MIN: 800,
+  /**
    * `ilanlar` tablosundaki FARKLI il_norm sayısı (ÜST sınır). Türkiye'de 81 il
    * var; fazlası bir yerde uydurulmuş demektir.
    *
@@ -269,6 +289,35 @@ export async function pipelineHealthKontrol(
     mesaj: botEngel?.n != null
       ? `${botEngel.n} hedef 'bot-engel' damgalı`
       : "tarama_durum erişim hatası",
+  });
+
+  // ── EMSAL KAPSAMI ─────────────────────────────────────────────────────────
+  // Motorun doğruluğunu belirleyen tek şey bu sayı. Backtest (ARSA) ölçtü:
+  //   emsal 0    → MAPE %178, bias +%116
+  //   emsal 1-4  → MAPE  %94, bias  +%41
+  //   emsal 5-19 → MAPE  %50, bias   +%5
+  // Yani mahalle başına 5 gözleme ulaşmak, hata yarıya inmek demek.
+  //
+  // Toplam ilan sayısı bu boşluğu GİZLER: 40 bin ilan "sağlıklı" görünür ama
+  // hepsi aynı 8 bin mahalleye yığılmışsa motor hâlâ kör. Bu yüzden ayrı
+  // ölçülüyor. Yerel karşılığı: node scripts/kapsam-raporu.mjs
+  const havuzluMahalle = await db.prepare(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT il_norm, ilce_norm, mahalle_norm
+       FROM ilanlar
+       WHERE aktif = 1 AND kategori = 'arsa' AND mahalle_norm IS NOT NULL
+       GROUP BY il_norm, ilce_norm, mahalle_norm
+       HAVING COUNT(*) >= ?
+     )`,
+  ).bind(KONTROL_ESLIKLERI.EMSAL_HAVUZ_ESIGI).first<{ n: number }>().catch(() => null);
+  kontroller.push({
+    ad: `Havuzlu mahalle (arsa, >=${KONTROL_ESLIKLERI.EMSAL_HAVUZ_ESIGI} emsal)`,
+    deger: havuzluMahalle?.n ?? 0,
+    esik: KONTROL_ESLIKLERI.HAVUZLU_MAHALLE_MIN,
+    gecti: (havuzluMahalle?.n ?? 0) >= KONTROL_ESLIKLERI.HAVUZLU_MAHALLE_MIN,
+    mesaj: havuzluMahalle?.n != null
+      ? `${havuzluMahalle.n.toLocaleString("tr-TR")} mahalle emsal havuzuna sahip`
+      : "ilanlar erişim hatası",
   });
 
   // Hayalet il kontrolü — bkz. IL_SAYISI_MAX notu.

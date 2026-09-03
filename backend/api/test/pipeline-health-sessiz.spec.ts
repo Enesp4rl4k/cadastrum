@@ -161,6 +161,60 @@ describe("pipeline-health sessiz bozulma kontrolleri", () => {
     expect(k.gecti).toBe(true);
   });
 
+  /**
+   * F.1 — EMSAL KAPSAMI. Toplam ilan sayisinin GIZLEDIGI tek sey.
+   *
+   * Backtest olctu (arsa): 1-4 emsalli mahallede MAPE %94, 5-19'da %50.
+   * Yani mahalle basina 5 gozleme ulasmak hatayi yariya indiriyor. Toplam
+   * ilan sayisi bu bosluga kordur: hepsi ayni mahallelere yigilmis 40 bin
+   * ilan "saglikli" gorunur ama motor yine kor kalir.
+   */
+  it("ilanlar tek mahalleye yiginsa havuzlu mahalle sayisi ALARM verir", async () => {
+    const env = createMockEnv();
+    const satirlar = Array.from({ length: 60 }, (_, i) =>
+      `('emlakjet','yigin-${i}','istanbul','catalca','ferhatpasa','arsa',5000,unixepoch(),1)`).join(",");
+    await env.DB.prepare(
+      `INSERT INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
+         kategori, fiyat_per_m2, yakalanma_tarihi, aktif) VALUES ${satirlar}`,
+    ).run();
+
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Havuzlu mahalle (arsa, >=5 emsal)");
+    // 60 ilan var ama TEK mahallede — kapsam 1.
+    expect(k.deger).toBe(1);
+    expect(k.gecti).toBe(false);
+  });
+
+  it("havuz esigini asmayan mahalleler sayilmaz", async () => {
+    // 4 emsal, esik 5. Motorun hatasinin yariya indigi bant 5'ten basliyor;
+    // 4'te durmus bir mahalleyi "kapsandi" saymak, tam da olcumu yalanlamak
+    // olurdu.
+    const env = createMockEnv();
+    const satirlar = Array.from({ length: 4 }, (_, i) =>
+      `('emlakjet','az-${i}','ankara','cankaya','yesilkent','arsa',5000,unixepoch(),1)`).join(",");
+    await env.DB.prepare(
+      `INSERT INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
+         kategori, fiyat_per_m2, yakalanma_tarihi, aktif) VALUES ${satirlar}`,
+    ).run();
+
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Havuzlu mahalle (arsa, >=5 emsal)");
+    expect(k.deger).toBe(0);
+  });
+
+  it("mahalle_norm bos olan ilanlar kapsama girmez", async () => {
+    // Mahallesi bilinmeyen ilan emsal havuzu kuramaz — sayilirsa kapsam
+    // oldugundan buyuk gorunur ve F.1 ilerlemesi yalan soyler.
+    const env = createMockEnv();
+    const satirlar = Array.from({ length: 30 }, (_, i) =>
+      `('emlakjet','bos-${i}','izmir','bornova',NULL,'arsa',5000,unixepoch(),1)`).join(",");
+    await env.DB.prepare(
+      `INSERT INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm,
+         kategori, fiyat_per_m2, yakalanma_tarihi, aktif) VALUES ${satirlar}`,
+    ).run();
+
+    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Havuzlu mahalle (arsa, >=5 emsal)");
+    expect(k.deger).toBe(0);
+  });
+
   it("olmayan tabloyu 'geçti' saymaz — hata yutma korumasi", async () => {
     // Bu, tüm sınıfın kök nedeni: sorgu patlayınca sessizce devam edip
     // kontrolü başarılı saymak. sayimKontrolEkle bunu 0/başarısız sayıyor.

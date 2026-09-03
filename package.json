@@ -23,6 +23,8 @@
     "build:alias-seed:ts": "node scripts/mahalle-alias-uret.mjs --sadece-ts",
     "d1-backup": "node scripts/d1-backup.mjs",
     "veri:rafine": "node scripts/veri-rafine-pipeline.mjs",
+    "kapsam": "node scripts/kapsam-raporu.mjs",
+    "kapsam:liste": "node scripts/kapsam-raporu.mjs --is-listesi",
     "backtest:real": "vitest run --config vitest.backtest.config.ts",
     "backtest:real:yaz": "cross-env BACKTEST_YAZ=1 vitest run --config vitest.backtest.config.ts"
   },
