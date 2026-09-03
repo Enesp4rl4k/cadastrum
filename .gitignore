@@ -92,3 +92,7 @@ scripts/ozellikli-ilanlar.sql
 scripts/.oz-err.txt
 scripts/poi-seed.sql
 scripts/.poi-err.txt
+
+# scripts/ilce-baseline-gozlem-uret.mjs cikti dosyasi — motora bagli DEGIL
+# (olcum reddetti, gerekce ureteç dosyasinin basinda). Repoda tutulmuyor.
+src/lib/data/ilce-baseline-gozlem.ts
