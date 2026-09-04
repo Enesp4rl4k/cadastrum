@@ -1,0 +1,31 @@
+{
+  "olusturuldu": "2026-09-04",
+  "amac": "Faz 5 (uydurma veri politikasi) karari bu olcumlere dayanacak. Karar kurali olcumden ONCE yazildi; bkz. plan Faz 5.",
+  "taban": {
+    "not": "Degisiklik yapilmamis hal — tum deneyler buna karsi okunur.",
+    "arsa":  { "within20": 25.0, "bias": 28.88 },
+    "tarla": { "within20": 45.1, "bias": 9.60 }
+  },
+  "deney_2_2_ilce_baseline_ai_kapali": {
+    "ne": "baseline-engine.ts:ilceFiyatGetir icindeki ILCE_BASELINE_AI_* fallback'i devre disi.",
+    "arsa":  { "within20": 25.0, "bias": 29.18 },
+    "tarla": { "within20": 45.6, "bias": 10.49 },
+    "okuma": "Arsa DEGISMIYOR, tarla ±%20 IYILESIYOR (45,1 -> 45,6). Tablo olculen +-%20 isabeti %3,4 olan bir Groq llama ciktisi; kaldirilmasi olcumu bozmuyor, tarlada duzeltiyor. KALDIRILABILIR."
+  },
+  "deney_2_3_mahalle_baseline_knn_kapali": {
+    "ne": "MAHALLE_BASELINE tuple'lari yok sayilip ilce-only'ye dusuluyor. 38.786 KNN + 21.471 kirsal satirin net katkisi.",
+    "arsa":  { "within20": 22.8, "bias": 97.07 },
+    "tarla": { "within20": 16.8, "bias": 57.66 },
+    "okuma": "FELAKET. Tarla ±%20 45,1 -> 16,8, bias 9,6 -> 57,7. Tablo kendi basamaginda kotu (olculen bias +%248) AMA alternatifi (ilce tablolari, MAPE 123/295) cok daha kotu. KALDIRILAMAZ — Faz 5'te S1/S2 bu tablo icin uygulanamaz."
+  },
+  "olcum_2_4_kapsam": {
+    "arsa":  { "gozlemli": 8413, "havuzlu": 1389, "havuz_yuzde": 2.11, "bant_1_4": 6911, "kanonige_oturmayan_havuzlu": 113 },
+    "tarla": { "gozlemli": 6884, "havuzlu": 610,  "havuz_yuzde": 0.93, "bant_1_4": 6166, "kanonige_oturmayan_havuzlu": 108 },
+    "okuma": "Faz 3 kurtarma kurallarinin tavani: 1-4 bandindaki 6.911 arsa mahallesi havuza cikarilabilirse kapsam ~5 kat artar. Kanonige oturmayan 113+108 havuzlu mahalle ise TARAMA YAPMADAN kurtarilabilecek olan."
+  },
+  "faz5_icin_sonuc": {
+    "ilce_baseline_ai": "KALDIR — olcumu bozmuyor, tarlada duzeltiyor, kendisi rastgeleden farksiz.",
+    "mahalle_baseline": "KALDIRMA — kaldirmak buyuk regresyon. Politika S3 (etiketle + guven tavanini dusur) olmali; S1/S2 uygulanamaz.",
+    "not": "Bu, plandaki karar kuralinin ISLEDIGI anlamina geliyor: iki uydurma tablo icin iki FARKLI cevap cikti ve ikisi de olcumden geldi, sezgiden degil."
+  }
+}
