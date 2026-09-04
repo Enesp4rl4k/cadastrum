@@ -23,6 +23,19 @@
  * (hatta MAPE bir miktar geri geliyor, n=107 ile temkinli okunmalı). Yani
  * hedef "her mahalleyi doldurmak" değil, MAHALLE BAŞINA 5 GÖZLEME ULAŞMAK.
  *
+ * BİLİNEN FARK — bu rapor MOTORDAN DAHA KÖTÜMSER.
+ * Rapor mahalle adlarını birebir eşleştiriyor; motor ise `mahalle-kanonik.ts`
+ * üzerinden iki kural daha uyguluyor (boşluğa duyarsızlık ve "merkez" ilçesinin
+ * `{il} merkez` olarak açılması). 2026-09-04 ölçümü: motor korpusun %94,1'ini
+ * eşleştiriyor, bu rapor daha azını.
+ *
+ * Neden hizalanmadı: çözücü TS ve uzantısız import zinciri kullanıyor; onu
+ * .mjs'ten çağırmak ya zincirdeki her import'a uzantı eklemeyi ya da kuralların
+ * ikinci bir JS kopyasını çıkarmayı gerektiriyordu. İkisi de kabul edilmedi —
+ * iki kopya sessizce ayrışır ve rapor motorun görmediği bir şey iddia eder.
+ * Kötümser yön güvenli yön: rapor sahip olmadığımız kapsamı iddia etmiyor.
+ * Aşağıdaki "kanoniğe oturmayan" sayacı bu farkın büyüklüğünü gösteriyor.
+ *
  * Bu araç iki soruyu ayırıyor:
  *   DERİNLİK — 1-4 gözlemli mahalleler: az iş, büyük kazanç (MAPE 94 → 50)
  *   GENİŞLİK — hiç gözlemi olmayan mahalleler: çok iş, kazanç 178 → 94

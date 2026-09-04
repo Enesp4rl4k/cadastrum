@@ -44,6 +44,54 @@ describe("mahalleKanonik", () => {
   });
 });
 
+/**
+ * MERKEZ İLÇESİ AÇIMI — korpusun en büyük kalan eşleşmeme sınıfı.
+ *
+ * Kaynak site il merkezini kısaca `merkez` yazıyor; kanonik liste (OSM türevi)
+ * `{il} merkez` kullanıyor. 48 ilde aynı kusur: 708 mahalle / 1.386 ilan.
+ * Bu kural olmadan o ilanlar hiçbir mahalleye bağlanamıyordu.
+ */
+describe("merkez ilçesi açımı", () => {
+  it("il__merkez__X anahtarını il__{il} merkez__X'e çözer", () => {
+    expect(mahalleKanonik("adiyaman__merkez__tekpinar"))
+      .toBe("adiyaman__adiyaman merkez__tekpinar");
+    expect(mahalleKanonik("elazig__merkez__yurtbasi"))
+      .toBe("elazig__elazig merkez__yurtbasi");
+  });
+
+  it("çözülen anahtar MERKEZ_TUPLES'ta gerçekten var", () => {
+    const k = mahalleKanonik("adiyaman__merkez__tekpinar")!;
+    expect(MERKEZ_TUPLES[k]).toBeDefined();
+  });
+
+  /**
+   * Kural yalnızca ilçe alanı TAM OLARAK "merkez" iken açılır ve sonucun
+   * kanonik listede bulunması şartı var. Gerçekten "Merkez" adlı bir ilçe
+   * olsaydı birebir anahtar zaten tutar, buraya hiç gelinmezdi.
+   */
+  it("ilçesi merkez olmayan anahtara dokunmaz", () => {
+    expect(mahalleKanonik("adana__pozanti__olmayan yer")).toBeNull();
+  });
+
+  it("merkez ilçesinde de olsa tanınmayan mahalleyi uydurmaz", () => {
+    expect(mahalleKanonik("adiyaman__merkez__boyle bir mahalle yok")).toBeNull();
+  });
+
+  /**
+   * İki kusur aynı kayıtta olabiliyor: hem ilçe "merkez" hem mahalle bitişik
+   * yazılmış. Katmanlar bileşik çalışmazsa bu kayıtlar kaybolur.
+   */
+  it("merkez açımı ile boşluk kuralı birlikte çalışır", () => {
+    const bilesik = Object.keys(MERKEZ_TUPLES).find(
+      (k) => / merkez__/.test(k) && k.split("__")[2]!.includes(" "),
+    );
+    expect(bilesik, "bileşik vaka fixture'ı bulunamadı").toBeDefined();
+    const [il, , mah] = bilesik!.split("__");
+    const bozuk = `${il}__merkez__${mah!.replace(/ /g, "")}`;
+    expect(mahalleKanonik(bozuk)).toBe(bilesik);
+  });
+});
+
 describe("emsal eşleşmesi kanonik anahtar kullanır", () => {
   /**
    * ASIL KAYIP BURADAYDI. emsal-havuzu.ts, kullanıcının parselini (TKGM'den,

@@ -59,7 +59,36 @@ function indeksiKur(): Map<string, string> {
 }
 
 /**
+ * "merkez" ilçesini kanonik yazımına çevirir.
+ *
+ * Kaynak site il merkezini kısaca `merkez` diye yazıyor; kanonik liste (OSM
+ * türevi) `{il} merkez` kullanıyor:
+ *
+ *   toplanan  elazig__merkez__X   ↔   kanonik  elazig__elazig merkez__X
+ *
+ * 708 mahalle / 1.386 ilan bu tek kuralla kurtarılıyor — korpusun en büyük
+ * kalan eşleşmeme sınıfı buydu (48 il).
+ *
+ * GÜVENLİK: yalnızca ilçe alanı TAM OLARAK "merkez" ise devreye girer ve
+ * sonuç kanonik listede varsa kabul edilir. Gerçekten "Merkez" adlı bir ilçe
+ * olsaydı birebir anahtar zaten tutardı ve buraya hiç gelinmezdi.
+ */
+function merkezIlcesiniAc(anahtar: string): string | null {
+  const parcalar = anahtar.split("__");
+  if (parcalar.length < 3) return null;
+  const [il, ilce, ...kalan] = parcalar;
+  if (ilce !== "merkez" || !il) return null;
+  return `${il}__${il} merkez__${kalan.join("__")}`;
+}
+
+/**
  * Bir mahalle anahtarını kanonik hâline çevirir.
+ *
+ * Katmanlar sırayla denenir; her katman bir öncekinin çözemediğini alır:
+ *   1. birebir
+ *   2. boşluğa duyarsız  ("yenikonacik" → "yeni konacik")
+ *   3. merkez ilçesi açımı ("elazig__merkez" → "elazig__elazig merkez")
+ *   4. 3 + 2 birlikte — iki kusur aynı kayıtta olabiliyor
  *
  * @param anahtar "il__ilce__mahalle" (normalizeYerAdi geçmiş)
  * @returns kanonik anahtar, ya da eşleşme yoksa null
@@ -67,7 +96,17 @@ function indeksiKur(): Map<string, string> {
 export function mahalleKanonik(anahtar: string): string | null {
   if (anahtar in MERKEZ_TUPLES) return anahtar;
   _bosluksuzIndeks ??= indeksiKur();
-  return _bosluksuzIndeks.get(anahtar.replace(/ /g, "")) ?? null;
+
+  const bosluksuz = _bosluksuzIndeks.get(anahtar.replace(/ /g, ""));
+  if (bosluksuz) return bosluksuz;
+
+  const merkezli = merkezIlcesiniAc(anahtar);
+  if (merkezli) {
+    if (merkezli in MERKEZ_TUPLES) return merkezli;
+    const ikisi = _bosluksuzIndeks.get(merkezli.replace(/ /g, ""));
+    if (ikisi) return ikisi;
+  }
+  return null;
 }
 
 /**

@@ -1,5 +1,5 @@
 {
-  "olusturuldu": "2026-09-04T22:02:30.713Z",
+  "olusturuldu": "2026-09-04T22:02:30.733Z",
   "tolerans": {
     "mape": 5,
     "within20": 3
@@ -13,28 +13,28 @@
     "arsa": {
       "baseline": {
         "n": 1200,
-        "mape": 78.24,
-        "medyanApe": 42.76,
-        "p90Ape": 114.05,
-        "bias": 28.89,
-        "within10": 12.8,
-        "within20": 25
+        "mape": 68.2,
+        "medyanApe": 43.09,
+        "p90Ape": 115.24,
+        "bias": 18.48,
+        "within10": 12.7,
+        "within20": 24.8
       },
-      "mape_max": 83.24,
-      "within20_min": 22
+      "mape_max": 73.2,
+      "within20_min": 21.8
     },
     "tarla": {
       "baseline": {
         "n": 1200,
-        "mape": 39.98,
-        "medyanApe": 23.06,
-        "p90Ape": 83.45,
-        "bias": 9.59,
-        "within10": 25.4,
-        "within20": 45.1
+        "mape": 42.32,
+        "medyanApe": 24.61,
+        "p90Ape": 86.29,
+        "bias": 9.78,
+        "within10": 24.3,
+        "within20": 43.1
       },
-      "mape_max": 44.98,
-      "within20_min": 42.1
+      "mape_max": 47.32,
+      "within20_min": 40.1
     }
   }
 }
