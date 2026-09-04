@@ -3,6 +3,43 @@
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+// Kanonik cozum kurallari MOTORLA AYNI KAYNAKTAN. Bagimliliksiz saf JS
+// oldugu icin buradan da import edilebiliyor; ikinci bir kopya cikarilmadi.
+import { bosluksuzIndeksKur, kanonikCoz } from "../src/lib/data/mahalle-kanonik-kurallar.mjs";
+
+/**
+ * MERKEZ anahtar kumesi icin bosluksuz indeksi bir kez kurup sakla.
+ * Tarama yuz binlerce kayit isliyor; her kayitta yeniden kurmak kabul edilemez.
+ */
+const _indeksCache = new WeakMap();
+function indeksAl(MERKEZ) {
+  let idx = _indeksCache.get(MERKEZ);
+  if (!idx) { idx = bosluksuzIndeksKur(Object.keys(MERKEZ)); _indeksCache.set(MERKEZ, idx); }
+  return idx;
+}
+
+/**
+ * Bir mahalle anahtarini kanonik hale cevirip koordinatini dondurur.
+ *
+ * NEDEN GEREKLI: eski kod MERKEZ tablosunda BIREBIR anahtar ariyordu. Kaynak
+ * site bilesik adlari bitisik ("yenikonacik") ve il merkezini kisaca "merkez"
+ * yaziyor; kanonik liste "yeni konacik" ve "{il} merkez" kullaniyor. Eslesme
+ * tutmayinca kod il fallback'ine dusuyor, ili buluyor ama lat/lng'yi NULL
+ * birakiyordu. Sonuc: korpusun yalnizca %3,9'unda koordinat var (ayni
+ * mekanizmayi kullanan hepsiemlak korpusunda %69). Koordinatsiz ilan spatial
+ * emsal motoruna hic girmiyor.
+ */
+export function merkezKoordinatBul(MERKEZ, ilN, ilceN, mahN) {
+  if (!ilN || !ilceN || !mahN) return null;
+  const kanonik = kanonikCoz(
+    `${ilN}__${ilceN}__${mahN}`,
+    (k) => k in MERKEZ,
+    indeksAl(MERKEZ),
+  );
+  if (!kanonik) return null;
+  const t = MERKEZ[kanonik];
+  return t ? { lat: t[0], lng: t[1], kanonik } : null;
+}
 
 export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -123,15 +160,18 @@ export function listeJsonLdParse(html, kategoriHedef, MERKEZ) {
       let lat = null;
       let lng = null;
       if (mahN && ilceN) {
-        // MERKEZ key: "il__ilce__mahalle"
-        for (const [key, coords] of Object.entries(MERKEZ)) {
+        // Ilce adindan ili bul, sonra KANONIK cozumle koordinati al.
+        //
+        // Eski kod tek dongude "parts[1]===ilceN && parts[2]===mahN" birebir
+        // eslesmesi ariyordu; mahalle adi tutmayinca il fallback'ine dusup
+        // lat/lng'yi NULL birakiyordu. Korpusun %96,1'i bu yuzden koordinatsiz.
+        for (const key of Object.keys(MERKEZ)) {
           const parts = key.split("__");
-          if (parts[1] === ilceN && (parts[2] === mahN || !mahN)) {
-            ilN = parts[0];
-            lat = coords[0];
-            lng = coords[1];
-            break;
-          }
+          if (parts[1] === ilceN) { ilN = parts[0]; break; }
+        }
+        if (ilN) {
+          const k = merkezKoordinatBul(MERKEZ, ilN, ilceN, mahN);
+          if (k) { lat = k.lat; lng = k.lng; }
         }
       }
       // Fallback: sadece ilçe eşleşmesi
@@ -225,11 +265,30 @@ export function sqlIdleriYukle(...dosyalar) {
   return set;
 }
 
-/** SQL'den kayıtları yükle (resume — sqlYaz üzerine yazmasın diye). */
+/**
+ * SQL'den kayıtları yükle (resume — sqlYaz üzerine yazmasın diye).
+ *
+ * KOORDİNAT UYARISI: bu fonksiyon eskiden `lat: null, lng: null` YAZIYORDU ve
+ * regex'i o kolonları hiç yakalamıyordu. Tarayıcının akışı şöyle:
+ *
+ *   1. sqlKayitlariYukle(...) → mevcut kayıtlar belleğe (koordinatsız)
+ *   2. yeni ilanlar taranıp koordinatlarıyla eklenir
+ *   3. sqlYaz(kayitlar, ...) DOSYANIN TAMAMINI bu diziden yeniden yazar
+ *
+ * Yani her resume koşumu, önceki koşumların koordinatlarını siliyordu.
+ * Yalnızca en son oturumda taranan ilanlarda koordinat kalıyordu — korpusta
+ * ölçülen oran %3,9 (1.627/41.885). Aynı mekanizmayı kullanan hepsiemlak
+ * korpusunda %69 olmasının sebebi, orada tek bir koşum olması.
+ *
+ * Hiçbir hata verilmiyordu: dosya büyümeye devam ediyor, ilan sayısı artıyor,
+ * yalnızca bir kolon sessizce boşalıyordu.
+ */
 export function sqlKayitlariYukle(...dosyalar) {
   const byId = new Map();
+  // Kolon sırası: kaynak, ilan_no, il, ilce, mahalle, tlm2, m2, kategori,
+  //               para_birimi, yakalanma_tarihi, lat, lng, ...
   const re =
-    /'(?:emlakjet|extension)','ej_([^']+)','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)'/g;
+    /'(?:emlakjet|extension)','ej_([^']+)','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)','[^']*',\d+,([^,]+),([^,]+),/g;
   for (const p of dosyalar) {
     if (!existsSync(p)) continue;
     const metin = readFileSync(p, "utf8");
@@ -244,8 +303,8 @@ export function sqlKayitlariYukle(...dosyalar) {
         tlm2: parseInt(m[5], 10),
         m2: parseInt(m[6], 10),
         kategori: m[7],
-        lat: null,
-        lng: null,
+        lat: m[8] === "NULL" ? null : parseFloat(m[8]),
+        lng: m[9] === "NULL" ? null : parseFloat(m[9]),
       });
     }
   }
@@ -298,7 +357,8 @@ export async function detaydanKayit(link, MERKEZ, gorulenler, kayitlar, delayMs 
     let lat = null,
       lng = null;
     if (mahN) {
-      const t = MERKEZ[`${ilN}__${ilceN}__${mahN}`];
+      const kk = merkezKoordinatBul(MERKEZ, ilN, ilceN, mahN);
+      const t = kk ? [kk.lat, kk.lng] : undefined;
       if (t) {
         lat = t[0];
         lng = t[1];

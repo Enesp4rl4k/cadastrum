@@ -31,82 +31,25 @@
  */
 
 import { MERKEZ_TUPLES } from "./mahalle-merkezleri";
+import { bosluksuzIndeksKur, kanonikCoz } from "./mahalle-kanonik-kurallar.mjs";
 
 /** "il__ilce__bosluksuzmahalle" → kanonik "il__ilce__mahalle" */
 let _bosluksuzIndeks: Map<string, string> | null = null;
 
 /**
- * Boşluksuz indeks — ilk çağrıda kurulur.
- *
- * Aynı ilçede boşlukları silindiğinde çakışan iki mahalle varsa İKİSİ DE
- * indeksten çıkarılır. Çakışmada rastgele birini seçmek, emsali yanlış
- * mahalleye yazmak demektir; eşleştirmemek daha az zararlı.
- */
-function indeksiKur(): Map<string, string> {
-  const sayim = new Map<string, string[]>();
-  for (const anahtar of Object.keys(MERKEZ_TUPLES)) {
-    const bosluksuz = anahtar.replace(/ /g, "");
-    if (bosluksuz === anahtar) continue; // boşluksuz adlar zaten birebir eşleşir
-    const liste = sayim.get(bosluksuz) ?? [];
-    liste.push(anahtar);
-    sayim.set(bosluksuz, liste);
-  }
-  const indeks = new Map<string, string>();
-  for (const [bosluksuz, adaylar] of sayim) {
-    if (adaylar.length === 1) indeks.set(bosluksuz, adaylar[0]!);
-  }
-  return indeks;
-}
-
-/**
- * "merkez" ilçesini kanonik yazımına çevirir.
- *
- * Kaynak site il merkezini kısaca `merkez` diye yazıyor; kanonik liste (OSM
- * türevi) `{il} merkez` kullanıyor:
- *
- *   toplanan  elazig__merkez__X   ↔   kanonik  elazig__elazig merkez__X
- *
- * 708 mahalle / 1.386 ilan bu tek kuralla kurtarılıyor — korpusun en büyük
- * kalan eşleşmeme sınıfı buydu (48 il).
- *
- * GÜVENLİK: yalnızca ilçe alanı TAM OLARAK "merkez" ise devreye girer ve
- * sonuç kanonik listede varsa kabul edilir. Gerçekten "Merkez" adlı bir ilçe
- * olsaydı birebir anahtar zaten tutardı ve buraya hiç gelinmezdi.
- */
-function merkezIlcesiniAc(anahtar: string): string | null {
-  const parcalar = anahtar.split("__");
-  if (parcalar.length < 3) return null;
-  const [il, ilce, ...kalan] = parcalar;
-  if (ilce !== "merkez" || !il) return null;
-  return `${il}__${il} merkez__${kalan.join("__")}`;
-}
-
-/**
  * Bir mahalle anahtarını kanonik hâline çevirir.
  *
- * Katmanlar sırayla denenir; her katman bir öncekinin çözemediğini alır:
- *   1. birebir
- *   2. boşluğa duyarsız  ("yenikonacik" → "yeni konacik")
- *   3. merkez ilçesi açımı ("elazig__merkez" → "elazig__elazig merkez")
- *   4. 3 + 2 birlikte — iki kusur aynı kayıtta olabiliyor
+ * Kurallar `mahalle-kanonik-kurallar.mjs`'te — orayı `scripts/*.mjs` de
+ * import ediyor. Kuralların ikinci bir kopyası ÇIKARILMADI: iki kopya
+ * sessizce ayrışır ve tarayıcı bir anahtarı çözemezken motor çözer (ya da
+ * tersi), kimse fark etmez.
  *
  * @param anahtar "il__ilce__mahalle" (normalizeYerAdi geçmiş)
  * @returns kanonik anahtar, ya da eşleşme yoksa null
  */
 export function mahalleKanonik(anahtar: string): string | null {
-  if (anahtar in MERKEZ_TUPLES) return anahtar;
-  _bosluksuzIndeks ??= indeksiKur();
-
-  const bosluksuz = _bosluksuzIndeks.get(anahtar.replace(/ /g, ""));
-  if (bosluksuz) return bosluksuz;
-
-  const merkezli = merkezIlcesiniAc(anahtar);
-  if (merkezli) {
-    if (merkezli in MERKEZ_TUPLES) return merkezli;
-    const ikisi = _bosluksuzIndeks.get(merkezli.replace(/ /g, ""));
-    if (ikisi) return ikisi;
-  }
-  return null;
+  const idx = (_bosluksuzIndeks ??= bosluksuzIndeksKur(Object.keys(MERKEZ_TUPLES)));
+  return kanonikCoz(anahtar, (k: string) => k in MERKEZ_TUPLES, idx);
 }
 
 /**
@@ -130,6 +73,6 @@ export function kanonikAnahtar(
 
 /** Test/teşhis için — indeksin kaç mahalleyi kurtarabildiği. */
 export function kanonikIndeksBoyutu(): number {
-  _bosluksuzIndeks ??= indeksiKur();
-  return _bosluksuzIndeks.size;
+  const idx = (_bosluksuzIndeks ??= bosluksuzIndeksKur(Object.keys(MERKEZ_TUPLES)));
+  return idx.size;
 }
