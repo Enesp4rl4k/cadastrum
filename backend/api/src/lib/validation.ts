@@ -19,7 +19,22 @@ export const IlceAnalizQuerySchema = z.object({
 
 export const IlanIngestSchema = z.object({
   kaynak: z.enum(["sahibinden", "hepsiemlak", "extension", "emlakjet"]),
-  ilanNo: z.string().min(1, "�lan numaras� bo� olamaz").max(64),
+  /**
+   * SENTETİK İLAN YASAĞI — `bl_` önekli ilan_no reddedilir.
+   *
+   * 2026-09-04'te silinen `scripts/seed-baseline-sql.mjs`, `mahalle-baseline.ts`
+   * tahminlerinden 109.272 satır üretip `kaynak='extension'` etiketiyle
+   * `ilanlar` tablosuna basıyordu. Tek ayırt edici işaret bu önekti ve onu
+   * filtreleyen tek satır kod yoktu — yani tahmin, gözlem havuzuna gözlem
+   * kılığında giriyordu. Gerekçe: scripts/SENTETIK-ILAN-YASAGI.md
+   *
+   * Üretimde hiç çalıştırılmamıştı (doğrulandı: canlı sayım 0). Bu kural o
+   * durumun korunması için.
+   */
+  ilanNo: z.string().min(1, "İlan numarası boş olamaz").max(64)
+    .refine((v) => !v.startsWith("bl_"), {
+      message: "Sentetik baseline ilan numarası kabul edilmez (bkz. scripts/SENTETIK-ILAN-YASAGI.md)",
+    }),
   il: z.string().min(1).max(50),
   ilce: z.string().min(1).max(50),
   mahalle: z.string().max(100).optional().nullable(),
