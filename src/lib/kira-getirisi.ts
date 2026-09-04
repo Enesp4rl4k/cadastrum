@@ -1,10 +1,21 @@
 /**
  * Kira getirisi tahmini.
  *
- * 3 katmanlı veri stratejisi (öncelik sırasıyla):
- *   1. Backend API — D1'deki kira_istatistik tablosu (mahalle bazlı, scrape verisi)
- *   2. Statik il tablosu — 2026 Q1 Endeksa/Hepsiemlak ortalamaları
- *   3. Fallback — Türkiye ortalaması
+ * FİİLEN TEK KATMAN — statik il tablosu.
+ *
+ * Başlık eskiden "3 katmanlı veri stratejisi" diyor ve ilk katman olarak
+ * "D1'deki kira_istatistik tablosu"nu sayıyordu. Bu katman HİÇ İNŞA EDİLMEDİ:
+ * `kira_istatistik` için hiçbir migration yok, bu dosyada hiçbir fetch yok,
+ * ve üreteci (`scripts/kira-scrape.mjs`) hiç çalıştırılmamış — çıktısı diskte
+ * yok. Yani kod her zaman 2. katmandan başlıyordu.
+ *
+ * Vaadi başlıkta bırakmak, olmayan bir veri kaynağını varmış gibi gösteriyordu.
+ * `KiraTahmini.kaynak` tipindeki "backend-mahalle" ve "backend-ilce" değerleri
+ * de bu yüzden ÖLÜ — hiçbir kod yolu onları üretmiyor.
+ *
+ * Gerçek katmanlar:
+ *   1. Statik il tablosu — 2026 Q1 Endeksa/Hepsiemlak ortalamaları
+ *   2. Fallback — Türkiye ortalaması
  *
  * Sadece konut kategori için anlam taşır; arsa/tarla için null.
  *

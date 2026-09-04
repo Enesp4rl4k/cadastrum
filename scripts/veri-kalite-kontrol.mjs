@@ -20,8 +20,6 @@ const DOSYALAR = dosyaArg
   ? [join(ROOT, dosyaArg)]
   : [
       join(ROOT, "scripts/emlakjet-data-turkiye.sql"),
-      join(ROOT, "scripts/emlakjet-data-full.sql"),
-      join(ROOT, "scripts/emlakjet-data.sql"),
     ].filter((p) => existsSync(p));
 
 if (DOSYALAR.length === 0) {

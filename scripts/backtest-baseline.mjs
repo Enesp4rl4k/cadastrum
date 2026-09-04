@@ -180,7 +180,6 @@ export function backtest(segment, ozellikMap, katsayilar) {
 
 const SQL_DOSYALAR = [
   join(ROOT, "scripts/emlakjet-data-turkiye.sql"),
-  join(ROOT, "scripts/emlakjet-data-full.sql"),
 ].filter((p) => existsSync(p));
 
 function yuzdelik(arr, p) {

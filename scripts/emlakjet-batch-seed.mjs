@@ -46,8 +46,6 @@ if (!SEED_SECRET) {
 // SQL dosyasını bul
 const SQL_DOSYALAR = [
   join(ROOT, "scripts", "emlakjet-data-turkiye.sql"),
-  join(ROOT, "scripts", "emlakjet-data-full.sql"),
-  join(ROOT, "scripts", "emlakjet-data.sql"),
 ];
 
 let sqlDosya = null;

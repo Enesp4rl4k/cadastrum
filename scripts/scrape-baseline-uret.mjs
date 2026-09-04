@@ -18,8 +18,6 @@ const ROOT = join(__dirname, "..");
 
 const SQL_DOSYALAR = [
   join(ROOT, "scripts/emlakjet-data-turkiye.sql"),
-  join(ROOT, "scripts/emlakjet-data-full.sql"),
-  join(ROOT, "scripts/emlakjet-data.sql"),
 ].filter((p) => existsSync(p));
 
 function medyan(arr) {

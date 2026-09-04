@@ -22,7 +22,6 @@
     "build:alias-seed": "node scripts/mahalle-alias-uret.mjs",
     "build:alias-seed:ts": "node scripts/mahalle-alias-uret.mjs --sadece-ts",
     "d1-backup": "node scripts/d1-backup.mjs",
-    "veri:rafine": "node scripts/veri-rafine-pipeline.mjs",
     "kapsam": "node scripts/kapsam-raporu.mjs",
     "tarama:gece": "node scripts/emlakjet-scrape-turkiye.mjs --hedef-listesi --max-sayfa=25 --tazele-gun=180",
     "koordinat:doldur": "node scripts/koordinat-geri-doldur.mjs",

@@ -37,7 +37,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const CIKTI = join(ROOT, "scripts", "emlakjet-data-turkiye.sql");
 const PROGRESS = join(ROOT, "data", "emlakjet-scrape-progress.json");
-const FULL_SQL = join(ROOT, "scripts", "emlakjet-data-full.sql");
 
 const args = process.argv.slice(2);
 const get = (k) => args.find((a) => a.startsWith(`--${k}=`))?.split("=")[1];
@@ -132,9 +131,9 @@ if (tazeleGun > 0) {
   }
   console.log(`  TAZELEME: ${tazeleGun} günden eski ${dusen} hedef yeniden sıraya alındı`);
 }
-const kayitlar = sqlKayitlariYukle(CIKTI, FULL_SQL);
+const kayitlar = sqlKayitlariYukle(CIKTI);
 const gorulenler = new Set(kayitlar.map((k) => k.id));
-for (const id of sqlIdleriYukle(CIKTI, FULL_SQL)) gorulenler.add(id);
+for (const id of sqlIdleriYukle(CIKTI)) gorulenler.add(id);
 console.log(
   `  Resume: ${gorulenler.size} ilan id, ${kayitlar.length} kayıt bellekte, ${completedSet.size} tamamlanmış ilçe/kategori`,
 );
