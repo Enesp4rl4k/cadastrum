@@ -106,6 +106,9 @@ export function emsalAdaylariniOlustur(parsel: Parsel, kayitlar: IlanGozlem[]): 
   const mahalleNorm = parsel.mahalleAd ? normalizeYerAdi(parsel.mahalleAd) : "";
   const ilceNorm = parsel.ilceAd ? normalizeYerAdi(parsel.ilceAd) : "";
   const ilNorm = parsel.ilAd ? normalizeYerAdi(parsel.ilAd) : "";
+  // Parselin kanonik anahtari dongu DISINDA bir kez — icerde hesaplamak
+  // kayit sayisi kadar tekrar demekti.
+  const parselKanonik = kanonikAnahtar(ilNorm, ilceNorm, mahalleNorm);
   const parselSegment = segmentBul(parsel.nitelik);
   const parselImar = imarSiniflandir(parsel, null);
 
@@ -129,18 +132,23 @@ export function emsalAdaylariniOlustur(parsel: Parsel, kayitlar: IlanGozlem[]): 
     const kayitMahalleNorm =
       kayit.mahalleNorm ?? (kayit.mahalleAd ? normalizeYerAdi(kayit.mahalleAd) : "");
     const isSameIlce = !!ilceNorm && kayitIlceNorm === ilceNorm;
+    if (!isSameIlce) continue;
+
     // Mahalle karsilastirmasi KANONIK anahtar uzerinden. Duz string
     // karsilastirmasi, kaynak sitenin bitisik yazdigi bilesik adlari
     // ("yenikonacik") TKGM'nin bosluklu adiyla ("yeni konacik") hicbir zaman
     // eslestiremiyordu; korpusun %12,9'u bu yuzden emsal havuzuna girmiyordu.
     // Ayrinti: src/lib/data/mahalle-kanonik.ts
+    //
+    // SICAK DONGU: kanonik cozum yalnizca duz esitlik TUTMAYINCA ve ilce
+    // zaten eslesmisken cagriliyor. Ilk hali her kayit icin iki kez
+    // cagiriyordu ve backtest 45s'den 389s'e cikmisti — ayni kod uzantida
+    // her parsel acilisinda kullanicinin makinesinde kosuyor.
     const isSameMahalle =
       !!mahalleNorm &&
       !!kayitMahalleNorm &&
       (kayitMahalleNorm === mahalleNorm ||
-        kanonikAnahtar(ilNorm, ilceNorm, kayitMahalleNorm) ===
-          kanonikAnahtar(ilNorm, ilceNorm, mahalleNorm));
-    if (!isSameIlce) continue;
+        kanonikAnahtar(ilNorm, ilceNorm, kayitMahalleNorm) === parselKanonik);
 
     const segment = segmentBul(`${kayit.baslik ?? ""} ${kayit.imarDurumu ?? ""}`);
     const segmentScore = segmentUyumu(parselSegment, segment);
