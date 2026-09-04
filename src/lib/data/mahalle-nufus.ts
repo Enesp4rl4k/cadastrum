@@ -1,15 +1,23 @@
 import { IL_NUFUS_YOGUNLUGU } from "./il-nufus";
 
 /**
- * Mahalle & İlçe bazlı nüfus yoğunluğu — TÜİK ADNKS 2023.
+ * İlçe bazlı nüfus yoğunluğu — ELLE DERLENMİŞ, TÜİK'ten AYRIŞTIRILMAMIŞ.
  *
- * Kaynak: TÜİK Adrese Dayalı Nüfus Kayıt Sistemi 2023
- * https://data.tuik.gov.tr/Bulten/Index?p=Adrese-Dayali-Nufus-Kayit-Sistemi-Sonuclari-2023-49684
+ * KAYNAK İDDİASI DÜZELTİLDİ (2026-09-05). Bu dosya "TÜİK ADNKS 2023" diye
+ * sunuluyordu; gerçekte içerik elle yazılmış ~200 ilçelik yuvarlak sayı
+ * (8200, 7600, 4500, 120, 40...). TÜİK bülteni okundu ama hiçbir CSV
+ * ayrıştırılmadı, üreteç yok, doğrulanabilir bir iz yok.
+ * Referans olarak bülten: https://data.tuik.gov.tr/Bulten/Index?p=Adrese-Dayali-Nufus-Kayit-Sistemi-Sonuclari-2023-49684
  *
  * Strateji (3 katmanlı fallback):
- *   1. Mahalle bazlı lookup (mahalle kodu → kişi/km²) — en hassas
- *   2. İlçe bazlı lookup  (ilNorm+ilceNorm → kişi/km²) — orta
+ *   1. Mahalle bazlı lookup — VAAT EDİLDİ AMA HİÇ DOLDURULMADI (tip alanı
+ *      `seviye: "ilce" | "il"`, mahalle seviyesi yok). Yani bu katman ölü.
+ *   2. İlçe bazlı lookup  (ilNorm+ilceNorm → kişi/km²) — fiilen tek katman
  *   3. İl bazlı fallback  (il-nufus.ts) — en kaba
+ *
+ * FİYAT ZİNCİRİNDEN ÇIKARILDI: `nufusYogunlukCarpani` ölçüldü ve tahmini
+ * BOZDUĞU görüldü (arsa ±%20 24,8 → 25,5, bias 18,44 → 15,98 kapatılınca).
+ * Bkz. fiyat-tahmin.ts. Yatırım skoru tarafındaki kullanımı ayrı ölçülmeli.
  *
  * Fiyat etkisi:
  *   - Mahalle yoğunluğu il yoğunluğundan 5-10x sapabilir

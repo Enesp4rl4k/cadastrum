@@ -37,7 +37,6 @@ import {
 import {
   nitelikCarpani,
   alanCarpani,
-  nufusYogunlukCarpani,
   cevreCarpani,
   kirsalCarpani,
   egimCarpani,
@@ -335,14 +334,21 @@ export async function fiyatTahminEt(
     });
   }
 
-  const nufusC = nufusYogunlukCarpani(ilNormForBias);
-  if (nufusC.carpan !== 1.0) {
-    bilesenler.push({
-      ad: "Nüfus yoğunluğu",
-      carpan: nufusC.carpan,
-      not: nufusC.not,
-    });
-  }
+  // NUFUS YOGUNLUK CARPANI FIYAT ZINCIRINDEN CIKARILDI (2026-09-05).
+  //
+  // Olculdu — carpani 1.0'a sabitleyip backtest kosuldu:
+  //   taban        arsa ±%20 24,8 · bias 18,44 · tarla 43,1 · bias 9,78
+  //   nufus kapali arsa ±%20 25,5 · bias 15,98 · tarla 43,5 · bias 7,87
+  // Yani carpan tahmini IYILESTIRMIYOR, BOZUYOR. Tarla bias'i kapatildiginda
+  // SLO'yu (|bias| <= 10) karsiliyor.
+  //
+  // Kaynagi da zaten saglam degildi: `mahalle-nufus.ts` "TUIK ADNKS 2023"
+  // iddiasi tasiyor ama icerigi elle yazilmis yuvarlak ~200 ilce sayisi ve
+  // vaat edilen mahalle katmani hic doldurulmamis.
+  //
+  // Fonksiyon SILINMEDI: `yatirim-skoru` ve `bolge-skor-motoru` onu farkli bir
+  // amacla (yatirim skoru) kullaniyor ve o kullanim ayri olculmeli.
+  const nufusC = { carpan: 1.0, not: "" };
 
   const depremRisk = ilNormForBias ? depremRiskiGetir(ilNormForBias) : null;
   let dCarpan = 1.0;

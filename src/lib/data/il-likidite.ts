@@ -8,6 +8,14 @@
  *   - Yüksek ipotekli oran → finansal kanal aktif, normal piyasa
  *   - Düşük ipotekli oran → resesyon/kredi kıtlığı, fiyat baskı altında
  *
+ * KAYNAK KARMA — tüketici kod bu ayrımı GÖRMÜYOR (2026-09-05'te belgelendi):
+ *   İlk 20 il  : TÜİK Aralık 2025 bülteninden okunmuş gerçek satış sayıları.
+ *   Kalan 61 il: "nüfus × ~0,015" formülüyle TAHMİN EDİLMİŞ (aşağıdaki
+ *                "11-30 (yaklaşık tahmin...)" yorumuna bakın).
+ * Yani 81 ilin 61'i ölçüm değil türetme, ama `ilLikiditeCarpani` ikisine de
+ * aynı güvenle davranıyor. Ayrım tip düzeyinde yapılmadı — kapsam kontrolü;
+ * önce ölçülmesi gerekiyor (bu çarpan güveni etkiliyor, fiyatı doğrudan değil).
+ *
  * Yıllık güncelleme: TÜİK Aralık bültenine göre değiştir.
  * Kaynak: https://data.tuik.gov.tr/Bulten/Index?p=Konut-Satis-Istatistikleri
  *

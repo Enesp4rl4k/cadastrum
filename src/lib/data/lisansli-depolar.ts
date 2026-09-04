@@ -1,6 +1,13 @@
 /** Türkiye TMO Alım Merkezleri ve Lisanslı Depolar — statik koordinat dataset'i.
- *  Kaynak: TMO resmi liste + Nominatim geocoding.
- *  Bu dosyayı güncellemek için: node scripts/geocode-tmo.mjs
+ *
+ *  KOORDİNAT UYARISI (2026-09-05): başlık "TMO resmi liste + Nominatim
+ *  geocoding" diyordu ama geocoding HİÇ KOŞULMADI. 118 kaydın koordinatı
+ *  bulunduğu İLİN MERKEZİ ile ön-doldurulmuş durumda — yani "depo mesafesi"
+ *  özniteliği fiilen "il merkezine mesafe" ölçüyor.
+ *
+ *  Tarımsal parsel değerlemesinde bu ayrım önemli: aynı ildeki iki parsel,
+ *  gerçekte farklı depolara farklı uzaklıkta olsa bile burada aynı sonucu
+ *  verir. Gerçek koordinat için: node scripts/geocode-tmo.mjs
  *
  *  Tarımsal parsel değerlemesinde depo yakınlığı önemli bir faktördür:
  *  hububat, bakliyat, yağlı tohum depolama kapasitesi ürün değerini etkiler.

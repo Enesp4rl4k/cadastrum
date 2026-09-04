@@ -8,16 +8,32 @@
  * indirimi uygulanmadan önce (correction zaten motorda yapılıyor).
  * Enflasyon düzeltmesi → enflasyon-duzeltme.ts otomatik uygular.
  *
+ * ÖLÇÜM UYARISI: bu tablonun doğruluğu ölçüldü (2026-08-31, n>=20 gözlemi olan
+ * ilçelerde gözlem medyanına karşı): arsa MAPE 123 · ±%20 isabet %18,0 ·
+ * tarla MAPE 43 · ±%20 %32,4. Yani elle yazılmış ve kötü — ama zincirdeki
+ * yerini koruyor çünkü altındaki basamaklar daha kötü.
+ *
+ * ILCE_BASELINE_AI fallback'i 2026-09-05'te KALDIRILDI: Groq llama-3.3
+ * üretimi, ölçülen ±%20 isabeti %3,4 (rastgeleden farksız). Kaldırılması
+ * ölçümü bozmadı, tarlada iyileştirdi. Ayrıntı: baseline-engine.ts'te
+ * ilceFiyatGetir başındaki not.
+ *
  * Anahtar formatı: `${normalizeYerAdi(ilAd)}__${normalizeYerAdi(ilceAd)}`
- * normalizeYerAdi → küçük harf, TR→latin, boşluk→tire
- * Örnek: "istanbul__sisli", "ankara__cankaya"
+ * normalizeYerAdi → küçük harf, TR→latin, BOŞLUK KORUNUR.
+ * Örnek: "istanbul__sisli", "ankara__cankaya", "tekirdag__marmara ereglisi"
+ *
+ * Bu satır eskiden "boşluk→tire" diyordu ve YANLIŞTI. Yanlış yorum, tireli
+ * anahtarların yazılmasına yol açtı; onlar hiçbir zaman eşleşemedi. Aynı
+ * dosyada Kiril harfli ("tepebaси") ve Türkçe karakterli anahtarlar da vardı —
+ * hepsi sessizce `undefined` dönüyor, motor bir alt basamağa düşüyordu.
+ * Toplam 8 ölü anahtar 2026-09-05'te düzeltildi ve
+ * test/ilce-baseline-butunluk.spec.ts nöbete kondu.
  *
  * Semt çarpanları (ILCE_SEMT_CARPANI): ilçe baseline × carpan
  * Anahtar: `${ilceKey}__${normalizeYerAdi(semtAd)}`
  */
 
 import { enflasyonDuzelt, BASELINE_TARIH } from "../enflasyon-duzeltme";
-import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./ilce-baseline-ai";
 
 export { BASELINE_TARIH };
 
@@ -259,7 +275,7 @@ export const ILCE_BASELINE_ARSA: Record<string, number> = {
   "tekirdag__suleymanpasa": 4_000,
   "tekirdag__kapakli": 4_000,
   "tekirdag__malkara": 2_500,
-  "tekirdag__marmara-ereglisi": 5_000,
+  "tekirdag__marmara ereglisi": 5_000,
 
   // ── YALOVA ────────────────────────────────────────────────────
   "yalova__merkez": 6_000,
@@ -269,10 +285,10 @@ export const ILCE_BASELINE_ARSA: Record<string, number> = {
   "yalova__termal": 5_500,
 
   // ── ESKİŞEHİR ─────────────────────────────────────────────────
-  "eskisehir__tepebaси": 5_000,
+  "eskisehir__tepebasi": 5_000,
   "eskisehir__odunpazari": 4_500,
   "eskisehir__sivrihisar": 2_000,
-  "eskisehir__mihalıccık": 1_800,
+  "eskisehir__mihaliccik": 1_800,
 
   // ── TRABZON ───────────────────────────────────────────────────
   "trabzon__ortahisar": 5_000,
@@ -323,7 +339,7 @@ export const ILCE_BASELINE_ARSA: Record<string, number> = {
   "samsun__ilkadim": 3_500,
   "samsun__canik": 3_000,
   "samsun__atakum": 4_000,
-  "samsun__tekkeköy": 3_000,
+  "samsun__tekkekoy": 3_000,
   "samsun__bafra": 2_500,
   "samsun__terme": 2_000,
 
@@ -346,10 +362,10 @@ export const ILCE_BASELINE_ARSA: Record<string, number> = {
 
   // ── AYDIN ─────────────────────────────────────────────────────
   "aydin__efeler": 5_000,
-  "aydin__kuşadasi": 18_000,
+  "aydin__kusadasi": 18_000,
   "aydin__didim": 12_000,
   "aydin__nazilli": 3_500,
-  "aydin__söke": 4_000,
+  "aydin__soke": 4_000,
 
   // ── HATAY ─────────────────────────────────────────────────────
   "hatay__antakya": 3_000,
@@ -446,9 +462,9 @@ export const ILCE_SEMT_CARPANI: Record<string, number> = {
   "istanbul__kadikoy__goztepe": 1.15,
   "istanbul__kadikoy__suadiye": 1.30,
   // İstanbul — Ataşehir
-  "istanbul__atasehir__acıbadem": 1.20,
+  "istanbul__atasehir__acibadem": 1.20,
   "istanbul__atasehir__icerenkoy": 1.10,
-  "istanbul__atasehir__atasehir-merkez": 1.00,
+  "istanbul__atasehir__atasehir merkez": 1.00,
   // İstanbul — Beykoz
   "istanbul__beykoz__anadoluhisari": 1.40,
   "istanbul__beykoz__kandilli": 1.35,
@@ -534,11 +550,11 @@ export function ilceBaselineGetir(
 ): { baseline: number; kaynak: "ilce-baseline" | "ilce-semt-baseline"; not: string } | null {
   const ik = ilceKey(ilAd, ilceAd);
   const tablo = kategori === "tarla" ? ILCE_BASELINE_TARLA : ILCE_BASELINE_ARSA;
-  const aiTablo = kategori === "tarla" ? ILCE_BASELINE_AI_TARLA : ILCE_BASELINE_AI_ARSA;
-  // Önce manuel (insan girdisi), sonra AI fallback
-  const ilceVal = tablo[ik] ?? aiTablo[ik];
+  // AI fallback KALDIRILDI (2026-09-05) — bkz. baseline-engine.ts:ilceFiyatGetir
+  // Groq llama-3.3 uretimi, olculen ±%20 isabeti %3,4.
+  const ilceVal = tablo[ik];
   if (!ilceVal) return null;
-  const aiKaynakli = tablo[ik] == null && aiTablo[ik] != null;
+  const aiKaynakli = false;
 
   // Semt çarpanı dene — ilçe çıpasına skew düzeltmesi uygula (çarpık-dağılım overshoot)
   const tip = mahalleTipiBelirle(mahalleAd);

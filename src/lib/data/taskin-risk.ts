@@ -1,8 +1,24 @@
 /**
  * Türkiye sel/taşkın risk skoru — il bazlı.
  *
- * Kaynak: Çevre, Şehircilik ve İklim Değişikliği Bakanlığı, AFAD Sel Master Planı,
- * Meteoroloji Genel Müdürlüğü tarihsel taşkın olayları.
+ * KAYNAK — dürüst hâli: bu tablo ELLE DERLENMİŞTİR.
+ *
+ * Buradaki üç kademe (yüksek/orta/düşük), CSB / AFAD Sel Master Planı / MGM
+ * yayınları OKUNARAK insan tarafından atanmıştır. Hiçbir resmî veri seti
+ * ayrıştırılmadı, hiçbir sayısal risk metriği (dönüş periyodu, taşkın debisi,
+ * havza alanı) taşınmıyor ve üreteci yok — notlar haber hafızasından geliyor
+ * ("2021 Bozkurt sel felaketi" gibi).
+ *
+ * Dosya başlığı eskiden yalnızca kurum adlarını sayıyordu; bu, olmayan bir
+ * otorite iddiasıydı. Kurumların yayını girdi oldu, çıktı değil.
+ *
+ * AMA ÖLÇÜLDÜ VE İŞE YARIYOR (2026-09-05). `taskinCarpani` 1.0'a sabitlenip
+ * backtest koşuldu:
+ *   taban          arsa ±%20 24,8 · bias 18,44 · tarla 43,1 · bias  9,78
+ *   taşkın kapalı  arsa ±%20 24,6 · bias 20,53 · tarla 42,3 · bias 11,54
+ * Yani çarpanı kaldırmak tahmini BOZUYOR. Elle derlenmiş olması onu
+ * değersiz yapmıyor — atıf yalanı ile tahmin gücü ayrı sorular. Çarpan
+ * kalıyor, iddia düzeltildi.
  *
  * Skala:
  *   YUKSEK : Sık sel olayı yaşanan + 100 yıllık dönem riski yüksek bölgeler

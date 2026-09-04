@@ -22,7 +22,6 @@
 
 import { MAHALLE_BASELINE, MAHALLE_BASELINE_TARIH, type MahalleBaselineTuple } from "./data/mahalle-baseline";
 import { ILCE_BASELINE_ARSA, ILCE_BASELINE_TARLA, ilceKey, mahalleTipiBelirle, ilceFallbackCarpani } from "./data/ilce-baseline";
-import { ILCE_BASELINE_AI_ARSA, ILCE_BASELINE_AI_TARLA } from "./data/ilce-baseline-ai";
 import { MAHALLE_OZELLIK, OZELLIK_ESIK } from "./data/mahalle-ozellik";
 import { mahalleKanonik } from "./data/mahalle-kanonik";
 import { enflasyonDuzelt, enflasyonDuzeltAsync } from "./enflasyon-duzeltme";
@@ -213,12 +212,25 @@ export function ozellikCarpani(mahalleKey: string): { carpan: number; notlar: st
 
 function ilceFiyatGetir(ilNorm: string, ilceNorm: string, kategori: Kategori): number | null {
   const key = `${ilNorm}__${ilceNorm}`;
+  // ILCE_BASELINE_AI ZİNCİRDEN ÇIKARILDI (2026-09-05).
+  //
+  // Groq llama-3.3 üretimi. Ölçüldü (n>=20 gözlemi olan ilçelerde, gözlem
+  // medyanına karşı): arsa MAPE 295 · ±%20 isabet %3,4 — rastgeleden farksız.
+  // Değerler 2500/8000/18200/25000 gibi birkaç kümeye yığılmış; LLM'in
+  // "yuvarlak sayı" halüsinasyonunun imzası.
+  //
+  // Kaldırmanın etkisi backtest'le ölçüldü:
+  //   taban      arsa ±%20 25,0 · tarla 45,1
+  //   AI kapalı  arsa ±%20 25,0 · tarla 45,6
+  // Arsa değişmiyor, tarla İYİLEŞİYOR — ölçümü bozmadan kaldırılabiliyor.
+  //
+  // Dosya SİLİNMEDİ: ölçüm sonucu ve "neden bağlı değil" notu başına yazıldı
+  // (scripts/ilce-baseline-gozlem-uret.mjs emsali).
   if (kategori === "tarla") {
-    // Önce manuel tablo (insan girdisi öncelikli), sonra AI fallback
-    return ILCE_BASELINE_TARLA[key] ?? ILCE_BASELINE_AI_TARLA[key] ?? null;
+    return ILCE_BASELINE_TARLA[key] ?? null;
   }
   // konut için arsa baseline'ı kullan (çoğu zaman benzer mertebe)
-  return ILCE_BASELINE_ARSA[key] ?? ILCE_BASELINE_AI_ARSA[key] ?? null;
+  return ILCE_BASELINE_ARSA[key] ?? null;
 }
 
 /**

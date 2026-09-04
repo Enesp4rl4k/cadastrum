@@ -5,8 +5,30 @@
  * !!! BU DOSYAYI ELLE DÜZENLEME !!!
  * Yenile: node scripts/ilce-baseline-ai-ts-uret.mjs
  *
- * Hiyerarşi: ilceFiyatGetir önce manuel ILCE_BASELINE_ARSA/TARLA'ya bakar,
- * bulamazsa BURAYA düşer. ILCE_BASELINE_AI_TARIH ile enflasyon düzeltmesi yapılır.
+ * ⚠️ MOTORA BAĞLI DEĞİL — 2026-09-05'te fallback zincirinden ÇIKARILDI.
+ *
+ * NEDEN: bu tablonun doğruluğu ölçüldü. n>=20 gözlemi olan ilçelerde, gözlem
+ * medyanına karşı:
+ *
+ *   ILCE_BASELINE_AI_ARSA    MAPE 295 · medyan 187 · ±%20 isabet %3,4
+ *   ILCE_BASELINE_AI_TARLA   MAPE  53 · medyan  49 · ±%20 isabet %14,3
+ *
+ * Arsada ±%20 isabeti %3,4 — rastgeleden farksız. Değerlerin 2500/8000/18200/
+ * 25000 gibi birkaç kümeye yığılması LLM'in "yuvarlak sayı" halüsinasyonunu
+ * ele veriyor.
+ *
+ * Kaldırmanın etkisi backtest'le ölçüldü (test/backtest/real-engine.spec.ts):
+ *   taban      arsa ±%20 25,0 · tarla 45,1
+ *   AI kapalı  arsa ±%20 25,0 · tarla 45,6
+ * Arsa değişmiyor, tarla iyileşiyor. Yani tablo hiçbir ölçülebilir katkı
+ * vermiyordu ama canlı gözlem yokken kullanıcıya gösterilen fiyat oydu.
+ *
+ * DOSYA NEDEN SİLİNMEDİ: ölçüm sonucu burada dursun ki aynı fikir altı ay
+ * sonra "ilçe kapsamı açılsın" diye yeniden doğmasın. Aynı disiplin
+ * scripts/ilce-baseline-gozlem-uret.mjs'te de uygulandı.
+ *
+ * Eski hiyerarşi (artık geçersiz): ilceFiyatGetir manuel tabloda bulamazsa
+ * buraya düşerdi.
  *
  * Toplam: 87 ilçe arsa, 87 ilçe tarla
  * (Düşük güven (25'den az) → 6 kayıt atıldı)
