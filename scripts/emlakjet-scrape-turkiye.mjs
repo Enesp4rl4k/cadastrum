@@ -10,6 +10,11 @@
  *   node scripts/kapsam-raporu.mjs
  *   node scripts/emlakjet-scrape-turkiye.mjs --hedef-listesi --maks-ilce=20
  *
+ * GECELIK KOSU (npm run tarama:gece):
+ *   --hedef-listesi --max-sayfa=25 --tazele-gun=180
+ *   Derinlik burada; Worker cron yalnizca sig tazeleme yapar (index.ts).
+ *   Emsal omru 180 gun oldugu icin tazeleme penceresi de 180.
+ *
  * Resume: data/emlakjet-scrape-progress.json
  * Çıktı:  scripts/emlakjet-data-turkiye.sql
  */
@@ -40,6 +45,15 @@ const filtreIl = get("il");
 const basla = parseInt(get("basla") ?? "0", 10);
 const maksIlce = get("maks-ilce") ? parseInt(get("maks-ilce"), 10) : null;
 const hedefListesi = args.includes("--hedef-listesi");
+/**
+ * Bir ilcenin "tamamlandi" damgasinin gecerlilik suresi (gun).
+ *
+ * NEDEN: `progress.completed` suresiz bir liste. Bir kez taranan ilce bir daha
+ * hic ziyaret edilmiyordu. Oysa emsaller MAX_ILAN_YASI_GUN=180 ile dusuyor;
+ * yani damga, emsal omrunden uzun yasayan bir "tamamlandi" iddiasi uretiyordu.
+ * 0 = kapali (eski davranis).
+ */
+const tazeleGun = parseInt(get("tazele-gun") ?? "0", 10);
 // Hedefli modda daha derin sayfala: amac yeni ilce gormek degil, gorulmus
 // mahalleleri havuz esiginin ustune cikarmak — bu da sayfa derinligi ister.
 const MAX_SAYFA = parseInt(
@@ -103,6 +117,21 @@ if (maksIlce) ilceler = ilceler.slice(0, maksIlce);
 
 const progress = progressYukle(PROGRESS);
 const completedSet = new Set(progress.completed ?? []);
+/**
+ * Tamamlanma zaman damgalari. Eski progress dosyalarinda YOK — o kayitlar
+ * "yasi bilinmiyor" sayilir ve tazeleme modunda yeniden taranir. Bilinmeyen
+ * yasi taze varsaymak, tam da kacindigimiz sessiz eskime.
+ */
+const completedAt = progress.completedAt ?? {};
+if (tazeleGun > 0) {
+  const sinir = Date.now() - tazeleGun * 24 * 60 * 60 * 1000;
+  let dusen = 0;
+  for (const key of [...completedSet]) {
+    const ts = completedAt[key];
+    if (!ts || ts < sinir) { completedSet.delete(key); dusen++; }
+  }
+  console.log(`  TAZELEME: ${tazeleGun} günden eski ${dusen} hedef yeniden sıraya alındı`);
+}
 const kayitlar = sqlKayitlariYukle(CIKTI, FULL_SQL);
 const gorulenler = new Set(kayitlar.map((k) => k.id));
 for (const id of sqlIdleriYukle(CIKTI, FULL_SQL)) gorulenler.add(id);
@@ -112,6 +141,15 @@ console.log(
 
 const toplamIs = ilceler.length * 2;
 let is = 0;
+/**
+ * Bot engelleri. Ust uste birikiyorsa kaynak bizi kisitliyor demektir ve
+ * gecelik kosuyu surdurmek engelin kalicilasmasina yol acar.
+ *
+ * Eskiden hata TURU yutuluyordu (`catch { continue; }`): 404, 429 ve ag
+ * hatasi ayni muameleyi goruyordu. 429 alirken devam etmek en kotu secim.
+ */
+const botEngelleri = [];
+const MAX_BOT_ENGEL = 5;
 
 for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
   for (const kat of ["arsa", "tarla"]) {
@@ -124,12 +162,15 @@ for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
     process.stdout.write(`[${is}/${toplamIs}] ${il}/${ilce}/${kat} `);
     const n = await ilceTara(ilNorm, ilceNorm, kat, MAX_SAYFA, kayitlar, gorulenler, MERKEZ, {
       delayMs: 500,
+      botEngelBildir: (hedef, sebep) => { botEngelleri.push({ hedef, sebep }); },
     });
     const koordlu = kayitlar.filter((k) => k.lat).length;
     console.log(`+${n} (toplam ${kayitlar.length}, koordlu ${koordlu}, mahalle ${new Set(kayitlar.filter((k) => k.mahN).map((k) => `${k.ilN}__${k.ilceN}__${k.mahN}`)).size})`);
 
     completedSet.add(key);
+    completedAt[key] = Date.now();
     progress.completed = [...completedSet];
+    progress.completedAt = completedAt;
     progress.stats = {
       toplamIlan: kayitlar.length,
       koordlu,
@@ -140,7 +181,19 @@ for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
     };
     progressKaydet(PROGRESS, progress);
     sqlYaz(kayitlar, CIKTI, "Emlakjet 973 ilçe");
+
+    if (botEngelleri.length >= MAX_BOT_ENGEL) {
+      const son = botEngelleri.slice(-5)
+        .map((b) => `    ${b.hedef}: ${b.sebep}`)
+        .join("\n");
+      console.warn(
+        `\n⚠ ${botEngelleri.length} bot engeli — koşu durduruluyor. ` +
+        `Toplanan ${kayitlar.length} ilan korundu.\n${son}`,
+      );
+      break;
+    }
   }
+  if (botEngelleri.length >= MAX_BOT_ENGEL) break;
 }
 
 sqlYaz(kayitlar, CIKTI, "Emlakjet 973 ilçe — FINAL");

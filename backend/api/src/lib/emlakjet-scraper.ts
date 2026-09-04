@@ -476,8 +476,12 @@ export async function emlakjetIlceTara(
   // Bot engeli 'hata'dan ayrı damgalanır: rotasyon 'bot-engel' gören ilçeyi
   // "tarandı, ilan yok" saymamalı, yeniden sıraya almalı.
   const damgaDurum = sonuc.botEngel ? "bot-engel" : sonuc.hata ? "hata" : "tamam";
+  // Derinlik ayri damgalanir (migration 0033): sig tur `son_derin_tarama`ya
+  // dokunmaz, boylece derin rotasyonun sirasini bozmaz. Esik, olculen en derin
+  // ilcenin (silivri, 25 sayfa) yarisi — bunun altindaki bir tur kapsam
+  // kazandirmaz, yalnizca tazeler.
   await taramaDamgala(db, "emlakjet", { ilNorm: ilN, ilceNorm: ilceN, kategori },
-                      sonuc.eklenen, damgaDurum);
+                      sonuc.eklenen, damgaDurum, maxSayfa >= DERIN_SAYFA_ESIGI);
 
   return sonuc;
 }
@@ -494,6 +498,15 @@ export interface EmlakjetRunGirdi {
  * Worker 30s CPU limitine dikkat — maxIlce ile sınırla.
  * Her ilçe için arsa + tarla (2 kategori × maxSayfa sayfa).
  */
+/**
+ * Bir taramanin "derin" sayilmasi icin gereken en az sayfa.
+ *
+ * Olculen en derin ilce silivri/arsa: 25 sayfa (~750 ilan). Bunun altindaki
+ * turlar mevcut ilanlari tazeler ama KAPSAM kazandirmaz — o yuzden derin
+ * rotasyon damgasini hak etmezler.
+ */
+const DERIN_SAYFA_ESIGI = 10;
+
 /** Kategori taramaları arası bekleme — bkz. emlakjetRunBaslat içindeki not. */
 const KATEGORI_ARASI_MS = 400;
 

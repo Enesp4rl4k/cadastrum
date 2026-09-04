@@ -92,6 +92,35 @@ describe("sqlKayitlariYukle koordinatları korur", () => {
   });
 
   /**
+   * İKİNCİ KAYIP YOLU: aynı ilan birden çok SQL dosyasında olabiliyor ve
+   * çağrılar `sqlKayitlariYukle(CIKTI, FULL_SQL)` şeklinde. Eskiden son dosya
+   * koşulsuz üste yazıyordu; `emlakjet-data-full.sql` turkiye.sql'in alt
+   * kümesi ve koordinatsız olduğu için her açılışta 369 kaydın koordinatını
+   * NULL'a çeviriyordu (ölçüldü: yalnız turkiye 39.416, turkiye+full 39.047).
+   *
+   * Dosya Faz 6'da silinecek olsa bile kural kalmalı — ikinci bir kaynak
+   * eklendiğinde aynı tuzak yeniden kurulmasın.
+   */
+  it("aynı ilan iki dosyadaysa koordinatlı olan kazanır", () => {
+    const dizin = mkdtempSync(join(tmpdir(), "korpus2-"));
+    try {
+      const koordlu = join(dizin, "koordlu.sql");
+      const koordsuz = join(dizin, "koordsuz.sql");
+      const kayit = { id: "9", ilN: "adana", ilceN: "pozanti", mahN: "yeni konacik",
+                      tlm2: 3200, m2: 1000, kategori: "arsa" };
+      sqlYaz([{ ...kayit, lat: 37.4281, lng: 34.8712 }], koordlu, "t");
+      sqlYaz([{ ...kayit, lat: null, lng: null }], koordsuz, "t");
+
+      // Koordinatsız dosya SONRA geliyor — eski kodda kazanırdı.
+      const sonuc = sqlKayitlariYukle(koordlu, koordsuz) as Kayit[];
+      expect(sonuc).toHaveLength(1);
+      expect(sonuc[0]!.lat).toBeCloseTo(37.4281, 4);
+    } finally {
+      rmSync(dizin, { recursive: true, force: true });
+    }
+  });
+
+  /**
    * Koordinatı olan her satırda `koord_kaynagi` da dolu olmalı. Bu ayrım
    * önemli: mahalle merkezi koordinatı ile gerçek parsel koordinatı aynı şey
    * değil. Backend `koord_kaynagi='parsel'` olanları ayrı sayıyor; kaynak

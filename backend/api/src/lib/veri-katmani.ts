@@ -204,14 +204,26 @@ export async function taramaDamgala(
   hedef: { ilNorm: string; ilceNorm: string; kategori?: string },
   eklenen: number,
   durum: "tamam" | "hata" | "bot-engel",
+  /**
+   * Tarama DERIN miydi? Sig tur `son_derin_tarama`ya dokunmaz.
+   *
+   * NEDEN: iki cron ayni kuyrugu tuketiyor — gunluk derin (maxSayfa 25),
+   * ayin 15'i sig (maxSayfa 3). Tek damga varken sig tur ilceyi "tarandi"
+   * isaretleyip kuyrugun sonuna atiyor ve derin tarama ona aylarca ugramiyor.
+   * Olculen sonuc: emlakjet kapsami ~%39'da takili — kaynakta bizdekinin
+   * ~2,5 kati ilan var. Ayrinti: migration 0033.
+   */
+  derinMi = false,
 ): Promise<boolean> {
   try {
     await db
       .prepare(
         `INSERT INTO tarama_durum
-           (kaynak, il_norm, ilce_norm, kategori, son_tarama, son_eklenen, son_durum)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+           (kaynak, il_norm, ilce_norm, kategori, son_tarama, son_eklenen, son_durum, son_derin_tarama)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(kaynak, il_norm, ilce_norm, kategori) DO UPDATE SET
+           -- Sig tur bu kolona DOKUNMAZ: derin rotasyonun sirasini bozmasin.
+           son_derin_tarama = COALESCE(excluded.son_derin_tarama, tarama_durum.son_derin_tarama),
            -- Bot engelinde son_tarama İLERLETİLMEZ. Rotasyon 'son_tarama ASC
            -- NULLS FIRST' ile seçiyor; engellenen ilçeyi taranmış saymak onu
            -- sıranın en sonuna atar ve aylarca bir daha bakılmaz — hepsiemlak'ta
@@ -223,7 +235,8 @@ export async function taramaDamgala(
            son_durum = excluded.son_durum`,
       )
       .bind(kaynak, hedef.ilNorm, hedef.ilceNorm, hedef.kategori ?? "_",
-            durum === "bot-engel" ? null : Date.now(), eklenen, durum)
+            durum === "bot-engel" ? null : Date.now(), eklenen, durum,
+            derinMi && durum !== "bot-engel" ? Date.now() : null)
       .run();
     return true;
   } catch (e) {

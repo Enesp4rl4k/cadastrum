@@ -587,55 +587,38 @@ export default {
         ).bind(dakikaSiniri).run().catch(() => ({ meta: { changes: 0 } }));
         console.log("[cron-daily] giris_denemesi temizlendi:", gd.meta.changes, "satır");
 
-        // 4) Emlakjet ilçe taraması — AYLIKTAN GÜNLÜĞE ALINDI.
+        // 4) Emlakjet ilçe taraması — WORKER SIĞ TAZELEME YAPAR, DERİNLİK YEREL.
         //
-        // NEDEN: ilan havuzunda 871 ilçenin verisi var ve emsaller
-        // MAX_ILAN_YASI_GUN=180 ile düşüyor. Ayda 8 ilçe hızında bir ilçe
-        // ancak 10 yılda bir tazeleniyordu; yani rotasyon düzeltilse bile
-        // veri toptan eskiyecekti. Günde 8 ilçe → ayda ~240 → tam tur ~3.6 ay,
-        // 180 günlük pencerenin içinde kalıyor.
+        // ROL AYRIMI (2026-09-05'te netleştirildi):
+        //   Worker cron : GENİŞLİK — çok ilçe × az sayfa. Mevcut ilanları taze
+        //                 tutar. 15 dk wall limiti ve okuma bütçesi derinliğe
+        //                 elvermiyor.
+        //   Yerel koşu  : DERİNLİK — `npm run tarama:gece`, kapsam boşluğuna
+        //                 göre sıralı, 25 sayfa. Süre sınırı yok.
         //
-        // Nezaket: istek hacmi arttığı için scraper'a kategori arası bekleme
-        // eklendi (emlakjet-scraper.ts KATEGORI_ARASI_MS). Anlık yük aynı,
-        // yayılan süre uzun.
+        // NEDEN AYRILDI: yorum ile kod ayrışmıştı. Yorumda "günde 8 → 4 ilçe,
+        // tam tur ~7 ay" yazıyordu, kodda `LIMIT 3` + maxSayfa 25 vardı:
+        // 871 ilçe / 3 = ~9,7 ay. Emsaller MAX_ILAN_YASI_GUN=180 ile düşüyor,
+        // yani tam tur bitmeden veri eskiyordu. Worker'ı derinlik motoru
+        // yapmaya çalışmak bu çelişkiyi çözmüyor — 15 dk'da 871 ilçe taranamaz.
         //
-        // Wall time: Ağustos koşusu 3 ilçeyi 118 sn'de bitirdi → 8 ilçe ~5 dk.
-        // Cron wall limiti 15 dk, CPU değil (fetch beklemesi CPU yakmıyor).
+        // Wall time: Ağustos ölçümü 3 ilçe × 3 sayfa = 118 sn. 8 ilçe × 3
+        // sayfa ≈ 5 dk, 15 dk limitin içinde.
+        //
+        // Derinlik damgası ayrı (migration 0033): bu sığ tur `son_tarama`yı
+        // ilerletir ama `son_derin_tarama`ya dokunmaz, böylece derin
+        // rotasyonun sırasını bozmaz.
         try {
           const hedefler = await env.DB.prepare(
             `SELECT il_norm, ilce_norm FROM tarama_durum
              WHERE kaynak = 'emlakjet' AND kategori = 'arsa'
-             ORDER BY son_tarama ASC NULLS FIRST LIMIT 3`,
+             ORDER BY son_tarama ASC NULLS FIRST LIMIT 8`,
           ).all<{ il_norm: string; ilce_norm: string }>();
           const liste = (hedefler.results ?? []).map((r) => ({
             ilN: r.il_norm, ilceN: r.ilce_norm,
           }));
           if (liste.length > 0) {
-            // maxSayfa 3 → 25.
-            //
-            // ÖLÇÜM: emlakjet liste sayfası "Toplam N sayfa" yazıyor; bunu 6
-            // ilçede DB'mizle karşılaştırdık:
-            //   catalca/arsa   18 sayfa (~540) · bizde 261 → %48
-            //   silivri/arsa   25 sayfa (~750) · bizde 232 → %30
-            //   milas/arsa     22 sayfa (~660) · bizde 224 → %33
-            //   menderes/tarla 11 sayfa (~330) · bizde 111 → %33
-            //   karatay/arsa    6 sayfa (~180) · bizde  55 → %30
-            //   cubuk/tarla     3 sayfa  (~90) · bizde  55 → %61
-            // Ortalama kapsam ~%39 — yani emlakjet'te bizdekinin ~2.5 katı
-            // ilan var. Mahalle başına 2.9 ilana düşmemizin sebebi piyasada
-            // ilan olmaması değil, taramanın sığ kalmasıydı.
-            //
-            // 25, ölçülen en derin ilçeyi (silivri) kapsıyor.
-            // Derinlik bir kereye mahsus maliyet: emlakjetIlceTara zaten
-            // "bu sayfada yeni ilan yok" görünce duruyor (satır 375),
-            // dolayısıyla taranmış bir ilçenin tekrar turu ucuz kalıyor.
-            //
-            // Genişlik 8 → 4: derinlik 8x arttı, wall time bütçesi korunuyor
-            // (Ağustos ölçümü: 3 ilçe × 3 sayfa = 118 sn). 4 ilçe/gün → ayda
-            // 120 → 871 ilçenin tam turu ~7 ay. Bu, 180 günlük emsal ömrünün
-            // biraz ÜSTÜNDE: ilk tam tur derinlik kazanmaya harcanıyor,
-            // sonraki turlar erken-durma sayesinde çok daha hızlı akacak.
-            const r = await emlakjetCronBaslat(env.DB, liste, 3, 25, "cron-gunluk");
+            const r = await emlakjetCronBaslat(env.DB, liste, 8, 3, "cron-gunluk-siğ");
             console.log("[cron-daily] emlakjet tarama:", r);
           }
         } catch (e) {

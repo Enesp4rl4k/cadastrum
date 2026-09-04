@@ -295,6 +295,20 @@ export function sqlKayitlariYukle(...dosyalar) {
     let m;
     while ((m = re.exec(metin)) !== null) {
       const mahRaw = m[4].trim();
+      const lat = m[8] === "NULL" ? null : parseFloat(m[8]);
+      const lng = m[9] === "NULL" ? null : parseFloat(m[9]);
+      // AYNI ID BIRDEN COK DOSYADA: koordinati OLAN kayit kazanir.
+      //
+      // Cagrilar `sqlKayitlariYukle(CIKTI, FULL_SQL)` seklinde; eskiden son
+      // dosya kosulsuz uste yaziyordu. `emlakjet-data-full.sql` turkiye.sql'in
+      // alt kumesi ve koordinatsiz, dolayisiyla her acilista 369 kaydin
+      // koordinatini NULL'a ceviriyordu. Olculdu: yalniz turkiye 39.416,
+      // turkiye+full 39.047.
+      //
+      // Bu, dosya silinse bile dogru davranis: ikinci bir kaynak eklendiginde
+      // ayni tuzak tekrar kurulmasin.
+      const mevcut = byId.get(m[1]);
+      if (mevcut && mevcut.lat != null && lat == null) continue;
       byId.set(m[1], {
         id: m[1],
         ilN: m[2],
@@ -303,8 +317,8 @@ export function sqlKayitlariYukle(...dosyalar) {
         tlm2: parseInt(m[5], 10),
         m2: parseInt(m[6], 10),
         kategori: m[7],
-        lat: m[8] === "NULL" ? null : parseFloat(m[8]),
-        lng: m[9] === "NULL" ? null : parseFloat(m[9]),
+        lat,
+        lng,
       });
     }
   }
@@ -397,16 +411,31 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
   for (let sayfa = 1; sayfa <= maxSayfa; sayfa++) {
     const suffix = sayfa > 1 ? `?sayfa=${sayfa}` : "";
     let html = null;
+    /** Son hatanin turu — 429/403 koseyi bilmek, korlemesine devam etmemek icin. */
+    let sonHata = null;
     for (let p = patternIdx; p < urlPatterns.length; p++) {
       try {
         html = await getir(urlPatterns[p](suffix));
         patternIdx = p;
         break;
-      } catch {
+      } catch (e) {
+        // Hata TURU yutulmuyordu: 404 (kalip tutmadi), 429 (hiz limiti) ve
+        // ag hatasi ayni sekilde "devam et" muamelesi goruyordu. 429 alirken
+        // devam etmek kaynagi zorlamak demek ve kalici engele goturur.
+        sonHata = e instanceof Error ? e.message : String(e);
         continue;
       }
     }
-    if (!html) break;
+    if (!html) {
+      if (sonHata && /HTTP (429|403)/.test(sonHata)) {
+        // Kaynak bizi kisitliyor. Toplananı koruyup duruyoruz; caginin
+        // uzerine gitmek engelin kalicilasmasina yol aciyor.
+        console.warn(`
+  ! ${ilNorm}/${ilceNorm}/${kategori} sayfa ${sayfa}: ${sonHata} — ilçe bırakıldı`);
+        opts.botEngelBildir?.(`${ilNorm}/${ilceNorm}/${kategori}`, sonHata);
+      }
+      break;
+    }
 
     // ── Hızlı yol: JSON-LD liste parse (ilTara ile aynı) ────────────────────
     // Eskiden ilceTara doğrudan detay-sayfası yoluna gidiyordu: sayfa başına

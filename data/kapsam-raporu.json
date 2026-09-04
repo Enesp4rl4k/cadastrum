@@ -1,17 +1,17 @@
 {
-  "olusturuldu": "2026-09-04T20:59:29.068Z",
+  "olusturuldu": "2026-09-04T21:11:26.266Z",
   "havuzEsigi": 5,
   "kategoriler": {
     "arsa": {
       "toplamMahalle": 65718,
-      "gozlemliMahalle": 8413,
+      "gozlemliMahalle": 8415,
       "havuzluMahalle": 1389,
       "havuzKapsamiYuzde": 2.11,
       "bantlar": {
-        "0": 57305,
-        "1-4": 6911,
-        "5-19": 1406,
-        "20+": 96
+        "0": 57303,
+        "1-4": 6913,
+        "5-19": 1405,
+        "20+": 97
       },
       "eslesmeyenHavuzluMahalle": 113,
       "ilceIsListesi": [
@@ -30,17 +30,17 @@
           "havuzlu": 30,
           "kismi": 66,
           "bos": 45,
-          "gozlem": 434,
+          "gozlem": 437,
           "oncelik": 66
         },
         {
           "ilce": "bursa__mustafakemalpasa",
           "toplamMahalle": 131,
           "havuzlu": 13,
-          "kismi": 61,
-          "bos": 57,
-          "gozlem": 234,
-          "oncelik": 61
+          "kismi": 63,
+          "bos": 55,
+          "gozlem": 241,
+          "oncelik": 63
         },
         {
           "ilce": "gaziantep__sahinbey",
@@ -1819,13 +1819,13 @@
     },
     "tarla": {
       "toplamMahalle": 65718,
-      "gozlemliMahalle": 6884,
-      "havuzluMahalle": 610,
+      "gozlemliMahalle": 6885,
+      "havuzluMahalle": 611,
       "havuzKapsamiYuzde": 0.93,
       "bantlar": {
-        "0": 58834,
+        "0": 58833,
         "1-4": 6166,
-        "5-19": 703,
+        "5-19": 704,
         "20+": 15
       },
       "eslesmeyenHavuzluMahalle": 108,
@@ -1842,10 +1842,10 @@
         {
           "ilce": "mugla__milas",
           "toplamMahalle": 141,
-          "havuzlu": 7,
+          "havuzlu": 8,
           "kismi": 53,
-          "bos": 81,
-          "gozlem": 143,
+          "bos": 80,
+          "gozlem": 146,
           "oncelik": 53
         },
         {
