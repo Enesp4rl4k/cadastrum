@@ -36,43 +36,54 @@ export async function ilFiyatOzetiKur(db: D1Database): Promise<OzetKurulumSonucu
   const simdi = Date.now();
   let yazilan = 0;
 
-  for (const kategori of KATEGORILER) {
-    const olculen = await db.prepare(
-      `SELECT il_norm, medyan, ilan_adet FROM il_istatistik WHERE kategori = ?`,
-    ).bind(kategori).all<{ il_norm: string; medyan: number | null; ilan_adet: number | null }>();
+  // TEK TARAMA, kategori bazında gruplanmış.
+  //
+  // İlk hâli kategori başına ayrı sorgu atıyordu: `mahalle_baseline_ai` (188.697
+  // satır) üç kez taranıyordu. Ölçüldü — üretimde bu işin tek seferlik maliyeti
+  // 755.936 satır okuma, yani günlük 5M bütçenin %15'i. Her gece tekrarlanacak
+  // bir iş için kabul edilemez; `GROUP BY kategori, il_norm` ile tek tarama
+  // aynı sonucu ~üçte bir maliyetle veriyor.
+  const olculen = await db.prepare(
+    `SELECT kategori, il_norm, medyan, ilan_adet FROM il_istatistik`,
+  ).all<{ kategori: string; il_norm: string; medyan: number | null; ilan_adet: number | null }>();
 
-    // Tek ağır tarama — günde bir kez, sıcak yolda değil.
-    const turetilen = await db.prepare(
-      `SELECT il_norm, AVG(tlm2) AS medyan, COUNT(*) AS adet
-       FROM mahalle_baseline_ai WHERE kategori = ? GROUP BY il_norm`,
-    ).bind(kategori).all<{ il_norm: string; medyan: number | null; adet: number }>();
+  const turetilen = await db.prepare(
+    `SELECT kategori, il_norm, AVG(tlm2) AS medyan, COUNT(*) AS adet
+     FROM mahalle_baseline_ai GROUP BY kategori, il_norm`,
+  ).all<{ kategori: string; il_norm: string; medyan: number | null; adet: number }>();
 
-    const olcMap = new Map<string, { medyan: number | null; adet: number }>();
-    for (const r of (olculen.results ?? [])) {
-      olcMap.set(r.il_norm, { medyan: r.medyan, adet: r.ilan_adet ?? 0 });
-    }
-    const turMap = new Map<string, { medyan: number | null; adet: number }>();
-    for (const r of (turetilen.results ?? [])) {
-      turMap.set(r.il_norm, { medyan: r.medyan, adet: r.adet });
-    }
+  // Ayrac "|": kategori ve il_norm normalize edilmis ASCII, bu karakteri
+  // tasiyamazlar. Bosluk ayraci kirilgan olurdu — bosluklu bir deger gelirse
+  // sessizce yanlis parcalanir.
+  const anahtar = (kat: string, il: string) => `${kat}|${il}`;
+  const olcMap = new Map<string, { medyan: number | null; adet: number }>();
+  for (const r of (olculen.results ?? [])) {
+    olcMap.set(anahtar(r.kategori, r.il_norm), { medyan: r.medyan, adet: r.ilan_adet ?? 0 });
+  }
+  const turMap = new Map<string, { medyan: number | null; adet: number }>();
+  for (const r of (turetilen.results ?? [])) {
+    turMap.set(anahtar(r.kategori, r.il_norm), { medyan: r.medyan, adet: r.adet });
+  }
 
-    const iller = new Set([...olcMap.keys(), ...turMap.keys()]);
-    const ifadeler: D1PreparedStatement[] = [];
-    for (const il of iller) {
-      const o = olcMap.get(il);
-      const t = turMap.get(il);
-      ifadeler.push(
-        db.prepare(
-          `INSERT OR REPLACE INTO il_fiyat_ozet
-             (kategori, il_norm, medyan_ilan, adet_ilan, medyan_ai, mahalle_ai_adet, guncellendi)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        ).bind(kategori, il, o?.medyan ?? null, o?.adet ?? 0, t?.medyan ?? null, t?.adet ?? 0, simdi),
-      );
-    }
-    if (ifadeler.length > 0) {
-      await db.batch(ifadeler);
-      yazilan += ifadeler.length;
-    }
+  const ifadeler: D1PreparedStatement[] = [];
+  for (const k of new Set([...olcMap.keys(), ...turMap.keys()])) {
+    const [kategori, il] = k.split("|") as [string, string];
+    if (!KATEGORILER.includes(kategori as (typeof KATEGORILER)[number])) continue;
+    const o = olcMap.get(k);
+    const t = turMap.get(k);
+    ifadeler.push(
+      db.prepare(
+        `INSERT OR REPLACE INTO il_fiyat_ozet
+           (kategori, il_norm, medyan_ilan, adet_ilan, medyan_ai, mahalle_ai_adet, guncellendi)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(kategori, il, o?.medyan ?? null, o?.adet ?? 0, t?.medyan ?? null, t?.adet ?? 0, simdi),
+    );
+  }
+  // D1 batch üst sınırı için parçala.
+  const PARTI = 100;
+  for (let i = 0; i < ifadeler.length; i += PARTI) {
+    await db.batch(ifadeler.slice(i, i + PARTI));
+    yazilan += Math.min(PARTI, ifadeler.length - i);
   }
 
   return { yazilan, sure_ms: Date.now() - t0 };
