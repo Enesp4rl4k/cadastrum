@@ -33,18 +33,76 @@ export { BASELINE_TARIH };
  * kısıtı altında) türetildi. Arsa: MAPE −%22, bias %121→%92; Tarla: MAPE −%8, bias %35→%17.
  * baseline-engine.ts de bu sabiti import eder (tek kaynak).
  */
+/**
+ * ÖLÇÜM UYARISI (2026-09-04) — bu sınıflandırıcı büyük ölçüde kör.
+ *
+ * (Ayrı bir hata da vardı ve düzeltildi: anahtar kelime listesi ASCII "koy"
+ * ile Türkçe "köyü"yü karıştırıyordu, bu yüzden ham TKGM adı olan "Karaköy"
+ * bile eşleşmiyordu. Girdi artık önce normalize ediliyor. Bu düzeltme
+ * backtest'i oynatmadı — aşağıdaki kapsam sorunu asıl belirleyici.)
+ *
+ * Ad içinde "köy/mezra/yayla" arıyor. Türkçe mahalle adları bunu nadiren
+ * taşıdığı için kanonik listedeki 67.647 mahallenin dağılımı şöyle çıkıyor:
+ *
+ *   sehir  61.703  (%91)   ← binlerce gerçek köy burada
+ *   koy     2.858  (%4,2)
+ *   hamlet  3.086  (%4,6)
+ *
+ * "Yeşilyurt" bir köydür ama adında "köy" geçmediği için `sehir` sayılır ve
+ * çarpan 1.00 alır. Yani aşağıdaki ilceFallbackCarpani sabitleri, hedefledikleri
+ * nüfusun %4'üne uygulanıyor.
+ *
+ * Bunun ölçülebilir sonucu: CARPAN_KOY_ARSA süpürmesi (0.45 → 1.00) arsa
+ * ±%20 isabetini 25,0'dan 25,1'e taşıdı, |bias|'ı 28,88'den 28,74'e. Yani
+ * sabiti ikiye katlamak hiçbir şey değiştirmiyor.
+ *
+ * DÜZELTMEYE ÇALIŞMADAN ÖNCE: doğru sinyal MAHALLE_OZELLIK'teki ilMerkezKm
+ * (il merkezine uzaklık) — sürekli ve veriye dayalı. AMA `ozellikCarpani`
+ * bu sinyali ZATEN kullanıyor (+%12 yakın / −%8 uzak); buraya ikinci kez
+ * koymak çifte sayım olur. Ayrıca bu yol backtest'te 1.200 arsa kaydının
+ * yalnızca ~89'una dokunuyor, yani düzeltme mevcut ölçüm aracıyla
+ * doğrulanamaz. Ölçülemeyen değişiklik yapılmadı.
+ */
 export function mahalleTipiBelirle(mahalleAd: string | null | undefined): "sehir" | "koy" | "hamlet" {
   if (!mahalleAd) return "sehir";
-  const n = mahalleAd.toLocaleLowerCase("tr");
-  if (n.includes("mezra") || n.includes("yayla") || n.includes("oba") || n.includes("kom") || n.includes("mezrası")) return "hamlet";
-  if (n.includes("köyü") || n.includes("koy") || n.includes("bucak") || n.includes("belde")) return "koy";
+  // Anahtar kelimeler ASCII yazili; girdi ise ham Turkce olabiliyor. Eskiden
+  // liste ikisini karistiriyordu ("koy" ASCII, "koyu" Turkce) ve sonucta
+  // "Karakoy" gibi en tipik ornek bile ESLESMIYORDU: "koy" ASCII 'o' arar,
+  // ad ise 'o' tasir. Once normalize et, sonra ara.
+  const n = mahalleAd
+    .toLocaleLowerCase("tr")
+    .replace(/ö/g, "o").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ğ/g, "g").replace(/ç/g, "c");
+  if (n.includes("mezra") || n.includes("yayla") || n.includes("oba") || n.includes("kom")) return "hamlet";
+  if (n.includes("koy") || n.includes("bucak") || n.includes("belde")) return "koy";
   return "sehir";
 }
 
+/**
+ * KALIBRASYON KANCASI — yalnizca olcum icin.
+ *
+ * Backtest'te sabitleri supurebilmek icin var (KAPPA suprumesinde de ayni yol
+ * izlenmisti). Uretimde bu degiskenler tanimli olmaz; tanimliysa ilgili
+ * carpan onlarla degistirilir. Ornek:
+ *   CARPAN_KOY_ARSA=0.85 npm run backtest:real
+ */
+function envCarpan(ad: string, varsayilan: number): number {
+  const g = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[ad];
+  if (!g) return varsayilan;
+  const n = Number(g);
+  return Number.isFinite(n) && n > 0 ? n : varsayilan;
+}
+
 export function ilceFallbackCarpani(tip: "sehir" | "koy" | "hamlet", kategori: "arsa" | "tarla"): number {
-  if (tip === "sehir") return 1.00; // Urban center aligns with district median
-  if (tip === "koy") return kategori === "tarla" ? 0.70 : 0.45; // Rural land is substantially cheaper
-  return 0.35; // Hamlet / isolated rural
+  if (tip === "sehir") return envCarpan("CARPAN_SEHIR", 1.00); // Urban center aligns with district median
+  if (tip === "koy") {
+    return kategori === "tarla"
+      ? envCarpan("CARPAN_KOY_TARLA", 0.70)
+      : envCarpan("CARPAN_KOY_ARSA", 0.45);
+  }
+  return kategori === "tarla"
+    ? envCarpan("CARPAN_HAMLET_TARLA", 0.35)
+    : envCarpan("CARPAN_HAMLET_ARSA", 0.35);
 }
 
 /** İlçe bazlı ARSA TL/m² baseline (asking fiyat ortalaması, 2025) */
