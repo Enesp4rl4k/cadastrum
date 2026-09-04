@@ -123,6 +123,28 @@ const KONTROL_ESLIKLERI = {
    */
   IL_OZET_MIN: 60,
   /**
+   * İmar durumu dolu olan emlakjet ilanı oranı.
+   *
+   * Üretimde 2026-09 itibarıyla %1,9 — sebebi zenginleştirme hattının geçici
+   * hataları (403/429/timeout) KALICI damgalaması. Eşik bugünkü seviyenin
+   * biraz üstünde: amaç "iyi mi" demek değil, hattın tamamen durduğunu
+   * yakalamak. Kurtarma + yeniden deneme sonrası yükseltilmeli.
+   */
+  IMAR_DOLULUK_MIN_YUZDE: 3,
+  /** Tapu durumu doluluk — aynı hat, aynı gerekçe. */
+  TAPU_DOLULUK_MIN_YUZDE: 2,
+  /**
+   * `koord_kaynagi='parsel'` oranı — GERÇEK parsel koordinatı.
+   *
+   * "Koordinat kapsamı (%)" kontrolünden farklı: o `lat IS NOT NULL` sayıyor
+   * ve tüm koordinatlar mahalle merkezi olsa bile %100 geçer. Spatial emsal
+   * motoru gerçek konum istiyor; migration 0028 "parsel koordinatı %0" diye
+   * not düşmüş ama sağlık paneline hiç yansımamıştı.
+   */
+  PARSEL_KOORD_MIN_YUZDE: 1,
+  /** Son 24 saatte denenen ilan — saatlik cron × 120 ≈ 2.880 beklenir. */
+  ZENGINLESTIRME_24S_MIN: 500,
+  /**
    * `ilanlar` tablosundaki FARKLI il_norm sayısı (ÜST sınır). Türkiye'de 81 il
    * var; fazlası bir yerde uydurulmuş demektir.
    *
@@ -366,6 +388,80 @@ export async function pipelineHealthKontrol(
     sorgu: "SELECT COUNT(*) as n FROM il_fiyat_ozet",
     esik: KONTROL_ESLIKLERI.IL_OZET_MIN,
     birim: "satır",
+  });
+
+  // ── ZENGİNLEŞTİRME HATTI ──────────────────────────────────────────────────
+  // Repo kökündeki VERI-HATTI-KONTROL-LISTESI.md şu kuralı koyuyor:
+  // "alarm olanlar pipeline-health'e bir kontrol olarak eklenir". Kural
+  // poi_noktalari ve mahalle_merkez için uygulanmış, ZENGİNLEŞTİRME HATTI
+  // için hiç uygulanmamıştı — oysa aynı belge madde 2'de tam olarak bu hattın
+  // sessiz başarısızlığını kendi örneği olarak veriyor.
+  //
+  // Sonuç: %1,9 imar kapsamı rakamı elle atılmış tek seferlik bir sorgudan
+  // geliyordu. Hat bugün tamamen dursa kod tabanında bunu bildirecek tek bir
+  // mekanizma yoktu.
+  const alanDoluluk = await db.prepare(
+    `SELECT COUNT(*) AS toplam,
+            SUM(imar_durumu IS NOT NULL) AS imar,
+            SUM(tapu_durumu IS NOT NULL) AS tapu,
+            SUM(koord_kaynagi = 'parsel') AS parsel_koord
+     FROM ilanlar WHERE kaynak = 'emlakjet' AND aktif = 1`,
+  ).first<{ toplam: number; imar: number; tapu: number; parsel_koord: number }>()
+    .catch(() => null);
+
+  const yuzde = (pay: number | null | undefined, payda: number | undefined) =>
+    payda ? Math.round((100 * (pay ?? 0)) / payda) : 0;
+
+  kontroller.push({
+    ad: "İmar durumu doluluk (%)",
+    deger: yuzde(alanDoluluk?.imar, alanDoluluk?.toplam),
+    esik: KONTROL_ESLIKLERI.IMAR_DOLULUK_MIN_YUZDE,
+    gecti: yuzde(alanDoluluk?.imar, alanDoluluk?.toplam) >= KONTROL_ESLIKLERI.IMAR_DOLULUK_MIN_YUZDE,
+    mesaj: alanDoluluk
+      ? `${(alanDoluluk.imar ?? 0).toLocaleString("tr-TR")}/${alanDoluluk.toplam.toLocaleString("tr-TR")} ilanda imar durumu var`
+      : "ilanlar erişim hatası",
+  });
+
+  kontroller.push({
+    ad: "Tapu durumu doluluk (%)",
+    deger: yuzde(alanDoluluk?.tapu, alanDoluluk?.toplam),
+    esik: KONTROL_ESLIKLERI.TAPU_DOLULUK_MIN_YUZDE,
+    gecti: yuzde(alanDoluluk?.tapu, alanDoluluk?.toplam) >= KONTROL_ESLIKLERI.TAPU_DOLULUK_MIN_YUZDE,
+    mesaj: alanDoluluk
+      ? `${(alanDoluluk.tapu ?? 0).toLocaleString("tr-TR")}/${alanDoluluk.toplam.toLocaleString("tr-TR")} ilanda tapu durumu var`
+      : "ilanlar erişim hatası",
+  });
+
+  // GERÇEK PARSEL koordinatı — mevcut "Koordinat kapsamı (%)" kontrolünden
+  // FARKLI. O kontrol `lat IS NOT NULL` sayıyor ve tüm koordinatlar mahalle
+  // merkezi olsa bile %100 geçer. Spatial emsal motoru için gerçek konum
+  // gerekiyor; migration 0028 "parsel koordinatı %0" diye not düşmüş ama
+  // sağlık paneline hiç yansıtılmamıştı.
+  kontroller.push({
+    ad: "Gerçek parsel koordinatı (%)",
+    deger: yuzde(alanDoluluk?.parsel_koord, alanDoluluk?.toplam),
+    esik: KONTROL_ESLIKLERI.PARSEL_KOORD_MIN_YUZDE,
+    gecti: yuzde(alanDoluluk?.parsel_koord, alanDoluluk?.toplam) >= KONTROL_ESLIKLERI.PARSEL_KOORD_MIN_YUZDE,
+    mesaj: alanDoluluk
+      ? `${(alanDoluluk.parsel_koord ?? 0).toLocaleString("tr-TR")} ilanda koord_kaynagi='parsel' ` +
+        `(kalanı mahalle merkezi — spatial motor için yetersiz)`
+      : "ilanlar erişim hatası",
+  });
+
+  // Hat çalışıyor mu — son 24 saatte tur kaydı var mı?
+  const sonTur = await db.prepare(
+    `SELECT MAX(calisti) AS son, SUM(denenen) AS denenen
+     FROM zenginlestirme_log WHERE calisti >= ?`,
+  ).bind(ts - GUN_MS).first<{ son: number | null; denenen: number | null }>()
+    .catch(() => null);
+  kontroller.push({
+    ad: "Zenginleştirme turu (son 24s)",
+    deger: sonTur?.denenen ?? 0,
+    esik: KONTROL_ESLIKLERI.ZENGINLESTIRME_24S_MIN,
+    gecti: (sonTur?.denenen ?? 0) >= KONTROL_ESLIKLERI.ZENGINLESTIRME_24S_MIN,
+    mesaj: sonTur?.son
+      ? `${(sonTur.denenen ?? 0).toLocaleString("tr-TR")} ilan denendi`
+      : "son 24 saatte hiç tur kaydı yok — saatlik cron durmuş olabilir",
   });
 
   // Hayalet il kontrolü — bkz. IL_SAYISI_MAX notu.

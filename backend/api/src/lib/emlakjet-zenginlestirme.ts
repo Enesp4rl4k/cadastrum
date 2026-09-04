@@ -156,7 +156,27 @@ export function detaySayfasiParse(html: string): DetayZenginlik {
   };
 }
 
-async function sayfaCek(url: string, timeoutMs = 15_000): Promise<string | null> {
+/**
+ * Sayfa cekme sonucu — HATA TURU ile birlikte.
+ *
+ * NEDEN TUR ONEMLI: eski hali `string | null` donuyordu ve cagiran, null
+ * gorunce ilani KALICI olarak "zenginlestirildi" damgaliyordu. 404 (ilan
+ * silinmis) ile 429 (hiz limiti) ayni muameleyi goruyordu. Kaynak bir saat
+ * boyunca 429 verirse o turdaki 120 ilanin tamami kalici olarak yaniyor ve
+ * bir daha ASLA denenmiyordu.
+ *
+ * Uretimde imar kapsaminin %1,9'da takili kalmasinin en olasi aciklamasi bu.
+ * Ve kod bunu kendi kendine tespit edemiyordu: sonuc objesi yalnizca
+ * console.log'a gidiyor, pipeline-health'te imar doluluk kontrolu yok.
+ */
+type CekmeSonucu =
+  | { durum: "ok"; html: string }
+  /** Kalici: ilan gercekten yok. Damgalanabilir. */
+  | { durum: "kalici"; kod: number }
+  /** Gecici: kaynak bizi kisitliyor ya da ag sorunu. Damgalanmamali. */
+  | { durum: "gecici"; kod: number; sebep: string };
+
+async function sayfaCek(url: string, timeoutMs = 15_000): Promise<CekmeSonucu> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -166,10 +186,14 @@ async function sayfaCek(url: string, timeoutMs = 15_000): Promise<string | null>
       },
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
+    if (res.ok) return { durum: "ok", html: await res.text() };
+    // 404/410 → ilan kaldirilmis, tekrar denemenin anlami yok.
+    if (res.status === 404 || res.status === 410) return { durum: "kalici", kod: res.status };
+    // 403/429/5xx → kaynak tarafli, gecici kabul edilir.
+    return { durum: "gecici", kod: res.status, sebep: `HTTP ${res.status}` };
+  } catch (e) {
+    // Timeout / ag hatasi — her zaman gecici.
+    return { durum: "gecici", kod: 0, sebep: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -200,8 +224,20 @@ interface KuyrukSatiri {
   mahalle_norm?: string;
 }
 
+/**
+ * Gecici hata sonrasi kac kez daha denenir.
+ *
+ * 3: kaynak bir saatlik bir dalgalanma yasarsa kayit kurtulur; kalici bir
+ * engelde de kuyruk sonsuza kadar ayni kayitlari denemez.
+ */
+const MAKS_DENEME = 3;
+
 export interface ZenginlestirmeSonuc {
   denenen: number;
+  /** 404/410 — ilan gercekten yok, kalici damgalandi. */
+  kaliciHata: number;
+  /** 403/429/5xx/timeout — deneme sayaci artti, damgalanmadi. */
+  geciciHata: number;
   zenginlesen: number;
   imarBulunan: number;
   koordBulunan: number;
@@ -398,7 +434,8 @@ export async function emlakjetZenginlestirmeTuru(
   const basladi = Date.now();
   const sonuc: ZenginlestirmeSonuc = {
     denenen: 0, zenginlesen: 0, imarBulunan: 0,
-    koordBulunan: 0, tapuBulunan: 0, baslikBulunan: 0, hata: 0, sure_ms: 0,
+    koordBulunan: 0, tapuBulunan: 0, baslikBulunan: 0, hata: 0,
+    kaliciHata: 0, geciciHata: 0, sure_ms: 0,
   };
 
   const kuyruk = kuyrukV2
@@ -417,16 +454,36 @@ export async function emlakjetZenginlestirmeTuru(
     }
 
     // Emlakjet detay URL'i slug içeriyor ama ID ile de çözülüyor (redirect).
-    const html = await sayfaCek(`${EMLAKJET_BASE}/ilan/${ejId}`);
-    if (!html) {
+    const cekme = await sayfaCek(`${EMLAKJET_BASE}/ilan/${ejId}`);
+
+    if (cekme.durum !== "ok") {
       sonuc.hata++;
-      await db.prepare(`UPDATE ilanlar SET zenginlestirildi = ? WHERE id = ?`)
-        .bind(Date.now(), satir.id).run().catch(() => {});
+      if (cekme.durum === "kalici") {
+        // İlan gerçekten yok (404/410) — bir daha denemenin anlamı yok.
+        sonuc.kaliciHata++;
+        await db.prepare(`UPDATE ilanlar SET zenginlestirildi = ? WHERE id = ?`)
+          .bind(Date.now(), satir.id).run().catch(() => {});
+      } else {
+        // GEÇİCİ hata (403/429/5xx/timeout). Eskiden bunlar da kalıcı
+        // damgalanıyordu: kaynak bir saat 429 verirse o turdaki 120 ilan
+        // sonsuza kadar yanıyordu. Artık deneme sayacı artıyor ve ancak
+        // MAKS_DENEME'den sonra vazgeçiliyor.
+        sonuc.geciciHata++;
+        await db.prepare(
+          `UPDATE ilanlar SET
+             zenginlestirme_deneme = COALESCE(zenginlestirme_deneme, 0) + 1,
+             zenginlestirme_son_deneme = ?,
+             zenginlestirildi = CASE
+               WHEN COALESCE(zenginlestirme_deneme, 0) + 1 >= ? THEN ?
+               ELSE zenginlestirildi END
+           WHERE id = ?`,
+        ).bind(Date.now(), MAKS_DENEME, Date.now(), satir.id).run().catch(() => {});
+      }
       await new Promise((r) => setTimeout(r, ISTEK_ARASI_MS));
       continue;
     }
 
-    const z = detaySayfasiParse(html);
+    const z = detaySayfasiParse(cekme.html);
     if (z.imarDurumu) sonuc.imarBulunan++;
     if (z.tapuDurumu) sonuc.tapuBulunan++;
     if (z.baslik) sonuc.baslikBulunan++;
@@ -477,5 +534,25 @@ export async function emlakjetZenginlestirmeTuru(
   }
 
   sonuc.sure_ms = Date.now() - basladi;
+
+  // Turu kayda gec — eskiden sonuc yalnizca console.log'a gidiyordu ve
+  // Cloudflare log saklama suresi dolunca kayboluyordu. "Bu hat calisiyor mu"
+  // sorusu hicbir yerden cevaplanamiyordu; %1,9 imar kapsami rakami da elle
+  // atilmis tek seferlik bir sorgudan geliyordu.
+  try {
+    await db.prepare(
+      `INSERT INTO zenginlestirme_log
+         (calisti, denenen, zenginlesen, imar_bulunan, tapu_bulunan,
+          koord_bulunan, baslik_bulunan, kalici_hata, gecici_hata, sure_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      Date.now(), sonuc.denenen, sonuc.zenginlesen, sonuc.imarBulunan,
+      sonuc.tapuBulunan, sonuc.koordBulunan, sonuc.baslikBulunan,
+      sonuc.kaliciHata, sonuc.geciciHata, sonuc.sure_ms,
+    ).run();
+  } catch (e) {
+    console.error("[zenginlestirme] log yazilamadi:", e);
+  }
+
   return sonuc;
 }
