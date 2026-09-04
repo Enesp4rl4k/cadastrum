@@ -1,0 +1,27 @@
+# Satır sonu politikası.
+#
+# NEDEN VAR: `core.autocrlf=true` olan bir Windows checkout'unda
+# `scripts/kapsam-raporu.mjs` CRLF ile yazılıyordu ve shebang satırı
+# `#!/usr/bin/env node\r` hâline geliyordu. Node bunu tolere ediyor ama
+# vitest'in esbuild transform'u etmiyor:
+#
+#   SyntaxError: Invalid or unexpected token
+#
+# Hata, dosyayı IMPORT EDEN test dosyasının 2. satırını gösteriyordu — yani
+# yanlış yeri. Bu oturumda `git checkout scripts/kapsam-raporu.mjs` sonrası
+# tüm test paketi kırıldı; temiz bir clone'da da kırılırdı ve sebebi
+# görünmezdi.
+#
+# Kaynak dosyalar depoda ve çalışma ağacında LF kalır.
+* text=auto eol=lf
+
+# İkili dosyalar dönüştürülmez.
+*.png binary
+*.jpg binary
+*.webp binary
+*.zip binary
+*.pbf binary
+
+# Windows toplu iş dosyaları CRLF ister — cmd.exe LF'li .bat'ı yanlış
+# yorumlayabiliyor.
+*.bat text eol=crlf
