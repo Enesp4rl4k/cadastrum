@@ -537,6 +537,19 @@ async function koluKostur(
         imar: kirilimHesapla(kayitOlcumleri, (k) => (k.imarVar ? "imar biliniyor" : "imar yok")),
         alanBandi: kirilimHesapla(kayitOlcumleri, (k) => alanKovasi(k.m2)),
         fiyatBandi: kirilimHesapla(kayitOlcumleri, (k) => fiyatKovasi(k.tlm2)),
+        /**
+         * TAHMIN BANDI — fiyatBandi'nin metodolojik esi.
+         *
+         * fiyatBandi kayitlari GERCEK fiyata gore kovaliyor. Bu eksen tek
+         * basina okunursa yaniltir: kusursuz ama gurultulu bir tahminci bile,
+         * gercege gore kovalandiginda ucuz kovada pozitif, pahali kovada
+         * negatif bias gosterir — kosullama artefakti (ortalamaya regresyon).
+         *
+         * Gercek model sikismasini ayirt etmenin yolu TAHMINE gore kovalamak.
+         * Desen orada da suruyorsa model gercekten ortaya sikistiriyordur;
+         * kayboluyorsa fiyatBandi'ndaki desen olcum artefaktiydi.
+         */
+        tahminBandi: kirilimHesapla(kayitOlcumleri, (k) => fiyatKovasi(k.tahmin)),
         baselineKaynak: kirilimHesapla(kayitOlcumleri, (k) => k.baselineKaynak),
       };
     }

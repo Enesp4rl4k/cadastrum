@@ -384,10 +384,29 @@ export async function fiyatTahminEt(
   let nihaiCarpan = kategoriMultiplier * sonumlenmisIkincilCarpan;
 
   // Aşırı sıçramayı önleyen kategori tavan/taban sınırları:
+  //
+  // ÖLÇÜLDÜ (2026-09-04) — bu tavanı kısmak İŞE YARAMIYOR:
+  //   CARPAN_TAVAN_ARSA  4.20 → arsa ±%20 25,0 · |bias| 28,88
+  //                      3.00 → 25,0 · 28,89
+  //                      2.20 → 25,0 · 28,92
+  //                      1.70 → 25,0 · 28,88
+  // Tavanı 2,5 kat kısmak hiçbir şeyi oynatmıyor. Sebep: aşırı tahminler
+  // çarpan zincirinden değil BASELINE'IN KENDİSİNDEN geliyor (statik mahalle
+  // tablosu köy için 6.381 TL/m² veriyor; o basamağın ölçülen bias'ı +%248).
+  // Tahmine göre kovalanmış kırılım da bunu söylüyor: 20k+ tahmin bandında
+  // bias +%551 (n=26).
+  //
+  // CARPAN_TAVAN_* yalnızca kalibrasyon süpürmesi içindir (bkz.
+  // data/ilce-baseline.ts:envCarpan). Üretimde tanımlı olmaz.
+  const tavanEnv = Number(
+    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+      baseline.kategori === "tarla" ? "CARPAN_TAVAN_TARLA" : "CARPAN_TAVAN_ARSA"
+    ],
+  );
   if (baseline.kategori === "tarla") {
-    nihaiCarpan = clamp(nihaiCarpan, 0.40, 2.50);
+    nihaiCarpan = clamp(nihaiCarpan, 0.40, Number.isFinite(tavanEnv) && tavanEnv > 0 ? tavanEnv : 2.50);
   } else {
-    nihaiCarpan = clamp(nihaiCarpan, 0.35, 4.20);
+    nihaiCarpan = clamp(nihaiCarpan, 0.35, Number.isFinite(tavanEnv) && tavanEnv > 0 ? tavanEnv : 4.20);
   }
 
   let beklenenPerM2 = Math.round(baseline.baseline * nihaiCarpan);
