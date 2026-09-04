@@ -344,24 +344,6 @@ export function egimCarpani(egim: EgimAnalizi | null): CarpanSonucu {
   }
 }
 
-export function konumCarpani(parsel: Parsel): CarpanSonucu {
-  const il = parsel.ilAd?.trim() ?? "";
-  const buyuksehirler = new Set([
-    "İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Adana",
-    "Gaziantep", "Konya", "Mersin", "Kocaeli", "Diyarbakır", "Eskişehir",
-    "Sakarya", "Tekirdağ", "Samsun", "Şanlıurfa", "Trabzon", "Hatay",
-    "Manisa", "Aydın", "Muğla", "Balıkesir", "Denizli", "Kayseri",
-    "Kahramanmaraş", "Mardin", "Erzurum", "Van", "Malatya", "Ordu",
-  ]);
-  const notlar: string[] = [];
-  if (buyuksehirler.has(il)) {
-    notlar.push("büyükşehir");
-  } else {
-    notlar.push("iç il");
-  }
-  return { carpan: 1.0, not: notlar.join(", ") };
-}
-
 // ─── Nüfus yoğunluğu çarpanı ──────────────────────────────────────────────────
 
 export function nufusYogunlukCarpani(

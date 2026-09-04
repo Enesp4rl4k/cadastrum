@@ -37,7 +37,6 @@ import {
 import {
   nitelikCarpani,
   alanCarpani,
-  konumCarpani,
   nufusYogunlukCarpani,
   cevreCarpani,
   kirsalCarpani,
@@ -268,13 +267,17 @@ export async function fiyatTahminEt(
   }
 
   const alan = alanCarpani(parsel.alan, baseline.kategori);
-  const konum = konumCarpani(parsel);
   const cevreC = cevreCarpani(cevre);
   const egimC = egimCarpani(egim);
   const kirsalC = kirsalCarpani(parsel.nitelik, cevre?.kirsal ?? null);
 
   const kategoriMultiplier = nitelik.carpan * imarC.carpan;
-  const rawIncearMultiplier = alan.carpan * konum.carpan * cevreC.carpan * egimC.carpan * kirsalC.carpan;
+  // konumCarpani 2026-09-04'te silindi: 30 ilden oluşan bir büyükşehir listesi
+  // kuruyor, ili sınıflandırıyor ve HER ZAMAN 1.0 dönüyordu. Yani hesaba hiç
+  // girmiyordu ama UI'da "Konum etkisi" adlı bir bileşen olarak gösteriliyordu.
+  // İl seviyesi konum etkisi zaten nufusYogunlukCarpani'nde, mesafe sinyalleri
+  // ozellikCarpani'nde ölçülüyor.
+  const rawIncearMultiplier = alan.carpan * cevreC.carpan * egimC.carpan * kirsalC.carpan;
   // Koruma bandı kategoriye bağlı — alan etkisinin gerçek aralığı arsa ve tarlada
   // farklı, tek bir band arsa'nın uçlarını kırpıyordu (bkz. constants.ts).
   const incearBant = HEURISTIC_MULTIPLIER_BANT[baseline.kategori];
@@ -299,7 +302,6 @@ export async function fiyatTahminEt(
     { ad: `Nitelik: ${nitelik.ad}`, carpan: nitelik.carpan, not: nitelik.not },
     { ad: "İmar sinyali", carpan: imarC.carpan, not: imarC.not },
     { ad: "Alan etkisi", carpan: alan.carpan, not: alan.not },
-    { ad: "Konum etkisi", carpan: konum.carpan, not: konum.not },
     { ad: "Çevre/POI", carpan: cevreC.carpan, not: cevreC.not },
     { ad: "Eğim", carpan: egimC.carpan, not: egimC.not },
   ];
