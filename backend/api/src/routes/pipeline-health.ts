@@ -105,6 +105,24 @@ const KONTROL_ESLIKLERI = {
    */
   HAVUZLU_MAHALLE_MIN: 800,
   /**
+   * Günlük D1 satır okuma (ÜST sınır). Ücretsiz katman 5M/gün veriyor;
+   * eşik %70'i — alarm servis durmadan önce çalsın.
+   *
+   * 2026-09-04'te limit doldu ve tek belirti "sunucu hatası" oldu. Sebebi
+   * `emlakjet-zenginlestirme.ts`'in saatlik iki tam taraması ve
+   * `/toplu-ozet`'in 188.697 satırlık taramasıydı; ikisi de migration 0032 ile
+   * önden hesaplanmış tablolara taşındı. Bu kontrol nöbette kalıyor.
+   */
+  GUNLUK_OKUMA_MAX: 3_500_000,
+  /**
+   * `il_fiyat_ozet` satır sayısı. 81 il × 3 kategori beklenir ama tüm iller
+   * her kategoride veri taşımayabilir; eşik ihtiyatlı.
+   *
+   * Boş kalması, /toplu-ozet'in sessizce BOŞ liste dönmesi demek — eski hâlde
+   * tam tarama en azından bir cevap üretiyordu.
+   */
+  IL_OZET_MIN: 60,
+  /**
    * `ilanlar` tablosundaki FARKLI il_norm sayısı (ÜST sınır). Türkiye'de 81 il
    * var; fazlası bir yerde uydurulmuş demektir.
    *
@@ -318,6 +336,36 @@ export async function pipelineHealthKontrol(
     mesaj: havuzluMahalle?.n != null
       ? `${havuzluMahalle.n.toLocaleString("tr-TR")} mahalle emsal havuzuna sahip`
       : "ilanlar erişim hatası",
+  });
+
+  // ── OKUMA BÜTÇESİ ─────────────────────────────────────────────────────────
+  // D1 ücretsiz katmanı günde 5M satır okuma veriyor. 2026-09-04'te bu limit
+  // DOLDU ve sistem 500 vermeye başladı — o ana kadar hiçbir kontrol uyarmadı,
+  // çünkü kimse `meta.rows_read` toplamıyordu. Limit dolunca yalnızca
+  // "sunucu hatası" görünüyor; sebebi görünmüyor.
+  //
+  // Eşik limitin %70'i: alarm, servis durmadan ÖNCE çalmalı.
+  const bugun = new Date().toISOString().slice(0, 10);
+  const okuma = await db.prepare(
+    `SELECT satir_okuma FROM okuma_butcesi_gunluk WHERE gun = ?`,
+  ).bind(bugun).first<{ satir_okuma: number }>().catch(() => null);
+  const okunanSatir = okuma?.satir_okuma ?? 0;
+  kontroller.push({
+    ad: "Günlük D1 satır okuma (üst sınır)",
+    deger: okunanSatir,
+    esik: KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
+    gecti: okunanSatir <= KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
+    mesaj: `${okunanSatir.toLocaleString("tr-TR")} satır okundu ` +
+      `(ücretsiz katman limiti 5.000.000/gün, eşik %70)`,
+  });
+
+  // Özet tabloları doluyor mu — bunlar boşsa sıcak yol eski tam taramalara
+  // düşmez, DAHA KÖTÜSÜ olur: /toplu-ozet boş liste döner. Sessiz sıfır.
+  await sayimKontrolEkle(db, kontroller, {
+    ad: "İl fiyat özeti (önden hesaplanmış)",
+    sorgu: "SELECT COUNT(*) as n FROM il_fiyat_ozet",
+    esik: KONTROL_ESLIKLERI.IL_OZET_MIN,
+    birim: "satır",
   });
 
   // Hayalet il kontrolü — bkz. IL_SAYISI_MAX notu.

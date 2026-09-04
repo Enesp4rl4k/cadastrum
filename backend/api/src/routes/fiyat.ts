@@ -33,8 +33,13 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
 
-  // İstatistik + trend + AI fallback'i paralel yap — yoksa boş döner.
-  // Tek round-trip yerine concurrent (D1 connection pool).
+  // Gerçek istatistik + trend paralel. AI fallback BURADA DEĞİL.
+  //
+  // Eskiden AI baseline sorgusu da bu Promise.all içindeydi ve HER istekte
+  // koşuyordu — gerçek istatistik varken bile sonucu atılıyordu. Kullanıcısı
+  // olmayan bir sistemde bile bu, günlük 5M okuma limitinin (ücretsiz katman)
+  // boşa harcanan bir dilimi. Maliyet: yalnızca fallback yolunda bir ekstra
+  // round-trip; kazanç: isabet yolunda hiç.
   const sonuc = await d1WithTimeout(Promise.all([
     c.env.DB.prepare(
       `SELECT medyan, q1, q3, ortalama, ilan_adet, son_guncelleme
@@ -48,14 +53,9 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
        WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ? AND kategori = ?
        ORDER BY yil DESC, ay DESC LIMIT 6`,
     ).bind(il, ilce, mahalle, kategori).all(),
-    c.env.DB.prepare(
-      `SELECT tlm2 as medyan, guven, kaynak, yakalandi as son_guncelleme
-       FROM mahalle_baseline_ai
-       WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ? AND kategori = ?`,
-    ).bind(il, ilce, mahalle, kategori).first(),
   ]), 4_000);
   if (isD1Timeout(sonuc)) return d1TimeoutYaniti(c);
-  const [istatistik, trend, aiBaseline] = sonuc;
+  const [istatistik, trend] = sonuc;
 
   if (istatistik && istatistik.ilan_adet > 0) {
     c.header("Cache-Control", "public, s-maxage=3600");
@@ -66,7 +66,13 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
     });
   }
 
-  // Fallback: AI baseline (zaten paralel yüklendi yukarıda)
+  // Fallback: AI baseline — yalnızca gerçek ölçüm yokken sorgulanır.
+  const aiBaseline = await c.env.DB.prepare(
+    `SELECT tlm2 as medyan, guven, kaynak, yakalandi as son_guncelleme
+     FROM mahalle_baseline_ai
+     WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ? AND kategori = ?`,
+  ).bind(il, ilce, mahalle, kategori).first();
+
   if (aiBaseline) {
     c.header("Cache-Control", "public, s-maxage=86400"); // AI baseline 1 gün cache
     return c.json({ ...aiBaseline, trend: [] });
@@ -233,35 +239,25 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
 
-  // 1. Gerçek ilan istatistiğinden il özeti
-  const ilanRows = await c.env.DB.prepare(
-    `SELECT il_norm, medyan, ilan_adet, son_guncelleme
-     FROM il_istatistik
+  // Tek sorgu, ~162 satırlık önden hesaplanmış tablo.
+  //
+  // ESKİDEN: `il_istatistik` taraması + `AVG(tlm2) FROM mahalle_baseline_ai
+  // GROUP BY il_norm` — ikincisi 188.697 satırlık TAM TARAMA idi ve her
+  // cache-miss'te koşuyordu. Ücretsiz katmanın günlük 5M okuma limitini tek
+  // başına eritebilecek bir sorgu. Ağır agregasyon artık günlük cron'da bir kez
+  // yapılıp `il_fiyat_ozet`e yazılıyor (migration 0032).
+  const ozetRows = await c.env.DB.prepare(
+    `SELECT il_norm, medyan_ilan, adet_ilan, medyan_ai, mahalle_ai_adet
+     FROM il_fiyat_ozet
      WHERE kategori = ?
      ORDER BY il_norm`,
-  ).bind(kategori).all<{ il_norm: string; medyan: number; ilan_adet: number; son_guncelleme: number }>();
-
-  const ilanMap = new Map<string, { medyan: number; ilan_adet: number; kaynak: string }>();
-  for (const r of (ilanRows.results ?? [])) {
-    ilanMap.set(r.il_norm, { medyan: r.medyan, ilan_adet: r.ilan_adet, kaynak: "ilan" });
-  }
-
-  // 2. Eksik iller için AI baseline agregesi
-  const aiRows = await c.env.DB.prepare(
-    `SELECT il_norm, AVG(tlm2) AS medyan, COUNT(*) AS ilan_adet
-     FROM mahalle_baseline_ai
-     WHERE kategori = ?
-     GROUP BY il_norm
-     ORDER BY il_norm`,
-  ).bind(kategori).all<{ il_norm: string; medyan: number; ilan_adet: number }>();
-
-  // PERF: O(n²)'den O(n)'e — ai lookup önceden Map'e alındı.
-  // Eski: her ilNorm için aiRows.results.find() → 81 il × N mahalle = yüzlerce karşılaştırma.
-  // Yeni: aiRows tek geçişte Map'e alınır, lookup O(1).
-  const aiMap = new Map<string, { medyan: number; ilan_adet: number }>();
-  for (const r of (aiRows.results ?? [])) {
-    aiMap.set(r.il_norm, { medyan: r.medyan, ilan_adet: r.ilan_adet });
-  }
+  ).bind(kategori).all<{
+    il_norm: string;
+    medyan_ilan: number | null;
+    adet_ilan: number;
+    medyan_ai: number | null;
+    mahalle_ai_adet: number;
+  }>();
 
   const sonuc: Array<{
     il_norm: string;
@@ -270,18 +266,27 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
     kaynak: "ilan" | "ai-baseline";
   }> = [];
 
-  // Merge: ilan verisi varsa önce o (≥5 ilan), yoksa AI baseline
-  const tumIller = new Set([...ilanMap.keys(), ...aiMap.keys()]);
-
-  for (const ilNorm of tumIller) {
-    const ilan = ilanMap.get(ilNorm);
-    if (ilan && ilan.ilan_adet >= 5) {
-      sonuc.push({ il_norm: ilNorm, medyan: Math.round(ilan.medyan), ilan_adet: ilan.ilan_adet, kaynak: "ilan" });
-    } else {
-      const ai = aiMap.get(ilNorm);
-      if (ai && ai.medyan > 0) {
-        sonuc.push({ il_norm: ilNorm, medyan: Math.round(ai.medyan), ilan_adet: ai.ilan_adet, kaynak: "ai-baseline" });
-      }
+  // Merge: ilan verisi varsa önce o (≥5 ilan), yoksa AI baseline.
+  //
+  // AI satırlarında `ilan_adet` 0 — çünkü ölçülmüş ilan yok. Eskiden buraya
+  // `mahalle_baseline_ai` SATIR SAYISI yazılıyordu ve uzantı haritası onu
+  // "650 ilan" diye gösteriyordu; gerçekte o ilde sıfır gözlem vardı.
+  // Türetilmiş satır sayısı `mahalle_ai_adet` alanında ayrıca duruyor.
+  for (const r of (ozetRows.results ?? [])) {
+    if (r.medyan_ilan != null && r.adet_ilan >= 5) {
+      sonuc.push({
+        il_norm: r.il_norm,
+        medyan: Math.round(r.medyan_ilan),
+        ilan_adet: r.adet_ilan,
+        kaynak: "ilan",
+      });
+    } else if (r.medyan_ai != null && r.medyan_ai > 0) {
+      sonuc.push({
+        il_norm: r.il_norm,
+        medyan: Math.round(r.medyan_ai),
+        ilan_adet: 0,
+        kaynak: "ai-baseline",
+      });
     }
   }
 

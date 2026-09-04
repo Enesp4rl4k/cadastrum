@@ -31,6 +31,7 @@ import { proxyRoutes } from "./routes/proxy.js";
 import { scraperRoutes, scraperRunBaslat, emlakjetCronBaslat } from "./routes/scraper.js";
 import { emailGonder } from "./routes/auth.js";
 import { istatistikRefresh, ilanArchiveEt } from "./routes/istatistik.js";
+import { ilFiyatOzetiKur, zenginlestirmeKuyruguKur } from "./lib/ozet-tablolari.js";
 import { validationRoutes } from "./routes/validation.js";
 import { authRoutes } from "./routes/auth.js";
 import { hesapRoutes } from "./routes/hesap.js";
@@ -534,6 +535,25 @@ export default {
         // 1) İstatistik agregasyonu
         const r = await istatistikRefresh(env.DB);
         console.log("[cron-daily] istatistik:", r);
+
+        // 1b) Özet tabloları — sıcak yoldaki tam taramaları buraya taşıyor.
+        // Ücretsiz katmanın 5M/gün okuma limiti 2026-09-04'te doldu; sebebi
+        // /toplu-ozet'in 188k satırlık taraması ve saatlik zenginleştirme
+        // kuyruğunun iki CTE taraması idi. Ayrıntı: lib/ozet-tablolari.ts
+        // İstatistik agregasyonundan SONRA koşmalı — il_fiyat_ozet onun
+        // çıktısını okuyor.
+        try {
+          const ozet = await ilFiyatOzetiKur(env.DB);
+          console.log("[cron-daily] il_fiyat_ozet:", ozet.yazilan, "satır,", ozet.sure_ms, "ms");
+        } catch (e) {
+          console.error("[cron-daily] il_fiyat_ozet hatası:", e);
+        }
+        try {
+          const kuyruk = await zenginlestirmeKuyruguKur(env.DB);
+          console.log("[cron-daily] zenginlestirme_kuyruk:", kuyruk.yazilan, "mahalle,", kuyruk.sure_ms, "ms");
+        } catch (e) {
+          console.error("[cron-daily] zenginlestirme_kuyruk hatası:", e);
+        }
 
         // 2) Pipeline health check — D1 satır sayısı kontrol + alarm email
         try {

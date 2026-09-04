@@ -187,6 +187,19 @@ async function sayfaCek(url: string, timeoutMs = 15_000): Promise<string | null>
  */
 const MAHALLE_KOTA = 25;
 
+/**
+ * Kuyruk satiri. Mahalle alanlari yalnizca V2'de dolu — tur sonunda
+ * `zenginlestirme_kuyruk` sayacini hangi mahalle icin ilerletecegimizi
+ * bilmek icin tasiniyor.
+ */
+interface KuyrukSatiri {
+  id: number;
+  ilan_no: string;
+  il_norm?: string;
+  ilce_norm?: string;
+  mahalle_norm?: string;
+}
+
 export interface ZenginlestirmeSonuc {
   denenen: number;
   zenginlesen: number;
@@ -215,10 +228,103 @@ export interface ZenginlestirmeSonuc {
  * Kota yaklaşık uygulanır: bir parti mahalleyi birkaç kayıt aşabilir. Zararsız,
  * ve her satır için ayrı sayaç sorgusu yapmaktan çok daha ucuz.
  */
+/**
+ * V2 kuyruk — önden hesaplanmış `zenginlestirme_kuyruk` tablosundan okur.
+ *
+ * NEDEN: v1 (aşağıda) her SAATLİK turda `ilanlar` üzerinde iki ayrı GROUP BY
+ * TAM TARAMA yapıp ikisini JOIN'liyordu. Günde 24 tur × 3 tarama, ve
+ * 2026-09-04'te ücretsiz katmanın 5M/gün okuma limiti doldu — sistemin hiç
+ * kullanıcısı olmadığı hâlde.
+ *
+ * Aynı bilgi artık günlük cron'da bir kez hesaplanıp küçük bir tabloya
+ * yazılıyor (lib/ozet-tablolari.ts). Burada yalnızca indeksli bir
+ * `LIMIT`'li seçim ve ardından mahalle başına id çekme kalıyor.
+ *
+ * Seçim mantığı v1 ile AYNI: kotası dolmamış mahalleler arasından en çok
+ * ilanı olandan başla. Değişen tek şey o mahallelerin nasıl bulunduğu.
+ */
+async function kuyrukGetirV2(
+  db: D1Database,
+  limit: number,
+): Promise<KuyrukSatiri[]> {
+  const mahalleler = await db
+    .prepare(
+      `SELECT il_norm, ilce_norm, mahalle_norm, toplam, islenen
+       FROM zenginlestirme_kuyruk
+       WHERE islenen < ?
+       ORDER BY toplam DESC
+       LIMIT 5`,
+    )
+    .bind(MAHALLE_KOTA)
+    .all<{ il_norm: string; ilce_norm: string; mahalle_norm: string; toplam: number; islenen: number }>();
+
+  const secilen: KuyrukSatiri[] = [];
+  for (const m of (mahalleler.results ?? [])) {
+    if (secilen.length >= limit) break;
+    const kalanKota = Math.max(0, MAHALLE_KOTA - m.islenen);
+    const alinacak = Math.min(limit - secilen.length, kalanKota);
+    if (alinacak <= 0) continue;
+
+    const r = await db
+      .prepare(
+        `SELECT id, ilan_no FROM ilanlar
+         WHERE kaynak = 'emlakjet' AND aktif = 1 AND zenginlestirildi IS NULL
+           AND il_norm = ? AND ilce_norm = ? AND mahalle_norm = ?
+         ORDER BY yakalanma_tarihi DESC
+         LIMIT ?`,
+      )
+      .bind(m.il_norm, m.ilce_norm, m.mahalle_norm, alinacak)
+      .all<{ id: number; ilan_no: string }>();
+    for (const satir of (r.results ?? [])) {
+      secilen.push({ ...satir, il_norm: m.il_norm, ilce_norm: m.ilce_norm, mahalle_norm: m.mahalle_norm });
+    }
+  }
+
+  // Kuyruk boşsa (tüm mahalleler kotasını doldurmuş) kotasız ikinci geçiş —
+  // v1'deki davranış korunuyor, kuyruk hiç durmasın.
+  if (secilen.length === 0) {
+    const kalan = await db
+      .prepare(
+        `SELECT id, ilan_no FROM ilanlar
+         WHERE kaynak = 'emlakjet' AND zenginlestirildi IS NULL AND aktif = 1
+         ORDER BY yakalanma_tarihi DESC
+         LIMIT ?`,
+      )
+      .bind(limit)
+      .all<{ id: number; ilan_no: string }>();
+    return kalan.results ?? [];
+  }
+  return secilen;
+}
+
+/** Bir tur sonunda kuyruk sayaçlarını ilerlet — günlük rebuild'e kadar senkron kalsın. */
+async function kuyrukSayacIlerlet(
+  db: D1Database,
+  islenenler: Array<{ il_norm: string; ilce_norm: string; mahalle_norm: string }>,
+): Promise<void> {
+  const sayim = new Map<string, { il: string; ilce: string; mah: string; n: number }>();
+  for (const k of islenenler) {
+    if (!k.il_norm || !k.ilce_norm || !k.mahalle_norm) continue;
+    const anahtar = `${k.il_norm}__${k.ilce_norm}__${k.mahalle_norm}`;
+    const mevcut = sayim.get(anahtar);
+    if (mevcut) mevcut.n++;
+    else sayim.set(anahtar, { il: k.il_norm, ilce: k.ilce_norm, mah: k.mahalle_norm, n: 1 });
+  }
+  if (sayim.size === 0) return;
+  await db.batch(
+    [...sayim.values()].map((v) =>
+      db.prepare(
+        `UPDATE zenginlestirme_kuyruk SET islenen = islenen + ?, guncellendi = ?
+         WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ?`,
+      ).bind(v.n, Date.now(), v.il, v.ilce, v.mah),
+    ),
+  );
+}
+
 async function kuyrukGetir(
   db: D1Database,
   limit: number,
-): Promise<Array<{ id: number; ilan_no: string }>> {
+): Promise<KuyrukSatiri[]> {
   const oncelikli = await db
     .prepare(
       `WITH islenen AS (
@@ -280,6 +386,14 @@ async function kuyrukGetir(
 export async function emlakjetZenginlestirmeTuru(
   db: D1Database,
   limit = 40,
+  /**
+   * Kuyruk sürümü. V2 önden hesaplanmış tabloyu okur (ucuz); v1 her turda
+   * `ilanlar`'ı iki kez tam tarar (pahalı — 5M/gün okuma limitini eritti).
+   * Bayrak, v2'de beklenmeyen bir davranış çıkarsa tek env değişikliğiyle
+   * geri dönebilmek için var; `zenginlestirme_kuyruk` boşsa (henüz ilk günlük
+   * cron koşmadıysa) v2 zaten kotasız ikinci geçişe düşüyor.
+   */
+  kuyrukV2 = true,
 ): Promise<ZenginlestirmeSonuc> {
   const basladi = Date.now();
   const sonuc: ZenginlestirmeSonuc = {
@@ -287,7 +401,9 @@ export async function emlakjetZenginlestirmeTuru(
     koordBulunan: 0, tapuBulunan: 0, baslikBulunan: 0, hata: 0, sure_ms: 0,
   };
 
-  const kuyruk = await kuyrukGetir(db, limit);
+  const kuyruk = kuyrukV2
+    ? await kuyrukGetirV2(db, limit)
+    : await kuyrukGetir(db, limit);
 
   for (const satir of kuyruk) {
     sonuc.denenen++;
@@ -342,6 +458,22 @@ export async function emlakjetZenginlestirmeTuru(
     }
 
     await new Promise((r) => setTimeout(r, ISTEK_ARASI_MS));
+  }
+
+  // Kuyruk sayaclarini ilerlet — gunluk yeniden kuruluma kadar senkron kalsin.
+  // Denenen HER kayit sayilir (basarisiz olan da damgalandi, yani tekrar
+  // secilmeyecek); aksi halde kuyruk ayni mahalleyi sonsuza kadar secerdi.
+  if (kuyrukV2) {
+    try {
+      await kuyrukSayacIlerlet(
+        db,
+        kuyruk.filter((k): k is Required<KuyrukSatiri> =>
+          !!k.il_norm && !!k.ilce_norm && !!k.mahalle_norm),
+      );
+    } catch (e) {
+      // Sayac ilerlemezse tur yine de basarili sayilir; gunluk rebuild duzeltir.
+      console.error("[zenginlestirme] kuyruk sayaci ilerletilemedi:", e);
+    }
   }
 
   sonuc.sure_ms = Date.now() - basladi;
