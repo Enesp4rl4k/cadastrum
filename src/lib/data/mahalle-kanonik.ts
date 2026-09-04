@@ -70,6 +70,25 @@ export function mahalleKanonik(anahtar: string): string | null {
   return _bosluksuzIndeks.get(anahtar.replace(/ /g, "")) ?? null;
 }
 
+/**
+ * Uc parcadan kanonik mahalle anahtari kurar.
+ *
+ * Emsal eslesmesi bunu ZORUNLU kiliyor: `emsal-havuzu.ts` kullanicinin
+ * parselini (TKGM'den, kanonik "yeni konacik") toplanmis ilanla (kaynak
+ * siteden, "yenikonacik") DUZ STRING olarak karsilastiriyordu. Iki taraf da
+ * bu fonksiyondan gecmeden karsilastirilirsa, o mahalledeki 442 ilan
+ * kullaniciya hic gorunmez.
+ */
+export function kanonikAnahtar(
+  ilNorm: string | null | undefined,
+  ilceNorm: string | null | undefined,
+  mahalleNorm: string | null | undefined,
+): string | null {
+  if (!ilNorm || !ilceNorm || !mahalleNorm) return null;
+  const ham = `${ilNorm}__${ilceNorm}__${mahalleNorm}`;
+  return mahalleKanonik(ham) ?? ham;
+}
+
 /** Test/teşhis için — indeksin kaç mahalleyi kurtarabildiği. */
 export function kanonikIndeksBoyutu(): number {
   _bosluksuzIndeks ??= indeksiKur();

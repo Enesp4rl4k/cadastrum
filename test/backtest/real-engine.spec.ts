@@ -32,6 +32,7 @@ import { join } from "node:path";
 import { db } from "../../src/lib/db";
 import { fiyatTahminEt } from "../../src/lib/fiyat-tahmin";
 import { MERKEZ_TUPLES } from "../../src/lib/data/mahalle-merkezleri";
+import { kanonikAnahtar } from "../../src/lib/data/mahalle-kanonik";
 import type { Parsel } from "../../src/types/tkgm";
 import type { IlanGozlem } from "../../src/lib/db";
 
@@ -474,7 +475,10 @@ async function koluKostur(
   for (const segment of ["arsa", "tarla"] as const) {
     const segmentTest = test
       .filter((k) => k.kategori === segment && k.mahalle)
-      .filter((k) => `${k.il}__${k.ilce}__${k.mahalle}` in MERKEZ_TUPLES)
+      // Kanonik cozum: kaynak sitenin bitisik yazdigi bilesik adlar
+      // ("yenikonacik") MERKEZ_TUPLES'ta bosluklu duruyor. Cozmeden filtreleyince
+      // o kayitlar olcumun disinda kaliyordu — korpusun %12,9'u.
+      .filter((k) => kanonikAnahtar(k.il, k.ilce, k.mahalle)! in MERKEZ_TUPLES)
       // Deterministik örneklem — hash sırasına göre ilk MAX_TEST_PER_SEGMENT kayıt
       .sort((a, b) => hash01(a.ilanNo) - hash01(b.ilanNo))
       .slice(0, MAX_TEST_PER_SEGMENT);
@@ -488,7 +492,7 @@ async function koluKostur(
     const kayitOlcumleri: KayitOlcum[] = [];
     let biasToplam = 0;
     for (const k of segmentTest) {
-      const [lat, lng] = MERKEZ_TUPLES[`${k.il}__${k.ilce}__${k.mahalle}`]!;
+      const [lat, lng] = MERKEZ_TUPLES[kanonikAnahtar(k.il, k.ilce, k.mahalle)!]!;
       // SIZINTI KORUMASI: test parseline yalnızca alan/nitelik/konum veriliyor.
       // Kendi imar durumunu bilmek meşru (üretimde kullanıcı bilir) ama fiyat
       // türevi hiçbir alan geçmiyor — minimalParsel bunu yapısal olarak garanti

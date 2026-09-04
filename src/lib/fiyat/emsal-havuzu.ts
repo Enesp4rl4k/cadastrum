@@ -3,6 +3,7 @@ import type { IlanGozlem } from "../db";
 import type { ManuelEmsal } from "../manuel-veri";
 import type { FiyatTahmini } from "./types";
 import { normalizeYerAdi } from "../tkgm-api";
+import { kanonikAnahtar } from "../data/mahalle-kanonik";
 import { dovizliMi, fiyatPerM2TLOlarak } from "../kur";
 import {
   GUN_MS,
@@ -104,6 +105,7 @@ export function weightedMedian(values: Array<{ value: number; weight: number }>)
 export function emsalAdaylariniOlustur(parsel: Parsel, kayitlar: IlanGozlem[]): EmsalAdayi[] {
   const mahalleNorm = parsel.mahalleAd ? normalizeYerAdi(parsel.mahalleAd) : "";
   const ilceNorm = parsel.ilceAd ? normalizeYerAdi(parsel.ilceAd) : "";
+  const ilNorm = parsel.ilAd ? normalizeYerAdi(parsel.ilAd) : "";
   const parselSegment = segmentBul(parsel.nitelik);
   const parselImar = imarSiniflandir(parsel, null);
 
@@ -127,7 +129,17 @@ export function emsalAdaylariniOlustur(parsel: Parsel, kayitlar: IlanGozlem[]): 
     const kayitMahalleNorm =
       kayit.mahalleNorm ?? (kayit.mahalleAd ? normalizeYerAdi(kayit.mahalleAd) : "");
     const isSameIlce = !!ilceNorm && kayitIlceNorm === ilceNorm;
-    const isSameMahalle = !!mahalleNorm && kayitMahalleNorm === mahalleNorm;
+    // Mahalle karsilastirmasi KANONIK anahtar uzerinden. Duz string
+    // karsilastirmasi, kaynak sitenin bitisik yazdigi bilesik adlari
+    // ("yenikonacik") TKGM'nin bosluklu adiyla ("yeni konacik") hicbir zaman
+    // eslestiremiyordu; korpusun %12,9'u bu yuzden emsal havuzuna girmiyordu.
+    // Ayrinti: src/lib/data/mahalle-kanonik.ts
+    const isSameMahalle =
+      !!mahalleNorm &&
+      !!kayitMahalleNorm &&
+      (kayitMahalleNorm === mahalleNorm ||
+        kanonikAnahtar(ilNorm, ilceNorm, kayitMahalleNorm) ===
+          kanonikAnahtar(ilNorm, ilceNorm, mahalleNorm));
     if (!isSameIlce) continue;
 
     const segment = segmentBul(`${kayit.baslik ?? ""} ${kayit.imarDurumu ?? ""}`);

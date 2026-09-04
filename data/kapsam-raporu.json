@@ -1,99 +1,108 @@
 {
-  "olusturuldu": "2026-09-03T21:50:14.608Z",
+  "olusturuldu": "2026-09-03T22:18:17.189Z",
   "havuzEsigi": 5,
   "kategoriler": {
     "arsa": {
       "toplamMahalle": 65718,
-      "gozlemliMahalle": 8201,
-      "havuzluMahalle": 1268,
-      "havuzKapsamiYuzde": 1.93,
+      "gozlemliMahalle": 8413,
+      "havuzluMahalle": 1389,
+      "havuzKapsamiYuzde": 2.11,
       "bantlar": {
-        "0": 57517,
-        "1-4": 6825,
-        "5-19": 1288,
-        "20+": 88
+        "0": 57305,
+        "1-4": 6911,
+        "5-19": 1406,
+        "20+": 96
       },
-      "eslesmeyenHavuzluMahalle": 108,
+      "eslesmeyenHavuzluMahalle": 113,
       "ilceIsListesi": [
+        {
+          "ilce": "izmir__bergama",
+          "toplamMahalle": 149,
+          "havuzlu": 19,
+          "kismi": 72,
+          "bos": 58,
+          "gozlem": 298,
+          "oncelik": 72
+        },
         {
           "ilce": "mugla__milas",
           "toplamMahalle": 141,
-          "havuzlu": 14,
-          "kismi": 64,
-          "bos": 63,
-          "gozlem": 240,
-          "oncelik": 64
+          "havuzlu": 30,
+          "kismi": 66,
+          "bos": 45,
+          "gozlem": 434,
+          "oncelik": 66
+        },
+        {
+          "ilce": "bursa__mustafakemalpasa",
+          "toplamMahalle": 131,
+          "havuzlu": 13,
+          "kismi": 61,
+          "bos": 57,
+          "gozlem": 234,
+          "oncelik": 61
         },
         {
           "ilce": "gaziantep__sahinbey",
           "toplamMahalle": 176,
-          "havuzlu": 16,
-          "kismi": 52,
-          "bos": 108,
-          "gozlem": 205,
-          "oncelik": 52
-        },
-        {
-          "ilce": "kocaeli__kandira",
-          "toplamMahalle": 285,
-          "havuzlu": 25,
-          "kismi": 51,
-          "bos": 209,
-          "gozlem": 291,
-          "oncelik": 51
-        },
-        {
-          "ilce": "gaziantep__sehitkamil",
-          "toplamMahalle": 134,
-          "havuzlu": 10,
-          "kismi": 51,
-          "bos": 73,
-          "gozlem": 192,
-          "oncelik": 51
-        },
-        {
-          "ilce": "sakarya__hendek",
-          "toplamMahalle": 103,
-          "havuzlu": 8,
-          "kismi": 47,
-          "bos": 48,
-          "gozlem": 136,
-          "oncelik": 47
-        },
-        {
-          "ilce": "antalya__alanya",
-          "toplamMahalle": 157,
-          "havuzlu": 35,
-          "kismi": 46,
-          "bos": 76,
-          "gozlem": 485,
-          "oncelik": 46
-        },
-        {
-          "ilce": "izmir__bergama",
-          "toplamMahalle": 149,
-          "havuzlu": 2,
-          "kismi": 45,
-          "bos": 102,
-          "gozlem": 76,
-          "oncelik": 45
+          "havuzlu": 21,
+          "kismi": 54,
+          "bos": 101,
+          "gozlem": 249,
+          "oncelik": 54
         },
         {
           "ilce": "manisa__salihli",
           "toplamMahalle": 118,
-          "havuzlu": 6,
+          "havuzlu": 24,
+          "kismi": 49,
+          "bos": 45,
+          "gozlem": 310,
+          "oncelik": 49
+        },
+        {
+          "ilce": "gaziantep__sehitkamil",
+          "toplamMahalle": 134,
+          "havuzlu": 19,
+          "kismi": 48,
+          "bos": 67,
+          "gozlem": 258,
+          "oncelik": 48
+        },
+        {
+          "ilce": "sakarya__hendek",
+          "toplamMahalle": 103,
+          "havuzlu": 23,
+          "kismi": 45,
+          "bos": 35,
+          "gozlem": 291,
+          "oncelik": 45
+        },
+        {
+          "ilce": "kocaeli__kandira",
+          "toplamMahalle": 285,
+          "havuzlu": 41,
+          "kismi": 44,
+          "bos": 200,
+          "gozlem": 471,
+          "oncelik": 44
+        },
+        {
+          "ilce": "antalya__alanya",
+          "toplamMahalle": 157,
+          "havuzlu": 38,
           "kismi": 43,
-          "bos": 69,
-          "gozlem": 132,
+          "bos": 76,
+          "gozlem": 511,
           "oncelik": 43
         },
         {
           "ilce": "trabzon__ortahisar",
           "toplamMahalle": 102,
-          "havuzlu": 19,
+          "havuzlu": 28,
           "kismi": 42,
-          "bos": 41,
-          "gozlem": 258,
+          "bos": 32,
+          "gozlem": 369,
           "oncelik": 42
         },
         {
@@ -1805,57 +1814,48 @@
           "bos": 34,
           "gozlem": 23,
           "oncelik": 11
-        },
-        {
-          "ilce": "kutahya__emet",
-          "toplamMahalle": 53,
-          "havuzlu": 1,
-          "kismi": 11,
-          "bos": 41,
-          "gozlem": 21,
-          "oncelik": 11
         }
       ]
     },
     "tarla": {
       "toplamMahalle": 65718,
-      "gozlemliMahalle": 6808,
-      "havuzluMahalle": 598,
-      "havuzKapsamiYuzde": 0.91,
+      "gozlemliMahalle": 6884,
+      "havuzluMahalle": 610,
+      "havuzKapsamiYuzde": 0.93,
       "bantlar": {
-        "0": 58910,
-        "1-4": 6103,
-        "5-19": 690,
+        "0": 58834,
+        "1-4": 6166,
+        "5-19": 703,
         "20+": 15
       },
-      "eslesmeyenHavuzluMahalle": 107,
+      "eslesmeyenHavuzluMahalle": 108,
       "ilceIsListesi": [
-        {
-          "ilce": "mugla__milas",
-          "toplamMahalle": 141,
-          "havuzlu": 2,
-          "kismi": 49,
-          "bos": 90,
-          "gozlem": 94,
-          "oncelik": 49
-        },
         {
           "ilce": "izmir__bergama",
           "toplamMahalle": 149,
-          "havuzlu": 4,
-          "kismi": 47,
-          "bos": 98,
-          "gozlem": 104,
-          "oncelik": 47
+          "havuzlu": 8,
+          "kismi": 56,
+          "bos": 85,
+          "gozlem": 161,
+          "oncelik": 56
+        },
+        {
+          "ilce": "mugla__milas",
+          "toplamMahalle": 141,
+          "havuzlu": 7,
+          "kismi": 53,
+          "bos": 81,
+          "gozlem": 143,
+          "oncelik": 53
         },
         {
           "ilce": "bursa__mustafakemalpasa",
           "toplamMahalle": 131,
-          "havuzlu": 6,
-          "kismi": 42,
-          "bos": 83,
-          "gozlem": 113,
-          "oncelik": 42
+          "havuzlu": 7,
+          "kismi": 52,
+          "bos": 72,
+          "gozlem": 157,
+          "oncelik": 52
         },
         {
           "ilce": "balikesir__gonen",
@@ -1873,6 +1873,15 @@
           "kismi": 39,
           "bos": 77,
           "gozlem": 83,
+          "oncelik": 39
+        },
+        {
+          "ilce": "kocaeli__kandira",
+          "toplamMahalle": 285,
+          "havuzlu": 2,
+          "kismi": 39,
+          "bos": 244,
+          "gozlem": 72,
           "oncelik": 39
         },
         {
@@ -2326,6 +2335,15 @@
           "oncelik": 22
         },
         {
+          "ilce": "antalya__alanya",
+          "toplamMahalle": 157,
+          "havuzlu": 1,
+          "kismi": 22,
+          "bos": 134,
+          "gozlem": 34,
+          "oncelik": 22
+        },
+        {
           "ilce": "bursa__nilufer",
           "toplamMahalle": 63,
           "havuzlu": 11,
@@ -2386,15 +2404,6 @@
           "kismi": 21,
           "bos": 99,
           "gozlem": 36,
-          "oncelik": 21
-        },
-        {
-          "ilce": "antalya__alanya",
-          "toplamMahalle": 157,
-          "havuzlu": 1,
-          "kismi": 21,
-          "bos": 135,
-          "gozlem": 33,
           "oncelik": 21
         },
         {
@@ -3618,15 +3627,6 @@
           "havuzlu": 0,
           "kismi": 9,
           "bos": 76,
-          "gozlem": 13,
-          "oncelik": 9
-        },
-        {
-          "ilce": "kahramanmaras__onikisubat",
-          "toplamMahalle": 291,
-          "havuzlu": 0,
-          "kismi": 9,
-          "bos": 282,
           "gozlem": 13,
           "oncelik": 9
         }

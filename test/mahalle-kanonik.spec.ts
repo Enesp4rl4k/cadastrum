@@ -7,7 +7,7 @@
  * hiçbir mahalleyle eşleştiremediği için hiç kullanılmıyordu.
  */
 import { describe, it, expect } from "vitest";
-import { mahalleKanonik, kanonikIndeksBoyutu } from "../src/lib/data/mahalle-kanonik";
+import { mahalleKanonik, kanonikAnahtar, kanonikIndeksBoyutu } from "../src/lib/data/mahalle-kanonik";
 import { mahalleKeyOlustur } from "../src/lib/baseline-engine";
 import { MERKEZ_TUPLES } from "../src/lib/data/mahalle-merkezleri";
 
@@ -41,6 +41,35 @@ describe("mahalleKanonik", () => {
 
   it("indeks boş değil — kurtarılacak mahalle var", () => {
     expect(kanonikIndeksBoyutu()).toBeGreaterThan(100);
+  });
+});
+
+describe("emsal eşleşmesi kanonik anahtar kullanır", () => {
+  /**
+   * ASIL KAYIP BURADAYDI. emsal-havuzu.ts, kullanıcının parselini (TKGM'den,
+   * kanonik "yeni konacik") toplanmış ilanla (kaynak siteden, "yenikonacik")
+   * DÜZ STRING olarak karşılaştırıyordu. Adana/Pozantı'da o mahallede 442
+   * arsa ilanı var ve hiçbiri kullanıcıya görünmüyordu.
+   *
+   * İlk düzeltme yanlış yola konmuştu (mahalleKeyOlustur — statik tablo
+   * araması); ölçüm hiç değişmeyince yakalandı.
+   */
+  it("iki yazım da aynı kanonik anahtara çözülür", () => {
+    const a = kanonikAnahtar("adana", "pozanti", "yenikonacik");
+    const b = kanonikAnahtar("adana", "pozanti", "yeni konacik");
+    expect(a).toBe(b);
+    expect(a).toBe("adana__pozanti__yeni konacik");
+  });
+
+  it("farklı mahalleler aynı anahtara çözülmez", () => {
+    const a = kanonikAnahtar("adana", "pozanti", "yeni konacik");
+    const b = kanonikAnahtar("adana", "pozanti", "eski konacik");
+    expect(a).not.toBe(b);
+  });
+
+  it("eksik alanla null döner", () => {
+    expect(kanonikAnahtar("adana", "pozanti", null)).toBeNull();
+    expect(kanonikAnahtar(null, "pozanti", "merkez")).toBeNull();
   });
 });
 
