@@ -80,6 +80,10 @@ export interface FiyatChoroplethOzet {
   il_norm: string;
   medyan: number;
   ilan_adet: number;
+  /**
+   * "ai-baseline" TARİHSEL bir ad — arkasındaki satırların hepsi
+   * `statik-baseline`, hiçbiri AI üretimi değil (bkz. popup etiketi).
+   */
   kaynak: "ilan" | "ai-baseline";
 }
 
@@ -216,9 +220,20 @@ function ilLayerEkle(
     aktifPopup?.remove();
     const ilNorm = String(p["il_norm"]);
     const ilAd = ilNorm.charAt(0).toUpperCase() + ilNorm.slice(1);
+    /**
+     * "AI tahmin" YANLIŞ bir atıftı — 2026-09-05 ölçümü:
+     * `mahalle_baseline_ai` tablosunun 188.697 satırının TAMAMI
+     * `kaynak='statik-baseline'`. Tek bir `ai-research` satırı yok. Tablo adı
+     * ve `kaynak: "ai-baseline"` tel değeri tarihsel; içerik uzantının statik
+     * MAHALLE_BASELINE tablosu. Kullanıcıya gösterilen etiket bunu söylemeli.
+     *
+     * Tel değeri DEĞİŞMİYOR: sahadaki eski uzantı sürümleri onu okuyor ve
+     * yeniden adlandırmanın kullanıcıya hiçbir faydası yok. Yalan etikette
+     * ve etiket düzeltildi.
+     */
     const kaynakBadge = p["kaynak"] === "ilan"
       ? `<span style="color:#4ade80">● Gerçek ilan</span>`
-      : `<span style="color:#fb923c">● AI tahmin</span>`;
+      : `<span style="color:#fb923c">● Ölçülmemiş baseline</span>`;
     const popupId = `popup-ext-${ilNorm.replace(/[^a-z]/g, "")}`;
 
     aktifIlNorm = ilNorm;

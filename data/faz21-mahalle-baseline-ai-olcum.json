@@ -1,0 +1,154 @@
+{
+  "olculdu": "2026-09-05T13:35:10.737Z",
+  "soru": "mahalle_baseline_ai gercekten AI mi, ve olculmus ilce medyanindan iyi mi?",
+  "yontem": "mahalle_istatistik (ilan_adet>=5) ile ortusen mahalleler. Karsilastirma tabani: ayni ilcenin OLCULMUS mahalle medyanlarinin leave-one-out medyani; ilcede baska olcum yoksa il duzeyinde LOO.",
+  "bulgu_1_tablo_ai_degil": {
+    "aciklama": "Tablonun 188.697 satirinin TAMAMI kaynak=statik-baseline. ai-research/knn-smoothing satiri YOK. Tablo adi ve API kaynak degeri tarihsel; icerik uzantinin statik MAHALLE_BASELINE tablosu.",
+    "dagilim": {
+      "statik-baseline/tarla": 65629,
+      "statik-baseline/arsa": 61534,
+      "statik-baseline/konut": 61534,
+      "ai-research": 0,
+      "knn-smoothing": 0
+    }
+  },
+  "bulgu_2_kirlilik": {
+    "aciklama": "tarla satirlarinin 228/568i olculen medyanla BIREBIR ayni — ayni ilanlardan turemis, yani kendisiyle kiyaslama. Dogru sayi bunlar cikarilarak alinir."
+  },
+  "ham_ortusme": {
+    "olculdu": "2026-09-05T13:35:10.737Z",
+    "kategoriler": {
+      "arsa": {
+        "ai": {
+          "n": 563,
+          "mape": 95.84,
+          "medyanApe": 59.49,
+          "within20": 18.1,
+          "bias": 33.7
+        },
+        "olculmusIlceMedyani_loo": {
+          "n": 506,
+          "mape": 126.9,
+          "medyanApe": 48.08,
+          "within20": 27.1,
+          "bias": 86.13
+        },
+        "olculmusIlMedyani_loo": {
+          "n": 556,
+          "mape": 154.05,
+          "medyanApe": 62.28,
+          "within20": 16.4,
+          "bias": 107.61
+        },
+        "ayniKumede": {
+          "ai": {
+            "n": 556,
+            "mape": 96.12,
+            "medyanApe": 59.15,
+            "within20": 18.2,
+            "bias": 33.91
+          },
+          "taban": {
+            "n": 556,
+            "mape": 138.35,
+            "medyanApe": 51.36,
+            "within20": 25.2,
+            "bias": 95.86
+          }
+        }
+      },
+      "tarla": {
+        "ai": {
+          "n": 568,
+          "mape": 17.45,
+          "medyanApe": 4.28,
+          "within20": 73.9,
+          "bias": 3.4
+        },
+        "olculmusIlceMedyani_loo": {
+          "n": 465,
+          "mape": 73.12,
+          "medyanApe": 43.31,
+          "within20": 23.4,
+          "bias": 36.56
+        },
+        "olculmusIlMedyani_loo": {
+          "n": 560,
+          "mape": 87.78,
+          "medyanApe": 54.75,
+          "within20": 16.6,
+          "bias": 42.5
+        },
+        "ayniKumede": {
+          "ai": {
+            "n": 560,
+            "mape": 17.26,
+            "medyanApe": 4.3,
+            "within20": 73.9,
+            "bias": 3.02
+          },
+          "taban": {
+            "n": 560,
+            "mape": 81.27,
+            "medyanApe": 47.4,
+            "within20": 21.6,
+            "bias": 43.3
+          }
+        }
+      }
+    },
+    "kapsam": {
+      "arsa": {
+        "ortakSatir": 563,
+        "ilceTabaniYok": 57
+      },
+      "tarla": {
+        "ortakSatir": 568,
+        "ilceTabaniYok": 103
+      }
+    }
+  },
+  "temiz_ortusme": {
+    "arsa": {
+      "ai": {
+        "n": 555,
+        "mape": 96.29,
+        "medyanApe": 59.16,
+        "within20": 18,
+        "bias": 33.97
+      },
+      "olculmusTaban": {
+        "n": 555,
+        "mape": 138.59,
+        "medyanApe": 52.02,
+        "within20": 25,
+        "bias": 96.05
+      },
+      "cikarilanBirebir": 2
+    },
+    "tarla": {
+      "ai": {
+        "n": 336,
+        "mape": 28.75,
+        "medyanApe": 15.91,
+        "within20": 56.5,
+        "bias": 5.03
+      },
+      "olculmusTaban": {
+        "n": 336,
+        "mape": 89.42,
+        "medyanApe": 49.71,
+        "within20": 19,
+        "bias": 49.72
+      },
+      "cikarilanBirebir": 228
+    }
+  },
+  "karar": {
+    "kural": "Plan: AI +-%20 isabeti olculmus ilce medyanindan DUSUKSE S2 (sus+aralik), YUKSEKSE S3 (etiketle).",
+    "arsa": "CELISKILI. +-%20: 18,0 < 25,0 (taban daha iyi) ama MAPE 96,3 < 138,6 ve bias +34,0 < +96,1 (baseline cok daha iyi). Tek metrige gore S2 demek, uc metrikten ikisinde daha iyi bir tahminciyi atmak olurdu.",
+    "tarla": "S3 net. Baseline her metrikte iyi: +-%20 56,5 vs 19,0, MAPE 28,8 vs 89,4, bias +5,0 vs +49,7.",
+    "uygulanan": "S3 + etiket durustlugu. Faz 5 zaten ilan_adet=0 yapti; bu olcum ayrica ATIF yalanini ortaya cikardi ve harita etiketi \"AI tahmin\" -> \"Olculmemis baseline\" olarak duzeltildi.",
+    "not": "Karsilastirma tabani zayif: +%96 bias ile sistematik olarak yuksek tahmin ediyor, cunku olcum kapsami olan ilceler pahali kentsel ilceler. Bu, tabani oldugundan kotu gosteriyor olabilir — kararin S1/S2ye kaymasi icin daha iyi bir taban gerekir."
+  }
+}

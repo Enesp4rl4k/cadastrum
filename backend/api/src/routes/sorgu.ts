@@ -144,6 +144,21 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
     return weighted.length > 0 ? Math.round(weighted[weighted.length - 1]!.fiyat) : null;
   }
 
+  /**
+   * DİKKAT — `alt`/`ust` GÜVEN ARALIĞI DEĞİL.
+   *
+   * Bunlar emsal dağılımının Q1/Q3'ü: tanımı gereği emsallerin %50'sini
+   * kapsayan bir aralık ve tahminin hatasını değil, EMSALLERİN yayılımını
+   * ölçüyor. site/src/pages/rapor.astro bunu bir dönem "%95 güven aralığı"
+   * diye gösteriyordu — hem yüzde yanlıştı hem de nicelik.
+   *
+   * Fallback yollarında daha da zayıf: mahalle-istatistik yolunda q1/q3 yoksa
+   * 0,8×/1,25×; il-fallback yolunda 0,7×/1,4× — bunlar tamamen elle seçilmiş
+   * çarpanlar, hiçbir kapsama iddiası taşımıyor.
+   *
+   * Gerçek bir güven aralığı istenirse hold-out backtest'in hata dağılımından
+   * türetilmeli (test/backtest/real-engine.spec.ts); Q1/Q3 o iş için değil.
+   */
   let medyan = quantile(0.5);
   let alt = quantile(0.25);
   let ust = quantile(0.75);

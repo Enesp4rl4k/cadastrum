@@ -23,18 +23,16 @@
  * (hatta MAPE bir miktar geri geliyor, n=107 ile temkinli okunmalı). Yani
  * hedef "her mahalleyi doldurmak" değil, MAHALLE BAŞINA 5 GÖZLEME ULAŞMAK.
  *
- * BİLİNEN FARK — bu rapor MOTORDAN DAHA KÖTÜMSER.
- * Rapor mahalle adlarını birebir eşleştiriyor; motor ise `mahalle-kanonik.ts`
- * üzerinden iki kural daha uyguluyor (boşluğa duyarsızlık ve "merkez" ilçesinin
- * `{il} merkez` olarak açılması). 2026-09-04 ölçümü: motor korpusun %94,1'ini
- * eşleştiriyor, bu rapor daha azını.
+ * MOTORLA HİZALI — aynı kural modülü.
+ * Rapor da motor da `mahalle-kanonik-kurallar.mjs`'i kullanıyor; kuralların
+ * ikinci bir kopyası YOK. Daha önce rapor adları birebir eşleştiriyordu ve
+ * motordan kötümser çıkıyordu; bu, tarama iş listesini yanlış ilçelere
+ * yönlendiriyordu — motorun zaten havuzlu saydığı bir mahalle raporda "eksik"
+ * görünüyordu. Hizalama ölçüldü (2026-09-05): arsa havuzlu 1.389 → 1.417,
+ * kanoniğe oturmayan 113 → 85.
  *
- * Neden hizalanmadı: çözücü TS ve uzantısız import zinciri kullanıyor; onu
- * .mjs'ten çağırmak ya zincirdeki her import'a uzantı eklemeyi ya da kuralların
- * ikinci bir JS kopyasını çıkarmayı gerektiriyordu. İkisi de kabul edilmedi —
- * iki kopya sessizce ayrışır ve rapor motorun görmediği bir şey iddia eder.
- * Kötümser yön güvenli yön: rapor sahip olmadığımız kapsamı iddia etmiyor.
- * Aşağıdaki "kanoniğe oturmayan" sayacı bu farkın büyüklüğünü gösteriyor.
+ * Kalan 85 gerçek boşluk: mahalle adı hiçbir kuralla `data/mahalleler.json`'a
+ * oturmuyor. Sessizce yutulmuyor, aşağıda sayı olarak raporlanıyor.
  *
  * Bu araç iki soruyu ayırıyor:
  *   DERİNLİK — 1-4 gözlemli mahalleler: az iş, büyük kazanç (MAPE 94 → 50)
@@ -44,6 +42,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bosluksuzIndeksKur, kanonikCoz } from "../src/lib/data/mahalle-kanonik-kurallar.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -77,8 +76,31 @@ function ayir(satir) {
   return out;
 }
 
-/** Gözlemleri "il__ilce__mahalle__kategori" → adet olarak topla. */
-function gozlemleriTopla() {
+/**
+ * Ham gözlem anahtarını kanonik hâline çeviren çözücü kurar.
+ *
+ * Motorun kullandığı AYNI kural modülünü kullanıyor
+ * (`mahalle-kanonik-kurallar.mjs`) — kuralların ikinci bir kopyası yok.
+ * Çözülemeyen anahtar olduğu gibi geri döner; sessizce düşürülmez, "kanoniğe
+ * oturmayan" sayacında görünür.
+ */
+export function cozucuKur(kanonikSet) {
+  const bosluksuzIndeks = bosluksuzIndeksKur(kanonikSet);
+  const kanonikMi = (k) => kanonikSet.has(k);
+  const onbellek = new Map();
+  return (ham) => {
+    let v = onbellek.get(ham);
+    if (v === undefined) {
+      v = kanonikCoz(ham, kanonikMi, bosluksuzIndeks) ?? ham;
+      onbellek.set(ham, v);
+    }
+    return v;
+  };
+}
+
+/** Gözlemleri kanonik "il__ilce__mahalle__kategori" → adet olarak topla. */
+function gozlemleriTopla(kanonikSet) {
+  const coz = cozucuKur(kanonikSet);
   const mahalle = new Map();
   for (const yol of KAYNAKLAR) {
     if (!existsSync(yol)) continue;
@@ -98,7 +120,7 @@ function gozlemleriTopla() {
         const kat = v[iKat];
         if (kat !== "arsa" && kat !== "tarla") continue;
         if (v[iMah] === "NULL" || !v[iMah]) continue;
-        const k = `${v[iIl]}__${v[iIlce]}__${v[iMah]}__${kat}`;
+        const k = `${coz(`${v[iIl]}__${v[iIlce]}__${v[iMah]}`)}__${kat}`;
         mahalle.set(k, (mahalle.get(k) ?? 0) + 1);
       }
     }
@@ -162,9 +184,9 @@ export function ilceBoslugunuHesapla(mahalleler, gozlemAdet) {
 export { HAVUZ_ESIGI };
 
 function main() {
-  const gozlem = gozlemleriTopla();
   const tum = tumMahalleler();
   if (!tum) throw new Error("data/mahalleler.json yok — genişlik boşluğu hesaplanamaz.");
+  const gozlem = gozlemleriTopla(tum.set);
 
   const kategoriler = kategoriFiltre ? [kategoriFiltre] : ["arsa", "tarla"];
   const rapor = { olusturuldu: new Date().toISOString(), havuzEsigi: HAVUZ_ESIGI, kategoriler: {} };

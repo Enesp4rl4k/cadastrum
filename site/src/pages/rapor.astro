@@ -245,7 +245,7 @@ import Base from "../layouts/Base.astro";
           <div class="rapor-meta" style="color: #5a4a30;">Tahmini Parsel Değeri</div>
           <div class="deger-buyuk">${fmtTL(data.toplam_tl.orta)}</div>
           <div class="deger-aralik">
-            %95 güven aralığı: <strong>${fmtTL(data.toplam_tl.alt)}</strong> — <strong>${fmtTL(data.toplam_tl.ust)}</strong>
+            Emsal aralığı (Q1–Q3): <strong>${fmtTL(data.toplam_tl.alt)}</strong> — <strong>${fmtTL(data.toplam_tl.ust)}</strong>
           </div>
           <div style="margin-top: 10px; font-size: 9pt; color: #5a4a30;">
             ${fmt(data.m2)} m² × ortalama ${fmt(data.medyan_tlm2 ?? 0)} ₺/m²
@@ -255,7 +255,7 @@ import Base from "../layouts/Base.astro";
           <div class="rapor-meta" style="color: #5a4a30;">Birim Fiyat Tahmini</div>
           <div class="deger-buyuk">${fmt(data.medyan_tlm2 ?? 0)} ₺/m²</div>
           <div class="deger-aralik">
-            %95 güven aralığı: <strong>${fmt(data.alt_tlm2 ?? 0)}</strong> — <strong>${fmt(data.ust_tlm2 ?? 0)} ₺/m²</strong>
+            Emsal aralığı (Q1–Q3): <strong>${fmt(data.alt_tlm2 ?? 0)}</strong> — <strong>${fmt(data.ust_tlm2 ?? 0)} ₺/m²</strong>
           </div>
           <div style="margin-top: 10px; font-size: 9pt; color: #5a4a30;">
             Parsel alanı belirtilmedi · toplam TL için /sorgu'dan m² girin

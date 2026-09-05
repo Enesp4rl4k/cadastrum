@@ -1,0 +1,33 @@
+{
+  "olculdu": "2026-09-05",
+  "soru": "Korpustaki koordinatlar uretime seed edilmeli mi, ve mahalle-merkez koordinati spatial motoru bozuyor mu?",
+  "bulgu_1_seed_gereksiz": {
+    "aciklama": "Onceki degerlendirme YANLISTI: uretimdeki ilanlarin koordinatsiz oldugu varsayilmisti. Olculdu — uretimde aktif 34.476 ilanin 30.198'i (%87,6) zaten koordinatli.",
+    "uretim_koord_kaynagi": {
+      "mahalle-merkez": 28065,
+      "parsel": 2114,
+      "ilce-fallback": 19,
+      "koordinatsiz": 4278
+    },
+    "sonuc": "Toplu koordinat UPDATE'i bekleyen bir is degil. Kalan 4.278 kayit zenginlestirme kuyruguna zaten dahil."
+  },
+  "bulgu_2_yigilma_zaten_canli": {
+    "aciklama": "Planin 'mahalle-merkez koordinati sahte yogunluk uretebilir' riski gelecege ait degil — ZATEN canli. Koordinatli ilanlarin %93'u mahalle merkezi, yalnizca %7'si gercek parsel.",
+    "korpus_olcumu": {
+      "koordinatli_ilan": 39738,
+      "ayrik_nokta": 14253,
+      "en_buyuk_yigin": 442,
+      "tek_ilanli_nokta": 6939,
+      "yigin_20_ustu_ilan_payi_yuzde": 8.6,
+      "yigin_50_ustu_ilan_payi_yuzde": 2.0
+    },
+    "neden_onemli": "emsal-spatial.ts IDW p=2 ve eps=1m kullaniyor (w = 1/d^2). Tek noktada 442 ilan, o noktaya yakin bir sorguda agirligin tamamina yakinini aliyor. weighted_median yolunda da exp(-0/D)=1 ile tam agirlik aliyorlar."
+  },
+  "karar": {
+    "yapilmadi": "Spatial sorguya koord_kaynagi='parsel' sarti EKLENMEDI.",
+    "neden": "Uretimde merkez koordinatlari zaten baskin oldugu icin bu sart canli davranisi buyuk olcude degistirir (havuzun %93'unu duserir) — olcumsuz yapilamaz. Proje kurali: olculmemis degisiklik yok.",
+    "gereken_olcum": "spatial yolunu ayri degerlendiren bir hold-out backtest. Mevcut test/backtest/real-engine.spec.ts uzanti motorunu olcuyor; spatial uc D1'e bagli ve backtest'te kosmuyor. scripts/spatial-backtest.mjs var ama plan kapsami disinda birakilmisti.",
+    "argüman_olcum_degil": "Merkez koordinati 'bu ilan bu mahallede' bilgisinden fazlasini tasimiyor; motor bu bilgiyi zaten mahalle katmaninda kullaniyor. Ayni bilgiyi bir de nokta gozlem gibi beslemek onu cift sayiyor. Bu bir gerekce, olcum degil — karar olcumu bekliyor."
+  },
+  "gorunurluk": "pipeline-health 'Gercek parsel koordinati (%)' kontrolu bu orani (~%7) zaten raporluyor; Faz 6'da tam bu sebeple eklenmisti."
+}

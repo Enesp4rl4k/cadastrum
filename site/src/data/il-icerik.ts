@@ -27,7 +27,7 @@ export const IL_ICERIK: Record<string, IlIcerik> = {
     giris:
       "İstanbul, Türkiye'nin gayrimenkul yatırım merkezi olarak hem Avrupa hem Asya yakasında derinlemesine farklı dinamiklere sahip bir piyasa sunar. " +
       "Boğaz hattı boyunca premium fiyatlar 100.000 TL/m² ve üzerinde seyrederken, 3. köprü çevresi ve Kuzey Marmara aksı yatırım amaçlı arsa için en aktif bölgelerdir. " +
-      "Cadastrum, İstanbul'un 970'in üzerindeki mahallesi için Sahibinden ve Hepsiemlak ilan medyanını günlük olarak izler, " +
+      "Cadastrum, İstanbul'un 970'in üzerindeki mahallesi için emlak ilanı medyanını izler, " +
       "TKGM kayıtlı parsel doğrulama yapar, e-Plan üzerinden imar durumunu çeker ve mahalle bazında AI destekli fiyat tahmini sunar.",
     onemliBolgeler: [
       { ad: "Beşiktaş — Bebek, Etiler, Levent", aciklama: "Avrupa yakasının premium hattı; Bebek arsa medyanı 80-100K TL/m² aralığında. Lüks konut + ofis." },
@@ -56,7 +56,7 @@ export const IL_ICERIK: Record<string, IlIcerik> = {
       },
       {
         soru: "İstanbul mahalle bazlı fiyat verisi nereden alınır?",
-        cevap: "Sahibinden + Hepsiemlak ilan medyanı + TCMB Konut Fiyat Endeksi en güncel veri kaynaklarıdır. Cadastrum bu üç kaynağı triangulation ile birleştirir, IQR ile aykırı değerleri temizler ve mahalle bazında medyan + güven aralığı sunar.",
+        cevap: "Cadastrum'un emsal havuzu ağırlıklı olarak Emlakjet ilanlarından oluşuyor (üretimdeki 34.476 aktif ilanın 33.831'i, %98,1); Hepsiemlak 92 ilan, uzantı kullanıcılarının gönderdiği emsaller 553. Aykırı değerler Tukey IQR ile temizleniyor ve mahalle bazında medyan ile Q1–Q3 emsal aralığı veriliyor. Ölçülmüş emsali olmayan mahallelerde gösterilen değer statik baseline'dır, ilan medyanı değil.",
       },
     ],
   },

@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from "vitest";
 // @ts-expect-error — .mjs script, tip tanımı yok; saf fonksiyonları test ediyoruz.
-import { ilceBoslugunuHesapla, bant, HAVUZ_ESIGI } from "../scripts/kapsam-raporu.mjs";
+import { ilceBoslugunuHesapla, bant, HAVUZ_ESIGI, cozucuKur } from "../scripts/kapsam-raporu.mjs";
 
 type IlceBosluk = {
   ilce: string;
@@ -102,5 +102,48 @@ describe("kapsam raporu — özet", () => {
     expect(ozet.havuzlu).toBe(0);
     // Kısmi mahalle yoksa derinlik işi de yok — liste boş.
     expect(liste).toHaveLength(0);
+  });
+});
+
+/**
+ * MOTORLA HİZA — rapor ile motor aynı kural modülünü kullanmalı.
+ *
+ * Bu ayrışma sessizdir ve pahalıdır: rapor bir mahalleyi "eksik" sayarsa,
+ * `--hedef-listesi` gecelik taramayı motorun ZATEN havuzlu saydığı ilçeye
+ * yollar. Ölçüldü (2026-09-05): hizalama arsa havuzlu sayısını 1.389 → 1.417
+ * yaptı, kanoniğe oturmayanı 113 → 85 düşürdü.
+ *
+ * KAPSAM SINIRI — dürüstlük notu: bu testler çözücünün DAVRANIŞINI kilitliyor,
+ * `gozlemleriTopla`'nın onu çağırdığını değil. Çağrı kaldırılırsa testler geçer.
+ * O yol sabit dosya okuyor; test edilebilir hâle getirmek raporu dosya
+ * enjeksiyonuyla parçalamayı gerektirirdi ve kazanç bunu karşılamıyor.
+ * Kural modülünün kendisi `test/mahalle-kanonik.spec.ts`'te mutasyonla
+ * doğrulanmış durumda.
+ */
+describe("kapsam raporu — motorla aynı kanonik kurallar", () => {
+  const kanonik = new Set([
+    "elazig__elazig merkez__cip",
+    "istanbul__catalca__yeni konacik",
+    "sivas__sivas merkez__bahtiyar",
+  ]);
+
+  it("'merkez' ilçesi kanonik yazımına açılır", () => {
+    // Kaynak site il merkezini kısaca "merkez" yazıyor.
+    expect(cozucuKur(kanonik)("elazig__merkez__cip")).toBe("elazig__elazig merkez__cip");
+  });
+
+  it("boşluk farkı ve merkez açımı aynı kayıtta birlikte çözülür", () => {
+    expect(cozucuKur(kanonik)("sivas__merkez__bahtiyar")).toBe("sivas__sivas merkez__bahtiyar");
+    expect(cozucuKur(kanonik)("istanbul__catalca__yenikonacik"))
+      .toBe("istanbul__catalca__yeni konacik");
+  });
+
+  /**
+   * Çözülemeyen anahtar YUTULMAZ — olduğu gibi geri döner ki rapordaki
+   * "kanoniğe oturmayan" sayacı onu görebilsin. Null dönmek kaydı sessizce
+   * yok ederdi.
+   */
+  it("çözülemeyen anahtar olduğu gibi kalır, düşürülmez", () => {
+    expect(cozucuKur(kanonik)("il__ilce__bilinmeyen")).toBe("il__ilce__bilinmeyen");
   });
 });
