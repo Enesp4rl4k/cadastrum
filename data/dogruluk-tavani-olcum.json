@@ -1,0 +1,47 @@
+{
+  "olculdu": "2026-09-05",
+  "soru": "Dogrulugu nasil arttiririz? En buyuk kaldirac hangisi?",
+  "yontem": "Korpus (43.694 ilan) ve uretim D1. Her olcum leave-one-out: bir ilan, KENDI mahallesindeki DIGER ilanlarla tahmin ediliyor.",
+
+  "1_tavan": {
+    "ne": "MUKEMMEL mahalle medyani ile tahmin — tahmin edilecek ilanlarin kendisinden hesaplanan medyan. Hicbir motor bunu gecemez.",
+    "arsa": { "n": 16287, "mahalle": 1671, "within20": 30.5, "mape": 94.9, "medyanApe": 38.8, "within50": 59.3 },
+    "tarla": { "n": 5465, "mahalle": 719, "within20": 28.7, "mape": 89.3, "medyanApe": 40.4, "within50": 58.6 },
+    "okuma": "Mahalle duzeyinde herhangi bir tahmincinin tavani ±%20 ~30. Motor su an 25,4. Aradaki fark 5 puan. SLO ±%20>=50 mahalle bazli hicbir yontemle ULASILAMAZ — SLO veri gorulmeden konmus."
+  },
+
+  "2_neden": {
+    "mahalle_ici_yayilim": { "arsa_IQR_bolu_medyan_yuzde": 74.9, "tarla_IQR_bolu_medyan_yuzde": 70.0 },
+    "okuma": "Ayni mahalledeki iki arsa medyanin %75'i kadar farkli olabiliyor. Mahalle duzeyi bu farki goremez."
+  },
+
+  "3_kaldirac_parsel_buyuklugu": {
+    "mahalle_ici_log_egim": { "arsa": -0.365, "tarla": -0.440 },
+    "acikladigi_varyans_yuzde": { "arsa": 27.6, "tarla": 39.3 },
+    "durum": "MOTOR ZATEN KULLANIYOR — carpan-zinciri.ts alanCarpani, ayni yontemle kalibre edilmis. Bu kaldirac cekilmis."
+  },
+
+  "4_kaldirac_imar_durumu": {
+    "ilce_ici_acikladigi_varyans_yuzde": { "arsa": 60.8, "tarla": 0.0 },
+    "arsa_kategorisi_icinde_medyan_TLm2": {
+      "Konut+Ticaret Alani": 12748, "Villa Imarli": 10000, "Konut Imarli": 7876,
+      "Ticari Imarli": 6626, "Arazi": 2176, "Tarla": 1623, "Bag & Bahce": 1478, "Zeytinlik": 1213
+    },
+    "kapsam": { "imar_dolu": 2439, "toplam_emlakjet": 33831, "yuzde": 7.2, "onceki_olcum": 1.9 },
+    "durum": "MEKANIZMA VAR, VERI YOK. emsal-havuzu.ts zaten imarUyumu ile puanliyor; alan ilanlarin %92,8'inde bos. Tarla'da R2=0 cunku tum tarla ilanlarinin imari 'Tarla' — varyans yok, aciklanacak bir sey de yok. Bu, tarlanin neden zaten daha iyi oldugunu da acikliyor.",
+    "sonuc": "EN BUYUK OLCULMUS KALDIRAC BU. Katsayi ayari degil, kapsam buyutmesi degil — imar_durumu doldurmak."
+  },
+
+  "5_yan_bulgu_json_kacisi": {
+    "ne": "imarDurumuCikar JSON kacislarini cozmuyordu: 'Bag & Bahce' ikiye bolunmustu (104 dogru + 70 ham kacisli), medyanlari 1.478 ve 985.",
+    "neden_onemli": "emsal havuzu imarUyumu ile eslesiyor; iki yazim farkli sinif sayilinca ayni imardaki ilanlar birbirine emsal olamiyordu.",
+    "durum": "Duzeltildi, mutasyonla dogrulandi (backend/api/test/imar-json-kacis.spec.ts)."
+  },
+
+  "oneri_sirasi": [
+    "1. imar_durumu kapsamini buyut (7,2% -> hedef >60%). Faz 6 kalici yanigi durdurdu, hat calisiyor; mesele zaman ve okuma butcesi.",
+    "2. SLO'yu olculen tavana gore yeniden koy. ±%20>=50 ulasilamaz; anlamli hedef 'tavana ne kadar yakin' olmali.",
+    "3. Nokta tahmin yerine kalibre belirsizlik araligi — hold-out hata dagilimindan, kaynak katmanina gore. Q1-Q3 bunu yapmiyor.",
+    "4. Kapsam buyutmeye devam ama ikincil oncelikle: 0-emsal mahalleleri 5'e cikarmak tabani yukseltir (MAPE 178 -> 50), tavani degil."
+  ]
+}

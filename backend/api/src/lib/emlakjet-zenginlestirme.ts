@@ -86,13 +86,33 @@ export function baslikCikar(html: string): string | null {
 }
 
 /**
+ * JSON string kaçışlarını çözer.
+ *
+ * NEDEN AYRI BİR ADIM: değeri JSON.parse ile değil regex ile çekiyoruz (blob
+ * Next.js `__NEXT_DATA__` içinde ve tamamını ayrıştırmak pahalı), dolayısıyla
+ * JSON'un kendi `\uXXXX` kaçışları OLDUĞU GİBİ kalıyordu.
+ *
+ * ÖLÇÜLEN ZARAR (2026-09-05, üretim): "Bağ & Bahçe" iki ayrı imar sınıfına
+ * bölünmüştü — 104 kayıt doğru yazımla, 70 kayıt ham kaçış hâliyle. İkisinin
+ * medyanı bile farklıydı (1.478 ve 985 TL/m²), yani bölünme kozmetik değil:
+ * emsal havuzu `imarUyumu` üzerinden eşleştiği için aynı imar sınıfındaki
+ * ilanlar birbirine emsal sayılmıyordu.
+ */
+export function jsonKacisCoz(s: string): string {
+  return s
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
+/**
  * JSON-LD PropertyValue listesinden "İmar Durumu" değerini çıkarır.
  * Detay sayfasında `{"@type":"PropertyValue","name":"İmar Durumu","value":"Tarla"}`
  * biçiminde geliyor.
  */
 export function imarDurumuCikar(html: string): string | null {
   const m = html.match(/"name"\s*:\s*"İmar Durumu"\s*,\s*"value"\s*:\s*"([^"]{1,60})"/);
-  const deger = m?.[1]?.trim();
+  const deger = jsonKacisCoz(m?.[1] ?? "").trim();
   if (!deger || deger === "Bilinmiyor" || deger === "-") return null;
   return deger;
 }
