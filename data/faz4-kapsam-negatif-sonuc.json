@@ -1,0 +1,37 @@
+{
+  "olculdu": "2026-09-06",
+  "ne": "Faz 4 kabul olcutu — gecelik hedefli tarama sonrasi.",
+  "plandaki_uyari": "Planin kendi ifadesi: 'Kapsam artip isabet artmazsa bu bir NEGATIF SONUCTUR. data/ altina yazilir ve sprint kapsam buyutmeyi DURDURUR.'",
+
+  "girdi_degisimi": {
+    "korpus_ilan": { "once": 41898, "sonra": 65911, "artis_yuzde": 57.3 },
+    "havuzlu_mahalle_arsa": { "once": 1417, "sonra": 2928, "artis_yuzde": 106.6 },
+    "bir_gozlemi_olan_mahalle_arsa": { "once": 8415, "sonra": 11935 },
+    "koordinatli_yuzde": 93.8
+  },
+
+  "kabul_olcutleri": {
+    "korpus_60000": { "hedef": 60000, "olculen": 65911, "gecti": true },
+    "havuzlu_mahalle_2500": { "hedef": 2500, "olculen": 2928, "gecti": true },
+    "koordinatli_60": { "hedef": 60, "olculen": 93.8, "gecti": true },
+    "arsa_within20_30": { "hedef": 30, "olculen": 27.1, "gecti": false },
+    "bias_25": { "hedef": 25, "olculen": 19.09, "gecti": true }
+  },
+
+  "dogruluk": {
+    "arsa":  { "within20_once": 25.4, "within20_sonra": 27.1, "bias_once": 15.96, "bias_sonra": 19.09 },
+    "tarla": { "within20_once": 44.0, "within20_sonra": 44.0, "bias_once":  8.69, "bias_sonra": 10.59 }
+  },
+
+  "sonuc": "NEGATIF. Korpus %57 buyudu, havuzlu mahalle IKIYE KATLANDI, arsa ±%20 yalnizca 1,7 puan artti (25,4 -> 27,1) ve bias KOTULESTI (15,96 -> 19,09). '1-4 -> 5-19 sicramasi' korpus genislemesiyle tekrarlanmadi.",
+
+  "neden_sasirtici_degil": {
+    "atif": "data/dogruluk-tavani-olcum.json",
+    "aciklama": "Ayni gun olculen tavan: mukemmel mahalle medyani ile arsa ±%20 = 30,5. Kapsam buyutmesi 25,4'ten 27,1'e tasidi, yani kalan 5 puanin 1,7'sini aldi. Kalan ~3,4 puan da mahalle duzeyinde tavanin altinda. Tarama bu tavani YUKSELTEMEZ, sadece ona yaklastirir.",
+    "dogrulayici_kesit": "Bu kosuda 20+ emsalli bantta bile ±%20 = 32,0 — olculen tavan 30,5'in hemen ustunde ve orada duruyor. Emsal eklemek bu bandi acmiyor."
+  },
+
+  "karar": "Kapsam buyutme BIRINCIL kaldirac olmaktan cikti. Gecelik tarama durdurulmuyor (tabani yukseltiyor: 0-emsal bandi MAPE 91, 5-19 bandi 55) ama sprintin doğruluk hedefi artik imar_durumu kapsamina bagli — olculen kaldirac orada (ilce-ici arsa varyansinin %60,8'i).",
+
+  "yan_bulgu_bias": "Arsa bias 15,96 -> 19,09 kotulesti. Kirilim gosteriyor: <1k TL/m2 bandinda bias +92,92 (n=340). Tarama kirsal/ucuz parselleri agirlikli ekledi ve motor bu bandi sistematik olarak YUKSEK tahmin ediyor. Ayri bir is kalemi."
+}

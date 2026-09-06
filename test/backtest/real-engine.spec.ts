@@ -64,19 +64,40 @@ const YAZ_MODU = process.env.BACKTEST_YAZ === "1";
 const GUN_MS = 24 * 60 * 60 * 1000;
 
 /**
- * SLO — motorun "güvenilir" sayılabilmesi için ulaşması gereken seviye.
+ * SLO — motorun "guvenilir" sayilabilmesi icin ulasmasi gereken seviye.
  *
- * Eşiklerden (mape_max/within20_min) FARKI önemli: eşik "dün ne kadardıysa
- * bugün daha kötü olmasın" der, yani regresyon kapısıdır ve motor berbatken
- * de yeşil yanar. SLO ise "ne zaman iyi olur"un tanımı — bugün ikisi de
- * karşılanmıyor, kasten. Mesafe her koşumda raporlanır ki ilerleme
- * ölçülebilsin ve "iyileşiyoruz" iddiası sayıya bağlansın.
+ * Esiklerden (mape_max/within20_min) FARKI onemli: esik "dun ne kadardiysa
+ * bugun daha kotu olmasin" der, yani regresyon kapisidir ve motor berbatken
+ * de yesil yanar. SLO ise "ne zaman iyi olur"un tanimi.
  *
- * within20 ≥ %50: tahminlerin yarısı gerçek fiyatın ±%20'sinde.
- * |bias| ≤ %10  : sistematik olarak yüksek/düşük tahmin etmiyoruz.
+ * ±%20 >= %50 HEDEFI NEREDE DURUYOR — her kosumda olculuyor.
  *
- * Assert EDİLMEZ — bugün kırmızı yanan bir kapı CI'yı kalıcı kırmızıya
- * çevirir, o da hiçbir şey ölçmez hâle gelir.
+ * Asagida NAIF TABAN hesaplaniyor: ayni hold-out, ayni orneklem, her test
+ * kaydi kendi mahallesinin train medyaniyla tahmin ediliyor. Hicbir carpan,
+ * baseline, shrinkage yok. Motorun tum zincirinin ne kazandirdigi bu farkta.
+ *
+ * 2026-09-06 olcumu:
+ *   arsa  motor 27,1 · naif taban 25,3  → zincirin katkisi +1,8 puan
+ *   tarla motor 44,0 · naif taban 24,8  → zincirin katkisi +19,2 puan
+ *
+ * DUZELTME: bir onceki degerlendirmede "mahalle duzeyinin tavani ~30, motor
+ * ona carpmis" denmisti. YANLISTI — o sayi yalnizca >=5 ilanli mahallelerde
+ * ve hedef kaydin komsulari dahil edilerek olculmustu, yani kolay bir alt
+ * kume. Adil kiyasta motor naif tabani ASIYOR. Ortada carpilmis bir tavan yok.
+ *
+ * ASIL BULGU ASIMETRI: tarlada zincir +19,2 puan kazandiriyor, arsada +1,8.
+ * Sebebi olculdu — tarla ici homojen (tum tarla ilanlarinin imari 'Tarla',
+ * ilce-ici varyansta R2=0), arsa ici degil: imar_durumu ilce-ici arsa fiyat
+ * varyansinin %60,8'ini acikliyor ve "arsa" kategorisi icinde 7-10 kat fark
+ * tasiyor (Konut Imarli 7.876 vs Zeytinlik 1.213 TL/m2). Motor bu farki
+ * goremiyor cunku alan ilanlarin %92,8'inde bos — mekanizma emsal-havuzu.ts'te
+ * (imarUyumu) ZATEN var, veri yok. Ayrinti: data/dogruluk-tavani-olcum.json.
+ *
+ * Bu yuzden SLO dusurulmuyor. Ona giden yol katsayi ayari ya da kapsam
+ * buyutmesi degil: data/faz4-kapsam-negatif-sonuc.json — korpus %57 buyudu,
+ * havuzlu mahalle ikiye katlandi, arsa ±%20 1,7 puan artti.
+ *
+ * Assert EDILMEZ — bugun kirmizi yanan bir kapi CI'yi kalici kirmiziya cevirir.
  */
 const SLO = { within20_min: 50, bias_mutlak_max: 10 } as const;
 
@@ -419,6 +440,84 @@ const kirilimlar: Record<"arsa" | "tarla", KirilimRapor> = { arsa: {}, tarla: {}
 const enKotular: Record<"arsa" | "tarla", KayitOlcum[]> = { arsa: [], tarla: [] };
 
 /**
+ * NAIF TABAN — "sadece mahalle medyani al" tahmincisinin ayni hold-out'taki
+ * sonucu.
+ *
+ * NE ISE YARAR: motorun tum carpan/baseline/shrinkage zincirinin, en basit
+ * makul alternatife gore NE KAZANDIRDIGINI soyler. Kazanc yoksa o zincir
+ * karmasiklik borcudur.
+ *
+ * Neden sabit sayi degil de her kosumda hesap: korpus buyudukce taban da
+ * degisir. Elle yazilmis bir sayi sessizce eskir ve "ilerledik" iddiasini
+ * olcumden kopartir.
+ *
+ * ADIL KIYAS SARTI — motorun olctugu KAYITLARIN AYNISI kullanilmali.
+ * Ilk yazimda taban tum test kayitlarindan hesaplaniyordu (n=7.987) ama motor
+ * deterministik bir orneklemle olculuyor (n<=1.200) ve mahallesinde train
+ * kaydi olmayanlar taban tarafinda atlaniyordu. Iki farkli kume karsilastirmak
+ * "doluluk %100" gibi anlamsiz bir sayi uretti. Simdi ayni filtre zinciri,
+ * ayni siralama, ayni kesme uygulaniyor.
+ *
+ * FALLBACK: mahallesinde train kaydi olmayan test kaydinda ilce, o da yoksa
+ * il medyanina dusuluyor — motor da o kayitlari tahmin etmek zorunda oldugu
+ * icin tabanin onlari atlamasi haksiz avantaj olurdu.
+ */
+function naifTabaniOlc(
+  hamKayitlar: HamKayit[],
+  segment: "arsa" | "tarla",
+): OlcumSonucu | null {
+  const train: HamKayit[] = [];
+  const test: HamKayit[] = [];
+  for (const k of hamKayitlar) {
+    (hash01(k.ilanNo) < 0.8 ? train : test).push(k);
+  }
+
+  const topla = (anahtar: (k: HamKayit) => string): Map<string, number[]> => {
+    const m = new Map<string, number[]>();
+    for (const k of train) {
+      if (k.kategori !== segment || !k.mahalle) continue;
+      const a = anahtar(k);
+      const liste = m.get(a);
+      if (liste) liste.push(k.tlm2);
+      else m.set(a, [k.tlm2]);
+    }
+    return m;
+  };
+  const mahalleHavuz = topla((k) => `${k.il}__${k.ilce}__${k.mahalle}`);
+  const ilceHavuz = topla((k) => `${k.il}__${k.ilce}`);
+  const ilHavuz = topla((k) => k.il);
+
+  const medyan = (a: number[]): number => {
+    const x = [...a].sort((p, q) => p - q);
+    const i = x.length >> 1;
+    return x.length % 2 ? x[i]! : (x[i - 1]! + x[i]!) / 2;
+  };
+
+  // Motorun kullandigi filtre zincirinin BIREBIR aynisi.
+  const segmentTest = test
+    .filter((k) => k.kategori === segment && k.mahalle)
+    .filter((k) => kanonikAnahtar(k.il, k.ilce, k.mahalle)! in MERKEZ_TUPLES)
+    .sort((a, b) => hash01(a.ilanNo) - hash01(b.ilanNo))
+    .slice(0, MAX_TEST_PER_SEGMENT);
+
+  const apeler: number[] = [];
+  let biasToplam = 0;
+  for (const k of segmentTest) {
+    const havuz =
+      mahalleHavuz.get(`${k.il}__${k.ilce}__${k.mahalle}`) ??
+      ilceHavuz.get(`${k.il}__${k.ilce}`) ??
+      ilHavuz.get(k.il);
+    if (!havuz || havuz.length === 0) continue;
+    const tahmin = medyan(havuz);
+    apeler.push(Math.abs(tahmin - k.tlm2) / k.tlm2);
+    biasToplam += (tahmin - k.tlm2) / k.tlm2;
+  }
+  return apeler.length > 0 ? olc(apeler, biasToplam) : null;
+}
+
+const naifTabanlar: Record<"arsa" | "tarla", OlcumSonucu | null> = { arsa: null, tarla: null };
+
+/**
  * Tek bir kolu koşar.
  *
  * @param ozellikAc false → imar/başlık/tapu alanları null'lanır (kontrol).
@@ -592,6 +691,11 @@ beforeAll(async () => {
     `(%${((100 * ozellikliHam) / Math.max(1, hamKayitlar.length)).toFixed(1)})`,
   );
 
+  // NAIF TABAN — motordan ONCE, cunku "zincir ne kazandiriyor"un paydasi bu.
+  for (const segment of ["arsa", "tarla"] as const) {
+    naifTabanlar[segment] = naifTabaniOlc(hamKayitlar, segment);
+  }
+
   // KONTROL kolu önce — eşik kapısı buna bakıyor, mevcut davranışı temsil ediyor.
   await koluKostur(hamKayitlar, false, sonuclar);
   // DENEY kolu — aynı kayıtlar, aynı bölünme, özellikler açık.
@@ -711,11 +815,28 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
       if (!s) continue;
       const w = SLO.within20_min - s.within20;
       const b = Math.abs(s.bias) - SLO.bias_mutlak_max;
+      const t = naifTabanlar[segment];
+      /**
+       * ZİNCİRİN KATKISI — asıl ilerleme göstergesi.
+       *
+       * "Hedeften 22,9 puan uzağız" tek başına bir şey söylemiyor. Motorun
+       * tüm çarpan/baseline/shrinkage zinciri, "sadece mahalle medyanını al"
+       * demeye göre ne kazandırıyor? Kazanç küçülüyorsa zincire yatırım
+       * yapmanın getirisi bitmiş, parsel düzeyinde özelliğe geçmenin vakti
+       * gelmiş demektir.
+       */
+      const tabanSatiri = t
+        ? `\n        naif taban ±%20 ${t.within20.toFixed(1)} (mahalle medyanı, n=${t.n})` +
+          `  → zincirin katkısı ${s.within20 - t.within20 >= 0 ? "+" : ""}` +
+          `${(s.within20 - t.within20).toFixed(1)} puan` +
+          (s.within20 <= t.within20 ? "  ⚠ ZİNCİR KAZANDIRMIYOR" : "")
+        : "";
       satirlar.push(
         `  ${segment.padEnd(5)} ±%20 ${s.within20.toFixed(1)} / hedef ${SLO.within20_min}` +
         `  → ${w <= 0 ? "KARŞILANDI" : `${w.toFixed(1)} puan eksik`}\n` +
         `        |bias| ${Math.abs(s.bias).toFixed(2)} / hedef ≤${SLO.bias_mutlak_max}` +
-        `  → ${b <= 0 ? "KARŞILANDI" : `${b.toFixed(2)} puan fazla`}`,
+        `  → ${b <= 0 ? "KARŞILANDI" : `${b.toFixed(2)} puan fazla`}` +
+        tabanSatiri,
       );
     }
     console.log("\n── SLO MESAFESİ (hedef; kapı değil) ──\n" + satirlar.join("\n") + "\n");
