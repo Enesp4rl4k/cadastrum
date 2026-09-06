@@ -443,6 +443,12 @@ const kirilimlar: Record<"arsa" | "tarla", KirilimRapor> = { arsa: {}, tarla: {}
  * %277) ikincisi olmadan düz bir çarpan yazmak yanlış tedavidir.
  */
 const enKotular: Record<"arsa" | "tarla", KayitOlcum[]> = { arsa: [], tarla: [] };
+/**
+ * KONTROL kolunun ham tahmin/gerçek çiftleri — kalibrasyon süpürmesi için.
+ * Kırılım raporları özet veriyor; kalibrasyon sorusu ("tahminleri sabit bir
+ * katsayıyla ölçeklesek ne olurdu") ham çiftler olmadan cevaplanamıyor.
+ */
+const tumOlcumler: Record<"arsa" | "tarla", KayitOlcum[]> = { arsa: [], tarla: [] };
 
 /**
  * NAIF TABAN — "sadece mahalle medyani al" tahmincisinin ayni hold-out'taki
@@ -648,6 +654,9 @@ async function koluKostur(
     }
     hedef[segment] = olc(apeler, biasToplam);
 
+    // Kalibrasyon KONTROL kolundan: eşiğin ve üretimin temsil ettiği davranış bu.
+    if (!ozellikAc) tumOlcumler[segment] = kayitOlcumleri;
+
     // Kırılım yalnızca DENEY kolundan: özellikler açıkken imar ekseni anlamlı.
     if (ozellikAc) {
       enKotular[segment] = [...kayitOlcumleri].sort((a, b) => b.ape - a.ape).slice(0, 10);
@@ -830,6 +839,99 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
    * Eşik testi yeşil yanarken bu rapor kırmızı okunabilir; ikisi farklı soruyu
    * cevaplıyor. Eşik: "dünden kötü müyüz?". Bu: "hedeften ne kadar uzağız?".
    */
+  /**
+   * KALİBRASYON SÜPÜRMESİ — "bias'ı sıfırlasak ±%20 ne olurdu?"
+   *
+   * NEDEN BU SORU: arsa bias +19. Tahminler sistematik olarak %19 yüksekse,
+   * dağılımın büyük kısmı ±%20 bandının ÜST kenarından taşar — yani ±%20
+   * skoru, motorun ayırt etme gücünden bağımsız olarak baskılanır. Mimari
+   * değişikliğe girişmeden önce bilinmesi gereken şey: bu kaybın ne kadarı
+   * KALİBRASYON (ucuz), ne kadarı AYIRT ETME (pahalı).
+   *
+   * YÖNTEM: tahminleri sabit bir katsayıyla ölçekleyip metrikleri yeniden
+   * hesaplıyoruz. Bu bir "katsayı süpürmesi" DEĞİL — mahalleye/segmente göre
+   * değişen bir çarpan aranmıyor, tek bir global ölçek deneniyor ve amacı
+   * iyileştirme değil TEŞHİS: eğri düz çıkarsa hata kalibrasyonda değildir.
+   *
+   * Kaynak bazlı süpürme de var, çünkü fallback katmanlarının bias'ı çok
+   * farklı (ölçüldü: ilanGozlem-mahalle +11, ilanGozlem-ilce +22,
+   * mahalle-baseline +145). Tek global katsayı bu üçünü aynı anda düzeltemez.
+   *
+   * ASSERT EDİLMEZ — teşhis çıktısı.
+   */
+  it("kalibrasyon süpürmesini raporlar", () => {
+    const olcuOlcekli = (kayitlar: KayitOlcum[], olcek: number) => {
+      let icinde = 0, biasT = 0, apeT = 0;
+      for (const k of kayitlar) {
+        const t = k.tahmin * olcek;
+        const ape = Math.abs(t - k.tlm2) / k.tlm2;
+        if (ape <= 0.20) icinde++;
+        apeT += ape;
+        biasT += (t - k.tlm2) / k.tlm2;
+      }
+      const n = kayitlar.length || 1;
+      return {
+        within20: (icinde / n) * 100,
+        mape: (apeT / n) * 100,
+        bias: (biasT / n) * 100,
+      };
+    };
+
+    const satirlar: string[] = [];
+    for (const segment of ["arsa", "tarla"] as const) {
+      const kayitlar = tumOlcumler[segment];
+      if (!kayitlar || kayitlar.length === 0) continue;
+
+      // GLOBAL süpürme
+      let enIyi = { olcek: 1, within20: -1, mape: 0, bias: 0 };
+      const izler: string[] = [];
+      for (let o = 0.50; o <= 1.21; o += 0.05) {
+        const r = olcuOlcekli(kayitlar, o);
+        izler.push(`${o.toFixed(2)}→${r.within20.toFixed(1)}`);
+        if (r.within20 > enIyi.within20) enIyi = { olcek: o, ...r };
+      }
+      const taban = olcuOlcekli(kayitlar, 1);
+      satirlar.push(
+        `  ${segment} · şu an ±%20 ${taban.within20.toFixed(1)} · bias ${taban.bias.toFixed(2)}
+` +
+        `    global en iyi ölçek ${enIyi.olcek.toFixed(2)} → ±%20 ${enIyi.within20.toFixed(1)}` +
+        ` (${(enIyi.within20 - taban.within20 >= 0 ? "+" : "")}${(enIyi.within20 - taban.within20).toFixed(1)})` +
+        ` · MAPE ${enIyi.mape.toFixed(1)} · bias ${enIyi.bias.toFixed(2)}
+` +
+        `    eğri: ${izler.join(" ")}`,
+      );
+
+      // KAYNAK BAZLI süpürme — her fallback katmanı kendi ölçeğiyle
+      const kaynaklar = new Map<string, KayitOlcum[]>();
+      for (const k of kayitlar) {
+        const liste = kaynaklar.get(k.baselineKaynak);
+        if (liste) liste.push(k); else kaynaklar.set(k.baselineKaynak, [k]);
+      }
+      let toplamIcinde = 0;
+      const kaynakSatir: string[] = [];
+      for (const [kaynak, grup] of [...kaynaklar].sort((a, b) => b[1].length - a[1].length)) {
+        let en = { olcek: 1, within20: -1 };
+        for (let o = 0.30; o <= 1.51; o += 0.05) {
+          const r = olcuOlcekli(grup, o);
+          if (r.within20 > en.within20) en = { olcek: o, within20: r.within20 };
+        }
+        const t = olcuOlcekli(grup, 1);
+        toplamIcinde += (en.within20 / 100) * grup.length;
+        kaynakSatir.push(
+          `      ${kaynak.padEnd(20)} n=${String(grup.length).padStart(4)}` +
+          ` bias ${t.bias.toFixed(1).padStart(7)} · ölçek ${en.olcek.toFixed(2)}` +
+          ` → ±%20 ${t.within20.toFixed(1)} → ${en.within20.toFixed(1)}`,
+        );
+      }
+      satirlar.push(
+        `    kaynak bazlı kalibrasyon → ±%20 ${((toplamIcinde / kayitlar.length) * 100).toFixed(1)}\n` +
+        kaynakSatir.join("\n"),
+      );
+    }
+    console.log("\n── KALİBRASYON SÜPÜRMESİ (teşhis) ──\n" + satirlar.join("\n") + "\n");
+    expect(satirlar.length).toBeGreaterThan(0);
+  });
+
   it("SLO mesafesini raporlar", () => {
     const satirlar: string[] = [];
     for (const segment of ["arsa", "tarla"] as const) {

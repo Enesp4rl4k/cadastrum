@@ -1,5 +1,5 @@
 {
-  "olusturuldu": "2026-09-07T14:04:19.306Z",
+  "olusturuldu": "2026-09-07T14:04:19.326Z",
   "not": "Teşhis raporu — eşik DEĞİL. Kovalar n<20 ise raporlanmaz (gürültü).",
   "kirilimlar": {
     "arsa": {
@@ -209,7 +209,7 @@
         },
         "5-19": {
           "n": 482,
-          "mape": 49.57,
+          "mape": 49.58,
           "medyanApe": 32.66,
           "p90Ape": 93.93,
           "bias": 14.31,
@@ -227,11 +227,11 @@
         },
         "1-4": {
           "n": 421,
-          "mape": 38.59,
+          "mape": 38.58,
           "medyanApe": 20.81,
           "p90Ape": 77.55,
-          "bias": 7.03,
-          "within10": 27.1,
+          "bias": 7.01,
+          "within10": 27.3,
           "within20": 48.2
         }
       },
@@ -241,8 +241,8 @@
           "mape": 43.97,
           "medyanApe": 24.36,
           "p90Ape": 86.26,
-          "bias": 11.15,
-          "within10": 24.7,
+          "bias": 11.14,
+          "within10": 24.8,
           "within20": 44.6
         }
       },
@@ -258,11 +258,11 @@
         },
         "1k-5k": {
           "n": 475,
-          "mape": 41.26,
+          "mape": 41.25,
           "medyanApe": 25.14,
           "p90Ape": 85.17,
-          "bias": 12.21,
-          "within10": 28.4,
+          "bias": 12.2,
+          "within10": 28.6,
           "within20": 44.2
         },
         "250-1k": {
@@ -276,10 +276,10 @@
         },
         "<250 m²": {
           "n": 40,
-          "mape": 58.44,
+          "mape": 58.51,
           "medyanApe": 36.08,
           "p90Ape": 95.35,
-          "bias": -8.77,
+          "bias": -8.71,
           "within10": 10,
           "within20": 27.5
         }
@@ -299,8 +299,8 @@
           "mape": 35.94,
           "medyanApe": 24.12,
           "p90Ape": 78.07,
-          "bias": -6.08,
-          "within10": 22.6,
+          "bias": -6.09,
+          "within10": 22.8,
           "within20": 44.6
         },
         "5k-20k": {
@@ -325,11 +325,11 @@
         },
         "1k-5k": {
           "n": 452,
-          "mape": 49.37,
+          "mape": 49.36,
           "medyanApe": 27.67,
           "p90Ape": 93.06,
-          "bias": 16.12,
-          "within10": 21.7,
+          "bias": 16.11,
+          "within10": 21.9,
           "within20": 42.9
         },
         "5k-20k": {
@@ -345,19 +345,19 @@
       "baselineKaynak": {
         "ilanGozlem-ilce": {
           "n": 484,
-          "mape": 41.42,
+          "mape": 41.41,
           "medyanApe": 20,
           "p90Ape": 82.41,
-          "bias": 11.22,
-          "within10": 28.1,
+          "bias": 11.21,
+          "within10": 28.3,
           "within20": 50
         },
         "ilanGozlem-mahalle": {
           "n": 661,
-          "mape": 46.85,
+          "mape": 46.86,
           "medyanApe": 28.88,
           "p90Ape": 89.75,
-          "bias": 11.8,
+          "bias": 11.81,
           "within10": 21.2,
           "within20": 39.2
         },
