@@ -255,10 +255,18 @@ export function detayParse(html) {
 /**
  * Diske yaz — geçici hatada yeniden dene, kalıcı hatada GÜRÜLTÜLÜ patla.
  *
- * NEDEN VAR: gecelik koşu 8/526'da sessizce öldü (exit 1, hiç mesaj yok).
- * Tetikleyici büyük olasılıkla Windows'ta bir dosya kilidiydi — koşu sürerken
- * aynı dosyaya `git add` çalıştı. Tek bir anlık EBUSY, 526 hedeflik bir gecelik
- * koşunun tamamını düşürüyordu.
+ * NEDEN VAR — ve bir DÜZELTME: bu koruma, gecelik koşunun 8/526'da sessizce
+ * ölmesi üzerine yazıldı ve sebep "Windows dosya kilidi" sanılmıştı. YANLIŞTI.
+ * Gerçek sebep dışarıdaydı: koşuyu başlatan çağrının 10 dakikalık zaman aşımı
+ * süreci öldürüyordu. Çözümü de burada değil — koşu artık kabuktan ayrık
+ * başlatılıyor (bkz. data/tarama-gece.log).
+ *
+ * Yine de bu koruma KALIYOR, çünkü savunduğu risk gerçek ve ölçülebilir:
+ * `sqlYaz` 65 bin kayıtlık dosyanın tamamını her hedefte yeniden yazıyor.
+ * O yazma herhangi bir sebeple yarıda kalırsa (süreç öldürülür, disk dolar)
+ * `sqlKayitlariYukle` yarım dosyayı HATASIZ okur ve kayıtları sessizce
+ * kaybeder — koordinat felaketiyle aynı sınıf. Zaman aşımıyla iki kez
+ * öldürülen koşu tam olarak bu riske maruzdu.
  *
  * ÜÇ AYRI KORUMA:
  *   1. ÖNCE GEÇİCİ DOSYA, SONRA RENAME — yazma yarıda kalırsa korpus bozulmaz.

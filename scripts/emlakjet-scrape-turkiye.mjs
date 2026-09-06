@@ -169,8 +169,14 @@ for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
     /**
      * TEK HEDEFİN ÖLÜMÜ TÜM GECEYİ DÜŞÜRMESİN.
      *
-     * OLDU: 526 hedeflik bir koşu 8'inci hedefte exit 1 ile sessizce öldü.
-     * Bir gecelik iş, tek bir anlık hata yüzünden %1,5'inde kaldı.
+     * NOT — bu koruma bir YANLIŞ TEŞHİS sonucu yazıldı. Koşu iki kez exit 1
+     * ile sessizce öldü ve içeride bir hata sanıldı; gerçek sebep dışarıdaydı
+     * (koşuyu başlatan çağrının 10 dakikalık zaman aşımı). Süreç öldürüldüğü
+     * için buradaki catch zaten devreye girmemişti.
+     *
+     * Koruma yine de KALIYOR: 526 hedeflik bir koşuda tek bir ilçenin
+     * ayrıştırma ya da yazma hatası tüm geceyi düşürmemeli. Ama artık
+     * "gördüğümüz ölümü bu açıklıyor" diye okunmamalı.
      *
      * Hata YUTULMUYOR — ekrana basılıyor, sayılıyor ve kapanışta özetleniyor.
      * Üst üste birikirse koşu duruyor; bot engeliyle aynı mantık. Tek tük
