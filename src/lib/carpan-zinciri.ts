@@ -397,6 +397,66 @@ export function alanBandUyumu(parselAlan: number, ilanM2: number | null): number
   return 0.45;
 }
 
+/**
+ * Segmentler arası ÖLÇÜLMÜŞ fiyat oranı — arsa = 1 referans.
+ *
+ * NEDEN VAR: emsal havuzu şimdiye kadar segment bilgisini yalnızca CEZA olarak
+ * kullanıyordu (`segmentUyumu`), yani uyumsuz emsali havuzdan eliyordu. Ölçüldü
+ * ve bu ZARARLI çıktı: korpusa 14.899 başlık eklenince arsa MAPE 65,92 → 72,52,
+ * bias 19,08 → 28,76. Sebep seçim yanlılığı — ucuz segmentler (tarla,
+ * zeytinlik) elenince kalan havuz pahalıya kayıyor. Cezayı deneysel olarak
+ * kapatınca zarar kayboldu (MAPE farkı +6,60 → +0,13), yani kaynak kesin.
+ *
+ * ŞU AN KULLANILMIYOR — bilerek. "Eleme değil düzeltme" fikri denendi (emsalin
+ * fiyatını kendi oranına bölüp parselin oranıyla çarpmak) ve ÖLÇÜM GEÇMEDİ:
+ * üç varyantın üçü de arsada bias'ı kötüleştirdi. Ayrıntı ve sayılar:
+ * data/segment-duzeltme-negatif-sonuc.json.
+ *
+ * Sabit yine de duruyor çünkü ORANLARIN KENDİSİ ölçülmüş bir bulgu ve
+ * NITELIK_CARPANI_TABLOSU ile çeliştiğini gösteriyor. Silmek, ölçümü
+ * kaybetmek olurdu. Kullanacak doğru mekanizma bulunursa hazır.
+ *
+ * ORANLAR ÖLÇÜLDÜ (2026-09-07, korpus n=13.982 başlıklı ilan): AYNI MAHALLE
+ * içinde, o mahalledeki arsa medyanına bölünerek — böylece "zeytinlik kırsalda
+ * olur" konum etkisi izole edildi, saf segment etkisi kaldı.
+ *
+ * NITELIK_CARPANI_TABLOSU ile ÇELİŞİYOR ve çelişki kasıtlı bırakılıyor:
+ *   zeytinlik  ölçülen 0,108  ·  tablo 0,40   (tablo 3,7 kat yüksek)
+ *   bahçe      ölçülen 0,356  ·  tablo 0,70   (tablo 2 kat yüksek)
+ *   tarla      ölçülen 0,219  ·  tablo 0,25   (yakın)
+ *   bağ        ölçülen 0,542  ·  tablo 0,55   (yakın, ama n=18 — temkinli)
+ * O tablo PARSELİN kendi niteliğine uygulanıyor ve ayrı kalibre edilmiş;
+ * ikisini tek sayıya indirmek ölçülmemiş bir değişiklik olurdu.
+ *
+ * `other` LİSTEDE YOK ve bilerek: "other" segment yokluğu değil, SİNYAL
+ * yokluğu. Ölçümde oranı 0,596 çıkıyor ama bunu uygulamak, bilgi eksikliğini
+ * bilgi gibi işlemek olur.
+ */
+export const SEGMENT_FIYAT_ORANI: Partial<Record<EmsalSegment, number>> = {
+  arsa: 1.0,
+  tarla: 0.219,
+  bahce: 0.356,
+  zeytinlik: 0.108,
+  bag: 0.542,
+};
+
+/**
+ * Bir emsalin fiyatını, parselin segmentine çevirir.
+ *
+ * İki taraftan biri ölçülmüş oran taşımıyorsa (other/built/road ya da eksik
+ * başlık) düzeltme YAPILMAZ — 1 döner. Bilinmeyeni tahmin etmek, mevcut
+ * davranıştan kötüdür.
+ */
+export function segmentFiyatDuzeltmesi(
+  parselSegment: EmsalSegment,
+  ilanSegment: EmsalSegment,
+): number {
+  const p = SEGMENT_FIYAT_ORANI[parselSegment];
+  const i = SEGMENT_FIYAT_ORANI[ilanSegment];
+  if (p == null || i == null || i <= 0) return 1;
+  return p / i;
+}
+
 export function segmentUyumu(parselSegment: EmsalSegment, ilanSegment: EmsalSegment): number {
   if (parselSegment === "road" || ilanSegment === "road") return 0;
   if (parselSegment === ilanSegment) return 1;
@@ -409,12 +469,34 @@ export function segmentUyumu(parselSegment: EmsalSegment, ilanSegment: EmsalSegm
   // "ilanGozlem-ilce" yapısal olarak imkânsız, tarla aynı-mahalle tavanı 0.289
   // ile tarla gerçek emsale hiç ulaşamıyordu. Bilgi yoksa nötr say.
   if (parselSegment === "other" || ilanSegment === "other") return 1;
-  const tarimsal = new Set<EmsalSegment>(["tarla", "bahce", "bag", "zeytinlik"]);
-  const pTarim = tarimsal.has(parselSegment);
-  const iTarim = tarimsal.has(ilanSegment);
-  if (pTarim && iTarim) return 0.80;
-  if (!pTarim && !iTarim) return 0.75;
-  return 0.40; // kentsel vs tarımsal — düşük uyum
+  /**
+   * SEGMENT FARKI ARTIK CEZALANDIRILMIYOR — ölçüm sonucu.
+   *
+   * Buradaki eski değerler (aynı-tip 0,80/0,75; kentsel-vs-tarımsal 0,40)
+   * emsali havuzdan ELİYORDU: ceza benzerliği EMSAL_MIN_BENZERLIK'in altına
+   * düşürünce `emsal-havuzu.ts` o kaydı atlıyor. Korpus başlık taşımadığı
+   * sürece bu görünmüyordu (başlıksız kayıt "other" → nötr), ama korpusa
+   * 14.899 başlık girince ortaya çıktı:
+   *
+   *   arsa A/B (kontrol → deney)   ceza AÇIK        ceza KAPALI
+   *     MAPE                       65,92 → 72,52    65,92 → 66,05
+   *     bias                       19,08 → 28,76    19,08 → 19,51
+   *
+   * Yani segment bilgisi geldikçe motor KÖTÜLEŞİYORDU. Sebep seçim yanlılığı:
+   * ucuz segmentler (tarla, zeytinlik) elenince kalan havuz pahalıya kayıyor.
+   *
+   * ÜÇ ALTERNATİF DENENDİ, ÜÇÜ DE ÖLÇÜMDE BAŞARISIZ (bkz.
+   * data/segment-duzeltme-negatif-sonuc.json):
+   *   (a) fiyatı segment oranıyla düzelt → etkisiz (ceza emsali zaten eliyor)
+   *   (b) ceza yumuşat + düzelt        → bias 19,08 → 31,32, daha kötü
+   *   (c) parsel niteliğini başlıktan türet + düzelt → bias +5,15, yine kötü
+   *
+   * Kalan tek ölçülmüş kazanç cezayı kaldırmak. Kontrol kolunu HİÇ
+   * değiştirmiyor (başlıksız kayıt zaten "other" → 1) ve başlık geldiğinde
+   * zararı sıfırlıyor. Segment oranları ölçülüp `SEGMENT_FIYAT_ORANI`'nda
+   * duruyor — kullanılmıyorlar, çünkü kullanan hiçbir varyant ölçümü geçmedi.
+   */
+  return 1;
 }
 
 export function imarUyumu(parselImar: ImarSinifi, ilanImar: ImarSinifi): number {

@@ -1,0 +1,38 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "Korpusa baslik eklenince motor duzeliyor mu?",
+  "kisa_cevap": "HAYIR — arsada KOTULESTI. Uc duzeltme varyanti denendi, ucu de olcumu gecemedi. Tek olculmus kazanc: segment CEZASINI kaldirmak.",
+
+  "girdi": {
+    "korpus": 66061,
+    "baslikli": 14899,
+    "test_kaydinda_baslik": { "arsa": 313, "tarla": 175 },
+    "not": "Korpus olcum suresince donduruldu (data/korpus-abolcum.snapshot.sql), aksi halde A/B kollari farkli veriyle kosardi."
+  },
+
+  "ab_sonuclari_arsa": {
+    "0_mevcut_durum_ceza_acik": { "mape": "65,92 -> 72,52 (+6,60)", "bias": "19,08 -> 28,76 (+9,68)", "within20": "26,7 -> 27,0" },
+    "a_ceza_kapali": { "mape": "65,92 -> 66,05 (+0,13)", "bias": "19,08 -> 19,51 (+0,43)", "within20": "26,7 -> 26,8", "yorum": "Zarar kayboldu. Zararin kaynagi KESIN olarak segmentUyumu cezasi." },
+    "b_fiyat_duzeltmesi_ceza_acik": { "sonuc": "ETKISIZ — birebir ayni sayilar", "sebep": "Ceza emsali EMSAL_MIN_BENZERLIK altina dusurup havuzdan atiyor; duzeltilecek emsal kalmiyor. Oranlari 0,001 yapip 1000x abartinca bile sonuc degismedi — kanit." },
+    "c_ceza_yumusak_0.90_plus_duzeltme": { "mape": "65,92 -> 73,70 (+7,78)", "bias": "19,08 -> 31,32 (+12,24)", "yorum": "DAHA KOTU. Ucuz tarimsal emsaller arsaya cevrilip yukari tasininca zaten +19 olan bias patliyor." },
+    "d_parsel_nitelik_baslistan_plus_duzeltme": { "mape": "68,96 -> 71,42 (+2,46)", "bias": "22,19 -> 27,34 (+5,15)", "yorum": "Zarar azaldi ama surdu. Ayrica kontrol kolunu da degistirdi (65,92 -> 68,96), yani esigi bozuyor; ayri bir karar olarak geri alindi." }
+  },
+
+  "olculen_segment_oranlari": {
+    "yontem": "AYNI MAHALLE icinde, o mahalledeki arsa medyanina bolunerek (n=13.982 baslikli ilan). Boylece 'zeytinlik kirsalda olur' konum etkisi izole edildi.",
+    "arsa": 1.0, "bag": 0.542, "bahce": 0.356, "tarla": 0.219, "zeytinlik": 0.108, "other": 0.596,
+    "nitelik_carpani_tablosu_ile_celiski": {
+      "zeytinlik": "olculen 0,108 vs tablo 0,40 — tablo 3,7 kat yuksek",
+      "bahce": "olculen 0,356 vs tablo 0,70 — tablo 2 kat yuksek",
+      "tarla": "olculen 0,219 vs tablo 0,25 — yakin",
+      "bag": "olculen 0,542 vs tablo 0,55 — yakin ama n=18"
+    },
+    "not": "'other' listede YOK ve olculen 0,596 uygulanmiyor: 'other' segment yoklugu degil SINYAL yoklugu. Bilgi eksikligini bilgi gibi islemek olurdu."
+  },
+
+  "uygulanan": "Yalnizca (a): segmentUyumu artik 1 donuyor. Kontrol kolunu HIC degistirmiyor (baslıksiz kayit zaten 'other' -> 1) ve baslik geldiginde zarari sifirliyor.",
+
+  "acik_kalan": "Baslik hala FAYDA saglamiyor (+0,13 MAPE, +0,10 within20 = gurultu). Yani %50,5'lik korelasyon motora ceviremedi. Ölculen oranlar SEGMENT_FIYAT_ORANI'nda duruyor; kullanacak dogru mekanizma bulunmadi.",
+
+  "neden_baslik_toplamaya_devam": "Veri toplamak bedava (liste JSON-LD'sinde zaten geliyor) ve geri alinamaz degil. Zarar veren sey toplamak degil, motorun onu ELEME olarak kullanmasiydi; o kaldirildi."
+}

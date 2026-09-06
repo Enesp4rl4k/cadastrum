@@ -148,22 +148,51 @@ describe("segmentBul", () => {
 });
 
 // ─── segmentUyumu ─────────────────────────────────────────────────────────────
+/**
+ * segmentUyumu artık YOL DIŞINDA ceza vermiyor — ölçüm sonucu.
+ *
+ * Eski değerler (aynı-tip 0,80; kentsel-vs-tarımsal 0,40) emsali havuzdan
+ * ELİYORDU: ceza benzerliği EMSAL_MIN_BENZERLIK'in altına düşürünce
+ * `emsal-havuzu.ts` o kaydı atlıyor. Korpus başlık taşımadığı sürece
+ * görünmüyordu; 14.899 başlık girince ortaya çıktı — arsa A/B'de
+ * MAPE 65,92 → 72,52, bias 19,08 → 28,76. Ceza kapatılınca zarar kayboldu
+ * (MAPE farkı +0,13). Ayrıntı: data/segment-duzeltme-negatif-sonuc.json.
+ *
+ * Bu testler o kararı kilitliyor. Ceza geri gelirse ilk iki test kırılır.
+ */
 describe("segmentUyumu", () => {
   it("Aynı segment → 1.0", () => {
     expect(segmentUyumu("arsa", "arsa")).toBeCloseTo(1.0);
   });
 
-  it("Her ikisi de tarımsal → 0.80", () => {
-    expect(segmentUyumu("tarla", "bahce")).toBeCloseTo(0.80);
+  /**
+   * ASIL KORUNAN DAVRANIŞ: farklı segment artık emsali cezalandırmıyor.
+   * Bir zeytinlik ilanı, arsa parseli için hâlâ geçerli bir emsal — fiyatı
+   * farklı olabilir ama onu havuzdan atmak, o mahalledeki en yakın gözlemi
+   * kaybetmek demek. Ölçüm bunu açıkça gösterdi.
+   */
+  it("Farklı segment CEZALANDIRILMIYOR — emsal havuzda kalır", () => {
+    expect(segmentUyumu("arsa", "tarla")).toBeCloseTo(1.0);
+    expect(segmentUyumu("tarla", "bahce")).toBeCloseTo(1.0);
+    expect(segmentUyumu("arsa", "zeytinlik")).toBeCloseTo(1.0);
   });
 
-  it("Yol içeriyorsa → 0", () => {
+  /**
+   * TEK İSTİSNA: yol. Kamu yolu özel mülk değil; fiyatı emsal olamaz.
+   * Bu bir "benzerlik" kararı değil, kategorik geçersizlik.
+   */
+  it("Yol içeriyorsa → 0 (tek kalan eleme)", () => {
     expect(segmentUyumu("road", "arsa")).toBeCloseTo(0);
     expect(segmentUyumu("arsa", "road")).toBeCloseTo(0);
   });
 
-  it("Kentsel vs tarımsal → 0.40", () => {
-    expect(segmentUyumu("arsa", "tarla")).toBeCloseTo(0.40);
+  /**
+   * "other" = sinyal yok. Zaten nötrdü, öyle kalıyor — bu davranış daha önce
+   * ayrıca düzeltilmişti ve regresyona karşı korunuyor.
+   */
+  it("other (sinyal yok) nötr kalır", () => {
+    expect(segmentUyumu("other", "tarla")).toBeCloseTo(1.0);
+    expect(segmentUyumu("arsa", "other")).toBeCloseTo(1.0);
   });
 });
 

@@ -428,6 +428,11 @@ const sonuclar: Record<"arsa" | "tarla", OlcumSonucu | null> = { arsa: null, tar
 const deneySonuclari: Record<"arsa" | "tarla", OlcumSonucu | null> = { arsa: null, tarla: null };
 /** Deney kolunda özelliği olan test kaydı sayısı — katkı yorumlanırken şart. */
 const ozellikliTestAdet: Record<"arsa" | "tarla", number> = { arsa: 0, tarla: 0 };
+/** Hangi alanın kaç kayıtta dolu olduğu — katkının kaynağını ayırt etmek için. */
+const ozellikDagilimi: Record<"arsa" | "tarla", { imar: number; baslik: number; tapu: number }> = {
+  arsa: { imar: 0, baslik: 0, tapu: 0 },
+  tarla: { imar: 0, baslik: 0, tapu: 0 },
+};
 
 /** Kırılım raporu — DENEY kolundan (özellikler açık) toplanır. */
 type KirilimRapor = Record<string, Record<string, OlcumSonucu>>;
@@ -584,7 +589,22 @@ async function koluKostur(
 
     if (segmentTest.length < MIN_TEST) continue;
     if (ozellikAc) {
-      ozellikliTestAdet[segment] = segmentTest.filter((k) => k.imarDurumu).length;
+      /**
+       * ALAN BAZINDA AYRI SAYILIYOR — eskiden yalnızca `imarDurumu`.
+       *
+       * Korpus imar taşımadığı için sayaç 17 gösteriyordu; oysa deney kolunda
+       * 313 başlıklı test kaydı vardı. "Özellik yok gibi" okunuyordu ve
+       * başlığın ZARARI tam da bu sayaç düzeltilince görülebildi. Katkının
+       * hangi alandan geldiğini bilmeden A/B farkı yorumlanamaz.
+       */
+      ozellikliTestAdet[segment] = segmentTest.filter(
+        (k) => k.imarDurumu || k.baslik || k.tapuDurumu,
+      ).length;
+      ozellikDagilimi[segment] = {
+        imar: segmentTest.filter((k) => k.imarDurumu).length,
+        baslik: segmentTest.filter((k) => k.baslik).length,
+        tapu: segmentTest.filter((k) => k.tapuDurumu).length,
+      };
     }
 
     const apeler: number[] = [];
@@ -786,7 +806,9 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
         return `${f >= 0 ? "+" : ""}${f.toFixed(2)}`;
       };
       satirlar.push(
-        `  ${segment.padEnd(5)} n=${k.n} · özellikli test kaydı=${ozellikliTestAdet[segment]}\n` +
+        `  ${segment.padEnd(5)} n=${k.n} · özellikli test kaydı=${ozellikliTestAdet[segment]}` +
+        ` (imar ${ozellikDagilimi[segment].imar}, başlık ${ozellikDagilimi[segment].baslik}` +
+        `, tapu ${ozellikDagilimi[segment].tapu})\n` +
         `    MAPE    ${k.mape.toFixed(2)} → ${d.mape.toFixed(2)} (${fark(k.mape, d.mape)})\n` +
         `    medyan  ${k.medyanApe.toFixed(2)} → ${d.medyanApe.toFixed(2)} (${fark(k.medyanApe, d.medyanApe)})\n` +
         `    ±%20    ${k.within20.toFixed(1)} → ${d.within20.toFixed(1)} (${fark(k.within20, d.within20)})\n` +

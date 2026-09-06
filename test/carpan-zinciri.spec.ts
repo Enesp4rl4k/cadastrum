@@ -243,16 +243,19 @@ describe("segmentUyumu", () => {
     expect(segmentUyumu("road", "arsa")).toBe(0);
     expect(segmentUyumu("arsa", "road")).toBe(0);
   });
-  it("tarımsal × tarımsal → 0.80", () => {
-    expect(segmentUyumu("tarla", "bahce")).toBe(0.80);
-    expect(segmentUyumu("bag", "zeytinlik")).toBe(0.80);
-  });
-  it("kentsel × kentsel farklı → 0.75", () => {
-    expect(segmentUyumu("arsa", "built")).toBe(0.75);
-  });
-  it("kentsel × tarımsal → 0.40 (düşük uyum)", () => {
-    expect(segmentUyumu("arsa", "tarla")).toBe(0.40);
-    expect(segmentUyumu("built", "bahce")).toBe(0.40);
+  /**
+   * Segment farkı ARTIK cezalandırılmıyor (2026-09-07 ölçümü).
+   * Eski değerler 0,80 / 0,75 / 0,40 idi ve emsali EMSAL_MIN_BENZERLIK
+   * eşiğinin altına düşürüp havuzdan eliyordu. Korpusa başlık girince zarar
+   * ölçüldü: arsa MAPE 65,92 → 72,52, bias 19,08 → 28,76. Gerekçe ve
+   * denenen alternatifler: data/segment-duzeltme-negatif-sonuc.json
+   */
+  it("segment farkı ceza vermez — emsal havuzda kalır", () => {
+    expect(segmentUyumu("tarla", "bahce")).toBe(1);
+    expect(segmentUyumu("bag", "zeytinlik")).toBe(1);
+    expect(segmentUyumu("arsa", "built")).toBe(1);
+    expect(segmentUyumu("arsa", "tarla")).toBe(1);
+    expect(segmentUyumu("built", "bahce")).toBe(1);
   });
 });
 
