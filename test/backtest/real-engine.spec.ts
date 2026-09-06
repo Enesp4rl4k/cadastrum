@@ -449,6 +449,8 @@ const enKotular: Record<"arsa" | "tarla", KayitOlcum[]> = { arsa: [], tarla: [] 
  * katsayıyla ölçeklesek ne olurdu") ham çiftler olmadan cevaplanamıyor.
  */
 const tumOlcumler: Record<"arsa" | "tarla", KayitOlcum[]> = { arsa: [], tarla: [] };
+/** Ham korpus — hedonik prototip kendi train/test bölünmesini kurmak için okuyor. */
+let hamKayitlarGlobal: HamKayit[] = [];
 
 /**
  * NAIF TABAN — "sadece mahalle medyani al" tahmincisinin ayni hold-out'taki
@@ -691,6 +693,7 @@ beforeAll(async () => {
   );
 
   const hamKayitlar = hamKayitlariParseEt();
+  hamKayitlarGlobal = hamKayitlar;
 
   /**
    * SAATİ DONDUR — yoksa ölçüm her gün başka sonuç verir.
@@ -859,6 +862,169 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
    *
    * ASSERT EDİLMEZ — teşhis çıktısı.
    */
+  /**
+   * HEDONİK REGRESYON PROTOTİPİ — "elle yazılmış zincir mi, öğrenilmiş katsayı mı?"
+   *
+   * NEDEN BU DENEY: üç ölçüm arka arkaya aynı yere işaret etti —
+   *   1. Kapsam büyütmek tükendi (korpus +%57 → arsa ±%20 +1,7)
+   *   2. Kalibrasyon tükendi (en iyi global ölçek +0,1)
+   *   3. Özellik eklemek işe yaramadı (başlık geldi, motor kullanamadı;
+   *      hatta ELEME olarak kullanıp zarar verdi)
+   * Üçü birlikte "veri yetmiyor" demiyor, "motor veriyi katsayıya çeviremiyor"
+   * diyor. Bu hipotez ancak katsayıları VERİDEN ÖĞRENEN bir alternatifle
+   * sınanabilir.
+   *
+   * MODEL — kasten en basit hâli, çünkü soru "en iyi model hangisi" değil,
+   * "öğrenmek elle yazmaktan iyi mi":
+   *   log(TL/m² ÷ bölge medyanı) = a + b·log(m²) + segment katsayıları
+   *
+   * Bölge medyanı REGRESÖR DEĞİL OFFSET. İlk kurulumda regresör yapılmıştı ve
+   * katsayısı 0,833 çıktı — yani model bölge etkisini büzüyor, ucuz mahalleleri
+   * yukarı itiyordu (bias +44, motordan çok kötü). Offset kurulumu bölge
+   * medyanını olduğu gibi kabul edip yalnızca ondan SAPMAYI öğreniyor; sorulan
+   * soru zaten bu.
+   * Bölge medyanı: mahalle → ilçe → il, TRAIN'den. Segment: ilan başlığından.
+   * OLS, normal denklemler, Gauss eliminasyonu. Bağımlılık yok.
+   *
+   * SIZINTI KORUMASI: katsayılar YALNIZCA train'e fit ediliyor, bölge
+   * medyanları da train'den. Test kaydından yalnızca m² ve segment okunuyor —
+   * ikisi de üretimde parselin kendi bilgisi (TKGM alan + nitelik).
+   *
+   * ASSERT EDİLMEZ — bu bir teşhis. Motoru değiştirmiyor, yanına koyuyor.
+   */
+  it("hedonik regresyon prototipini raporlar", () => {
+    /** Ax=b çöz (Gauss, kısmi pivotlama). Tekil matriste null. */
+    const cozGauss = (A: number[][], b: number[]): number[] | null => {
+      const n = b.length;
+      const M = A.map((satir, i) => [...satir, b[i]!]);
+      for (let k = 0; k < n; k++) {
+        let pivot = k;
+        for (let i = k + 1; i < n; i++) {
+          if (Math.abs(M[i]![k]!) > Math.abs(M[pivot]![k]!)) pivot = i;
+        }
+        if (Math.abs(M[pivot]![k]!) < 1e-10) return null;
+        [M[k], M[pivot]] = [M[pivot]!, M[k]!];
+        for (let i = k + 1; i < n; i++) {
+          const f = M[i]![k]! / M[k]![k]!;
+          for (let j = k; j <= n; j++) M[i]![j]! -= f * M[k]![j]!;
+        }
+      }
+      const x = new Array<number>(n).fill(0);
+      for (let i = n - 1; i >= 0; i--) {
+        let t = M[i]![n]!;
+        for (let j = i + 1; j < n; j++) t -= M[i]![j]! * x[j]!;
+        x[i] = t / M[i]![i]!;
+      }
+      return x;
+    };
+
+    const SEGMENTLER = ["tarla", "bahce", "bag", "zeytinlik"] as const;
+    const segmentiBul = (metin: string): string => {
+      const t = metin.toLocaleLowerCase("tr");
+      if (/zeytin/.test(t)) return "zeytinlik";
+      if (/bahçe|bahce/.test(t)) return "bahce";
+      if (/bağ|bag/.test(t)) return "bag";
+      if (/tarla/.test(t)) return "tarla";
+      return "arsa"; // referans kategori
+    };
+
+    const satirlar: string[] = [];
+    for (const segment of ["arsa", "tarla"] as const) {
+      const train: HamKayit[] = [];
+      const test: HamKayit[] = [];
+      for (const k of hamKayitlarGlobal) {
+        if (k.kategori !== segment || !k.mahalle) continue;
+        (hash01(k.ilanNo) < 0.8 ? train : test).push(k);
+      }
+      const medyan = (a: number[]): number => {
+        const x = [...a].sort((p, q) => p - q);
+        const i = x.length >> 1;
+        return x.length % 2 ? x[i]! : (x[i - 1]! + x[i]!) / 2;
+      };
+      const havuzKur = (anahtar: (k: HamKayit) => string) => {
+        const m = new Map<string, number[]>();
+        for (const k of train) {
+          const a = anahtar(k);
+          const l = m.get(a);
+          if (l) l.push(k.tlm2); else m.set(a, [k.tlm2]);
+        }
+        return new Map([...m].map(([a, v]) => [a, medyan(v)]));
+      };
+      const mahH = havuzKur((k) => `${k.il}__${k.ilce}__${k.mahalle}`);
+      const ilceH = havuzKur((k) => `${k.il}__${k.ilce}`);
+      const ilH = havuzKur((k) => k.il);
+      const bolgeMedyani = (k: HamKayit): number | null =>
+        mahH.get(`${k.il}__${k.ilce}__${k.mahalle}`) ??
+        ilceH.get(`${k.il}__${k.ilce}`) ?? ilH.get(k.il) ?? null;
+
+      /** Tasarım satırı: [1, log(bölge), log(m2), ...segment dummy] */
+      const satirKur = (k: HamKayit): number[] | null => {
+        const bolge = bolgeMedyani(k);
+        if (!bolge || bolge <= 0 || !(k.m2 > 0)) return null;
+        const seg = segmentiBul(`${k.baslik ?? ""} ${k.imarDurumu ?? ""}`);
+        return [1, Math.log(k.m2), ...SEGMENTLER.map((x) => (seg === x ? 1 : 0))];
+      };
+
+      const X: number[][] = [];
+      const y: number[] = [];
+      for (const k of train) {
+        const satir = satirKur(k);
+        if (satir) { X.push(satir); y.push(Math.log(k.tlm2) - Math.log(bolgeMedyani(k)!)); }
+      }
+      if (X.length < 100) continue;
+
+      const p = X[0]!.length;
+      const XtX = Array.from({ length: p }, () => new Array<number>(p).fill(0));
+      const Xty = new Array<number>(p).fill(0);
+      for (let r = 0; r < X.length; r++) {
+        const xr = X[r]!;
+        for (let i = 0; i < p; i++) {
+          Xty[i]! += xr[i]! * y[r]!;
+          for (let j = 0; j < p; j++) XtX[i]![j]! += xr[i]! * xr[j]!;
+        }
+      }
+      // Ridge: küçük köşegen ekleme — segment dummy'leri seyrek olabiliyor.
+      for (let i = 0; i < p; i++) XtX[i]![i]! += 1e-6;
+      const beta = cozGauss(XtX, Xty);
+      if (!beta) continue;
+
+      // Motorun ölçtüğü ÖRNEKLEMİN AYNISI — adil kıyas şartı.
+      const testOrneklem = test
+        .filter((k) => kanonikAnahtar(k.il, k.ilce, k.mahalle)! in MERKEZ_TUPLES)
+        .sort((a, b) => hash01(a.ilanNo) - hash01(b.ilanNo))
+        .slice(0, MAX_TEST_PER_SEGMENT);
+
+      let icinde = 0, apeT = 0, biasT = 0, n = 0;
+      for (const k of testOrneklem) {
+        const satir = satirKur(k);
+        if (!satir) continue;
+        let lp = 0;
+        for (let i = 0; i < p; i++) lp += beta[i]! * satir[i]!;
+        const tahmin = Math.exp(lp) * bolgeMedyani(k)!;
+        if (!(tahmin > 0) || !Number.isFinite(tahmin)) continue;
+        const ape = Math.abs(tahmin - k.tlm2) / k.tlm2;
+        if (ape <= 0.20) icinde++;
+        apeT += ape; biasT += (tahmin - k.tlm2) / k.tlm2; n++;
+      }
+      if (n === 0) continue;
+      const motor = sonuclar[segment];
+      satirlar.push(
+        `  ${segment} n=${n}
+` +
+        `    hedonik  ±%20 ${((icinde / n) * 100).toFixed(1)} · MAPE ${((apeT / n) * 100).toFixed(1)}` +
+        ` · bias ${((biasT / n) * 100).toFixed(2)}
+` +
+        `    motor    ±%20 ${motor?.within20.toFixed(1) ?? "?"} · MAPE ${motor?.mape.toFixed(1) ?? "?"}` +
+        ` · bias ${motor?.bias.toFixed(2) ?? "?"}
+` +
+        `    katsayı: log(m²) ${beta[1]!.toFixed(3)} · ` +
+        SEGMENTLER.map((sg, i) => `${sg} ${Math.exp(beta[2 + i]!).toFixed(3)}×`).join(" · "),
+      );
+    }
+    console.log("\n── HEDONİK REGRESYON PROTOTİPİ (teşhis) ──\n" + satirlar.join("\n") + "\n");
+    expect(satirlar.length).toBeGreaterThan(0);
+  });
+
   it("kalibrasyon süpürmesini raporlar", () => {
     const olcuOlcekli = (kayitlar: KayitOlcum[], olcek: number) => {
       let icinde = 0, biasT = 0, apeT = 0;

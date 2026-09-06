@@ -1,0 +1,33 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "Motorun elle yazilmis carpan zinciri yerine, katsayilari VERIDEN OGRENEN bir model daha mi iyi?",
+  "kisa_cevap": "HAYIR. Iki kurulum da motordan KOTU cikti. 'Mimari degistirelim' hipotezi olcumu gecemedi.",
+
+  "neden_denendi": "Uc olcum arka arkaya ayni yere isaret ediyordu: kapsam buyutmek tukendi (korpus +%57 -> ±%20 +1,7), kalibrasyon tukendi (en iyi global olcek +0,1), ozellik eklemek ise yaramadi (baslik geldi, motor kullanamadi). Ucu birlikte 'motor veriyi katsayiya ceviremiyor' hipotezini uretti. Hipotez ancak ogrenen bir alternatifle sinanabilirdi.",
+
+  "kurulum_1_bolge_regressor": {
+    "model": "log(TL/m2) = a + b*log(bolge medyani) + c*log(m2) + segment",
+    "arsa": { "hedonik": { "within20": 24.6, "mape": 81.5, "bias": 43.96 }, "motor": { "within20": 26.7, "mape": 65.9, "bias": 19.09 } },
+    "tarla": { "hedonik": { "within20": 24.3, "mape": 71.6, "bias": 35.22 }, "motor": { "within20": 43.9, "mape": 44.1, "bias": 11.04 } },
+    "teshis": "Bolge katsayisi 0,833 cikti (<1): model bolge etkisini BUZUYOR, ucuz mahalleleri yukari itiyor. Bias +44'un sebebi bu."
+  },
+
+  "kurulum_2_bolge_offset": {
+    "model": "log(TL/m2 / bolge medyani) = a + b*log(m2) + segment  — bolge OFFSET, regressor degil",
+    "arsa": { "hedonik": { "within20": 23.8, "mape": 93.1, "bias": 54.25 }, "motor": { "within20": 26.7 } },
+    "tarla": { "hedonik": { "within20": 24.8, "mape": 75.4, "bias": 38.51 }, "motor": { "within20": 43.9 } },
+    "ogrenilen_segment_katsayilari": { "arsa": { "tarla": 0.899, "bahce": 1.056, "zeytinlik": 0.890 }, "tarla": { "bahce": 1.125, "zeytinlik": 0.943 } },
+    "teshis": "Segment katsayilari 1'e cok yakin ogrenildi. Yani BOLGE MEDYANI SEGMENT BILGISINI ZATEN ICERIYOR: tarla ilanlarinin cok oldugu mahallede medyan zaten dusuk. Kolinearite. Bu, ayri olculen 'segment orani 0,219' bulgusuyla celismiyor — o olcum ayni mahalle icinde arsaya gore yapilmisti, buradaki ise mahalle medyanina EK bilgi ariyor ve bulamiyor."
+  },
+
+  "siralama": {
+    "arsa":  "motor 26,7  >  naif mahalle medyani 24,9  >  hedonik 23,8",
+    "tarla": "motor 43,9  >>  naif 24,4  >  hedonik 24,8"
+  },
+
+  "sonuc": "Motorun carpan zinciri gercek is yapiyor — ozellikle tarlada naif tabana gore +19,5 puan. Onu basit bir regresyonla degistirmek KAYIP. 'ML'e gecelim' onerisi, en azindan bu basitlikteki haliyle, olcumu gecemedi.",
+
+  "kapsam_siniri_durustce": "Denenen model KASTEN basit: mahalle sabit etkisi yok (14 bin mahalle, asiri parametre), etkilesim yok, duzenlileme yok. Daha buyuk bir model daha iyi olabilir — ama artik gerekce 'motor kotu' degil, 'motor iyi, gecmek icin ciddi is lazim'. Bu, oncelik sirasini degistiriyor.",
+
+  "ne_yapmali": "Kapsam, kalibrasyon, ozellik ve model degisimi — dordu de olculdu, dordu de tukendi. Kalan dogru is doguruluk artirmak degil, mevcut dogrulugu DURUSTCE SUNMAK: kalibre belirsizlik araligi ve kaynak katmanina gore farklilasan guven. Ayrintiya bkz. data/dogruluk-tavani-olcum.json ve kalibrasyon supurmesi ciktisi."
+}
