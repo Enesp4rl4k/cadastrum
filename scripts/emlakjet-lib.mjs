@@ -1,7 +1,7 @@
 /**
  * Emlakjet scraper ortak kütüphane — il / ilçe tarama, SQL, resume.
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 // Kanonik cozum kurallari MOTORLA AYNI KAYNAKTAN. Bagimliliksiz saf JS
 // oldugu icin buradan da import edilebiliyor; ikinci bir kopya cikarilmadi.
@@ -252,6 +252,42 @@ export function detayParse(html) {
   return { il: yerler[0], ilce: yerler[1], mahalle: yerler[2], kategori, fiyat, m2, baslik };
 }
 
+/**
+ * Diske yaz — geçici hatada yeniden dene, kalıcı hatada GÜRÜLTÜLÜ patla.
+ *
+ * NEDEN VAR: gecelik koşu 8/526'da sessizce öldü (exit 1, hiç mesaj yok).
+ * Tetikleyici büyük olasılıkla Windows'ta bir dosya kilidiydi — koşu sürerken
+ * aynı dosyaya `git add` çalıştı. Tek bir anlık EBUSY, 526 hedeflik bir gecelik
+ * koşunun tamamını düşürüyordu.
+ *
+ * ÜÇ AYRI KORUMA:
+ *   1. ÖNCE GEÇİCİ DOSYA, SONRA RENAME — yazma yarıda kalırsa korpus bozulmaz.
+ *      `sqlKayitlariYukle` yarım bir dosyayı okur ve kayıtları SESSİZCE kaybederdi;
+ *      koordinat felaketiyle aynı sınıf.
+ *   2. YENİDEN DENEME — kilit anlık, birkaç yüz ms sonra geçiyor.
+ *   3. SUSTURMA YOK — denemeler biterse hata yukarı fırlar. Yutmak, taramanın
+ *      çalıştığını sanıp hiçbir şey kaydetmemesi demek olurdu.
+ */
+function guvenliYaz(yol, icerik, maksDeneme = 5) {
+  let sonHata;
+  for (let deneme = 1; deneme <= maksDeneme; deneme++) {
+    try {
+      const gecici = `${yol}.tmp`;
+      writeFileSync(gecici, icerik, "utf8");
+      renameSync(gecici, yol);
+      if (deneme > 1) console.warn(`  ↻ yazma ${deneme}. denemede başarılı: ${yol}`);
+      return;
+    } catch (e) {
+      sonHata = e;
+      // Beklemeyi büyüterek tekrar dene — kilidin açılması için zaman tanı.
+      // Atomics.wait, senkron bir fonksiyonda CPU yakmadan bekleyen tek yol;
+      // meşgul döngü 5 denemede saniyelerce çekirdek harcardı.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, deneme * 200);
+    }
+  }
+  throw new Error(`${maksDeneme} denemede yazılamadı: ${yol} — ${sonHata?.message ?? sonHata}`);
+}
+
 export function sqlYaz(kayitlar, ciktiPath, baslik = "Emlakjet") {
   const now = Date.now();
   const satirlar = kayitlar.map(
@@ -278,7 +314,7 @@ export function sqlYaz(kayitlar, ciktiPath, baslik = "Emlakjet") {
     sql += `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2, kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, baslik, aktif) VALUES\n`;
     sql += satirlar.slice(i, i + 400).join(",\n") + ";\n\n";
   }
-  writeFileSync(ciktiPath, sql, "utf8");
+  guvenliYaz(ciktiPath, sql);
 }
 
 /** Mevcut SQL dosyalarından ej_ id seti (resume duplicate önleme). */
@@ -378,7 +414,7 @@ export function progressYukle(path) {
 }
 
 export function progressKaydet(path, progress) {
-  writeFileSync(path, JSON.stringify(progress, null, 2), "utf8");
+  guvenliYaz(path, JSON.stringify(progress, null, 2));
 }
 
 export function ilceListesiYukle(mahallelerPath) {

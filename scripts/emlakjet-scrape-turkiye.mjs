@@ -149,6 +149,12 @@ let is = 0;
  */
 const botEngelleri = [];
 const MAX_BOT_ENGEL = 5;
+/**
+ * Hedef başına beklenmeyen hatalar (ağ değil — yazma hatası, ayrıştırma vb.).
+ * Bot engelinden AYRI sayılıyor: farklı sebep, farklı müdahale.
+ */
+const hedefHatalari = [];
+const MAX_HEDEF_HATASI = 10;
 
 for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
   for (const kat of ["arsa", "tarla"]) {
@@ -160,11 +166,38 @@ for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
     }
     process.stdout.write(`[${is}/${toplamIs}] ${il}/${ilce}/${kat} `);
     let tamamlanan = 0;
-    const n = await ilceTara(ilNorm, ilceNorm, kat, MAX_SAYFA, kayitlar, gorulenler, MERKEZ, {
-      delayMs: 500,
-      botEngelBildir: (hedef, sebep) => { botEngelleri.push({ hedef, sebep }); },
-      tamamlananBildir: (adet) => { tamamlanan += adet; },
-    });
+    /**
+     * TEK HEDEFİN ÖLÜMÜ TÜM GECEYİ DÜŞÜRMESİN.
+     *
+     * OLDU: 526 hedeflik bir koşu 8'inci hedefte exit 1 ile sessizce öldü.
+     * Bir gecelik iş, tek bir anlık hata yüzünden %1,5'inde kaldı.
+     *
+     * Hata YUTULMUYOR — ekrana basılıyor, sayılıyor ve kapanışta özetleniyor.
+     * Üst üste birikirse koşu duruyor; bot engeliyle aynı mantık. Tek tük
+     * hatada devam etmek doğru, körlemesine devam etmek değil.
+     */
+    let n = 0;
+    try {
+      n = await ilceTara(ilNorm, ilceNorm, kat, MAX_SAYFA, kayitlar, gorulenler, MERKEZ, {
+        delayMs: 500,
+        botEngelBildir: (hedef, sebep) => { botEngelleri.push({ hedef, sebep }); },
+        tamamlananBildir: (adet) => { tamamlanan += adet; },
+      });
+    } catch (e) {
+      const sebep = e instanceof Error ? e.message : String(e);
+      hedefHatalari.push({ hedef: key, sebep });
+      console.error(`
+  x ${key}: ${sebep} — hedef atlandı`);
+      if (hedefHatalari.length >= MAX_HEDEF_HATASI) {
+        console.error(
+          `
+! ${hedefHatalari.length} hedef hatası — koşu durduruluyor. ` +
+          `Toplanan ${kayitlar.length} ilan korundu.`,
+        );
+        break;
+      }
+      continue;
+    }
     const koordlu = kayitlar.filter((k) => k.lat).length;
     const baslikli = kayitlar.filter((k) => k.baslik).length;
     // `~n` = bilinen ilanlarda geriye doldurulan alan. Yeni ilan sayisindan
@@ -205,6 +238,11 @@ for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
 }
 
 sqlYaz(kayitlar, CIKTI, "Emlakjet 973 ilçe — FINAL");
+if (hedefHatalari.length > 0) {
+  console.warn(`
+! ${hedefHatalari.length} hedef hatayla atlandı:`);
+  for (const h of hedefHatalari.slice(-10)) console.warn(`    ${h.hedef}: ${h.sebep}`);
+}
 console.log(`\n✅ ${kayitlar.length} ilan → ${CIKTI}`);
 console.log(`   ${progress.stats?.uniqueMahalle ?? "?"} mahalle eşleşmeli`);
 console.log(`   D1: SEED-EMLAKJET-TURKIYE.bat`);
