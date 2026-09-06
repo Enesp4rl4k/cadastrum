@@ -1,16 +1,16 @@
 {
-  "olusturuldu": "2026-09-06T11:43:56.002Z",
+  "olusturuldu": "2026-09-06T12:14:35.784Z",
   "havuzEsigi": 5,
   "kategoriler": {
     "arsa": {
       "toplamMahalle": 65718,
-      "gozlemliMahalle": 11935,
-      "havuzluMahalle": 2928,
-      "havuzKapsamiYuzde": 4.46,
+      "gozlemliMahalle": 11931,
+      "havuzluMahalle": 2925,
+      "havuzKapsamiYuzde": 4.45,
       "bantlar": {
-        "0": 53783,
-        "1-4": 8801,
-        "5-19": 2819,
+        "0": 53787,
+        "1-4": 8800,
+        "5-19": 2816,
         "20+": 315
       },
       "eslesmeyenHavuzluMahalle": 206,
@@ -18,29 +18,20 @@
         {
           "ilce": "izmir__bergama",
           "toplamMahalle": 149,
-          "havuzlu": 23,
+          "havuzlu": 22,
           "kismi": 78,
-          "bos": 48,
-          "gozlem": 405,
+          "bos": 49,
+          "gozlem": 395,
           "oncelik": 78
         },
         {
           "ilce": "mugla__milas",
           "toplamMahalle": 141,
-          "havuzlu": 42,
-          "kismi": 69,
+          "havuzlu": 40,
+          "kismi": 71,
           "bos": 30,
-          "gozlem": 636,
-          "oncelik": 69
-        },
-        {
-          "ilce": "bursa__mustafakemalpasa",
-          "toplamMahalle": 131,
-          "havuzlu": 14,
-          "kismi": 63,
-          "bos": 54,
-          "gozlem": 265,
-          "oncelik": 63
+          "gozlem": 634,
+          "oncelik": 71
         },
         {
           "ilce": "canakkale__biga",
@@ -50,6 +41,15 @@
           "bos": 47,
           "gozlem": 230,
           "oncelik": 63
+        },
+        {
+          "ilce": "bursa__mustafakemalpasa",
+          "toplamMahalle": 131,
+          "havuzlu": 14,
+          "kismi": 61,
+          "bos": 56,
+          "gozlem": 261,
+          "oncelik": 61
         },
         {
           "ilce": "gaziantep__sahinbey",
@@ -1819,13 +1819,13 @@
     },
     "tarla": {
       "toplamMahalle": 65718,
-      "gozlemliMahalle": 6931,
-      "havuzluMahalle": 695,
+      "gozlemliMahalle": 6929,
+      "havuzluMahalle": 694,
       "havuzKapsamiYuzde": 1.06,
       "bantlar": {
-        "0": 58787,
-        "1-4": 6195,
-        "5-19": 720,
+        "0": 58789,
+        "1-4": 6194,
+        "5-19": 719,
         "20+": 16
       },
       "eslesmeyenHavuzluMahalle": 41,
@@ -1843,10 +1843,19 @@
           "ilce": "izmir__bergama",
           "toplamMahalle": 149,
           "havuzlu": 8,
-          "kismi": 58,
-          "bos": 83,
-          "gozlem": 166,
-          "oncelik": 58
+          "kismi": 57,
+          "bos": 84,
+          "gozlem": 162,
+          "oncelik": 57
+        },
+        {
+          "ilce": "bursa__mustafakemalpasa",
+          "toplamMahalle": 131,
+          "havuzlu": 6,
+          "kismi": 53,
+          "bos": 72,
+          "gozlem": 149,
+          "oncelik": 53
         },
         {
           "ilce": "mugla__milas",
@@ -1854,17 +1863,8 @@
           "havuzlu": 8,
           "kismi": 53,
           "bos": 80,
-          "gozlem": 146,
+          "gozlem": 145,
           "oncelik": 53
-        },
-        {
-          "ilce": "bursa__mustafakemalpasa",
-          "toplamMahalle": 131,
-          "havuzlu": 7,
-          "kismi": 52,
-          "bos": 72,
-          "gozlem": 157,
-          "oncelik": 52
         },
         {
           "ilce": "kutahya__kutahya merkez",

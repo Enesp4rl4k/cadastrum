@@ -260,6 +260,21 @@ export function sqlYaz(kayitlar, ciktiPath, baslik = "Emlakjet") {
   );
   let sql = `-- ${baslik} — ${kayitlar.length} ilan — ${new Date().toISOString()}\n\n`;
   for (let i = 0; i < satirlar.length; i += 400) {
+    /**
+     * `INSERT OR IGNORE` KASITLI — ve yetersiz olduğu biliniyor.
+     *
+     * Bu dosya iki işi birden görüyor: (1) üretime seed, (2) backtest ve
+     * kapsam raporunun OKUDUĞU korpus. İkincisi biçime bağlı — okuyucular
+     * `INSERT OR IGNORE INTO ilanlar (...) VALUES (...);` desenini arıyor.
+     * Bir denemede burası `ON CONFLICT DO UPDATE`'e çevrildi ve o an fark
+     * edildi ki `COALESCE(ilanlar.lat, ...)` ifadesindeki parantezler,
+     * okuyucuların satır ayrıştırıcısına sahte satır gibi görünüyor —
+     * yani ölçüm hattı SESSİZCE bozulacaktı.
+     *
+     * IGNORE'un gerçek eksiği ayrı bir yerde çözülüyor: mevcut satırlara yeni
+     * kolon (koordinat, başlık) yazamıyor. Onun için `scripts/korpus-uretime-
+     * guncelle.mjs` ayrı bir UPDATE dosyası üretiyor — biçimi bozmadan.
+     */
     sql += `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2, kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, baslik, aktif) VALUES\n`;
     sql += satirlar.slice(i, i + 400).join(",\n") + ";\n\n";
   }
