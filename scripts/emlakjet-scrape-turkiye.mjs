@@ -159,12 +159,21 @@ for (const { ilNorm, ilceNorm, il, ilce } of ilceler) {
       continue;
     }
     process.stdout.write(`[${is}/${toplamIs}] ${il}/${ilce}/${kat} `);
+    let tamamlanan = 0;
     const n = await ilceTara(ilNorm, ilceNorm, kat, MAX_SAYFA, kayitlar, gorulenler, MERKEZ, {
       delayMs: 500,
       botEngelBildir: (hedef, sebep) => { botEngelleri.push({ hedef, sebep }); },
+      tamamlananBildir: (adet) => { tamamlanan += adet; },
     });
     const koordlu = kayitlar.filter((k) => k.lat).length;
-    console.log(`+${n} (toplam ${kayitlar.length}, koordlu ${koordlu}, mahalle ${new Set(kayitlar.filter((k) => k.mahN).map((k) => `${k.ilN}__${k.ilceN}__${k.mahN}`)).size})`);
+    const baslikli = kayitlar.filter((k) => k.baslik).length;
+    // `~n` = bilinen ilanlarda geriye doldurulan alan. Yeni ilan sayisindan
+    // AYRI gosteriliyor: ikisini toplamak "kac yeni emsal geldi"yi bozar.
+    console.log(
+      `+${n}${tamamlanan ? ` ~${tamamlanan}` : ""} ` +
+      `(toplam ${kayitlar.length}, koordlu ${koordlu}, başlıklı ${baslikli}, ` +
+      `mahalle ${new Set(kayitlar.filter((k) => k.mahN).map((k) => `${k.ilN}__${k.ilceN}__${k.mahN}`)).size})`,
+    );
 
     completedSet.add(key);
     completedAt[key] = Date.now();

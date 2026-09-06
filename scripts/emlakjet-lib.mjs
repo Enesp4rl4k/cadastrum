@@ -186,7 +186,19 @@ export function listeJsonLdParse(html, kategoriHedef, MERKEZ) {
       }
       if (!ilN) continue; // il bulunamazsa atla
 
-      sonuc.push({ id, ilN, ilceN, mahN, kategori, tlm2, m2, lat, lng });
+      /**
+       * BASLIK — kaynak zaten veriyor, eskiden atiliyordu.
+       *
+       * OLCULDU (2026-09-06, uretim n=1.235): baslik metninden cikarilan
+       * segment, ILCE ICI arsa fiyat varyansinin %50,5'ini acikliyor —
+       * imar_durumu'nun (%61,3) neredeyse dengi, ama SIFIR ek istekle.
+       * "Satilik Arsa" ilan tipiyle gelen bir kayit basliginda "Zeytinlik"
+       * diyebiliyor: arsa medyani 5.500, zeytinlik 945 TL/m2.
+       *
+       * Motor bunu ZATEN kullaniyor — emsal-havuzu.ts `segmentBul(baslik +
+       * imarDurumu)` cagiriyor. Alan bos oldugu icin o kod calismiyordu.
+       */
+      sonuc.push({ id, ilN, ilceN, mahN, kategori, tlm2, m2, lat, lng, baslik: it.name ?? null });
     }
   }
   return sonuc;
@@ -244,11 +256,11 @@ export function sqlYaz(kayitlar, ciktiPath, baslik = "Emlakjet") {
   const now = Date.now();
   const satirlar = kayitlar.map(
     (k) =>
-      `('emlakjet','ej_${sqlEsc(k.id)}','${sqlEsc(k.ilN)}','${sqlEsc(k.ilceN)}',${k.mahN ? `'${sqlEsc(k.mahN)}'` : "NULL"},${k.tlm2},${k.m2},'${k.kategori}','TL',${now},${k.lat ?? "NULL"},${k.lng ?? "NULL"},${k.lat ? "'mahalle-merkez'" : "NULL"},1)`,
+      `('emlakjet','ej_${sqlEsc(k.id)}','${sqlEsc(k.ilN)}','${sqlEsc(k.ilceN)}',${k.mahN ? `'${sqlEsc(k.mahN)}'` : "NULL"},${k.tlm2},${k.m2},'${k.kategori}','TL',${now},${k.lat ?? "NULL"},${k.lng ?? "NULL"},${k.lat ? "'mahalle-merkez'" : "NULL"},${k.baslik ? `'${sqlEsc(k.baslik)}'` : "NULL"},1)`,
   );
   let sql = `-- ${baslik} — ${kayitlar.length} ilan — ${new Date().toISOString()}\n\n`;
   for (let i = 0; i < satirlar.length; i += 400) {
-    sql += `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2, kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, aktif) VALUES\n`;
+    sql += `INSERT OR IGNORE INTO ilanlar (kaynak, ilan_no, il_norm, ilce_norm, mahalle_norm, fiyat_per_m2, m2, kategori, para_birimi, yakalanma_tarihi, lat, lng, koord_kaynagi, baslik, aktif) VALUES\n`;
     sql += satirlar.slice(i, i + 400).join(",\n") + ";\n\n";
   }
   writeFileSync(ciktiPath, sql, "utf8");
@@ -287,8 +299,17 @@ export function sqlKayitlariYukle(...dosyalar) {
   const byId = new Map();
   // Kolon sırası: kaynak, ilan_no, il, ilce, mahalle, tlm2, m2, kategori,
   //               para_birimi, yakalanma_tarihi, lat, lng, ...
+  //
+  // BASLIK DA GERI OKUNMALI. Kolon eklemek TEK BASINA yetmez: sqlYaz dosyanin
+  // tamamini bellekteki diziden yeniden yaziyor, dolayisiyla burada okunmayan
+  // her kolon bir sonraki kosumda SILINIR. Koordinati yok eden mekanizmanin
+  // birebir aynisi — bu yuzden ayni koruma (dolu kayit bos kaydi yener)
+  // basliga da uygulaniyor.
+  //
+  // Regex ESKI ve YENI bicimi birlikte tanir: baslik kolonu opsiyonel, cunku
+  // mevcut 65.911 satir onsuz yazilmis durumda.
   const re =
-    /'(?:emlakjet|extension)','ej_([^']+)','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)','[^']*',\d+,([^,]+),([^,]+),/g;
+    /'(?:emlakjet|extension)','ej_([^']+)','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)','[^']*',\d+,([^,]+),([^,]+),(NULL|'[^']*'),(?:(NULL|'(?:[^']|'')*'),)?1\)/g;
   for (const p of dosyalar) {
     if (!existsSync(p)) continue;
     const metin = readFileSync(p, "utf8");
@@ -307,8 +328,14 @@ export function sqlKayitlariYukle(...dosyalar) {
       //
       // Bu, dosya silinse bile dogru davranis: ikinci bir kaynak eklendiginde
       // ayni tuzak tekrar kurulmasin.
+      const baslikRaw = m[11];
+      const baslik =
+        !baslikRaw || baslikRaw === "NULL"
+          ? null
+          : baslikRaw.slice(1, -1).replace(/''/g, "'");
       const mevcut = byId.get(m[1]);
       if (mevcut && mevcut.lat != null && lat == null) continue;
+      if (mevcut && mevcut.baslik && !baslik) continue;
       byId.set(m[1], {
         id: m[1],
         ilN: m[2],
@@ -319,6 +346,7 @@ export function sqlKayitlariYukle(...dosyalar) {
         kategori: m[7],
         lat,
         lng,
+        baslik,
       });
     }
   }
@@ -388,12 +416,28 @@ export async function detaydanKayit(link, MERKEZ, gorulenler, kayitlar, delayMs 
       m2: r.m2,
       lat,
       lng,
+      baslik: r.baslik ?? null,
     });
     await uyku(delayMs + Math.random() * 350);
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * id -> kayit indeksi. Dizi her sayfada bastan taranmasin diye WeakMap'te
+ * onbellege aliniyor; ayni desen merkezKoordinatBul'da da kullaniliyor.
+ * Dizi buyudukce indeks de buyuyor, o yuzden boyut degisince yeniden kuruluyor.
+ */
+const _kayitIndeksi = new WeakMap();
+function kayitIndeksi(kayitlar) {
+  const onbellek = _kayitIndeksi.get(kayitlar);
+  if (onbellek && onbellek.boy === kayitlar.length) return onbellek.harita;
+  const harita = new Map();
+  for (const k of kayitlar) harita.set(k.id, k);
+  _kayitIndeksi.set(kayitlar, { boy: kayitlar.length, harita });
+  return harita;
 }
 
 /** İlçe tara — URL fallback (il-ilce / sadece ilce). */
@@ -404,6 +448,8 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
     (s) => `https://www.emlakjet.com/satilik-${kategori}/${ilceNorm}${s}`,
   ];
   let eklenen = 0;
+  /** Bilinen ilanlarda geriye donuk doldurulan alan sayisi (rapor icin). */
+  let tamamlanan = 0;
   let patternIdx = 0;
   /** Detay-fallback yolunda üst üste kaç sayfa hiç yeni ilan getirdi. */
   let ardisikBos = 0;
@@ -442,10 +488,30 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
     // 30 ek istek. JSON-LD listesi aynı ilanları TEK istekte veriyor.
     const jsonLd = listeJsonLdParse(html, kategori, MERKEZ);
     if (jsonLd.length > 0) {
+      const indeks = kayitIndeksi(kayitlar);
       for (const ilan of jsonLd) {
-        if (gorulenler.has(ilan.id)) continue;
+        if (gorulenler.has(ilan.id)) {
+          /**
+           * GERIYE DOLDURMA — bilinen ilanin EKSIK alanlarini tamamla.
+           *
+           * Eskiden gorulmus id kosulsuz atlaniyordu. Sorun: korpustaki
+           * 65.911 kaydin tamami `baslik` kolonu eklenmeden once yazildi ve
+           * dedup yuzunden bir daha hic dolmayacaklardi. Sayfa ZATEN
+           * indirilmis durumda, yani doldurmak SIFIR ek istek.
+           *
+           * Yalnizca BOS alan yaziliyor: dolu bir degeri ezmek, tarama
+           * sirasina bagli sessiz veri kaybi uretir.
+           */
+          const mevcut = indeks.get(ilan.id);
+          if (mevcut) {
+            if (!mevcut.baslik && ilan.baslik) { mevcut.baslik = ilan.baslik; tamamlanan++; }
+            if (mevcut.lat == null && ilan.lat != null) { mevcut.lat = ilan.lat; mevcut.lng = ilan.lng; tamamlanan++; }
+          }
+          continue;
+        }
         gorulenler.add(ilan.id);
         kayitlar.push(ilan);
+        indeks.set(ilan.id, ilan);
         eklenen++;
       }
       await uyku(delayMs + Math.random() * 350);
@@ -485,6 +551,9 @@ export async function ilceTara(ilNorm, ilceNorm, kategori, maxSayfa, kayitlar, g
     }
     await uyku(700);
   }
+  // Geriye doldurulan alanlar yeni ilan DEGIL — cagirana ayri bildiriliyor ki
+  // "+0" raporu, aslinda is yapilmis bir turu bos gostermesin.
+  opts.tamamlananBildir?.(tamamlanan);
   return eklenen;
 }
 
