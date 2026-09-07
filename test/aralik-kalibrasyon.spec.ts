@@ -21,6 +21,7 @@ import {
   VARSAYILAN_ARALIK_SEVIYESI,
 } from "../src/lib/fiyat/aralik-kalibrasyon";
 import { ARALIK_KALIBRASYONU } from "../src/lib/fiyat/aralik-kalibrasyon-tablosu";
+import { guvenSkoruTavani } from "../src/lib/fiyat-tahmin";
 
 describe("kalibre aralık", () => {
   it("ölçülmüş katman için aralık üretir", () => {
@@ -94,5 +95,34 @@ describe("kalibre aralık", () => {
         expect(k.q50, `${segment}/${kaynak} medyan sapma`).toBeLessThan(2.0);
       }
     }
+  });
+});
+
+/**
+ * KONUT — plan yazılırken varsayılan, ölçümle ÇÜRÜTÜLEN madde.
+ *
+ * GELISTIRME-PLANI-2 §2 "motor konut tahmini üretiyor ama hiç ölçülmüyor"
+ * diyordu. Yanlıştı: `bolge-baseline.ts` kategoriyi `isTarimsal ? "tarla" :
+ * "arsa"` ile belirliyor — üçüncü dal yok. `SEGMENT_INDEX` ve
+ * `MAHALLE_BASELINE` konut kolonu taşıyor ama fiyat motoru onu asla seçmiyor.
+ * Bu, `guvenSkoruTavani`'ne konut dalı eklerken tsc tarafından yakalandı
+ * ("types 'arsa' | 'tarla' and 'konut' have no overlap").
+ *
+ * GERÇEK BULGU DAHA CİDDİ ve ayrı bir iş kalemi: bir MESKEN/BİNA parseli
+ * "arsa" sayılıyor ve `nitelikCarpani` ona 2,5× uyguluyor. O zincir hiç
+ * ölçülmedi — backtest yalnızca arsa/tarla ilanları içeriyor.
+ * data/o2-konut-kategorisi-olcum.json
+ */
+describe("kategori sözleşmesi", () => {
+  it("motor yalnızca iki kategori üretiyor — konut dalı YOK", () => {
+    // Tip düzeyinde de korunuyor; bu test niyeti kaydediyor.
+    expect(guvenSkoruTavani("ilanGozlem-mahalle", "arsa")).toBe(98);
+    expect(guvenSkoruTavani("ilanGozlem-mahalle", "tarla")).toBe(98);
+  });
+
+  it("ölçülmüş kategorilerin tavanları ölçüme bağlı kalıyor", () => {
+    expect(guvenSkoruTavani("mahalle-baseline", "arsa")).toBe(45);
+    expect(guvenSkoruTavani("mahalle-baseline", "tarla")).toBe(78);
+    expect(guvenSkoruTavani("ilanGozlem-ilce", "arsa")).toBe(88);
   });
 });

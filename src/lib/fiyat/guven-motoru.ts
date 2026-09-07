@@ -49,6 +49,23 @@ export interface BolgeBaselineSonuc {
  * Ölçüm değişince bu tablo da güncellenmeli (test/guven-motoru.spec.ts
  * sıralamayı kilitliyor).
  */
+/**
+ * KONUT DİYE BİR KATEGORİ YOK — ve bu bir bulgu.
+ *
+ * Bu fonksiyona konut tavanı eklendi, sonra KALDIRILDI. Sebebi ölçüm:
+ * `bolge-baseline.ts` kategoriyi `isTarimsal ? "tarla" : "arsa"` ile
+ * belirliyor — üçüncü dal YOK. `SEGMENT_INDEX` ve `MAHALLE_BASELINE` konut
+ * kolonu taşıyor ama fiyat motoru o kolonu ASLA seçmiyor.
+ *
+ * Yani "motor konut tahmini üretiyor" varsayımı yanlıştı; konut tavanı ölü
+ * kod olurdu ve bu projede ölü kod eklemek tam da ayıkladığımız şey.
+ *
+ * GERÇEK DURUM DAHA CİDDİ: bir MESKEN/BİNA parseli "arsa" sayılıyor ve
+ * `nitelikCarpani` ona 2,5× uyguluyor. Yani üzerinde yapı olan bir parsel,
+ * arsa baseline'ı × 2,5 ile fiyatlanıyor ve bu zincir HİÇ ÖLÇÜLMEDİ —
+ * backtest yalnızca arsa/tarla ilanları içeriyor, mesken ilanı yok.
+ * Ayrıntı: data/o2-konut-kategorisi-olcum.json
+ */
 export function guvenSkoruTavani(
   kaynak: FiyatTahmini["baselineKaynak"],
   kategori: "arsa" | "tarla" = "arsa",

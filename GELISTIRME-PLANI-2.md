@@ -71,7 +71,20 @@ karardı.
 
 ---
 
-## 2. Ö2 — `konut` kategorisini ölç ya da kapat
+## 2. Ö2 — ~~`konut` kategorisini ölç ya da kapat~~ → SORU YANLIŞ SORULMUŞ
+
+> **UYGULAMA NOTU (2026-09-07):** Bu madde uygulanırken çürüdü. Motor konut
+> kategorisi ÜRETMİYOR — `bolge-baseline.ts` kategoriyi
+> `isTarimsal ? "tarla" : "arsa"` ile belirliyor, üçüncü dal yok. Varsayım
+> "`SEGMENT_INDEX`'te konut var" gözleminden türetilmişti; **bir sabitin
+> varlığı o kod yolunun çalıştığı anlamına gelmiyor.**
+>
+> Yerine daha ciddi bir bulgu çıktı: bir **MESKEN/BİNA parseli "arsa"
+> sayılıyor** ve `nitelikCarpani` ona **2,5×** uyguluyor. Bu zincir hiç
+> ölçülmedi — backtest yalnızca arsa/tarla ilanları içeriyor. Ayrı iş kalemi:
+> `data/o2-konut-kategorisi-olcum.json`
+
+### Özgün madde (tarihsel kayıt)
 
 ### Sorun
 

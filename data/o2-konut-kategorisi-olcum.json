@@ -1,0 +1,23 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "O2 — konut kategorisi hic olculmuyor. Olc ya da kapat.",
+  "kisa_cevap": "SORU YANLIS SORULMUSTU. Motor konut kategorisi URETMIYOR. Ama yerine daha ciddi bir bulgu cikti.",
+
+  "planin_varsayimi": "GELISTIRME-PLANI-2 §2: 'Motor uc kategori destekliyor (SEGMENT_INDEX: arsa, konut, tarla) ama backtest yalnizca ikisini olcuyor. Konut tahminleri fiilen %100 statik tablodan geliyor.'",
+
+  "gercek": {
+    "bulgu": "bolge-baseline.ts kategoriyi `isTarimsal ? 'tarla' : 'arsa'` ile belirliyor — UCUNCU DAL YOK. SEGMENT_INDEX ve MAHALLE_BASELINE konut kolonu tasiyor ama fiyat motoru o kolonu ASLA secmiyor.",
+    "nasil_yakalandi": "guvenSkoruTavani'ne konut dali eklenirken tsc yakaladi: \"types 'arsa' | 'tarla' and 'konut' have no overlap\". Yani tip sistemi varsayimi curuttu.",
+    "sonuc": "Konut tavani eklenmesi olu kod olurdu; kaldirildi."
+  },
+
+  "asil_bulgu": {
+    "ne": "Bir MESKEN/BINA parseli 'arsa' sayiliyor ve nitelikCarpani ona 2,5x uyguluyor (NITELIK_CARPANI_TABLOSU: 'Mesken / Bina' carpan 2.5, not 'Yapi var, +%150').",
+    "neden_ciddi": "Uzerinde yapi olan bir parsel, arsa baseline'i x 2,5 ile fiyatlaniyor. Bu zincir HIC OLCULMEDI — backtest yalnizca arsa/tarla ILANLARI iceriyor, mesken ilani yok. Yani 2,5 carpani sezgiye dayaniyor ve kullanicilar mesken parseline baktiginda o carpani goruyor.",
+    "kapsam_bilinmiyor": "Uzanti kullanicilarinin kac kez mesken parseline baktigi bilinmiyor — bu tam da O3 (telemetri) maddesinin cevaplayacagi soru."
+  },
+
+  "yapilan": "Konut tavani eklendi ve kaldirildi. Planin ilgili maddesi duzeltildi. Mesken carpani ayri bir is kalemi olarak isaretlendi.",
+
+  "ders": "Plan maddesi 'SEGMENT_INDEX'te konut var' gozleminden turetilmisti; bir sabitin varligi, o kod yolunun CALISTIGI anlamina gelmiyor. Ayni hata sinifi: bu oturumda 'spatial-radius kirilimda gorunmuyor' da 'katman secilmiyor' diye okunmus, oysa katman hic devreye girmiyordu."
+}
