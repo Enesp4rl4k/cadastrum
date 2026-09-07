@@ -14,6 +14,7 @@ import { manuelVeriOku } from "./manuel-veri";
 import { normalizeYerAdi } from "./tkgm-api";
 import { baselineBandGenisletme } from "./baseline-engine";
 import { ilLikiditeCarpani } from "./data/il-likidite";
+import { kalibreAralik } from "./fiyat/aralik-kalibrasyon";
 import { biasCarpani } from "./bias-kalibrasyon";
 import { depremRiskiGetir } from "./data/deprem-zonlari";
 import { pgaCarpani } from "./deprem-tdth";
@@ -481,8 +482,28 @@ export async function fiyatTahminEt(
     guvenBilgisi.ustRange + ekGuven.ustRangeDelta + rangeAyari + bandEk,
     1.04, 1.6,
   );
-  const altPerM2 = Math.round(beklenenPerM2 * altRangeAyarli);
-  const ustPerM2 = Math.round(beklenenPerM2 * ustRangeAyarli);
+  /**
+   * ARALIK — önce ÖLÇÜLMÜŞ kalibrasyon, yoksa eski elle ayarlı katsayılar.
+   *
+   * Eski aralığın kapsaması ölçüldü ve arsada %17,7 çıktı: gösterilen aralık
+   * gerçek fiyatı 6 vakadan 5'inde kaçırıyordu. Genişlik "ne kadar eminiz"e
+   * göre ayarlanmıştı, "ne kadar yanılıyoruz"a göre değil — en iyi katman en
+   * dar aralığa sahipti ve en az kapsıyordu.
+   *
+   * Kalibre tablo yalnızca yeterli örneklemi olan katmanları içeriyor
+   * (n ≥ 100). Kalanlarda eski davranış AYNEN korunuyor — az kayıttan kantil
+   * çıkarmak, ölçüm görüntüsü altında uydurma olurdu. Ayrıntı:
+   * src/lib/fiyat/aralik-kalibrasyon.ts
+   */
+  const kalibre = kalibreAralik(beklenenPerM2, baseline.kategori, baseline.kaynak);
+  const altPerM2 = kalibre?.altPerM2 ?? Math.round(beklenenPerM2 * altRangeAyarli);
+  const ustPerM2 = kalibre?.ustPerM2 ?? Math.round(beklenenPerM2 * ustRangeAyarli);
+  if (kalibre) {
+    veriKalitesiNotlari.push(
+      `Aralık ölçülmüş hata dağılımından: bu katmanda (${baseline.kaynak}, ` +
+      `n=${kalibre.n}) tahminlerin ~%${kalibre.seviye}'si bu bantta kaldı.`,
+    );
+  }
 
   if (ilNorm && likidite.aciklama) {
     veriKalitesiNotlari.push(`Likidite: ${likidite.aciklama}.`);

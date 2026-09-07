@@ -33,6 +33,7 @@ import { db } from "../../src/lib/db";
 import { fiyatTahminEt } from "../../src/lib/fiyat-tahmin";
 import { MERKEZ_TUPLES } from "../../src/lib/data/mahalle-merkezleri";
 import { kanonikAnahtar } from "../../src/lib/data/mahalle-kanonik";
+import { kalibreAralik } from "../../src/lib/fiyat/aralik-kalibrasyon";
 import type { Parsel } from "../../src/types/tkgm";
 import type { IlanGozlem } from "../../src/lib/db";
 
@@ -347,6 +348,9 @@ interface KayitOlcum {
    * kalibrasyonun ekseni bu.
    */
   baselineKaynak: string;
+  /** Motorun verdiği aralık — kapsama oranı ölçümü için. */
+  altPerM2: number;
+  ustPerM2: number;
   /** Teshis icin — en kotu kayitlari elle inceleyebilmek. */
   etiket: string;
   tahmin: number;
@@ -650,6 +654,8 @@ async function koluKostur(
         m2: k.m2,
         tlm2: k.tlm2,
         baselineKaynak: tahmin.baselineKaynak,
+        altPerM2: tahmin.altPerM2,
+        ustPerM2: tahmin.ustPerM2,
         etiket: `${k.il}/${k.ilce}/${k.mahalle ?? "-"}`,
         tahmin: Math.round(askingEsdeger),
       });
@@ -1122,6 +1128,212 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
     }
     console.log("\n── HEDONİK REGRESYON PROTOTİPİ (teşhis) ──\n" + satirlar.join("\n") + "\n");
     expect(satirlar.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * ARALIK KAPSAMASI — "verdigimiz aralik gercekten ne kadarini kapsiyor?"
+   *
+   * Motor her tahminle birlikte bir [alt, ust] araligi veriyor. Bu araligin
+   * genisligi elle ayarlanmis katsayilardan geliyor (guven skoru, likidite,
+   * baseline bandi) ve BUGUNE KADAR HIC OLCULMEDI. Bir arayuzde aralik
+   * gostermek ortuk bir vaattir: "deger buyuk ihtimalle burada". Vaadin
+   * karsiligi yoksa, sayinin kendisinden daha zararlidir.
+   *
+   * Bu rapor iki sey soyluyor:
+   *   KAPSAMA — gercek fiyat araligin icinde kalan kayitlarin orani
+   *   GENISLIK — araligin medyan genisligi (beklenene gore, yuzde)
+   * Ikisi birlikte okunmali: %100 kapsama, aralik yeterince genisse anlamsiz.
+   *
+   * Kaynak katmani bazinda kiriliyor cunku katmanlarin hatasi cok farkli
+   * (olculdu: ilanGozlem-mahalle bias +10, mahalle-baseline +151). Tek bir
+   * genislik ayari bu ucunu ayni anda dogru kapsayamaz.
+   *
+   * ASSERT EDILMEZ — teshis. Hedef M1'de konulacak.
+   */
+  /**
+   * ARALIK KALİBRASYONU ÜRETİMİ — ölçülen hata dağılımından gerçek aralık.
+   *
+   * `BACKTEST_YAZ=1` ile koşulduğunda `src/lib/fiyat/aralik-kalibrasyon-tablosu.ts`
+   * dosyasını yeniden üretir. Motor o tabloyu okuyup aralığı oradan verir.
+   *
+   * YÖNTEM: her hold-out kaydı için `oran = gerçek / tahmin`. Bu oranın
+   * kantilleri, tahminin etrafındaki gerçek belirsizliği verir:
+   *   aralık = [tahmin × q10, tahmin × q90]  → beklenen kapsama %80
+   * Kaynak katmanı ve segment bazında ayrı, çünkü katmanların hata dağılımı
+   * çok farklı (ölçüldü: mahalle bias +10, mahalle-baseline +151).
+   *
+   * NEDEN ELLE AYARLI KATSAYI DEĞİL: mevcut aralık güven skoru/likidite/band
+   * genişletmesinden türetiliyor ve kapsaması HİÇ ölçülmemişti. Ölçüldü:
+   * arsa %17,7. Bir arayüzde aralık göstermek örtük bir vaattir; karşılığı
+   * yoksa sayının kendisinden zararlıdır.
+   *
+   * ÖRNEKLEM ŞARTI: bir kaynak için MIN_KALIBRASYON_N'den az kayıt varsa
+   * tablo o kaynağı YAZMAZ ve motor eski davranışa düşer. 38 kayıttan kantil
+   * çıkarmak, ölçüm görüntüsü altında uydurma yapmaktır.
+   */
+  it("aralık kalibrasyon tablosunu üretir (BACKTEST_YAZ=1)", () => {
+    const MIN_KALIBRASYON_N = 100;
+    const kantil = (sirali: number[], p: number): number => {
+      if (sirali.length === 0) return 1;
+      const i = Math.min(sirali.length - 1, Math.max(0, Math.round(p * (sirali.length - 1))));
+      return sirali[i]!;
+    };
+
+    type Girdi = { q10: number; q25: number; q50: number; q75: number; q90: number; n: number };
+    const tablo: Record<string, Record<string, Girdi>> = {};
+    const rapor: string[] = [];
+
+    for (const segment of ["arsa", "tarla"] as const) {
+      const kayitlar = tumOlcumler[segment];
+      if (!kayitlar || kayitlar.length === 0) continue;
+      const kaynaklar = new Map<string, number[]>();
+      for (const k of kayitlar) {
+        if (!(k.tahmin > 0) || !(k.tlm2 > 0)) continue;
+        const oran = k.tlm2 / k.tahmin;
+        const l = kaynaklar.get(k.baselineKaynak);
+        if (l) l.push(oran); else kaynaklar.set(k.baselineKaynak, [oran]);
+      }
+      tablo[segment] = {};
+      for (const [kaynak, oranlar] of [...kaynaklar].sort((a, b) => b[1].length - a[1].length)) {
+        if (oranlar.length < MIN_KALIBRASYON_N) {
+          rapor.push(`  ${segment}/${kaynak}: n=${oranlar.length} < ${MIN_KALIBRASYON_N} — YAZILMADI`);
+          continue;
+        }
+        oranlar.sort((a, b) => a - b);
+        const g: Girdi = {
+          q10: +kantil(oranlar, 0.10).toFixed(4),
+          q25: +kantil(oranlar, 0.25).toFixed(4),
+          q50: +kantil(oranlar, 0.50).toFixed(4),
+          q75: +kantil(oranlar, 0.75).toFixed(4),
+          q90: +kantil(oranlar, 0.90).toFixed(4),
+          n: oranlar.length,
+        };
+        tablo[segment]![kaynak] = g;
+        rapor.push(
+          `  ${segment}/${kaynak.padEnd(20)} n=${String(g.n).padStart(4)}` +
+          ` · %80 [${g.q10.toFixed(2)}–${g.q90.toFixed(2)}] gen. %${Math.round((g.q90 - g.q10) * 100)}` +
+          ` · %50 [${g.q25.toFixed(2)}–${g.q75.toFixed(2)}] gen. %${Math.round((g.q75 - g.q25) * 100)}`,
+        );
+      }
+    }
+    console.log("\n── ARALIK KALİBRASYONU ──\n" + rapor.join("\n") + "\n");
+
+    if (YAZ_MODU) {
+      const yol = join(ROOT, "src/lib/fiyat/aralik-kalibrasyon-tablosu.ts");
+      const govde = `/**
+ * ÜRETİLEN DOSYA — elle düzenlemeyin.
+ * Üret: npm run backtest:real:yaz
+ *
+ * Hold-out hata dağılımından türetilmiş aralık kantilleri.
+ * \`oran = gerçek / tahmin\` — aralık = [tahmin × q10, tahmin × q90].
+ *
+ * Bu tablo motorun aralığını ELLE AYARLI katsayılardan ölçülmüş dağılıma
+ * taşıyor. Eski aralığın kapsaması ölçülmüştü: arsa %17,7 (hedef %80).
+ *
+ * Bir kaynak burada YOKSA örneklemi yetersizdi (n < 100) ve motor o kaynakta
+ * eski davranışa düşer — az kayıttan kantil çıkarmak uydurmadır.
+ *
+ * Üretildi: ${new Date().toISOString().slice(0, 10)}
+ */
+export interface AralikKantili {
+  /** %80 aralık sınırları */
+  q10: number;
+  q90: number;
+  /** %50 aralık sınırları — ürün varsayılanı */
+  q25: number;
+  q75: number;
+  /** Medyan sapma — 1'den uzaklığı sistematik bias'ı gösterir */
+  q50: number;
+  n: number;
+}
+
+export const ARALIK_KALIBRASYONU: Readonly<
+  Record<string, Readonly<Record<string, AralikKantili>>>
+> = ${JSON.stringify(tablo, null, 2)} as const;
+`;
+      writeFileSync(yol, govde, "utf8");
+      console.log(`✅ aralık kalibrasyon tablosu yazıldı: ${yol}`);
+    }
+    expect(rapor.length).toBeGreaterThan(0);
+  });
+
+  it("aralık kapsamasını raporlar", () => {
+    const satirlar: string[] = [];
+    for (const segment of ["arsa", "tarla"] as const) {
+      const kayitlar = tumOlcumler[segment];
+      if (!kayitlar || kayitlar.length === 0) continue;
+
+      const olc = (grup: KayitOlcum[]) => {
+        let icinde = 0;
+        const genislikler: number[] = [];
+        for (const k of grup) {
+          if (k.tlm2 >= k.altPerM2 && k.tlm2 <= k.ustPerM2) icinde++;
+          if (k.tahmin > 0) genislikler.push((k.ustPerM2 - k.altPerM2) / k.tahmin);
+        }
+        genislikler.sort((a, b) => a - b);
+        const orta = genislikler.length
+          ? genislikler[genislikler.length >> 1]!
+          : 0;
+        return {
+          n: grup.length,
+          kapsama: (icinde / (grup.length || 1)) * 100,
+          genislik: orta * 100,
+        };
+      };
+
+      const t = olc(kayitlar);
+      const kaynaklar = new Map<string, KayitOlcum[]>();
+      for (const k of kayitlar) {
+        const l = kaynaklar.get(k.baselineKaynak);
+        if (l) l.push(k); else kaynaklar.set(k.baselineKaynak, [k]);
+      }
+      const alt = [...kaynaklar]
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([ad, grup]) => {
+          const r = olc(grup);
+          return `      ${ad.padEnd(20)} n=${String(r.n).padStart(4)}` +
+            ` · kapsama %${r.kapsama.toFixed(1).padStart(5)}` +
+            ` · medyan genişlik %${r.genislik.toFixed(0).padStart(3)}`;
+        });
+      satirlar.push(
+        `  ${segment} · kapsama %${t.kapsama.toFixed(1)} · medyan genişlik %${t.genislik.toFixed(0)}` +
+        `\n` + alt.join("\n"),
+      );
+    }
+    console.log("\n── ARALIK KAPSAMASI ──\n" + satirlar.join("\n") + "\n");
+
+    /**
+     * KAPI — teşhis değil, sözleşme.
+     *
+     * Kalibre edilmiş her katmanın kapsaması hedefin ±10 puanı içinde olmalı.
+     * Diğer raporların aksine ASSERT EDİLİYOR, çünkü kalibrasyon sessizce
+     * eskiyebilen bir şey: korpus büyüdükçe hata dağılımı kayar ve tablo
+     * `backtest:real:yaz` ile yenilenmezse aralık yanlış vaat vermeye başlar.
+     * Teşhis olarak bırakılsaydı bozulduğunu kimse fark etmezdi — bu projede
+     * defalarca ayıkladığımız sessiz başarısızlık sınıfı.
+     *
+     * Kalibre EDİLMEMİŞ katmanlar (n < 100) kapsam dışı: onlarda eski davranış
+     * korunuyor ve kapsaması zaten bilinmiyor.
+     */
+    const HEDEF = 50;
+    const TOLERANS = 10;
+    for (const segment of ["arsa", "tarla"] as const) {
+      const kayitlar = tumOlcumler[segment];
+      if (!kayitlar?.length) continue;
+      const kalibreli = kayitlar.filter((k) =>
+        kalibreAralik(k.tahmin, segment, k.baselineKaynak),
+      );
+      if (kalibreli.length < 100) continue;
+      const icinde = kalibreli.filter(
+        (k) => k.tlm2 >= k.altPerM2 && k.tlm2 <= k.ustPerM2,
+      ).length;
+      const kapsama = (icinde / kalibreli.length) * 100;
+      expect(
+        Math.abs(kapsama - HEDEF),
+        `${segment} aralık kapsaması ${kapsama.toFixed(1)} — hedef ${HEDEF}±${TOLERANS}. ` +
+        `Kalibrasyon eskimiş olabilir: npm run backtest:real:yaz`,
+      ).toBeLessThanOrEqual(TOLERANS);
+    }
   });
 
   it("kalibrasyon süpürmesini raporlar", () => {
