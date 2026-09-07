@@ -1,0 +1,31 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "R1 — 5403 s.k. m.8'in bolunemez asgari parsel esikleri (3.000 / 5.000 / 20.000 m2) fiyatta SUREKSIZLIK yaratiyor mu? Esigin altindaki tarla ifraz edilemiyor, bolunemiyor, hisselendirilemiyor.",
+  "kisa_cevap": "HAYIR. Bulunan sicramalar kanunla degil, YUVARLAK SAYI YIGILMASIYLA aciklaniyor.",
+
+  "yontem": "Mahalle-ici leave-one-out normalize fiyat orani (n=43.681 ilan). Esik civarinda (0,5E - 2E) yerel OLS: log(oran) ~ a + b*log(m2/E) + c*(m2>=E). Sicrama c katsayisi — DOGAL EGIM CIKARILMIS hali. Ham bant kiyasi yapilsaydi egrinin dogal dususu 'sicrama' sanilirdi.",
+
+  "sonuc": [
+    { "kat": "tarla", "esik": 3000,  "n": 2651, "sicrama_yuzde": -10.7, "t": -4.30, "anlamli": true },
+    { "kat": "tarla", "esik": 5000,  "n": 2660, "sicrama_yuzde": 14.4,  "t": 5.09,  "anlamli": true },
+    { "kat": "tarla", "esik": 20000, "n": 1009, "sicrama_yuzde": 2.9,   "t": 0.59,  "anlamli": false },
+    { "kat": "arsa",  "esik": 3000,  "n": 9872, "sicrama_yuzde": 9.9,   "t": 5.72,  "anlamli": true },
+    { "kat": "arsa",  "esik": 5000,  "n": 8830, "sicrama_yuzde": -2.2,  "t": -1.24, "anlamli": false },
+    { "kat": "arsa",  "esik": 20000, "n": 3187, "sicrama_yuzde": 14.8,  "t": 3.72,  "anlamli": true }
+  ],
+
+  "neden_kanun_degil": [
+    "ISARETLER TUTARSIZ. Kanun hipotezi tek yon ongoruyor: esigin ALTI bolunemez, yani daha ucuz olmali — sicrama hep POZITIF cikmali. Tarla 3000'de -10,7, 5000'de +14,4. Ayni kanun, zit yonler.",
+    "ARSADA DA VAR. 5403 tarimsal arazileri duzenliyor, arsayi degil. Arsa 3000'de +9,9 (t=5,72) ve 20000'de +14,8 (t=3,72) — kanunun kapsamadigi yerde daha guclu sinyal.",
+    "Kalan aciklama: ilan verenler 3.000 / 5.000 / 20.000 gibi yuvarlak m2 yaziyor ve o parseller farkli fiyatlaniyor. Klasik yigilma (bunching) artefakti."
+  ],
+
+  "yan_deney_alan_carpani": {
+    "bulgu": "Ayni olcum alanCarpani tablosunu da denetledi. Arsa 10.000-50.000 bandinda tablo 0,38 (uygulanan 0,45, cunku HEURISTIC_MULTIPLIER_BANT.arsa.min=0,45) ama olculen 0,59 — %31 sapma, n=3.297.",
+    "deney": "Arsa tablosu olculen degerlere guncellendi: 2500-10k 0,67->0,72 · 10k-50k 0,38->0,59 · 50k+ 0,32->0,45",
+    "sonuc": "DUZ. ±%20 26,7 -> 26,8 (+0,1), bias 19,09 -> 20,19 (KOTULESTI). Geri alindi.",
+    "ders": "Mahalle-ici olculen oran, motorun baseline'ina DOGRUDAN uygulanamaz. Baseline zaten o mahalledeki ilan karisimini yansitiyor; orani tam uygulamak boyut etkisini IKINCI KEZ saymak oluyor. Dosyadaki mevcut yorum bunu yukari yon icin zaten soyluyordu — olcum ayni seyin asagi yon icin de gecerli oldugunu gosterdi."
+  },
+
+  "planla_iliski": "MIMARI-PLAN.md'de R1 'doğruluk tarafında kalan tek ölçülmemiş fikir' diye isaretlenmisti. Olculdu, negatif. Boylece dogruluk tarafinda bilinen hicbir olculmemis fikir kalmadi — planin '±%20 ≈ 27 dogal seviye' tezi guclendi."
+}
