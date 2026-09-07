@@ -15,6 +15,7 @@ import { normalizeYerAdi } from "./tkgm-api";
 import { baselineBandGenisletme } from "./baseline-engine";
 import { ilLikiditeCarpani } from "./data/il-likidite";
 import { kalibreAralik } from "./fiyat/aralik-kalibrasyon";
+import { hukukKisitlariniBul, hukukNotlari } from "./fiyat/hukuk-kisitlari";
 import { biasCarpani } from "./bias-kalibrasyon";
 import { depremRiskiGetir } from "./data/deprem-zonlari";
 import { pgaCarpani } from "./deprem-tdth";
@@ -504,6 +505,25 @@ export async function fiyatTahminEt(
       `n=${kalibre.n}) tahminlerin ~%${kalibre.seviye}'si bu bantta kaldı.`,
     );
   }
+
+  /**
+   * HUKUKİ KISITLAR — ajan katmanı, FİYATA DOKUNMADAN.
+   *
+   * Mahalle medyanı bir zeytinliğin 3573'e tabi olduğunu ya da hisseli bir
+   * tarlanın 5403 m.8 yüzünden ifraz edilemeyeceğini söyleyemez. Bunlar fiyat
+   * verisi değil KURAL verisi ve alıcının kararını fiyattan çok etkileyebilir.
+   *
+   * Yalnızca `veriKalitesiNotlari`'na yazıyor; fiyat/aralık/güven skoru
+   * DEĞİŞMİYOR. Gerekçe ölçülebilirlik: araya fiyatı oynatan bir katman
+   * girerse backtest anlamını yitirir. Bu kural bir testle korunuyor
+   * (`test/hukuk-kisitlari.spec.ts`) ve backtest kapısıyla ikinci kez.
+   */
+  const hukuk = hukukKisitlariniBul(
+    parsel,
+    baseline.kategori,
+    resmiImar?.kullanimKarari ?? resmiImar?.planKarari ?? null,
+  );
+  if (hukuk) veriKalitesiNotlari.push(...hukukNotlari(hukuk));
 
   if (ilNorm && likidite.aciklama) {
     veriKalitesiNotlari.push(`Likidite: ${likidite.aciklama}.`);
