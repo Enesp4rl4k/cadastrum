@@ -79,6 +79,7 @@ Motor üç kategori destekliyor (`SEGMENT_INDEX`: arsa, konut, tarla) ama
 backtest yalnızca ikisini ölçüyor. Konut için:
 
 - Üretimde **127 aktif ilan** (arsa 16.070, tarla 18.379 ile kıyaslayın)
+- Korpusta **0 konut ilanı** — tarayıcı bu kategoriyi hiç toplamıyor
 - `mahalle_baseline_ai`'de **61.534 konut satırı** — tamamı `statik-baseline`
 - Yani konut tahminleri fiilen **%100 ölçülmemiş statik tablodan** geliyor
 - `guvenSkoruTavani` imzası `"arsa" | "tarla"` — konut için tavan **tanımsız**,
@@ -97,12 +98,28 @@ Bir kullanıcı konut parseline baktığında bir sayı ve bir güven skoru gör
 **S3 (olduğu gibi bırak) seçeneği yok.** Ölçülmemiş bir sayıyı ölçülmüş
 gibi sunmak, bu projede tekrar tekrar ayıkladığımız şey.
 
+### Ö2.1 zaten cevaplandı — plan yazılırken ölçüldü
+
+**Korpusta konut ilanı: 0.** Tarayıcı yalnızca arsa ve tarla topluyor.
+Üretimdeki 127 konut ilanı uzantı kullanıcılarından ve hepsi hold-out
+kurmaya yetmeyecek kadar az.
+
+Yani karar kuralının ikinci dalı işliyor: **n < 300 → kategoriyi kapat.**
+Konut için hold-out kurulamıyor, dolayısıyla motor konutta ne kadar
+yanıldığını asla söyleyemez.
+
 | # | iş | kabul |
 |---|---|---|
-| Ö2.1 | Korpusta konut ilanı var mı — say | sayı `data/` altında |
-| Ö2.2 | n ≥ 300 ise backtest'e üçüncü segment ekle | `baselineKaynak` kırılımı konut için de çıkıyor |
-| Ö2.3 | n < 300 ise kategoriyi kapat | konut sorgusu sayı DÖNMÜYOR, gerekçe dönüyor |
-| Ö2.4 | `guvenSkoruTavani` imzasına konut ekle | tavan ölçüme dayalı ya da kategori kapalı |
+| ~~Ö2.1~~ | ~~Korpusta konut ilanı var mı~~ | **0 — ölçüldü** |
+| Ö2.2 | Konut sorgusunda sayı yerine gerekçe dön | konut tahmini SAYI DÖNMÜYOR |
+| Ö2.3 | `guvenSkoruTavani` imzasına konut ekle ve 0/kapalı yap | tavan tanımsız kalmıyor |
+| Ö2.4 | Kararı `data/` altına yaz | gerekçe kalıcı |
+
+**Alternatif — kapatmak yerine ölçülebilir hâle getirmek:** tarayıcıya konut
+kategorisi eklemek (emlakjet `satilik-konut`). Bu, kategoriyi kurtarır ama
+yeni bir tarama hattı demek ve arsa/tarla kapsamı hâlâ %4,5'te. Kapsam
+büyütmenin doğruluğa katkısı ölçüldü ve düz çıktı; konutta farklı olacağının
+garantisi yok. **Öneri: önce kapat, talep varsa ölçülebilir hâle getir.**
 
 ---
 
