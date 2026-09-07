@@ -224,6 +224,37 @@ export async function radiusEmsalGetir(
   for (const kayit of aday) {
     if (typeof kayit.lat !== "number" || typeof kayit.lng !== "number") continue;
 
+    /**
+     * MAHALLE MERKEZİ KOORDİNATI SPATIAL'A GİRMEZ — ölçülmüş karar.
+     *
+     * Bir "mahalle-merkez" koordinatı, ilanın gerçek konumunu değil yalnızca
+     * hangi mahallede olduğunu söylüyor. O bilgiyi motor zaten mahalle
+     * katmanında kullanıyor ve orada DAHA İYİ kullanıyor: mahalle eşleşmesi
+     * tam, spatial ise 5 km yarıçapta (D=5000m) komşu mahallelerin
+     * merkezlerini de topluyor — yani mahalle sınırını KAYBEDİYOR.
+     *
+     * ÖLÇÜLDÜ (2026-09-07, hold-out n=1200/segment). Spatial katmanı
+     * backtest'te hiç çalışmıyordu (kayıtlara koordinat konmuyordu);
+     * koordinat verilince %96 kayıt bu katmana düştü ve sonuç:
+     *
+     *              spatial KAPALI   spatial AÇIK (merkez koordinatlı)
+     *   arsa ±%20       26,7             20,3
+     *   tarla ±%20      43,9             25,1
+     *   tarla bias      11,0             51,2
+     *
+     * Yani motorun EN YÜKSEK güven verdiği katman (tavan 98) diğerlerinden
+     * belirgin biçimde KÖTÜYDÜ ve üstelik onları eziyordu.
+     *
+     * Üretimde de aynı risk: koordinatlı ilanların %93'ü mahalle merkezi
+     * (data/faz3-koordinat-yigilma-olcum.json) ve tek noktada 442 ilan
+     * yığılabiliyor.
+     *
+     * Bu filtre spatial'ı KAPATMIYOR — gerçek parsel/DOM koordinatı olan
+     * emsallerde aynen çalışıyor. Yalnızca konum bilgisi taşımayan
+     * koordinatları dışarıda tutuyor.
+     */
+    if (kayit.koordKaynagi === "mahalle-merkez") continue;
+
     // Yaş filtresi
     const yasGun = (simdi - (kayit.zaman ?? simdi)) / GUN_MS;
     if (yasGun > maksYasGun) continue;

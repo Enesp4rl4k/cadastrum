@@ -1,0 +1,35 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "O1 — spatial-radius katmani hic olculmemisti. Motorun EN YUKSEK guven verdigi katman (tavan 98) ne kadar isabetli?",
+  "kisa_cevap": "OLCULDU VE KOTU CIKTI. Mahalle-merkez koordinatlariyla calisan spatial, diger katmanlardan belirgin kotu ve onlari eziyordu. Filtre eklendi.",
+
+  "neden_hic_olculmemis": {
+    "aciklama": "Backtest `trainIlanGozlem` kayitlarina lat/lng KOYMUYORDU. `bboxPrefilter` koordinatsiz kaydi eledigi icin spatial hic emsal bulamiyor, katman hic devreye girmiyordu.",
+    "sinsi_yani": "`baselineKaynak` kiriliminda satirin hic gorunmemesi 'o katman hic secilmedi' diye degil, 'boyle bir katman yok' diye okunuyordu. Sessiz olcum bosluğu."
+  },
+
+  "olcum": {
+    "yontem": "Backtest'e koordinat eklendi, spatial devreye girdi. Ayni hold-out, n=1200/segment.",
+    "spatial_kapali": { "arsa_within20": 26.7, "tarla_within20": 43.9, "tarla_bias": 11.0 },
+    "spatial_acik_merkez_koordinatli": { "arsa_within20": 20.3, "tarla_within20": 25.1, "tarla_bias": 51.2 },
+    "spatial_katmanin_kendi_kirilimi": {
+      "arsa": { "n": 1151, "within20": 20.3, "mape": 62.35, "bias": 6.54 },
+      "tarla": { "n": 1114, "within20": 22.4, "mape": 83.69, "bias": 53.95 }
+    },
+    "kapsam": "Spatial devreye girince kayitlarin %96'si (1151/1200, 1114/1200) bu katmana dustu ve ilanGozlem-mahalle katmanini TAMAMEN ezdi."
+  },
+
+  "kok_neden": "Mahalle-merkez koordinati ilanin gercek konumunu degil, yalnizca hangi mahallede oldugunu soyluyor. Motor o bilgiyi zaten mahalle katmaninda kullaniyor ve orada DAHA IYI kullaniyor: mahalle eslesmesi tam, spatial ise D=5000m ile 5 km yaricapta komsu mahallelerin merkezlerini de topluyor — yani mahalle sinirini KAYBEDIYOR. Daha kaba bir tahminci, daha yuksek guvenle sunuluyordu.",
+
+  "uygulanan_duzeltme": {
+    "ne": "spatial-emsal.ts `bboxPrefilter` dongusune `koordKaynagi === 'mahalle-merkez'` elemesi eklendi.",
+    "spatial_kapatilmadi": "Gercek parsel/DOM koordinati olan emsallerde aynen calisiyor. Yalnizca konum bilgisi TASIMAYAN koordinatlar disarida.",
+    "sonuc": "arsa 26,8 · tarla 43,9 — esik kapisi geciyor, spatial artik zarar vermiyor."
+  },
+
+  "uretimdeki_karsiligi": "Uretimde koordinatli ilanlarin %93'u mahalle merkezi (data/faz3-koordinat-yigilma-olcum.json) ve tek noktada 442 ilan yigilabiliyor. Yani bu duzeltme uretimde de gerekliydi; olculmedigi icin gorulmuyordu.",
+
+  "acik_kalan_1": "Spatial'in GERCEK parsel koordinatiyla ne yaptigi HALA olculmedi — korpusta parsel koordinatli ilan yok (hepsi mahalle merkezi). Filtre spatial'i bu veri setinde fiilen kapatiyor. Uretimde %7 parsel koordinatli ilan var ve o kol olculmemis durumda.",
+  "acik_kalan_2": "guven-motoru.ts spatial-radius'a 98 tavan veriyor ve bu sayi HALA olcume dayanmiyor. Artik katman yalnizca gercek koordinatla calistigi icin 98 daha savunulabilir, ama dogrulanmis degil.",
+  "acik_kalan_3": "Backtest yalnizca spatial'in YEREL kolunu olcuyor. Uretimde backend havuzu da harmanlaniyor (fiyat-tahmin.ts:190) ve o kol backtest'te fetch kapali oldugu icin hic calismiyor."
+}

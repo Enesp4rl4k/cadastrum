@@ -118,6 +118,18 @@ interface HamKayit {
   imarDurumu: string | null;
   tapuDurumu: string | null;
   koordKaynagi: string | null;
+  /**
+   * Koordinat — SPATIAL KATMANI İÇİN ŞART.
+   *
+   * Eskiden parse edilmiyordu ve sonucu sessizdi: `spatial-radius` katmanı
+   * backtest'te HİÇ devreye girmiyordu, çünkü `bboxPrefilter` koordinatsız
+   * kayıtları eliyor. Motorun EN YÜKSEK güven verdiği katman (tavan 98)
+   * ölçüm dışı kalıyordu ve kimse fark etmemişti — `baselineKaynak`
+   * kırılımında satırın hiç görünmemesi "o katman hiç seçilmedi" diye değil,
+   * "böyle bir katman yok" diye okunuyordu.
+   */
+  lat: number | null;
+  lng: number | null;
 }
 
 /**
@@ -153,6 +165,13 @@ function satirDegerleriniAyir(satir: string): string[] {
   return out;
 }
 
+/** "NULL" ve boş değerleri null'a çeviren sayı ayrıştırıcı. */
+function sayiVeyaNull(ham: string | null): number | null {
+  if (ham == null || ham === "NULL" || ham === "") return null;
+  const n = parseFloat(ham);
+  return Number.isFinite(n) ? n : null;
+}
+
 function dosyaParseEt(metin: string, out: HamKayit[]): void {
   // Her INSERT bloğu kendi kolon listesini taşıyor — onu okuyup eşleme kuruyoruz.
   const blokRegex = /INSERT OR IGNORE INTO ilanlar\s*\(([^)]*)\)\s*VALUES([^;]+);/gs;
@@ -166,6 +185,7 @@ function dosyaParseEt(metin: string, out: HamKayit[]): void {
     const iTarih = idx("yakalanma_tarihi");
     const iBaslik = idx("baslik"), iImar = idx("imar_durumu");
     const iTapu = idx("tapu_durumu"), iKoordK = idx("koord_kaynagi");
+    const iLat = idx("lat"), iLng = idx("lng");
 
     // Zorunlu kolonlardan biri yoksa blok tanınmıyor demektir — sessizce
     // yanlış okumaktansa atla.
@@ -196,6 +216,8 @@ function dosyaParseEt(metin: string, out: HamKayit[]): void {
         imarDurumu: al(iImar),
         tapuDurumu: al(iTapu),
         koordKaynagi: al(iKoordK),
+        lat: sayiVeyaNull(al(iLat)),
+        lng: sayiVeyaNull(al(iLng)),
       });
     }
   }
@@ -574,6 +596,15 @@ async function koluKostur(
     adaNo: null,
     parselNo: null,
     zaman: k.tarihTs,
+    // SPATIAL İÇİN ŞART — `bboxPrefilter` koordinatsız kaydı eliyor.
+    lat: k.lat,
+    lng: k.lng,
+    /**
+     * Koordinatın KAYNAĞI da geçmeli. Spatial motor "mahalle-merkez"
+     * koordinatlı emsalleri eliyor (konum bilgisi taşımıyorlar); bu alan
+     * boş bırakılırsa o filtre sessizce devre dışı kalır.
+     */
+    koordKaynagi: (k.koordKaynagi as IlanGozlem["koordKaynagi"]) ?? null,
   }));
 
   vi.mocked(db.ilanGozlem.toArray).mockResolvedValue(trainIlanGozlem);
