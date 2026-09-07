@@ -1,0 +1,35 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "Motor mahalle emsaline inerken hata mi yapiyor? Kalibrasyon supurmesi tarlada ters bir sey gostermisti: ilanGozlem-ilce ±%20 49,3 vs ilanGozlem-mahalle 39,4.",
+  "kisa_cevap": "HAYIR. O kiyas GECERSIZDI — conditioning artifact. Ayni kayitlarda olculunce mahalle her yerde ilceden iyi.",
+
+  "neden_ilk_kiyas_gecersiz": "Iki satir FARKLI kayitlari olcuyordu. Ilce katmanina dusenler zaten mahalle emsali OLMAYAN kayitlar; mahalle katmanina dusenler daha yogun, muhtemelen daha kentsel. Kovalari karsilastirmak, kovaya dusme sebebini tahminciye mal etmek olur.",
+
+  "dogru_olcum": "Mahalle emsali OLAN her test kaydi icin hem mahalle train medyani hem ilce train medyani hesaplandi, ikisi de AYNI kumede puanlandi. Emsal adedine gore kirildi.",
+
+  "sonuc_ayni_kayitlarda": {
+    "arsa":  { "mahalle_within20": 25.9, "ilce_within20": 16.4, "kazanan": "MAHALLE, her kovada" },
+    "tarla": { "mahalle_within20": 26.2, "ilce_within20": 22.4, "kazanan": "MAHALLE, 5 kovanin 3'unde" }
+  },
+
+  "kovalar": {
+    "arsa": [
+      { "emsal": "1-2",   "n": 242, "mahalle": 26.0, "ilce": 12.4 },
+      { "emsal": "3-4",   "n": 165, "mahalle": 29.1, "ilce": 17.0 },
+      { "emsal": "5-9",   "n": 261, "mahalle": 24.5, "ilce": 16.5 },
+      { "emsal": "10-19", "n": 230, "mahalle": 25.7, "ilce": 18.3 },
+      { "emsal": "20+",   "n": 156, "mahalle": 25.0, "ilce": 19.2 }
+    ],
+    "tarla": [
+      { "emsal": "1-2",   "n": 385, "mahalle": 24.9, "ilce": 20.0 },
+      { "emsal": "3-4",   "n": 211, "mahalle": 26.1, "ilce": 21.8 },
+      { "emsal": "5-9",   "n": 184, "mahalle": 25.5, "ilce": 27.7, "not": "tek anlamli ilce ustunlugu" },
+      { "emsal": "10-19", "n": 61,  "mahalle": 37.7, "ilce": 23.0 },
+      { "emsal": "20+",   "n": 10,  "mahalle": 20.0, "ilce": 30.0, "not": "n=10, gurultu" }
+    ]
+  },
+
+  "karar": "Motorun katman secimi DOGRU. Duzeltilecek bir sey yok; bir onceki turda onerdigim '3 numarali is' CURUDU. Sasirtici olan sey mahallenin 1-2 emsalle bile ilceyi gecmesi — az emsal bile konum bilgisi tasiyor.",
+
+  "yan_bulgu_bias_metrigi": "Ham mahalle medyaninin biasi her kovada cok yuksek (arsa +40..+85). Motorun genel biasi +19, yani zincir biasi ciddi olcude dusuruyor. Ayrica bias metriginin kendisi carpik: (t-g)/g olcusu ucuz kayitlarda buyuk pozitif degerler uretiyor (gercek 100 tahmin 500 -> +%400; tersi -%80). Bias yorumlanirken bu asimetri akilda tutulmali."
+}

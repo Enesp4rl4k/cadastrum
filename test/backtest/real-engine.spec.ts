@@ -892,6 +892,105 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
    *
    * ASSERT EDİLMEZ — bu bir teşhis. Motoru değiştirmiyor, yanına koyuyor.
    */
+  /**
+   * KATMAN SEÇİMİ — "mahalle emsaline inmek her zaman iyi mi?"
+   *
+   * NEDEN: kalibrasyon süpürmesi tarlada ters bir şey gösterdi —
+   *   ilanGozlem-ilce    n=481 → ±%20 49,3
+   *   ilanGozlem-mahalle n=662 → ±%20 39,4
+   * Motor her iki kategoride de mahalleyi tercih ediyor; tarlada bu 10 puan
+   * kaybettiriyor gibi görünüyor.
+   *
+   * AMA O KIYAS GEÇERSİZ: iki satır FARKLI kayıtları ölçüyor. Mahalle
+   * katmanına düşenler zaten mahalle emsali olan (daha yoğun, muhtemelen daha
+   * kentsel) kayıtlar. Kovaları karşılaştırmak, kovaya düşme sebebini
+   * tahminciye mal etmek olur — bu oturumda birkaç kez yaptığımız hata.
+   *
+   * BU RAPOR AYNI KAYITLARDA ÖLÇÜYOR: mahalle emsali OLAN her test kaydı için
+   * hem mahalle train medyanı hem ilçe train medyanı hesaplanıyor, ikisi de
+   * aynı kümede puanlanıyor. Emsal adedine göre kırılıyor — çünkü asıl soru
+   * "mahalle mi ilçe mi" değil, "KAÇ emsalden sonra mahalle ilçeyi geçiyor".
+   * O eşik, shrinkage'ın nereye ayarlanması gerektiğini söyler.
+   *
+   * ASSERT EDİLMEZ — teşhis.
+   */
+  it("katman seçimini (mahalle vs ilçe) aynı kayıtlarda raporlar", () => {
+    const medyan = (a: number[]): number => {
+      const x = [...a].sort((p, q) => p - q);
+      const i = x.length >> 1;
+      return x.length % 2 ? x[i]! : (x[i - 1]! + x[i]!) / 2;
+    };
+    const puanla = (ciftler: Array<[number, number]>) => {
+      let icinde = 0, apeT = 0, biasT = 0;
+      for (const [t, g] of ciftler) {
+        const ape = Math.abs(t - g) / g;
+        if (ape <= 0.20) icinde++;
+        apeT += ape; biasT += (t - g) / g;
+      }
+      const n = ciftler.length || 1;
+      return { n: ciftler.length, within20: (icinde / n) * 100, mape: (apeT / n) * 100, bias: (biasT / n) * 100 };
+    };
+
+    const satirlar: string[] = [];
+    for (const segment of ["arsa", "tarla"] as const) {
+      const train: HamKayit[] = [];
+      const test: HamKayit[] = [];
+      for (const k of hamKayitlarGlobal) {
+        if (k.kategori !== segment || !k.mahalle) continue;
+        (hash01(k.ilanNo) < 0.8 ? train : test).push(k);
+      }
+      const mahHavuz = new Map<string, number[]>();
+      const ilceHavuz = new Map<string, number[]>();
+      for (const k of train) {
+        const mk = `${k.il}__${k.ilce}__${k.mahalle}`;
+        const ik = `${k.il}__${k.ilce}`;
+        (mahHavuz.get(mk) ?? mahHavuz.set(mk, []).get(mk)!).push(k.tlm2);
+        (ilceHavuz.get(ik) ?? ilceHavuz.set(ik, []).get(ik)!).push(k.tlm2);
+      }
+
+      const testOrneklem = test
+        .filter((k) => kanonikAnahtar(k.il, k.ilce, k.mahalle)! in MERKEZ_TUPLES)
+        .sort((a, b) => hash01(a.ilanNo) - hash01(b.ilanNo))
+        .slice(0, MAX_TEST_PER_SEGMENT);
+
+      /** Emsal adedi kovası → [mahalle çiftleri, ilçe çiftleri] */
+      const kovalar = new Map<string, { mah: Array<[number, number]>; ilce: Array<[number, number]> }>();
+      const kovaAdi = (n: number) => (n < 3 ? "1-2" : n < 5 ? "3-4" : n < 10 ? "5-9" : n < 20 ? "10-19" : "20+");
+      for (const k of testOrneklem) {
+        const mh = mahHavuz.get(`${k.il}__${k.ilce}__${k.mahalle}`);
+        const ih = ilceHavuz.get(`${k.il}__${k.ilce}`);
+        if (!mh || mh.length === 0 || !ih || ih.length === 0) continue;
+        const ad = kovaAdi(mh.length);
+        const kova = kovalar.get(ad) ?? { mah: [], ilce: [] };
+        kova.mah.push([medyan(mh), k.tlm2]);
+        kova.ilce.push([medyan(ih), k.tlm2]);
+        kovalar.set(ad, kova);
+      }
+
+      const sira = ["1-2", "3-4", "5-9", "10-19", "20+"];
+      const govde = sira
+        .filter((ad) => kovalar.has(ad))
+        .map((ad) => {
+          const { mah, ilce } = kovalar.get(ad)!;
+          const m = puanla(mah), i = puanla(ilce);
+          const kazanan = m.within20 > i.within20 ? "MAHALLE" : "İLÇE";
+          return `      emsal ${ad.padEnd(6)} n=${String(m.n).padStart(4)}` +
+            ` · mahalle ±%20 ${m.within20.toFixed(1).padStart(5)} (bias ${m.bias.toFixed(1).padStart(6)})` +
+            ` · ilçe ±%20 ${i.within20.toFixed(1).padStart(5)} (bias ${i.bias.toFixed(1).padStart(6)})` +
+            ` → ${kazanan}`;
+        });
+      const tumMah = [...kovalar.values()].flatMap((k) => k.mah);
+      const tumIlce = [...kovalar.values()].flatMap((k) => k.ilce);
+      const tm = puanla(tumMah), ti = puanla(tumIlce);
+      satirlar.push(
+        `  ${segment} · aynı kayıtlarda: mahalle ±%20 ${tm.within20.toFixed(1)} · ilçe ±%20 ${ti.within20.toFixed(1)}\n` +
+        govde.join("\n"),
+      );
+    }
+    console.log("\n── KATMAN SEÇİMİ (aynı kayıtlarda, teşhis) ──\n" + satirlar.join("\n") + "\n");
+    expect(satirlar.length).toBeGreaterThan(0);
+  });
+
   it("hedonik regresyon prototipini raporlar", () => {
     /** Ax=b çöz (Gauss, kısmi pivotlama). Tekil matriste null. */
     const cozGauss = (A: number[][], b: number[]): number[] | null => {

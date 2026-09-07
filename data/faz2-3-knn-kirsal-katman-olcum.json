@@ -1,0 +1,20 @@
+{
+  "olculdu": "2026-09-07",
+  "soru": "Plan Faz 2.3: MAHALLE_BASELINE'in KNN/kirsal katmani (guven<35) net katki sagliyor mu? 38.786 KNN + 21.471 kirsal kuralin degeri.",
+  "kisa_cevap": "EVET, ve buyuk. Kapatmak ciddi zarar veriyor — ozellikle tarlada 8,7 puan.",
+
+  "deney": "mahalleBaselineGetir icinde guven<35 olan tuple'lar yok sayildi (ilce fallback'ine dusuldu). Tek degisken.",
+
+  "sonuc": {
+    "arsa":  { "within20": "26,7 -> 26,5", "mape": "65,9 -> 71,5", "bias": "19,09 -> 25,99" },
+    "tarla": { "within20": "43,9 -> 35,2", "mape": "44,1 -> 61,3", "bias": "11,03 -> 25,02" }
+  },
+
+  "esik_kapisi": "Her iki segmentte de MAPE regresyon esigini KIRDI (arsa 71,54 > 70,67; tarla 61,31 > 48,77). Yani bu bir tercih meselesi degil, olculmus bir gerileme.",
+
+  "yorum": "Tablonun yalnizca %2'si gercek gozlem, %59'u KNN interpolasyonu, %33'u kirsal sezgisel. Kaynak zayifligina ragmen katman DEGER URETIYOR — cunku alternatifi ilce medyani ve o daha kotu. 'Uydurma veri' sezgisi burada olcumle celisiyor ve olcum kazaniyor.",
+
+  "iliskili_bulgu": "Ayni kosuda mahalle-baseline katmaninin kendi kirilimi: arsa bias +134..+151 (n=29..38), tarla bias -4,44 (n=36). Arsadaki bias yuksek ama katmani KAPATMAK daha kotu. Dogru is 'sustur' degil 'kalibre et' — ama n=38 ile katsayi belirlemek zayif dayanak.",
+
+  "kapatilan_madde": "Plandaki 'Faz 2.3' bu olcumle kapandi. Ayrica bir onceki turda onerdigim '2 numarali is: mahalle-baseline'i sustur' maddesi de CURUDU."
+}
