@@ -11,7 +11,7 @@
  * Bir kaynak burada YOKSA örneklemi yetersizdi (n < 100) ve motor o kaynakta
  * eski davranışa düşer — az kayıttan kantil çıkarmak uydurmadır.
  *
- * Üretildi: 2026-09-07
+ * Üretildi: 2026-09-08
  */
 export interface AralikKantili {
   /** %80 aralık sınırları */
@@ -23,6 +23,8 @@ export interface AralikKantili {
   /** Medyan sapma — 1'den uzaklığı sistematik bias'ı gösterir */
   q50: number;
   n: number;
+  /** Bu katmanın ölçülen ±%20 isabeti — kullanıcıya söylenecek sayı */
+  within20: number;
 }
 
 export const ARALIK_KALIBRASYONU: Readonly<
@@ -30,20 +32,22 @@ export const ARALIK_KALIBRASYONU: Readonly<
 > = {
   "arsa": {
     "ilanGozlem-mahalle": {
-      "q10": 0.5723,
+      "q10": 0.5692,
       "q25": 0.7947,
-      "q50": 1.1114,
+      "q50": 1.1095,
       "q75": 1.696,
-      "q90": 2.8908,
-      "n": 746
+      "q90": 2.8902,
+      "n": 747,
+      "within20": 29.7
     },
     "ilanGozlem-ilce": {
       "q10": 0.4062,
-      "q25": 0.6571,
+      "q25": 0.6553,
       "q50": 1.1279,
       "q75": 2.0476,
       "q90": 3.9216,
-      "n": 415
+      "n": 414,
+      "within20": 21.5
     }
   },
   "tarla": {
@@ -53,7 +57,8 @@ export const ARALIK_KALIBRASYONU: Readonly<
       "q50": 1.0262,
       "q75": 1.4604,
       "q90": 2.5125,
-      "n": 662
+      "n": 662,
+      "within20": 38.8
     },
     "ilanGozlem-ilce": {
       "q10": 0.621,
@@ -61,7 +66,8 @@ export const ARALIK_KALIBRASYONU: Readonly<
       "q50": 1.0133,
       "q75": 1.2571,
       "q90": 2.1297,
-      "n": 481
+      "n": 481,
+      "within20": 46.4
     }
   }
 } as const;

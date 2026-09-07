@@ -54,6 +54,12 @@ export interface KalibreAralik {
    * yansıyor; ayrıca döndürülüyor çünkü açıklama katmanının söyleyecek şeyi.
    */
   medyanSapma: number;
+  /**
+   * Bu katmanın ÖLÇÜLEN ±%20 isabeti. Kullanıcıya "bu tahmin hangi katmandan
+   * ve o katman ne kadar isabetli" demenin tek dürüst yolu ölçülmüş sayıyı
+   * taşımak — yoksa güven ifadesi sezgiye dayanır.
+   */
+  within20: number;
 }
 
 /**
@@ -80,5 +86,6 @@ export function kalibreAralik(
     seviye,
     n: k.n,
     medyanSapma: k.q50,
+    within20: k.within20,
   };
 }

@@ -500,9 +500,19 @@ export async function fiyatTahminEt(
   const altPerM2 = kalibre?.altPerM2 ?? Math.round(beklenenPerM2 * altRangeAyarli);
   const ustPerM2 = kalibre?.ustPerM2 ?? Math.round(beklenenPerM2 * ustRangeAyarli);
   if (kalibre) {
+    /**
+     * AÇIKLAMA KATMANI (A3) — yeni sayı üretmiyor, mevcut ölçümü anlatıyor.
+     *
+     * Kullanıcı bugün bir fiyat ve bir aralık görüyor ama ikisinin de neye
+     * dayandığını göremiyor. Bu not üç ölçülmüş şeyi söylüyor: hangi katman,
+     * o katmanın gerçek isabeti, aralığın gerçek kapsaması. Üçü de
+     * `aralik-kalibrasyon-tablosu.ts`'ten geliyor ve hold-out'ta ölçüldü —
+     * hiçbiri sezgi değil.
+     */
     veriKalitesiNotlari.push(
-      `Aralık ölçülmüş hata dağılımından: bu katmanda (${baseline.kaynak}, ` +
-      `n=${kalibre.n}) tahminlerin ~%${kalibre.seviye}'si bu bantta kaldı.`,
+      `Bu tahmin "${baseline.kaynak}" katmanından. Ölçüldü (n=${kalibre.n}): ` +
+      `bu katmanda tahminlerin %${kalibre.within20.toFixed(0)}'i gerçek fiyatın ` +
+      `±%20'sinde çıktı; gösterilen aralık ise ~%${kalibre.seviye} kapsıyor.`,
     );
   }
 

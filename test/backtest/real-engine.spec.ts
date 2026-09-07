@@ -1179,7 +1179,7 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
       return sirali[i]!;
     };
 
-    type Girdi = { q10: number; q25: number; q50: number; q75: number; q90: number; n: number };
+    type Girdi = { q10: number; q25: number; q50: number; q75: number; q90: number; n: number; within20: number };
     const tablo: Record<string, Record<string, Girdi>> = {};
     const rapor: string[] = [];
 
@@ -1192,6 +1192,16 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
         const oran = k.tlm2 / k.tahmin;
         const l = kaynaklar.get(k.baselineKaynak);
         if (l) l.push(oran); else kaynaklar.set(k.baselineKaynak, [oran]);
+      }
+      /**
+       * Katmanın ölçülen ±%20 isabeti. Aralıkla birlikte tabloya yazılıyor
+       * çünkü kullanıcıya "bu tahmin hangi katmandan ve o katman ne kadar
+       * isabetli" demenin tek dürüst yolu ölçülmüş sayıyı taşımak.
+       */
+      const isabet = new Map<string, number>();
+      for (const [kaynak, oranlar] of kaynaklar) {
+        const icinde = oranlar.filter((o) => Math.abs(o - 1) <= 0.20).length;
+        isabet.set(kaynak, (icinde / oranlar.length) * 100);
       }
       tablo[segment] = {};
       for (const [kaynak, oranlar] of [...kaynaklar].sort((a, b) => b[1].length - a[1].length)) {
@@ -1207,6 +1217,7 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
           q75: +kantil(oranlar, 0.75).toFixed(4),
           q90: +kantil(oranlar, 0.90).toFixed(4),
           n: oranlar.length,
+          within20: +(isabet.get(kaynak) ?? 0).toFixed(1),
         };
         tablo[segment]![kaynak] = g;
         rapor.push(
@@ -1245,6 +1256,8 @@ export interface AralikKantili {
   /** Medyan sapma — 1'den uzaklığı sistematik bias'ı gösterir */
   q50: number;
   n: number;
+  /** Bu katmanın ölçülen ±%20 isabeti — kullanıcıya söylenecek sayı */
+  within20: number;
 }
 
 export const ARALIK_KALIBRASYONU: Readonly<

@@ -1,5 +1,5 @@
 {
-  "olusturuldu": "2026-09-07T14:04:19.346Z",
+  "olusturuldu": "2026-09-08T14:19:18.220Z",
   "tolerans": {
     "mape": 5,
     "within20": 3
@@ -13,14 +13,14 @@
     "arsa": {
       "baseline": {
         "n": 1200,
-        "mape": 65.92,
+        "mape": 65.96,
         "medyanApe": 40.63,
         "p90Ape": 111.67,
-        "bias": 19.08,
+        "bias": 19.21,
         "within10": 11.8,
         "within20": 26.7
       },
-      "mape_max": 70.92,
+      "mape_max": 70.96,
       "within20_min": 23.7
     },
     "tarla": {
