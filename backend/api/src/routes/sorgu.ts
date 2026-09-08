@@ -54,12 +54,29 @@ function ilFallbackBul(lat: number, lng: number, kategori: string): number {
 
 import { CoordinatesSchema, validateBody } from "../lib/validation.js";
 import { katmaniKaydet } from "../lib/katman-telemetrisi.js";
+import { z } from "zod";
 
 // Merkezi rate-limit middleware — sorgu POST için 20 req/saat.
 // Free tier web app sorguları; index.ts'deki /v1/sorgu/* global 100/saat üst limiti ile birlikte çalışır.
 sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
   const { data: body, errorResponse } = await validateBody(CoordinatesSchema.extend({
-    m2: CoordinatesSchema.shape.radiusKm.optional().nullable(),
+    /**
+     * PARSEL ALANI (m²) — kendi şeması, `radiusKm`'inki DEĞİL.
+     *
+     * Eskiden `CoordinatesSchema.shape.radiusKm` yeniden kullanılıyordu ve o
+     * şemanın üst sınırı 100 (kilometre için makul). Sonuç: 100 m²'den büyük
+     * her parsel sorgusu 422 ile REDDEDİLİYORDU. Yani `toplam_tl` alanı
+     * fiilen hiç hesaplanamıyordu — tipik bir arsa 750-2.500 m².
+     *
+     * Ölçüm sırasında yakalandı: `{"m2":1000}` ile yapılan canlı doğrulama
+     * "Number must be less than or equal to 100" döndü. Şema yeniden kullanımı
+     * ucuz görünüyordu ama iki alanın BİRİMİ farklıydı ve tip sistemi bunu
+     * göremez — ikisi de `number`.
+     *
+     * Üst sınır 10.000.000 m² (10.000 hektar): Türkiye'deki en büyük tapulu
+     * parselleri kapsar, absürt girdiyi hâlâ eler.
+     */
+    m2: z.coerce.number().min(1).max(10_000_000).optional().nullable(),
   }), c);
 
   if (errorResponse || !body) {
