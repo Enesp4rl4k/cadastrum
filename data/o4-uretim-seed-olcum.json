@@ -1,0 +1,33 @@
+{
+  "olculdu": "2026-09-08",
+  "baslik": "O4 — korpus ile uretim arasinda IKI KAT fark vardi",
+
+  "bulgu": {
+    "ne": "Tarama korpusu 66.621 ilana cikardi ama uretimde yalnizca 33.935 emlakjet ilani vardi. 32.686 ilan uretime HIC seed edilmemisti.",
+    "nasil_gorundu": "Baslik UPDATE'i uygulandiktan sonra uretim baslik kapsami %37,9'da kaldi, oysa korpusta %59,4 vardi. Fark aciklamayi zorladi.",
+    "neden_onemli": "Kullanicilar korpusun yarisini gormuyordu. Ve bu, TUM uretim olcumlerini etkiliyordu — kapsam, katman dagilimi, emsal yogunlugu."
+  },
+
+  "seed_sonrasi_uretim": {
+    "ilan": "33.935 -> 66.701",
+    "baslikli": "12.845 -> 40.868 (%61,3)",
+    "koordinatli": "29.772 -> 60.584 (%90,8)",
+    "mahalle": 14610
+  },
+
+  "ONEMLI_DERS_YAZMA_BUTCESI": {
+    "beklenen": "32.686 yeni ilan = ~33k yazma",
+    "gerceklesen": "rows_written 356.685 — beklenenin ~11 KATI",
+    "sebep": "D1 'rows written' sayaci INDEKS yazmalarini da iceriyor. `ilanlar` tablosunda birden fazla indeks var; her INSERT hepsini guncelliyor. `changes` 32.767 (gercek satir) ama faturalanan 356.685.",
+    "sonuc": "Gunluk ucretsiz butce 100.000 yazma. Bu tek islem butcenin 3,5 katini yedi.",
+    "etki": "Uretim OKUMA tarafinda saglikli kaldi (200 donuyor) — Cloudflare yazma kotasi asimi yazmayi durdurur, okumayi degil. Ama bugun baska yazma islemi yapilmamali.",
+    "gelecek_icin": "Seed planlarken 'kac satir' degil 'kac satir x indeks sayisi' hesaplanmali. Bu, korpus-uretime-guncelle.mjs'in butce raporunda da eksikti — o script UPDATE sayisini raporluyor ama indeks carpanini hesaba katmiyor."
+  },
+
+  "kabul_olcutleri": {
+    "korpus_baslik_60": { "hedef": 60, "olculen": 59.4, "gecti": "pratikte" },
+    "uretim_baslik_50": { "hedef": 50, "olculen": 61.3, "gecti": true, "not": "seed sonrasi asildi" },
+    "kalibrasyon_guncel": { "gecti": true, "kapsama": 50.0 },
+    "uretim_imar_20": { "hedef": 20, "olculen": 9.6, "gecti": false, "not": "saatlik cron calisiyor (2.439 -> 3.271), zaman meselesi" }
+  }
+}

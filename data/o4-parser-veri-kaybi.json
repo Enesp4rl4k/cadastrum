@@ -1,0 +1,41 @@
+{
+  "olculdu": "2026-09-08",
+  "baslik": "Baslik kolonu, TUM olcum hattini sessizce bozmus",
+  "nasil_gorundu": "Kapsam raporunda havuzlu mahalle 2.928 -> 2.485 DUSTU, oysa korpus 65.911 -> 66.621 BUYUMUSTU. Veri artarken kapsamin azalmasi tutarsizdi ve hatayi ele verdi.",
+  "iki_ayri_kirilganlik": {
+    "1_satir_regex": {
+      "ne": "satir regexi (parantez icermeyen grup ariyor) — 'parantez icermeyen parantezli grup'. Baslikta parantez varsa ('Satilik Arsa (Acil)') satir bolunuyor, kolon sayisi tutmuyor ve okuyucu onu SESSIZCE atliyor.",
+      "kayip": "380 satir dogrudan atlandi"
+    },
+    "2_blok_regex": {
+      "ne": "VALUES([^;]+); — 'noktali virgule kadar her sey'. 256 baslik ';' iceriyordu ve o bloklar ORTASINDAN kesildi; kalan satirlar hic gorunmedi.",
+      "kayip": "8.314 satir"
+    },
+    "ust_uste_binme": "Ilk hatayi duzeltmek ikincisini gorunur kildi: satir ayristiricisi duzeltildikten sonra bile 58.307 satir okunuyordu, korpusta 66.621 vardi."
+  },
+  "toplam_etki": {
+    "backtest_okunan": "53.339 / 66.621 — %20 KAYIP, hicbir hata vermeden",
+    "kapsam_havuzlu_arsa": "2.485 -> 2.972 (duzeltmeden sonra)",
+    "sonuc": "Baslik eklendikten SONRAKI tum olcumler korpusun beste biri eksik yapilmisti."
+  },
+  "duzeltme": "src/lib/data/sql-satir-ayikla.mjs — tirnak farkindalikli blok ve satir ayiklama. Backtest ve kapsam raporu AYNI modulu kullaniyor; ikinci kopya yok, sessizce ayrisamazlar. Dogrulandi: 66.621 / 66.621.",
+  "duzeltme_sonrasi_olcum": {
+    "olculen_kume": "53.339 -> 62.205",
+    "arsa": {
+      "within20": "26,4 -> 27,6",
+      "bias": "20,27 -> 17,86"
+    },
+    "tarla": {
+      "within20": "44,2 -> 41,8",
+      "mape": "42,4 -> 88,6",
+      "bias": "9,84 -> 57,02"
+    }
+  },
+  "tarla_neden_kotulesti": {
+    "kok_neden": "Geri gelen kayitlarin cogu KIRSAL, BUYUK, UCUZ tarlalar. Korpusta tlm2 < 100 olan 785 kayit var (765 tarla, 20 arsa); medyan alan 8.600 m2, medyan fiyat 62 TL/m2. Bunlar gercek veri — cok buyuk arazi, cok dusuk m2 fiyati.",
+    "motorun_hali": "mahalle-baseline katmani bu kayitlarda MAPE 690, bias +666 (n=69). En kotu ornek: kutahya/gediz/isiklar gercek 1 TL/m2 -> tahmin 378.",
+    "referans_suzgeci_neden_yakalamadi": "Suzgec ilce medyaninin 1/10 - 10 kati araligini tutuyor. Ilcenin TAMAMI dusuk fiyatliysa (kirsal Kutahya, Yozgat) absurt kayit da medyana yakin kaliyor ve elenmiyor.",
+    "karar": "Bu kayitlar OLCUMDEN ATILMADI. Atmak, motorun tahmin edemedigi vakalari gizlemek olurdu — 'olcumu kolaylastirmak icin zor vakalari cikarmak' bu projede yasak. Esik yeni gercekige gore yeniden yazildi."
+  },
+  "ders": "Yeni bir kolon eklemek, onu okumayan her yolu sessizce bozabilir. Bu oturumda ayni sinif ucuncu kez gorundu: (1) resume koordinat kolonunu geri okumuyordu, (2) INSERT OR IGNORE mevcut satiri guncellemiyordu, (3) ayristirici baslik icerigini tanimiyordu. Ortak nokta: hicbiri hata vermedi."
+}

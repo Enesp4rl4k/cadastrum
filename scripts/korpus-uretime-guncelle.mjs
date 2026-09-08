@@ -104,10 +104,30 @@ console.log(`\nGüncellenecek aday ilan: ${adaylar.length}${limit ? ` (limit ile
 console.log(`  başlık UPDATE   : ${baslikAdet}`);
 console.log(`  koordinat UPDATE: ${koordAdet}`);
 console.log(`  TOPLAM İFADE    : ${ifadeAdet}`);
+/**
+ * İNDEKS ÇARPANI — bütçe hesabının eksik parçası.
+ *
+ * D1'in "rows written" sayacı İNDEKS yazmalarını da içeriyor. `ilanlar`
+ * tablosunda birden fazla indeks var ve her yazma hepsini güncelliyor.
+ * 2026-09-08'de ölçüldü: 32.767 satırlık bir seed işlemi 356.685 "rows
+ * written" olarak faturalandı — yaklaşık 11 kat.
+ *
+ * Bu script UPDATE sayısını doğru raporluyordu ama çarpanı hesaba
+ * katmıyordu: "102.043 ifade, bütçe 100.000" diyerek bütçeye yakın
+ * göstermişti, oysa gerçek maliyet çok daha yüksek olabilirdi.
+ *
+ * UPDATE'in çarpanı INSERT'ten düşük (yalnızca dokunulan kolonun indeksleri
+ * güncelleniyor) ama 1 değil. Aşağıdaki tahmin temkinli tarafta ve ÖLÇÜM
+ * DEĞİL — gerçek çarpan koşum sonunda `rows_written` alanından okunmalı.
+ */
+const INDEKS_CARPANI_TAHMINI = 3;
 console.log(
-  `\nGERÇEK YAZMA bunun ALTINDA: her UPDATE "WHERE <alan> IS NULL" ile korunuyor;\n` +
-  `üretimde o alan doluysa 0 satır etkiler ve D1 yazma saymaz.\n` +
-  `Üst sınır ${ifadeAdet} · günlük ücretsiz bütçe 100.000.`,
+  `\nGERÇEK YAZMA bunun ALTINDA olabilir: her UPDATE "WHERE <alan> IS NULL"\n` +
+  `ile korunuyor; üretimde o alan doluysa 0 satır etkiler ve yazma sayılmaz.\n` +
+  `AMA ÜSTÜNDE de olabilir: D1'in yazma sayacı İNDEKS güncellemelerini de\n` +
+  `sayıyor — ölçüldü, 32.767 satırlık seed 356.685 yazma olarak faturalandı.\n` +
+  `İfade ${ifadeAdet} · kaba üst sınır (×${INDEKS_CARPANI_TAHMINI}) ` +
+  `${(ifadeAdet * INDEKS_CARPANI_TAHMINI).toLocaleString("tr-TR")} · günlük bütçe 100.000.`,
 );
 if (ifadeAdet > 100_000) {
   console.warn(

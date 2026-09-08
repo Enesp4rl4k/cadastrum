@@ -43,6 +43,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bosluksuzIndeksKur, kanonikCoz } from "../src/lib/data/mahalle-kanonik-kurallar.mjs";
+import { sqlBloklariniAyikla, sqlDegerleriniAyir } from "../src/lib/data/sql-satir-ayikla.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -59,22 +60,6 @@ const arg = (k) => args.find((a) => a.startsWith(`--${k}=`))?.split("=")[1];
 const isListesiModu = args.includes("--is-listesi");
 const kategoriFiltre = arg("kategori");
 
-function ayir(satir) {
-  const out = [];
-  let cur = "", tirnakta = false;
-  for (let i = 0; i < satir.length; i++) {
-    const c = satir[i];
-    if (tirnakta) {
-      if (c === "'" && satir[i + 1] === "'") { cur += "'"; i++; continue; }
-      if (c === "'") { tirnakta = false; continue; }
-      cur += c;
-    } else if (c === "'") tirnakta = true;
-    else if (c === ",") { out.push(cur.trim()); cur = ""; }
-    else cur += c;
-  }
-  out.push(cur.trim());
-  return out;
-}
 
 /**
  * Ham gözlem anahtarını kanonik hâline çeviren çözücü kurar.
@@ -105,17 +90,14 @@ function gozlemleriTopla(kanonikSet) {
   for (const yol of KAYNAKLAR) {
     if (!existsSync(yol)) continue;
     const metin = readFileSync(yol, "utf8");
-    const blokRe = /INSERT OR IGNORE INTO ilanlar\s*\(([^)]*)\)\s*VALUES([^;]+);/gs;
-    let blok;
-    while ((blok = blokRe.exec(metin)) !== null) {
-      const kolonlar = blok[1].split(",").map((k) => k.trim());
+    for (const { kolonlar, satirlar } of sqlBloklariniAyikla(metin)) {
       const iIl = kolonlar.indexOf("il_norm");
       const iIlce = kolonlar.indexOf("ilce_norm");
       const iMah = kolonlar.indexOf("mahalle_norm");
       const iKat = kolonlar.indexOf("kategori");
       if (iIl < 0 || iIlce < 0 || iMah < 0 || iKat < 0) continue;
-      for (const m of blok[2].matchAll(/\(([^()]*)\)/g)) {
-        const v = ayir(m[1]);
+      for (const ham of satirlar) {
+        const v = sqlDegerleriniAyir(ham);
         if (v.length !== kolonlar.length) continue;
         const kat = v[iKat];
         if (kat !== "arsa" && kat !== "tarla") continue;

@@ -34,6 +34,8 @@ import { fiyatTahminEt } from "../../src/lib/fiyat-tahmin";
 import { MERKEZ_TUPLES } from "../../src/lib/data/mahalle-merkezleri";
 import { kanonikAnahtar } from "../../src/lib/data/mahalle-kanonik";
 import { kalibreAralik } from "../../src/lib/fiyat/aralik-kalibrasyon";
+// @ts-expect-error — .mjs modül, tip tanımı .d.mts dosyasında.
+import { sqlBloklariniAyikla, sqlDegerleriniAyir } from "../../src/lib/data/sql-satir-ayikla.mjs";
 import type { Parsel } from "../../src/types/tkgm";
 import type { IlanGozlem } from "../../src/lib/db";
 
@@ -173,11 +175,24 @@ function sayiVeyaNull(ham: string | null): number | null {
 }
 
 function dosyaParseEt(metin: string, out: HamKayit[]): void {
-  // Her INSERT bloğu kendi kolon listesini taşıyor — onu okuyup eşleme kuruyoruz.
-  const blokRegex = /INSERT OR IGNORE INTO ilanlar\s*\(([^)]*)\)\s*VALUES([^;]+);/gs;
-  let blok: RegExpExecArray | null;
-  while ((blok = blokRegex.exec(metin)) !== null) {
-    const kolonlar = blok[1]!.split(",").map((k) => k.trim());
+  /**
+   * Blok ve satır ayıklama PAYLAŞILAN modülden — kendi regex'i YOK.
+   *
+   * Eskiden burada iki naif regex vardı:
+   *   blok:  /INSERT OR IGNORE INTO ilanlar\s*\(([^)]*)\)\s*VALUES([^;]+);/gs
+   *   satır: /\(([^()]*)\)/g
+   * İkisi de korpus yalnızca sayı ve yer adı taşıdığı sürece çalıştı. `baslik`
+   * kolonu eklenince ikisi de kırıldı — başlıklar hem parantez hem noktalı
+   * virgül içeriyor.
+   *
+   * ÖLÇÜLDÜ (2026-09-08): korpusta 66.621 ilan varken backtest 53.339 tanesini
+   * okuyordu — %20 kayıp, hiçbir hata vermeden. Yani son ölçümlerin tamamı
+   * korpusun beşte biri eksik yapılmıştı.
+   *
+   * Ayıklama artık `src/lib/data/sql-satir-ayikla.mjs`'te ve kapsam raporuyla
+   * AYNI kod — ikinci bir kopya yok, sessizce ayrışamazlar.
+   */
+  for (const { kolonlar, satirlar } of sqlBloklariniAyikla(metin)) {
     const idx = (ad: string) => kolonlar.indexOf(ad);
     const iIlanNo = idx("ilan_no"), iKaynak = idx("kaynak");
     const iIl = idx("il_norm"), iIlce = idx("ilce_norm"), iMah = idx("mahalle_norm");
@@ -188,17 +203,21 @@ function dosyaParseEt(metin: string, out: HamKayit[]): void {
     const iLat = idx("lat"), iLng = idx("lng");
 
     // Zorunlu kolonlardan biri yoksa blok tanınmıyor demektir — sessizce
-    // yanlış okumaktansa atla.
+    // atlanıyor ama SESSİZ DEĞİL: aşağıdaki sayaç kaç kayıt okunduğunu
+    // raporluyor ve korpus boyutuyla kıyaslanabiliyor.
     if (iIlanNo < 0 || iIl < 0 || iIlce < 0 || iFiyat < 0 || iM2 < 0 || iKat < 0) continue;
 
-    for (const m of blok[2]!.matchAll(/\(([^()]*)\)/g)) {
-      const v = satirDegerleriniAyir(m[1]!);
+    for (const ham of satirlar) {
+      const v = sqlDegerleriniAyir(ham);
       if (v.length !== kolonlar.length) continue;
-      const al = (i: number) => (i >= 0 && v[i] !== "NULL" ? v[i]! : null);
-
-      const tlm2 = Math.round(parseFloat(v[iFiyat]!));
-      const m2 = Math.round(parseFloat(v[iM2]!));
-      if (!tlm2 || tlm2 < 100 || tlm2 > 5_000_000 || !m2 || m2 < 50) continue;
+      const al = (i: number): string | null => {
+        if (i < 0) return null;
+        const d = v[i];
+        return d == null || d === "NULL" || d === "" ? null : d;
+      };
+      const tlm2 = parseFloat(v[iFiyat] ?? "");
+      const m2 = parseFloat(v[iM2] ?? "");
+      if (!(tlm2 > 0) || !(m2 > 0)) continue;
       const kategori = v[iKat]!;
       if (kategori !== "arsa" && kategori !== "tarla") continue;
 
