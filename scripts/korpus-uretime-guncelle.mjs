@@ -42,6 +42,23 @@ const CIKTI = join(ROOT, "scripts/korpus-guncelle.sql");
 const args = process.argv.slice(2);
 const yaz = args.includes("--yaz");
 const limit = Number(args.find((a) => a.startsWith("--limit="))?.split("=")[1] ?? "0") || null;
+/**
+ * `--sadece=baslik|koordinat` — alan bazında bölme.
+ *
+ * NEDEN GEREKLİ: ilan başına 2'ye kadar UPDATE çıkıyor ve toplam ifade
+ * sayısı günlük yazma bütçesini (100.000) aşabiliyor. `--limit` ilan bazında
+ * böldüğü için iki alanı da yarıda kesiyor; oysa alanların ACİLİYETİ farklı.
+ *
+ * Ölçülen durum (2026-09-08): üretimde başlık yalnızca 2.258 kayıtta dolu
+ * (korpusta 39.577), koordinat ise 30.198 kayıtta dolu ve yalnızca 4.278
+ * eksik. Yani başlık UPDATE'lerinin neredeyse tamamı gerçek yazma üretecek,
+ * koordinat UPDATE'lerinin ise %93'ü 0 satır etkileyecek. Öncelik başlıkta.
+ */
+const sadece = args.find((a) => a.startsWith("--sadece="))?.split("=")[1] ?? null;
+if (sadece && sadece !== "baslik" && sadece !== "koordinat") {
+  console.error(`--sadece yalnızca "baslik" ya da "koordinat" olabilir (verilen: ${sadece})`);
+  process.exit(1);
+}
 
 /** SQL string kaçışı — kesme işareti başlıklarda çok yaygın. */
 const esc = (s) => String(s).replace(/'/g, "''");
@@ -69,10 +86,35 @@ console.log(`  koordinatlı: ${koordlu.length} (%${((100 * koordlu.length) / kay
 const adaylar = kayitlar.filter((k) => k.baslik || k.lat != null);
 const secilen = limit ? adaylar.slice(0, limit) : adaylar;
 
-console.log(`\nGüncellenecek aday: ${adaylar.length}${limit ? ` (limit ile ${secilen.length})` : ""}`);
-console.log(`Üst sınır tahmini yazma: ${secilen.length} satır (günlük ücretsiz bütçe 100.000)`);
-if (secilen.length > 100_000) {
-  console.warn(`⚠ Bütçeyi aşıyor. --limit=100000 ile bölerek çalıştırın.`);
+/**
+ * UPDATE sayısı ilan sayısından FARKLI — her ilan iki alan doldurabiliyor
+ * (başlık ve koordinat), yani ilan başına 2'ye kadar UPDATE çıkıyor.
+ *
+ * İlk yazımda rapor ilan sayısını "tahmini yazma" diye gösteriyordu: 64.551
+ * diyordu, gerçekte 102.043 UPDATE üretilmişti. Bütçe kararı bu sayıya
+ * dayandığı için yanlış rapor, bütçeyi sessizce aşmaya yol açardı.
+ */
+const baslikYaz = sadece !== "koordinat";
+const koordYaz = sadece !== "baslik";
+const baslikAdet = baslikYaz ? secilen.filter((k) => k.baslik).length : 0;
+const koordAdet = koordYaz ? secilen.filter((k) => k.lat != null).length : 0;
+const ifadeAdet = baslikAdet + koordAdet;
+
+console.log(`\nGüncellenecek aday ilan: ${adaylar.length}${limit ? ` (limit ile ${secilen.length})` : ""}`);
+console.log(`  başlık UPDATE   : ${baslikAdet}`);
+console.log(`  koordinat UPDATE: ${koordAdet}`);
+console.log(`  TOPLAM İFADE    : ${ifadeAdet}`);
+console.log(
+  `\nGERÇEK YAZMA bunun ALTINDA: her UPDATE "WHERE <alan> IS NULL" ile korunuyor;\n` +
+  `üretimde o alan doluysa 0 satır etkiler ve D1 yazma saymaz.\n` +
+  `Üst sınır ${ifadeAdet} · günlük ücretsiz bütçe 100.000.`,
+);
+if (ifadeAdet > 100_000) {
+  console.warn(
+    `\n! İfade sayısı bütçe üst sınırını aşıyor. Gerçek yazma muhtemelen çok\n` +
+    `  daha düşük (dolu alanlar 0 satır etkiler) ama garanti değil.\n` +
+    `  Bölerek çalıştırmak için: --limit=${Math.floor(secilen.length / 2)}`,
+  );
 }
 
 if (!yaz) {
@@ -82,13 +124,13 @@ if (!yaz) {
 
 const satirlar = [];
 for (const k of secilen) {
-  if (k.baslik) {
+  if (baslikYaz && k.baslik) {
     satirlar.push(
       `UPDATE ilanlar SET baslik='${esc(k.baslik)}' ` +
       `WHERE kaynak='emlakjet' AND ilan_no='ej_${esc(k.id)}' AND baslik IS NULL;`,
     );
   }
-  if (k.lat != null) {
+  if (koordYaz && k.lat != null) {
     satirlar.push(
       `UPDATE ilanlar SET lat=${k.lat}, lng=${k.lng}, koord_kaynagi='mahalle-merkez' ` +
       `WHERE kaynak='emlakjet' AND ilan_no='ej_${esc(k.id)}' AND lat IS NULL;`,
