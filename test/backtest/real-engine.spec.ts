@@ -249,7 +249,50 @@ function hamKayitlariParseEt(): HamKayit[] {
       if (zorunlu) throw new Error(`Zorunlu backtest veri dosyası yok: ${yol}`);
       continue;
     }
-    dosyaParseEt(readFileSync(yol, "utf8"), out);
+    const metin = readFileSync(yol, "utf8");
+    const oncekiAdet = out.length;
+    dosyaParseEt(metin, out);
+
+    /**
+     * BÜTÜNLÜK KAPISI — "dosyada kaç ilan var, kaçını okuduk?"
+     *
+     * NEDEN VAR: bu oturumda ayrıştırıcı ÜÇ KEZ sessizce veri kaybetti ve
+     * üçünde de hiçbir hata verilmedi:
+     *   1. resume, koordinat kolonunu geri okumuyordu (%3,9'a düşürmüştü)
+     *   2. `INSERT OR IGNORE` mevcut satırı güncellemiyordu
+     *   3. başlık kolonu eklenince satır VE blok regex'leri kırıldı —
+     *      66.621 ilanın 53.339'u okunuyordu, %20 kayıp
+     *
+     * Üçüncüsü ancak "veri arttı ama kapsam düştü" tutarsızlığı sayesinde
+     * fark edildi. Bir dahaki sefere o şans olmayabilir.
+     *
+     * Sayım AYRIŞTIRICIDAN BAĞIMSIZ olmalı, yoksa aynı hata iki yerde birden
+     * olur ve kapı hiçbir şey yakalamaz. Bu yüzden `ilan_no` alanındaki
+     * benzersiz kimlik deseni sayılıyor — ayrıştırıcının hiç dokunmadığı bir
+     * şey.
+     *
+     * Tolerans %2: bazı satırlar meşru sebeplerle atlanıyor (fiyat/alan
+     * eksik, kategori kapsam dışı). Kayıp bunun üstündeyse ayrıştırıcı
+     * bozuk demektir.
+     */
+    const dosyadakiKimlik = new Set(
+      [...metin.matchAll(/'(?:ej_|he_)[^']+'/g)].map((m) => m[0]),
+    ).size;
+    const okunan = out.length - oncekiAdet;
+    if (dosyadakiKimlik > 0) {
+      const kayipOran = 1 - okunan / dosyadakiKimlik;
+      if (kayipOran > 0.02) {
+        throw new Error(
+          `AYRIŞTIRICI VERİ KAYBEDİYOR — ${yol}
+` +
+          `  dosyada ${dosyadakiKimlik} ilan kimliği, okunan ${okunan} ` +
+          `(kayıp %${(kayipOran * 100).toFixed(1)}, tolerans %2)
+` +
+          `  Bu sessiz bir hata sınıfı: yeni bir kolon eklenince ayrıştırıcı ` +
+          `kırılıyor ama hata vermiyor. Bkz. data/o4-parser-veri-kaybi.json`,
+        );
+      }
+    }
   }
 
   // ── Kaynaklar arası tekilleştirme ──────────────────────────────────────────

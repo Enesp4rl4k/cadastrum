@@ -90,7 +90,24 @@ function gozlemleriTopla(kanonikSet) {
   for (const yol of KAYNAKLAR) {
     if (!existsSync(yol)) continue;
     const metin = readFileSync(yol, "utf8");
+
+    /**
+     * BÜTÜNLÜK KONTROLÜ — backtest'tekinin aynısı, aynı gerekçeyle.
+     *
+     * Başlık kolonu eklenince ayrıştırıcı kırıldı ve bu rapor 66.621 ilanın
+     * 58.307'sini okumaya başladı — hiçbir hata vermeden. Görünen tek belirti
+     * "veri arttı ama havuzlu mahalle azaldı" tutarsızlığıydı.
+     *
+     * Sayım ayrıştırıcıdan BAĞIMSIZ: `ilan_no` desenini sayıyor. Aksi hâlde
+     * aynı hata iki yerde birden olur ve kontrol hiçbir şey yakalamaz.
+     */
+    const dosyadakiKimlik = new Set(
+      [...metin.matchAll(/'(?:ej_|he_)[^']+'/g)].map((m) => m[0]),
+    ).size;
+    let okunanSatir = 0;
+
     for (const { kolonlar, satirlar } of sqlBloklariniAyikla(metin)) {
+      okunanSatir += satirlar.length;
       const iIl = kolonlar.indexOf("il_norm");
       const iIlce = kolonlar.indexOf("ilce_norm");
       const iMah = kolonlar.indexOf("mahalle_norm");
@@ -104,6 +121,20 @@ function gozlemleriTopla(kanonikSet) {
         if (v[iMah] === "NULL" || !v[iMah]) continue;
         const k = `${coz(`${v[iIl]}__${v[iIlce]}__${v[iMah]}`)}__${kat}`;
         mahalle.set(k, (mahalle.get(k) ?? 0) + 1);
+      }
+    }
+
+    if (dosyadakiKimlik > 0) {
+      const kayip = 1 - okunanSatir / dosyadakiKimlik;
+      if (kayip > 0.02) {
+        throw new Error(
+          `AYRIŞTIRICI VERİ KAYBEDİYOR — ${yol}
+` +
+          `  dosyada ${dosyadakiKimlik} ilan kimliği, ayıklanan ${okunanSatir} ` +
+          `(kayıp %${(kayip * 100).toFixed(1)}, tolerans %2)
+` +
+          `  Bkz. data/o4-parser-veri-kaybi.json`,
+        );
       }
     }
   }
