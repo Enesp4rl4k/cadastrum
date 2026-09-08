@@ -380,20 +380,41 @@ interface OlcumSonucu {
   medyanApe: number;
   p90Ape: number;
   bias: number;
+  /**
+   * MEDYAN sapma — ortalama bias'ın çarpıklığına karşı.
+   *
+   * Bias `(tahmin − gerçek) / gerçek` ortalaması ve bu ölçü ASİMETRİK:
+   * gerçek 100 → tahmin 500 ise +%400, tersi ise −%80. Birkaç ucuz kayıtta
+   * yapılan büyük hata ortalamayı domine ediyor.
+   *
+   * ÖLÇÜLDÜ (2026-09-08): `mahalle-baseline` katmanı tarlada ortalama bias
+   * +626 gösteriyordu ama medyan APE'si 57,7'ydi — yani katman "7 kat yüksek
+   * tahmin ediyor" değil, "çoğunlukla %58 yanılıyor, birkaç kayıtta felaket".
+   * İki okuma çok farklı müdahale gerektirir; ortalamaya bakıp katmanı
+   * kalibre etmeye çalışmak ölçümü geçemedi.
+   */
+  medyanSapma: number;
   within10: number;
   within20: number;
 }
 
-function olc(apeler: number[], biasToplam: number): OlcumSonucu {
+function olc(apeler: number[], biasToplam: number, sapmaListesi: number[] = []): OlcumSonucu {
   const sirali = [...apeler].sort((a, b) => a - b);
   const n = sirali.length;
   const mape = sirali.reduce((s, v) => s + v, 0) / n;
+  const sapmalar = [...sapmaListesi].sort((x, y) => x - y);
+  const medyanSapma = sapmalar.length
+    ? (sapmalar.length % 2
+        ? sapmalar[sapmalar.length >> 1]!
+        : (sapmalar[(sapmalar.length >> 1) - 1]! + sapmalar[sapmalar.length >> 1]!) / 2)
+    : 0;
   return {
     n,
     mape: +(mape * 100).toFixed(2),
     medyanApe: +(sirali[Math.floor(n * 0.5)]! * 100).toFixed(2),
     p90Ape: +(sirali[Math.floor(n * 0.9)]! * 100).toFixed(2),
     bias: +((biasToplam / n) * 100).toFixed(2),
+    medyanSapma: +(medyanSapma * 100).toFixed(2),
     within10: +((sirali.filter((v) => v <= 0.10).length / n) * 100).toFixed(1),
     within20: +((sirali.filter((v) => v <= 0.20).length / n) * 100).toFixed(1),
   };
@@ -477,7 +498,11 @@ function kirilimHesapla(
   for (const [ad, grup] of kovalar) {
     // Küçük kovalar yanıltıcı: 3 kayıtlık bir kovanın MAPE'si gürültüdür.
     if (grup.length < 20) continue;
-    cikti[ad] = olc(grup.map((g) => g.ape), grup.reduce((t, g) => t + g.biasKatki, 0));
+    cikti[ad] = olc(
+      grup.map((g) => g.ape),
+      grup.reduce((t, g) => t + g.biasKatki, 0),
+      grup.map((g) => g.biasKatki),
+    );
   }
   return cikti;
 }
@@ -753,7 +778,7 @@ async function koluKostur(
         tahmin: Math.round(askingEsdeger),
       });
     }
-    hedef[segment] = olc(apeler, biasToplam);
+    hedef[segment] = olc(apeler, biasToplam, kayitOlcumleri.map((k) => k.biasKatki));
 
     // Kalibrasyon KONTROL kolundan: eşiğin ve üretimin temsil ettiği davranış bu.
     if (!ozellikAc) tumOlcumler[segment] = kayitOlcumleri;
@@ -1543,6 +1568,26 @@ export const ARALIK_KALIBRASYONU: Readonly<
         `  → ${w <= 0 ? "KARŞILANDI" : `${w.toFixed(1)} puan eksik`}\n` +
         `        |bias| ${Math.abs(s.bias).toFixed(2)} / hedef ≤${SLO.bias_mutlak_max}` +
         `  → ${b <= 0 ? "KARŞILANDI" : `${b.toFixed(2)} puan fazla`}` +
+        /**
+         * MEDYAN SAPMA — ortalama bias'ın yanında MUTLAKA okunmalı.
+         *
+         * Bias `(tahmin − gerçek) / gerçek` ortalaması ve bu ölçü asimetrik:
+         * gerçek 100 → tahmin 500 ise +%400, tersi ise −%80. Birkaç ucuz
+         * kayıtta yapılan büyük hata ortalamayı domine ediyor.
+         *
+         * ÖLÇÜLDÜ (2026-09-08): `mahalle-baseline` katmanı ortalama bias +666
+         * gösteriyordu, medyan sapması +2,4'tü. Yani katman "7 kat yüksek
+         * tahmin ediyor" değil, "tipik olarak %2 yanılıyor, birkaç kayıtta
+         * felaket". Aynı fark diğer katmanlarda da var: ilçe +29,4 → −0,5,
+         * mahalle +13,2 → −2,4.
+         *
+         * Bu, "bias'ı düzeltelim" denemelerinin neden hep düz çıktığını
+         * açıklıyor: düzeltilecek sistematik bir kayma yok, metrik yanıltıyor.
+         * SLO'daki |bias| ≤ 10 hedefi de bu çarpık ölçü üzerinden konmuştu.
+         */
+        `
+        medyan sapma ${s.medyanSapma.toFixed(2)}` +
+        `  (ortalama bias asimetrik — birkaç uç kayıt onu domine edebiliyor)` +
         tabanSatiri,
       );
     }
@@ -1585,7 +1630,10 @@ export const ARALIK_KALIBRASYONU: Readonly<
             `  MAPE ${String(o.mape).padStart(7)}` +
             `  medyan ${String(o.medyanApe).padStart(6)}` +
             `  ±%20 ${String(o.within20).padStart(5)}` +
-            `  bias ${String(o.bias).padStart(7)}`,
+            `  bias ${String(o.bias).padStart(7)}` +
+            // Ortalama bias asimetrik ve birkaç uç kayıt onu domine edebiliyor;
+            // medyan sapma "tipik olarak ne kadar yanılıyoruz"u söylüyor.
+            `  medyanSapma ${String(o.medyanSapma).padStart(7)}`,
           );
         }
       }

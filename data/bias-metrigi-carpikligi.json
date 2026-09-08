@@ -1,0 +1,46 @@
+{
+  "olculdu": "2026-09-08",
+  "baslik": "Bias metrigi CARPIK — 'sistematik yuksek tahmin' diye okudugumuz sey buyuk olcude olcu artefakti",
+
+  "soru": "Tarla bias +57, mahalle-baseline katmani +666. Motor gercekten bu kadar yuksek mi tahmin ediyor?",
+  "kisa_cevap": "HAYIR. Medyan sapma neredeyse sifir. Ortalama bias'i birkac uc kayit domine ediyor.",
+
+  "olcum": {
+    "genel": {
+      "arsa": { "ortalama_bias": 17.86, "medyan_sapma": -9.72 },
+      "tarla": { "ortalama_bias": 57.02, "medyan_sapma": -0.72 }
+    },
+    "katman_bazinda_tarla": [
+      { "katman": "mahalle-baseline", "n": 69, "ortalama_bias": 666.45, "medyan_sapma": 2.40 },
+      { "katman": "ilanGozlem-ilce", "n": 477, "ortalama_bias": 29.43, "medyan_sapma": -0.46 },
+      { "katman": "ilanGozlem-mahalle", "n": 654, "ortalama_bias": 13.18, "medyan_sapma": -2.36 }
+    ]
+  },
+
+  "neden": "Bias `(tahmin - gercek) / gercek` ortalamasi ve bu olcu ASIMETRIK. Gercek 100 -> tahmin 500 ise +%400; tersi ise -%80. Ucuz kayitlarda yapilan hata orantisiz buyuk gorunuyor. Korpusta 785 kayit 100 TL/m2 altinda (medyan 8.600 m2 kirsal tarla) ve birkac tanesi 1-5 TL/m2 — onlar tek baslarina ortalamayi patlatiyor.",
+
+  "sonuc": "mahalle-baseline katmani 'yedi kat yuksek tahmin ediyor' DEGIL, 'tipik olarak %2,4 yaniliyor, birkac kayitta felaket'. Iki okuma tamamen farkli mudahale gerektirir.",
+
+  "neden_onemli": [
+    "Bu oturumda ve oncesinde defalarca 'bias'i duzeltelim' denendi ve HEPSI duz cikti — kalibrasyon supurmesi (+0,1 puan), alan carpani guncellemesi, tarla dusuk bant duzeltmesi. Sebebi simdi anlasildi: duzeltilecek sistematik bir kayma YOK.",
+    "SLO'daki |bias| <= 10 hedefi bu carpik olcu uzerinden konmustu. Medyan sapmaya gore arsa -9,72 ve tarla -0,72 — yani hedef zaten fiilen karsilaniyor.",
+    "Bir onceki turda 'tarla bias SLO'yu karsiladi (9,84)' diye rapor edilmisti; o da ayni carpik olcunun gunluk dalgalanmasiydi, gercek bir kazanim degil."
+  ],
+
+  "denenen_ve_gecmeyen": {
+    "ne": "MAHALLE_BASELINE tarla degerleri 200 TL/m2 altinda 0,41 ile carpildi. Gerekce: tablo denetiminde <100 bandinda 2,57x yuksek cikmisti (tablo 171 vs gercek 70, n=65).",
+    "sonuc": "tarla ±%20 41,8 -> 38,3 (KOTULESTI), ortalama bias 57,0 -> 48,9. Geri alindi.",
+    "ders": "Ortalama bias'i dusurmek dogrulugu artirmiyor — cunku dusurdugu sey olcu artefakti."
+  },
+
+  "tablo_denetimi_yan_bulgu": {
+    "yontem": "MAHALLE_BASELINE tarla degerleri, korpusta >=3 gozlemi olan 1.810 mahallenin gercek medyaniyla karsilastirildi.",
+    "genel": { "medyan_oran": 1.00, "mape": 28.3, "within20": 72.3 },
+    "guven_bandina_gore": { "knn_kirsal_35_alti": 0.62, "35_ustu": 1.00 },
+    "fiyat_bandina_gore": { "100_alti": 2.57, "100_500": 1.00, "500_2k": 1.00, "2k_ustu": 0.90 },
+    "okuma": "Tablo genel olarak IYI. Tek bozuk bant <100 TL/m2 ve orada 2,57x yuksek. Ama duzeltmek olcumu gecmedi (yukari bkz.).",
+    "kapsam_siniri": "Bu denetim GOZLEMI OLAN mahallelerde yapildi; mahalle-baseline katmani ise gozlemi OLMAYAN mahallelerde devreye giriyor. Yani olculen kume, katmanin calistigi kume DEGIL."
+  },
+
+  "yapilan": "Backtest artik her olcumde MEDYAN SAPMA raporluyor — hem SLO mesafesinde hem katman kiriliminda. Ortalama bias kaldirilmadi; ikisi birlikte okunmali."
+}
