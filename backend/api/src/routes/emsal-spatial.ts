@@ -155,6 +155,10 @@ emsalSpatialRoutes.get("/spatial", async (c) => {
      WHERE kategori = ?
        AND aktif = 1
        AND lat IS NOT NULL AND lng IS NOT NULL
+       -- Mahalle merkezi koordinatı konum bilgisi taşımıyor; spatial havuza
+       -- girerse mahalle sınırı kayboluyor. Ölçüldü ve zarar verdiği çıktı —
+       -- gerekçe routes/sorgu.ts'te ve data/o1-spatial-katman-olcum.json'da.
+       AND (koord_kaynagi IS NULL OR koord_kaynagi <> 'mahalle-merkez')
        AND lat BETWEEN ? AND ?
        AND lng BETWEEN ? AND ?
        AND yakalanma_tarihi >= ?

@@ -21,6 +21,7 @@
  */
 
 import type { Env } from "../index.js";
+import { katmanDagilimi } from "../lib/katman-telemetrisi.js";
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,15 @@ export interface PipelineKontrol {
 // ─── Eşik değerleri ───────────────────────────────────────────────────────────
 
 const KONTROL_ESLIKLERI = {
+  /**
+   * En zayıf katmanın (`il-fallback`) üretimdeki payı, üst sınır %.
+   *
+   * O katman hiçbir emsale dayanmıyor — sabit bir il tablosu okuyor. Payı bu
+   * oranın üstündeyse kullanıcıların çoğunluğu ölçülmemiş bir sayı görüyor
+   * demektir. Ayrıca M1'in kalibre aralığı o katmanı KAPSAMIYOR (tabloda
+   * yalnızca n ≥ 100 olan katmanlar var), yani aralık vaadi de tutmuyor.
+   */
+  ZAYIF_KATMAN_PAY_MAX: 40,
   /** Toplam aktif ilan sayısı */
   TOPLAM_ILAN_MIN: 50_000,
   /** Son 7 gün eklenen ilan (scraper canlı mı?) */
@@ -476,6 +486,34 @@ export async function pipelineHealthKontrol(
     mesaj: ilSayisi?.n != null
       ? `${ilSayisi.n} farklı il_norm (Türkiye'de 81 il var)`
       : "ilanlar erişim hatası",
+  });
+
+  /**
+   * KATMAN DAĞILIMI (Ö3) — üretim backtest'i temsil ediyor mu?
+   *
+   * Backtest'te kayıtların %62'si `ilanGozlem-mahalle` katmanına düşüyor.
+   * Üretimde bunun ne olduğu BİLİNMİYORDU ve bu, M1'in kalibre aralığının
+   * değerini doğrudan etkiliyor: o tablo yalnızca ölçülmüş katmanları
+   * kapsıyor, ağırlık ölçülmemiş katmandaysa fayda sanal.
+   *
+   * Kontrol edilen şey "en zayıf katmanın payı". `il-fallback` hiçbir emsale
+   * dayanmıyor; payı büyükse motor fiilen sabit bir tablo okuyor demektir.
+   * Eşik %40 — keyfi değil: bu oranın üstünde, kullanıcıların çoğunluğu
+   * ölçülmemiş bir sayı görüyor olur.
+   */
+  const dagilim = await katmanDagilimi(db, "arsa", 7).catch(() => []);
+  const zayif = dagilim.find((d) => d.katman === "il-fallback");
+  const toplamKayit = dagilim.reduce((t, d) => t + d.adet, 0);
+  kontroller.push({
+    ad: "En zayıf katmanın payı (%, arsa, 7 gün)",
+    deger: Math.round(zayif?.oran ?? 0),
+    esik: KONTROL_ESLIKLERI.ZAYIF_KATMAN_PAY_MAX,
+    // Hiç kayıt yoksa GEÇER: telemetri yeni açıldı ya da trafik yok demektir,
+    // bu bir hat arızası değil. Mesaj durumu açıkça söylüyor.
+    gecti: toplamKayit === 0 || (zayif?.oran ?? 0) <= KONTROL_ESLIKLERI.ZAYIF_KATMAN_PAY_MAX,
+    mesaj: toplamKayit === 0
+      ? "son 7 günde katman kaydı yok — telemetri yeni açılmış olabilir"
+      : dagilim.map((d) => `${d.katman} %${d.oran}`).join(" · "),
   });
 
   const alarmSayisi = kontroller.filter((k) => !k.gecti).length;

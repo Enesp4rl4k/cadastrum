@@ -53,6 +53,7 @@ function ilFallbackBul(lat: number, lng: number, kategori: string): number {
 }
 
 import { CoordinatesSchema, validateBody } from "../lib/validation.js";
+import { katmaniKaydet } from "../lib/katman-telemetrisi.js";
 
 // Merkezi rate-limit middleware — sorgu POST için 20 req/saat.
 // Free tier web app sorguları; index.ts'deki /v1/sorgu/* global 100/saat üst limiti ile birlikte çalışır.
@@ -92,6 +93,17 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
        FROM ilanlar
        WHERE kategori = ? AND aktif = 1
          AND lat IS NOT NULL AND lng IS NOT NULL
+         -- MAHALLE MERKEZİ KOORDİNATI SPATIAL'A GİRMEZ — ölçülmüş karar.
+         -- Bir 'mahalle-merkez' koordinatı ilanın gerçek konumunu değil,
+         -- yalnızca hangi mahallede olduğunu söylüyor. Spatial ise yarıçap
+         -- içinde komşu mahallelerin merkezlerini de topluyor, yani mahalle
+         -- sınırını kaybediyor — daha kaba bir tahminci üretiyor.
+         -- Uzantı motorunda ölçüldü (hold-out n=1200/segment):
+         --   spatial kapalı  arsa ±%20 26,7 · tarla 43,9
+         --   spatial açık    arsa ±%20 20,3 · tarla 25,1 · tarla bias +51
+         -- Üretimde koordinatlıların %93'ü mahalle merkezi ve tek noktada
+         -- 442 ilan yığılabiliyor. Ayrıntı: data/o1-spatial-katman-olcum.json
+         AND (koord_kaynagi IS NULL OR koord_kaynagi <> 'mahalle-merkez')
          AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
          AND yakalanma_tarihi >= ?
        LIMIT 1000`,
@@ -214,6 +226,26 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
     orta: Math.round(medyan * parselM2),
     ust: Math.round((ust ?? medyan) * parselM2),
   } : null;
+
+  /**
+   * KATMAN TELEMETRİSİ (Ö3) — cevabı BLOKLAMADAN.
+   *
+   * `waitUntil` ile arka plana atılıyor: ölçüm için kullanıcının fiyat
+   * cevabını geciktirmek yanlış takas. Hata da yutulmuyor —
+   * `katmaniKaydet` içinde console.error'a düşüyor, çünkü sessizce boş
+   * kalan bir telemetri tablosu "dağılım şu" diye yanlış okunur.
+   *
+   * Toplanan: gün + kategori + katman + güven BANDI + emsal BANDI + sayaç.
+   * Parsel kimliği, koordinat, fiyat YOK — bkz. lib/katman-telemetrisi.ts
+   */
+  c.executionCtx.waitUntil(
+    katmaniKaydet(c.env.DB, {
+      kategori,
+      katman: kaynak,
+      guvenSkoru: guven,
+      emsalAdet: filtered.length,
+    }),
+  );
 
   c.header("Cache-Control", "public, s-maxage=300");
   return c.json({
