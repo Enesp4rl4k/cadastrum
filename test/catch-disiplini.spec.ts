@@ -139,3 +139,37 @@ describe("baseline mandalı", () => {
     expect(ciktı).toContain("kazanç sabitlenmemiş");
   });
 });
+
+describe("Workers saat tuzağı kuralı", () => {
+  it("backend/api/src altında modül seviyesinde Date.now() ihlal sayılır", () => {
+    const backendDizin = join(gecici, "backend", "api", "src");
+    mkdirSync(backendDizin, { recursive: true });
+    writeFileSync(join(backendDizin, "tuzak.ts"), "const simdi = Date.now();\nexport function f() { return simdi; }", "utf8");
+
+    try {
+      const out = execFileSync(process.execPath, [ARAC, "--kok", gecici, "--liste"], {
+        cwd: gecici,
+        encoding: "utf8",
+      });
+      expect(out).toContain("Workers saat tuzağı");
+    } finally {
+      rmSync(join(gecici, "backend"), { recursive: true, force: true });
+    }
+  });
+
+  it("fonksiyon içinde çağrılan Date.now() ihlal sayılmaz (güvenli kullanım)", () => {
+    const backendDizin = join(gecici, "backend", "api", "src");
+    mkdirSync(backendDizin, { recursive: true });
+    writeFileSync(join(backendDizin, "guvenli.ts"), "export function f() {\n  const simdi = Date.now();\n  return simdi;\n}", "utf8");
+
+    try {
+      const out = execFileSync(process.execPath, [ARAC, "--kok", gecici, "--liste"], {
+        cwd: gecici,
+        encoding: "utf8",
+      });
+      expect(out).not.toContain("Workers saat tuzağı");
+    } finally {
+      rmSync(join(gecici, "backend"), { recursive: true, force: true });
+    }
+  });
+});

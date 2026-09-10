@@ -58,9 +58,10 @@ export interface KatmanKaydi {
 export async function katmaniKaydet(
   db: D1Database,
   kayit: KatmanKaydi,
-  simdi: number = Date.now(),
+  simdi?: number,
 ): Promise<boolean> {
-  const gun = new Date(simdi).toISOString().slice(0, 10);
+  const ts = simdi ?? Date.now();
+  const gun = new Date(ts).toISOString().slice(0, 10);
   try {
     await db
       .prepare(
@@ -97,9 +98,10 @@ export async function katmanDagilimi(
   db: D1Database,
   kategori: string,
   gunSayisi = 7,
-  simdi: number = Date.now(),
+  simdi?: number,
 ): Promise<KatmanDagilimi[]> {
-  const esik = new Date(simdi - gunSayisi * 86_400_000).toISOString().slice(0, 10);
+  const ts = simdi ?? Date.now();
+  const esik = new Date(ts - gunSayisi * 86_400_000).toISOString().slice(0, 10);
   const r = await db
     .prepare(
       `SELECT katman, SUM(adet) AS toplam

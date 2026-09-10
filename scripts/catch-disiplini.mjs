@@ -190,7 +190,37 @@ function ihlal(blok) {
   return true;
 }
 
-// ── Dosya gezintisi ──────────────────────────────────────────────────────────
+// ── Workers Date tuzağı: modül seviyesinde Date.now() / new Date() yasağı ────
+
+/**
+ * Cloudflare Workers ortamında modül seviyesinde çağrılan `Date.now()` veya `new Date()`,
+ * worker isolate ayağa kalktığı anda donar ve tüm request'lerde aynı bayat tarihi üretir.
+ * Bu kural backend/api/src altındaki dosyalarda derinliği 0 olan Date çağrılarını yakalar.
+ */
+function workersTopLevelDateIhlalleri(kaynak, yol) {
+  if (!yol.startsWith("backend/api/src/")) return [];
+  const maske = maskele(kaynak);
+  const bulunan = [];
+  const re = /\b(?:Date\.now\(\)|new\s+Date\()/g;
+  let m;
+
+  while ((m = re.exec(maske)) !== null) {
+    const idx = m.index;
+    // Derinlik hesabı: dosya başından bu index'e kadar süslü parantez derinliği
+    let derinlik = 0;
+    for (let i = 0; i < idx; i++) {
+      if (maske[i] === "{") derinlik++;
+      else if (maske[i] === "}") derinlik--;
+    }
+    // Derinlik 0 ise modül seviyesindedir (Workers saat tuzağı)
+    if (derinlik === 0) {
+      const satir = kaynak.slice(0, idx).split("\n").length;
+      const satirMetni = kaynak.split("\n")[satir - 1]?.trim().slice(0, 60) ?? "";
+      bulunan.push({ satir, ozet: `Workers saat tuzağı: modül seviyesinde ${satirMetni}` });
+    }
+  }
+  return bulunan;
+}
 
 function* dosyalar(dizin) {
   let girdiler;
@@ -216,10 +246,16 @@ function tara() {
     for (const dosya of dosyalar(join(KOK, kok))) {
       const yol = relative(KOK, dosya).split(sep).join("/");
       const kaynak = readFileSync(dosya, "utf8");
-      if (!kaynak.includes("catch")) continue;
-      const ihlaller = catchBloklari(kaynak)
-        .filter(ihlal)
-        .map((b) => ({ satir: b.satir, ozet: b.govde.replace(/\s+/g, " ").trim().slice(0, 60) }));
+      const ihlaller = [];
+      if (kaynak.includes("catch")) {
+        const cIhlal = catchBloklari(kaynak)
+          .filter(ihlal)
+          .map((b) => ({ satir: b.satir, ozet: b.govde.replace(/\s+/g, " ").trim().slice(0, 60) }));
+        ihlaller.push(...cIhlal);
+      }
+      const dIhlal = workersTopLevelDateIhlalleri(kaynak, yol);
+      if (dIhlal.length) ihlaller.push(...dIhlal);
+
       if (ihlaller.length) sonuc.set(yol, ihlaller);
     }
   }

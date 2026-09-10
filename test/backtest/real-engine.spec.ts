@@ -36,6 +36,11 @@ import { kanonikAnahtar } from "../../src/lib/data/mahalle-kanonik";
 import { kalibreAralik } from "../../src/lib/fiyat/aralik-kalibrasyon";
 // @ts-expect-error — .mjs modül, tip tanımı .d.mts dosyasında.
 import { sqlBloklariniAyikla, sqlDegerleriniAyir } from "../../src/lib/data/sql-satir-ayikla.mjs";
+import {
+  sizintiDenetle,
+  esikGirdisiDogrula,
+  type GercekKaynagi,
+} from "./olcum-butunlugu";
 import type { Parsel } from "../../src/types/tkgm";
 import type { IlanGozlem } from "../../src/lib/db";
 
@@ -398,7 +403,16 @@ interface OlcumSonucu {
   within20: number;
 }
 
-function olc(apeler: number[], biasToplam: number, sapmaListesi: number[] = []): OlcumSonucu {
+/**
+ * @param etiket P9 sızıntı alarmının hata mesajında görünecek ad — hangi
+ *   ölçümün şüpheli olduğunu bilmeden alarmın faydası yok.
+ */
+function olc(
+  apeler: number[],
+  biasToplam: number,
+  sapmaListesi: number[] = [],
+  etiket = "ölçüm",
+): OlcumSonucu {
   const sirali = [...apeler].sort((a, b) => a - b);
   const n = sirali.length;
   const mape = sirali.reduce((s, v) => s + v, 0) / n;
@@ -408,7 +422,7 @@ function olc(apeler: number[], biasToplam: number, sapmaListesi: number[] = []):
         ? sapmalar[sapmalar.length >> 1]!
         : (sapmalar[(sapmalar.length >> 1) - 1]! + sapmalar[sapmalar.length >> 1]!) / 2)
     : 0;
-  return {
+  const sonuc: OlcumSonucu = {
     n,
     mape: +(mape * 100).toFixed(2),
     medyanApe: +(sirali[Math.floor(n * 0.5)]! * 100).toFixed(2),
@@ -418,6 +432,10 @@ function olc(apeler: number[], biasToplam: number, sapmaListesi: number[] = []):
     within10: +((sirali.filter((v) => v <= 0.10).length / n) * 100).toFixed(1),
     within20: +((sirali.filter((v) => v <= 0.20).length / n) * 100).toFixed(1),
   };
+  // P9 — mükemmel skor sonuç değil alarmdır. Her ölçüm buradan geçiyor ki
+  // "iyi haber" hiçbir yoldan sessizce içeri sızamasın.
+  sizintiDenetle(etiket, sonuc);
+  return sonuc;
 }
 
 // ── Kırılım (segment breakdown) ──────────────────────────────────────────────
@@ -502,6 +520,7 @@ function kirilimHesapla(
       grup.map((g) => g.ape),
       grup.reduce((t, g) => t + g.biasKatki, 0),
       grup.map((g) => g.biasKatki),
+      `kırılım kovası "${ad}"`,
     );
   }
   return cikti;
@@ -638,7 +657,7 @@ function naifTabaniOlc(
     apeler.push(Math.abs(tahmin - k.tlm2) / k.tlm2);
     biasToplam += (tahmin - k.tlm2) / k.tlm2;
   }
-  return apeler.length > 0 ? olc(apeler, biasToplam) : null;
+  return apeler.length > 0 ? olc(apeler, biasToplam, [], `naif taban (${segment})`) : null;
 }
 
 const naifTabanlar: Record<"arsa" | "tarla", OlcumSonucu | null> = { arsa: null, tarla: null };
@@ -778,7 +797,12 @@ async function koluKostur(
         tahmin: Math.round(askingEsdeger),
       });
     }
-    hedef[segment] = olc(apeler, biasToplam, kayitOlcumleri.map((k) => k.biasKatki));
+    hedef[segment] = olc(
+      apeler,
+      biasToplam,
+      kayitOlcumleri.map((k) => k.biasKatki),
+      `motor ${segment} (${ozellikAc ? "deney" : "kontrol"} kolu)`,
+    );
 
     // Kalibrasyon KONTROL kolundan: eşiğin ve üretimin temsil ettiği davranış bu.
     if (!ozellikAc) tumOlcumler[segment] = kayitOlcumleri;
@@ -862,7 +886,22 @@ beforeAll(async () => {
     for (const segment of ["arsa", "tarla"] as const) {
       const s = sonuclar[segment];
       if (!s) continue;
+      /**
+       * P11 — eşik kaynağını taşır.
+       *
+       * Bu korpus `INSERT INTO ilanlar` satırlarından okunuyor; gerçek taraf
+       * ilan fiyatı, yani dış dünyadan gelen bir gözlem. Künye sabit değil
+       * DOĞRULANIYOR: `esikGirdisiDogrula` türetilmiş kaynağı reddediyor, o
+       * yüzden buraya yanlışlıkla `turetilmis` yazılırsa yaz modu patlar.
+       */
+      const kunye = {
+        gercek_kaynagi: "ilan" as GercekKaynagi,
+        olculdu: new Date().toISOString(),
+        n: s.n,
+      };
+      esikGirdisiDogrula(segment, kunye);
       esikler[segment] = {
+        ...kunye,
         baseline: s,
         mape_max: +(s.mape + MAPE_TOLERANS).toFixed(2),
         within20_min: +(s.within20 - WITHIN_TOLERANS).toFixed(1),
@@ -919,6 +958,10 @@ describe("Gerçek motor backtest (fiyatTahminEt)", () => {
       console.warn(`⚠ ${segment}: eşik dosyasında kayıt yok, atlanıyor.`);
       return;
     }
+    // P8/P11 — eşiğe UYMADAN ÖNCE eşiğin kendisi denetleniyor. Türetilmiş
+    // veriden çıkmış bir eşiğe uymak, uymamaktan daha kötü: yanlış sayıyı
+    // regresyon koruması sanıyoruz.
+    esikGirdisiDogrula(segment, esik);
     expect(s.mape, `${segment} MAPE regresyonu`).toBeLessThanOrEqual(esik.mape_max);
     expect(s.within20, `${segment} within±20% regresyonu`).toBeGreaterThanOrEqual(esik.within20_min);
   });

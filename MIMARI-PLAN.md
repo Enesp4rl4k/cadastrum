@@ -185,6 +185,53 @@ Bir çarpanın kaynağı uydurma olabilir ama tahmin gücü gerçek olabilir
 Kod ne yaptığını zaten söylüyor. Yorum, *neden böyle olduğunu* ve *hangi
 alternatifin neden reddedildiğini* anlatır — yoksa aynı tuzak tekrar kurulur.
 
+### P8 — Ölçümün "gerçek" tarafı bir GÖZLEM olmalı
+Hold-out'un gerçek kolonu dış dünyadan gelmelidir (ilan fiyatı, gerçekleşmiş
+satış). Model, tablo ya da başka bir tahminci çıktısı **gerçek yerine geçemez.**
+
+Türetilmiş veriyle ölçüm yapılabilir — bir tablonun iç tutarlılığını görmek
+meşru bir iştir — ama **doğruluk diye raporlanamaz ve eşik dosyasına
+yazılamaz.**
+
+*Kaynak:* konut backtest'i ±%20 = 66,4 raporluyordu; ölçtüğü veri
+`kaynak='knn-smoothing'` etiketli türetilmiş tablonun kendisiydi
+(`data/konut-backtest-sizinti.json`).
+*Zorlama:* `test/backtest/olcum-butunlugu.ts` → `esikGirdisiDogrula()`.
+
+### P9 — Mükemmel skor kutlanmaz, DURDURULUR
+`medyanApe < 5` ya da `within10 > 50` çıkan bir ölçüm sonuç değil, sızıntı
+alarmıdır. Emlak fiyat tahmininde bu seviye fiziksel olarak erişilemez: aynı
+mahallede aynı gün iki benzer parsel %20-30 farkla satılıyor.
+
+Bu ilkenin sinsi tarafı: ihlal **iyi haber gibi göründüğü için** fark edilmez.
+Kötü sonuç sorgulanır, iyi sonuç sorgulanmaz.
+
+*Zorlama:* `sizintiDenetle()`, `olc()` içinden her ölçümde çağrılıyor.
+
+### P10 — Testin adı, ölçtüğü şeyi söylemeli
+Kendi kendine tutarlılığı ölçen bir test **doğruluk diye anılamaz** ve
+raporlanan doğruluk sayılarına karışamaz. Tutarlılık testleri değerlidir —
+monotonluk, invaryant, şema — ama adları öyle olur.
+
+P6'nın ("atıf yalanı ile tahmin gücü ayrı sorular") testlere uzantısı.
+
+*Kaynak:* "Gerçek benchmark profillerinde … MAPE <= %15" adlı test, `beklenen`
+değerini motorun kendi katsayılarıyla hesaplıyordu.
+
+### P11 — Eşik, kaynağını taşır
+`data/backtest-esik-real.json`'daki her girdi `gercek_kaynagi`, `olculdu` ve
+`n` taşır. Künyesiz eşik reddedilir — bir sayının neyi ölçtüğü dosyadan
+anlaşılmıyorsa o sayı regresyon koruması değil, dekordur.
+
+### P12 — Ölçülmemiş katman, ölçülmüşün üstüne çıkamaz
+Güven puanı bir ölçüme referans vermek zorundadır. Referansı olmayan katman
+en fazla ölçülmüş komşusuyla **eşit** olabilir, üstünde olamaz.
+
+*Kaynak:* `spatial-radius` 62 puanla `ilanGozlem-mahalle`'nin (58) üstündeydi;
+o sıralamanın ölçümü yoktu ve ölçülen tek şey tersini söylüyordu
+(`data/o1-spatial-katman-olcum.json`).
+*Zorlama:* `test/guven-motoru.spec.ts` → "P12" testi, mutasyonla doğrulandı.
+
 ---
 
 ## 4. Agentic Sistem Entegrasyonu

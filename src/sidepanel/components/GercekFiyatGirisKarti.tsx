@@ -10,6 +10,7 @@ import { useState, type FormEvent } from "react";
 import { CheckCircle, XCircle, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
   gercekFiyatKaydet,
+  gercekFiyatBackendGonder,
   tahminGercekKarsilastir,
   type GercekFiyatGiris,
 } from "../../lib/gercek-fiyat";
@@ -89,6 +90,17 @@ export function GercekFiyatGirisKarti({
         not: not.trim() || undefined,
         backendGonder,
       });
+
+      // Anonim backend gönderimi — opt-in, başarısızlık UI'ı bloklamaz
+      if (backendGonder && kayit.id != null) {
+        // JWT opsiyonel — anonim kullanıcılar da gönderebilir
+        const token = await chrome.storage.local.get("cadastrum_token")
+          .then(d => d.cadastrum_token as string | undefined)
+          .catch(() => undefined);
+        gercekFiyatBackendGonder(kayit.id, undefined, token).catch((e) =>
+          console.warn("[gercek-satis] backend gönderim başarısız:", e),
+        );
+      }
 
       setDurum("tamam");
       onKaydet?.(kayit.gercekPerM2);

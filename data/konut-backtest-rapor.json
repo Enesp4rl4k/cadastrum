@@ -1,0 +1,17 @@
+{
+  "GECERSIZ": "Bu rapor bir DOGRULUK olcumu DEGIL. Olctugu veri scripts/seed-ai-baseline-*.sql — kaynak=knn-smoothing etiketli turetilmis tablo. Uretici test 2026-09-10 tarihinde kaldirildi.",
+  "gerekce": "data/konut-backtest-sizinti.json",
+  "olculdu": "2026-09-10T18:50:06.298Z",
+  "kategori": "konut",
+  "toplam_kayit": 6337,
+  "train_adet": 5099,
+  "test_adet": 1238,
+  "metrik": {
+    "n": 1206,
+    "mape": 40.03,
+    "medyanApe": 0,
+    "within10": 63.4,
+    "within20": 66.4,
+    "bias": 9.1
+  }
+}

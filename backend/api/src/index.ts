@@ -48,6 +48,7 @@ import { haritaRoutes } from "./routes/harita.js";
 import { seedRoutes } from "./routes/seed.js";
 import { ajan as ajanRoutes } from "./routes/ai-ajan.js";
 import { portfoyRoutes } from "./routes/portfoy.js";
+import { gercekSatisRoutes } from "./routes/gercek-satis.js";
 import { endeksRoutes } from "./routes/endeks.js";
 import { uyduRoutes } from "./routes/uydu.js";
 import { apiV2Routes, apiJobsReaperCalistir } from "./routes/api-v2.js";
@@ -487,6 +488,9 @@ app.route("/v1/ai-ajan", ajanRoutes);
 // Portföy — sunucu taraflı kayıtlı parsel listesi (JWT, Pro tier için sınırsız)
 app.use("/v1/portfoy/*", rateLimitMiddleware(60, "portfoy"));
 app.route("/v1/portfoy", portfoyRoutes);
+
+// Gerçek satış feedback loop — anonim, mahalle bazlı kalibrasyon verisi
+app.route("/v1/gercek-satis", gercekSatisRoutes);
 
 // Uydu görüntü & AI analizi (Copernicus + Gemini Vision)
 app.use("/v1/uydu/*", rateLimitMiddleware(10, "uydu"));

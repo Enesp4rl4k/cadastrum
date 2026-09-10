@@ -99,6 +99,46 @@ export interface HataPayload {
   ts: number;
 }
 
+/**
+ * PII ve hassas verileri (token, secret, email, telefon, hassas koordinat) temizler.
+ */
+export function piiFiltrele(metin: string): string {
+  if (!metin || typeof metin !== "string") return metin;
+  return metin
+    // JWT token
+    .replace(/eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]+/g, "[REDACTED_JWT]")
+    // Bearer token
+    .replace(/(Bearer\s+)[a-zA-Z0-9_\-\.]{16,}/gi, "$1[REDACTED_TOKEN]")
+    // Secret / key parametreleri (URL veya string içi)
+    .replace(/((?:secret|api[_-]?key|token|password|auth)=)[^&\s]{6,}/gi, "$1[REDACTED_SECRET]")
+    // E-posta adresi
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[REDACTED_EMAIL]")
+    // Türkiye telefon numarası (05xx... veya +90 5xx...)
+    .replace(/(?:\+90|0)?\s*5\d{2}[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}/g, "[REDACTED_PHONE]")
+    // URL koordinat parametreleri (lat=41.123456&lng=29.123456 gibi parsel ifşası)
+    .replace(/((?:lat|lng|latitude|longitude)=)[0-9]+(?:\.[0-9]+)?/gi, "$1[REDACTED_COORD]");
+}
+
+/** Meta nesnesindeki PII veya gizli anahtarları temizler. */
+export function metaSanitize(obj: unknown): unknown {
+  if (obj == null) return obj;
+  if (typeof obj === "string") return piiFiltrele(obj);
+  if (typeof obj === "number" || typeof obj === "boolean") return obj;
+  if (Array.isArray(obj)) return obj.map(metaSanitize);
+  if (typeof obj === "object") {
+    const res: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (/password|secret|token|key|cookie|auth|jwt/i.test(k)) {
+        res[k] = "[REDACTED_KEY]";
+      } else {
+        res[k] = metaSanitize(v);
+      }
+    }
+    return res;
+  }
+  return String(obj);
+}
+
 /** Saf: bir hatayı gönderilebilir payload'a çevir (test edilebilir). */
 export function hataPayloadu(
   kaynak: string,
@@ -107,12 +147,15 @@ export function hataPayloadu(
   surum?: string | null,
 ): HataPayload {
   const e = err instanceof Error ? err : new Error(typeof err === "string" ? err : JSON.stringify(err));
+  const rawMesaj = (e.message || "bilinmeyen hata").slice(0, MAX_MESAJ);
+  const rawStack = e.stack ? e.stack.slice(0, MAX_STACK) : null;
+
   return {
     kaynak,
-    mesaj: (e.message || "bilinmeyen hata").slice(0, MAX_MESAJ),
-    stack: e.stack ? e.stack.slice(0, MAX_STACK) : null,
+    mesaj: piiFiltrele(rawMesaj),
+    stack: rawStack ? piiFiltrele(rawStack) : null,
     surum: surum ?? null,
-    meta: meta ?? null,
+    meta: meta ? (metaSanitize(meta) as Record<string, unknown>) : null,
     ts: Date.now(),
   };
 }

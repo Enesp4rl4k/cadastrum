@@ -1,0 +1,54 @@
+{
+  "olculdu": "2026-09-10",
+  "baslik": "Konut backtest'i doğruluk ÖLÇMÜYORDU — türetilmiş tablo kendi kendini ölçüyordu",
+
+  "iddia_edilen": {
+    "kaynak": "test/backtest/konut-engine.spec.ts + data/konut-backtest-rapor.json",
+    "n": 1206,
+    "mape": 40.03,
+    "medyanApe": 0.0,
+    "within10": 63.4,
+    "within20": 66.4,
+    "baglam": "Aynı kapıda arsa ±%20 27,6 · tarla ±%20 41,8. Yani konut motorun EN İYİ kategorisi görünüyordu."
+  },
+
+  "gercek": "Sayı doğru hesaplanmış ama ölçtüğü şey piyasa değil. Hold-out'un hem tahmin hem gerçek tarafı `scripts/seed-ai-baseline-*.sql` dosyalarından geliyor; o satırların etiketi `kaynak='knn-smoothing'`, yani `mahalle_baseline_ai` tablosunun kendisi. Ölçüm, türetilmiş tablonun ilçe medyanıyla aynı türetilmiş tablonun mahalle değerini tahmin ediyor.",
+
+  "kanit": {
+    "1_kaynak_etiketi": "seed-ai-baseline-01.sql ilk satır: ('adana','kozan','akcaliusagi','konut',6250,40,'knn-smoothing',…). İlan değil, üretilmiş değer.",
+
+    "2_ilce_medyani_cokmesi": {
+      "olcum": "61.534 konut satırının %61,1'i, kendi ilçesinin medyanına BİREBİR eşit.",
+      "sonuc": "İlçe medyanıyla tahmin etmek, kayıtların %61'inde tam isabet demek. Raporlanan within10 = 63,4 bu sayıyla neredeyse birebir örtüşüyor — yani 'isabet' diye ölçülen şey, tablonun kendi düzgünlüğü.",
+      "neden_medyanApe_sifir": "Tahminlerin yarısından fazlası tam isabet olunca medyan APE tanım gereği 0 oluyor."
+    },
+
+    "3_konut_arsadan_turetilmis": {
+      "olcum": "61.534 ortak anahtarda konut/arsa oranı — q10 0,225 · q25 0,509 · medyan 1,000 · q75 1,300 · q90 1,300; %26,8'inde iki değer BİREBİR aynı.",
+      "sonuc": "Konut kolonu bağımsız bir bilgi değil, arsa değerinin kaba bir çarpan ızgarasından geçmiş hâli. Medyan oranın tam 1,000 ve q75=q90=1,300 olması bunu ele veriyor.",
+      "duzeltme": "İlk okumada 'konut kolonu arsa'nın kopyası' denmişti; ölçüldü, doğrusu bu: %26,8'i birebir kopya, kalanı sabit çarpanlarla türetilmiş."
+    }
+  },
+
+  "ucuncu_test_tautolojik": {
+    "ad": "\"Gerçek benchmark profillerinde KonutDegerlemeEngine MAPE <= %15 ve Within-20 >= %80 üretir\"",
+    "sorun": "`gercekDegerTL` motorun KENDİ katsayılarıyla hesaplanıyor: 120 * 0.82 * 70_000 * 1.08 * 1.15 * 1.15 (net m² · kat · yaş · site). Sonra motorun bunu üretmesi assert ediliyor.",
+    "not": "Test mutasyona duyarlı (katsayı değişirse kırılır) ve iç tutarlılık kontrolü olarak MEŞRU. Sorun adı: 'gerçek benchmark' diye anılıp ±%20 = 100 üretiyor ve doğruluk sayılarına karışıyor.",
+    "ayni_desen": "test/konut-degerleme.spec.ts'teki \"Benchmark konut örneklerinde MAPE <= %10 kalibrasyonunu korur\" testi de aynı sınıftan.",
+    "karar": "Silinmedi, YENİDEN ADLANDIRILDI (P10)."
+  },
+
+  "neden_kapi_yakalamadi": "Kapının kendisinde bu sınıf için kontrol yoktu. `npm run backtest:real` 2026-09-10'da koşturuldu: 2 dosya / 13 test geçti, çıkış kodu 0. Yani ölçüm kapısı bu sayıyı reddetmiyor, ONAYLIYORDU. Bu, projede üçüncü kez yakalanan 'doğru görünen yanlış ölçüm' vakası (öncekiler: `mahalle_baseline_ai` 'AI değil' bulgusu; `imar-json-kacis.spec.ts` tautolojisi).",
+
+  "yapilan": [
+    "konut girdisi data/backtest-esik-real.json'dan ÇIKARILDI.",
+    "Sızıntılı hold-out testi kaldırıldı; iç tutarlılık testleri dürüst adla korundu (P10).",
+    "P8 kapısı: her eşik girdisi `gercek_kaynagi` taşıyor; `turetilmis` beyanı eşiğe yazılamıyor.",
+    "P9 kapısı: `olc()` içinde sızıntı alarmı — n≥100 iken medyanApe<5 ya da within10>50 ise koşum HATA veriyor.",
+    "P11: arsa/tarla eşiklerine künye eklendi (kaynak `ilan`, ölçüm tarihi, n). Sayılar değiştirilmedi."
+  ],
+
+  "konutun_bugunku_durumu": "ÖLÇÜLMEMİŞ. Korpusta gerçek konut ilanı 0 — tarayıcı bu kategoriyi toplamıyor (data/o2-konut-kategorisi-olcum.json). Ö2'nin karar kuralı geçerli: hold-out kurulamıyorsa kategori sayı döndürmez, gerekçe döndürür.",
+
+  "ders": "Bir ölçümün 'gerçek' tarafı dış dünyadan gelen bir GÖZLEM olmalı. Model, tablo ya da başka bir tahminci çıktısı gerçek yerine geçemez — ve bu ihlal, sonuç iyi göründüğü için fark edilmiyor. O yüzden P9: mükemmel skor kutlanmaz, durdurulur."
+}

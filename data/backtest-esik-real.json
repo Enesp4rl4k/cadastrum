@@ -1,5 +1,6 @@
 {
   "olusturuldu": "2026-09-08T20:08:55.901Z",
+  "kunye_notu": "P11 — her eşik girdisi `gercek_kaynagi` taşır. `turetilmis` kaynak eşiğe yazılamaz (P8); `esikGirdisiDogrula` hem yazarken hem okurken reddeder. arsa/tarla künyeleri 2026-09-10'da elle eklendi: sayılar 2026-09-08 koşumundan, kaynak `INSERT INTO ilanlar` satırları (ilan fiyatı). Sayılar DEĞİŞTİRİLMEDİ — dondurulmuş taban korunuyor.",
   "tolerans": {
     "mape": 5,
     "within20": 3
@@ -11,6 +12,9 @@
   },
   "esikler": {
     "arsa": {
+      "gercek_kaynagi": "ilan",
+      "olculdu": "2026-09-08T20:08:55.901Z",
+      "n": 1200,
       "baseline": {
         "n": 1200,
         "mape": 64.19,
@@ -24,6 +28,9 @@
       "within20_min": 24.6
     },
     "tarla": {
+      "gercek_kaynagi": "ilan",
+      "olculdu": "2026-09-08T20:08:55.901Z",
+      "n": 1200,
       "baseline": {
         "n": 1200,
         "mape": 88.57,
@@ -36,5 +43,8 @@
       "mape_max": 93.57,
       "within20_min": 38.8
     }
+  },
+  "cikarilan": {
+    "konut": "2026-09-10'da ÇIKARILDI. ±%20 = 66,4 raporluyordu ama ölçtüğü veri `scripts/seed-ai-baseline-01.sql` — `kaynak='knn-smoothing'` etiketli TÜRETİLMİŞ tablo. Gerekçe ve sayılar: data/konut-backtest-sizinti.json (P3 — negatif sonuç silinmez, yazılır)."
   }
 }

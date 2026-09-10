@@ -4,14 +4,14 @@ import type { Context } from "hono";
 export const KategoriSchema = z.enum(["arsa", "tarla", "konut", "bahce", "bag", "zeytinlik", "diger"]);
 
 export const CoordinatesSchema = z.object({
-  lat: z.coerce.number().min(35.5, "Enlem T�rkiye s�n�rlar� d���nda").max(42.5, "Enlem T�rkiye s�n�rlar� d���nda"),
-  lng: z.coerce.number().min(25.5, "Boylam T�rkiye s�n�rlar� d���nda").max(45.0, "Boylam T�rkiye s�n�rlar� d���nda"),
+  lat: z.coerce.number().min(35.5, "Enlem Türkiye sınırları dışında").max(42.5, "Enlem Türkiye sınırları dışında"),
+  lng: z.coerce.number().min(25.5, "Boylam Türkiye sınırları dışında").max(45.0, "Boylam Türkiye sınırları dışında"),
   kategori: KategoriSchema.default("arsa"),
   radiusKm: z.coerce.number().min(0.1).max(100).default(5),
 });
 
 export const IlceAnalizQuerySchema = z.object({
-  ilceKodu: z.coerce.number().int().positive("Ge�ersiz il�e kodu"),
+  ilceKodu: z.coerce.number().int().positive("Geçersiz ilçe kodu"),
   analizTip: z.coerce.number().int().min(1).max(5).default(1),
   yil: z.coerce.number().int().min(2000).max(new Date().getFullYear()).optional(),
   birlesik: z.enum(["0", "1"]).optional(),
@@ -38,7 +38,7 @@ export const IlanIngestSchema = z.object({
   il: z.string().min(1).max(50),
   ilce: z.string().min(1).max(50),
   mahalle: z.string().max(100).optional().nullable(),
-  fiyatPerM2: z.number().positive("Fiyat/m2 pozitif olmal�"),
+  fiyatPerM2: z.number().positive("Fiyat/m2 pozitif olmalı"),
   m2: z.number().positive().max(50_000_000).optional().nullable(),
   paraBirimi: z.string().default("TL"),
   kategori: KategoriSchema.default("arsa"),
@@ -112,7 +112,7 @@ export async function validateBody<T>(schema: z.ZodSchema<T>, c: Context): Promi
       return {
         errorResponse: c.json({
           success: false,
-          error: { code: "INVALID_JSON", message: "Ge�ersiz JSON g�vdesi" },
+          error: { code: "INVALID_JSON", message: "Geçersiz JSON gövdesi" },
         }, 400),
       };
     }
@@ -125,7 +125,7 @@ export async function validateBody<T>(schema: z.ZodSchema<T>, c: Context): Promi
     return {
       errorResponse: c.json({
         success: false,
-        error: { code: "BAD_REQUEST", message: "�stek do�rulanamad�" },
+        error: { code: "BAD_REQUEST", message: "İstek doğrulanamadı" },
       }, 400),
     };
   }

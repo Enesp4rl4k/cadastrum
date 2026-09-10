@@ -25,41 +25,45 @@ function detayMi(): boolean {
 }
 
 // Yüklenme tanılaması — script enjekte edildi mi kontrolü için
-console.log("[arsa-he] hepsiemlak content script yüklendi", {
-  url: location.href,
-  pathname: location.pathname,
-  detayMi: detayMi(),
-});
+if (typeof location !== "undefined") {
+  console.log("[arsa-he] hepsiemlak content script yüklendi", {
+    url: location.href,
+    pathname: location.pathname,
+    detayMi: detayMi(),
+  });
+}
 
 function guvenliMesajGonder(msg: unknown): void {
   guard.mesajGonder(msg);
 }
 
-(function init() {
-  let sonUrl = "";
-  const tarama = () => {
-    if (!guard.gecerli()) return;
-    if (location.href === sonUrl) return;
-    sonUrl = location.href;
-    if (!detayMi()) {
-      console.log("[arsa-he] detay değil, atlanıyor:", location.href);
-      return;
-    }
-    console.log("[arsa-he] detay sayfası tespit, parse başlıyor:", location.href);
-    setTimeout(() => {
-      try { parseliCalistir(); } catch (e) {
-        if (!guard.contextGecersiz(e)) console.error("[arsa-he] parse hatası (800ms):", e);
+if (typeof import.meta !== "undefined" && import.meta.env?.MODE !== "test") {
+  (function init() {
+    let sonUrl = "";
+    const tarama = () => {
+      if (!guard.gecerli()) return;
+      if (location.href === sonUrl) return;
+      sonUrl = location.href;
+      if (!detayMi()) {
+        console.log("[arsa-he] detay değil, atlanıyor:", location.href);
+        return;
       }
-    }, 800);
-    setTimeout(() => {
-      try { parseliCalistir(); } catch (e) {
-        if (!guard.contextGecersiz(e)) console.error("[arsa-he] parse hatası (2500ms):", e);
-      }
-    }, 2500);
-  };
-  tarama();
-  guard.kaydet(setInterval(tarama, 2000));
-})();
+      console.log("[arsa-he] detay sayfası tespit, parse başlıyor:", location.href);
+      setTimeout(() => {
+        try { parseliCalistir(); } catch (e) {
+          if (!guard.contextGecersiz(e)) console.error("[arsa-he] parse hatası (800ms):", e);
+        }
+      }, 800);
+      setTimeout(() => {
+        try { parseliCalistir(); } catch (e) {
+          if (!guard.contextGecersiz(e)) console.error("[arsa-he] parse hatası (2500ms):", e);
+        }
+      }, 2500);
+    };
+    tarama();
+    guard.kaydet(setInterval(tarama, 2000));
+  })();
+}
 
 let lastSentIlanNo = "";
 
@@ -91,7 +95,7 @@ function parseliCalistir(): void {
   guvenliMesajGonder({ tip: "ilan-tespit", ilan });
 }
 
-function parselDOM(debug = false): IlanBilgisi {
+export function parselDOM(debug = false): IlanBilgisi {
   // --- Başlık ---
   const baslik = txt(
     "h1.det-title",
@@ -300,7 +304,7 @@ function bilgiTablosuCikar(): Record<string, string> {
 
   // Pattern 1+2: ul/li
   const liler = document.querySelectorAll<HTMLLIElement>(
-    "ul.adv-info-list li, .info-list-wrapper li, .det-info li, .property-features li, .features li, .det-list li, ul.spec li",
+    "ul.adv-info-list li, .info-list-wrapper li, .short-info-list li, .properties-wrapper li, .det-info li, .property-features li, .features li, .det-list li, ul.spec li",
   );
   for (const li of liler) {
     const key = li.querySelector(".info-key, .key, span:first-child, em:first-child, strong:first-child");
@@ -870,5 +874,7 @@ function ayirAdaParsel(s: string | null): { ada: number | null; parsel: number |
 }
 
 // Manuel debug için global hook
-(window as unknown as { __arsaHepsiDebug?: () => IlanBilgisi }).__arsaHepsiDebug = () =>
-  parselDOM(true);
+if (typeof window !== "undefined") {
+  (window as unknown as { __arsaHepsiDebug?: () => IlanBilgisi }).__arsaHepsiDebug = () =>
+    parselDOM(true);
+}

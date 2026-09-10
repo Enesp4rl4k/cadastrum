@@ -32,13 +32,13 @@ export interface EmsalAdayi {
   locationScore: number;
   segmentScore: number;
   imarScore: number;
-  /** Ya� a��rl��� (0-1) � taze ilanlar 1.0, 90+ g�n 0.3 */
+  /** Yaş ağırlığı (0-1) — taze ilanlar 1.0, 90+ gün 0.3 */
   yasW: number;
-  /** �lan�n g�n cinsinden ya�� */
+  /** İlanın gün cinsinden yaşı */
   yasGun: number;
-  /** TL'ye �evrilmi� fiyat/m� (USD/EUR ilanlar� i�in kur uygulanm��) */
+  /** TL'ye çevrilmiş fiyat/m² (USD/EUR ilanları için kur uygulanmış) */
   fiyatPerM2TL: number;
-  /** �lan kuru�alt� d�vizli mi (UI'da g�stermek i�in) */
+  /** İlan kuruşaltı dövizli mi (UI'da göstermek için) */
   dovizDonusumYapildi: boolean;
   segment: EmsalSegment;
   isSameMahalle: boolean;

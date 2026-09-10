@@ -3,14 +3,13 @@ import { alarmlariKaydet, alarmIsle } from "./scheduler";
 import { SCRAPING_ENABLED } from "../lib/build-flags";
 import { ilanPayloadKur } from "../lib/ilan-payload";
 import { telemetriKur } from "../lib/telemetri";
+import { BACKEND_API } from "../lib/api-constants";
 
 const scrapingMod = SCRAPING_ENABLED
   ? await import("./scraping-runtime")
   : null;
 
 telemetriKur("service-worker");
-
-const BACKEND_API = "https://cadastrum-api.cadastrum-tr.workers.dev/v1";
 
 /** Bir ilanı backend'e POST et — opt-in kontrolü ayarlardan, default true.
  *  Fire-and-forget, hata yutulur. Privacy: ilan_no, fiyat, konum — kişisel veri yok.
@@ -29,12 +28,21 @@ async function backendIlanGonder(ilan: IlanBilgisi, force = false): Promise<void
     const govde = ilanPayloadKur(ilan);
     if (!govde) return;
 
-    await fetch(`${BACKEND_API}/ilan`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(govde),
-      signal: AbortSignal.timeout(5000),
-    });
+    for (let deneme = 0; deneme < 2; deneme++) {
+      try {
+        const res = await fetch(`${BACKEND_API}/ilan`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(govde),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) break;
+      } catch {
+        if (deneme === 0) {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+    }
   } catch {
     // Sessizce yok say
   }

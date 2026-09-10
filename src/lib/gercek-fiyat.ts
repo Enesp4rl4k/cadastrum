@@ -25,6 +25,7 @@
 
 import { db, type GercekFiyatKaydi } from "./db";
 import type { Parsel } from "../types/tkgm";
+import { BACKEND_API } from "./api-constants";
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -132,8 +133,8 @@ export async function parselGercekFiyatiGetir(
  */
 export async function gercekFiyatBackendGonder(
   kayitId: number,
-  backendUrl: string,
-  jwtToken: string,
+  _backendUrl?: string,  // Geriye dönük uyumluluk için tutuldu, artık kullanılmıyor
+  jwtToken?: string,
 ): Promise<{ basarili: boolean; mesaj: string }> {
   const kayit = await db.gercekFiyatlar.get(kayitId);
   if (!kayit) return { basarili: false, mesaj: "Kayıt bulunamadı" };
@@ -152,20 +153,13 @@ export async function gercekFiyatBackendGonder(
     girisTarihi: kayit.girisTarihi,
   };
 
-  // DİKKAT — BACKEND'DE BU YOL YOK. Ölçüldü:
-  //   POST /v1/gercek-satis → 404 (NOT_FOUND)
-  // Bu modülün dışa açık fonksiyonlarının hiçbirinin çağıranı da yok; özellik
-  // uçtan uca yarım kalmış durumda. `gercekFiyatKaydet` yerel Dexie'ye yazıyor
-  // ve veri orada duruyor — kayıp yok, ama kalibrasyona da hiç dönmüyor.
-  // Kararlaştırılana kadar (route açılacak mı, özellik sökülecek mi) bu çağrı
-  // başarısızlığını SESSİZ geçmiyor: aşağıdaki hata yolu görünür.
   try {
-    const res = await fetch(`${backendUrl}/v1/gercek-satis`, {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (jwtToken) headers["Authorization"] = `Bearer ${jwtToken}`;
+
+    const res = await fetch(`${BACKEND_API}/gercek-satis`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${jwtToken}`,
-      },
+      headers,
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10000),
     });

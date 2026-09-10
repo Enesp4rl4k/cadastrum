@@ -75,7 +75,12 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
 
   if (aiBaseline) {
     c.header("Cache-Control", "public, s-maxage=86400"); // AI baseline 1 gün cache
-    return c.json({ ...aiBaseline, trend: [] });
+    return c.json({
+      ...aiBaseline,
+      ilan_adet: 0,
+      baseline_satir_sayisi: 1,
+      trend: [],
+    });
   }
 
   return c.json({ error: "Veri bulunamadı" }, 404);
@@ -98,7 +103,7 @@ fiyatRoutes.get("/ilce/:il/:ilce", async (c) => {
        FROM ilce_istatistik
        WHERE il_norm = ? AND ilce_norm = ? AND kategori = ?`,
     ).bind(il, ilce, kategori)
-      .first<{ medyan: number; q1: number; q3: number; ilan_adet: number; son_guncelleme: number; kaynak: string }>(),
+      .first<{ medyan: number; q1: number; q3: number; ilan_adet: number; son_guncelleme: number; kaynak: string; baseline_satir_sayisi?: number }>(),
     c.env.DB.prepare(
       `SELECT mahalle_norm, medyan, ilan_adet
        FROM mahalle_istatistik
@@ -131,11 +136,12 @@ fiyatRoutes.get("/ilce/:il/:ilce", async (c) => {
         medyan,
         q1,
         q3,
-        ilan_adet: aiList.length,
+        ilan_adet: 0,
+        baseline_satir_sayisi: aiList.length,
         son_guncelleme: Date.now(),
         kaynak: "ai-aggregate",
       };
-      mahalleler = { results: aiList.map(m => ({ ...m, ilan_adet: 0 })), success: true } as never;
+      mahalleler = { results: aiList.map(m => ({ ...m, ilan_adet: 0, baseline_satir_sayisi: 1 })), success: true } as never;
     }
   }
 
@@ -172,7 +178,7 @@ fiyatRoutes.get("/il/:il", async (c) => {
       `SELECT medyan, ilan_adet, son_guncelleme, 'ilan-istatistik' AS kaynak
        FROM il_istatistik WHERE il_norm = ? AND kategori = ?`,
     ).bind(il, kategori)
-      .first<{ medyan: number; ilan_adet: number; son_guncelleme: number; kaynak: string }>(),
+      .first<{ medyan: number; ilan_adet: number; son_guncelleme: number; kaynak: string; baseline_satir_sayisi?: number }>(),
     c.env.DB.prepare(
       `SELECT ilce_norm, medyan, ilan_adet
        FROM ilce_istatistik
@@ -187,14 +193,14 @@ fiyatRoutes.get("/il/:il", async (c) => {
   // Fallback: AI baseline tablosundan il agregesi (ilçe başına AI medyan)
   if (!ilIstatistik || (ilceler.results?.length ?? 0) === 0) {
     const aiIlceler = await c.env.DB.prepare(
-      `SELECT ilce_norm, AVG(tlm2) AS medyan, COUNT(*) AS ilan_adet
+      `SELECT ilce_norm, AVG(tlm2) AS medyan, COUNT(*) AS baseline_satir_sayisi
        FROM mahalle_baseline_ai
        WHERE il_norm = ? AND kategori = ?
        GROUP BY ilce_norm
        ORDER BY medyan DESC`,
     )
       .bind(il, kategori)
-      .all<{ ilce_norm: string; medyan: number; ilan_adet: number }>();
+      .all<{ ilce_norm: string; medyan: number; baseline_satir_sayisi: number }>();
 
     const aiList = aiIlceler.results ?? [];
     if (aiList.length > 0) {
@@ -202,11 +208,12 @@ fiyatRoutes.get("/il/:il", async (c) => {
       const ilMedyan = ilFiyatlar[Math.floor(ilFiyatlar.length / 2)] ?? 0;
       ilIstatistik = {
         medyan: ilMedyan,
-        ilan_adet: aiList.reduce((s, x) => s + x.ilan_adet, 0),
+        ilan_adet: 0,
+        baseline_satir_sayisi: aiList.reduce((s, x) => s + x.baseline_satir_sayisi, 0),
         son_guncelleme: Date.now(),
         kaynak: "ai-aggregate",
       };
-      ilceler = { results: aiList, success: true } as never;
+      ilceler = { results: aiList.map(x => ({ ...x, ilan_adet: 0 })), success: true } as never;
     }
   }
 
@@ -263,6 +270,7 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
     il_norm: string;
     medyan: number;
     ilan_adet: number;
+    baseline_satir_sayisi: number;
     kaynak: "ilan" | "ai-baseline";
   }> = [];
 
@@ -278,6 +286,7 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
         il_norm: r.il_norm,
         medyan: Math.round(r.medyan_ilan),
         ilan_adet: r.adet_ilan,
+        baseline_satir_sayisi: 0,
         kaynak: "ilan",
       });
     } else if (r.medyan_ai != null && r.medyan_ai > 0) {
@@ -285,6 +294,7 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
         il_norm: r.il_norm,
         medyan: Math.round(r.medyan_ai),
         ilan_adet: 0,
+        baseline_satir_sayisi: r.mahalle_ai_adet,
         kaynak: "ai-baseline",
       });
     }

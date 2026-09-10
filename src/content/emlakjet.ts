@@ -27,10 +27,12 @@ function detayMi(): boolean {
   return /emlakjet\.com\/ilan\/.+-\d{5,12}\/?(\?|#|$)/.test(location.href);
 }
 
-console.log("[arsa-ej] emlakjet content script yüklendi", {
-  url: location.href,
-  detayMi: detayMi(),
-});
+if (typeof location !== "undefined") {
+  console.log("[arsa-ej] emlakjet content script yüklendi", {
+    url: location.href,
+    detayMi: detayMi(),
+  });
+}
 
 function guvenliMesajGonder(msg: unknown): void {
   guard.mesajGonder(msg);
@@ -38,44 +40,46 @@ function guvenliMesajGonder(msg: unknown): void {
 
 let lastSentIlanNo = "";
 
-(function init() {
-  let sonUrl = "";
+if (typeof import.meta !== "undefined" && import.meta.env?.MODE !== "test") {
+  (function init() {
+    let sonUrl = "";
 
-  const tarama = () => {
-    if (!guard.gecerli()) return;
-    if (location.href === sonUrl) return;
-    sonUrl = location.href;
-    lastSentIlanNo = "";
+    const tarama = () => {
+      if (!guard.gecerli()) return;
+      if (location.href === sonUrl) return;
+      sonUrl = location.href;
+      lastSentIlanNo = "";
 
-    if (!detayMi()) {
-      console.log("[arsa-ej] detay değil, atlanıyor:", location.href);
-      return;
-    }
-
-    console.log("[arsa-ej] detay sayfası tespit, parse başlıyor:", location.href);
-
-    // İlk deneme — 800ms (Next.js hydration tamamlanmış olur)
-    setTimeout(() => {
-      try { parseliCalistir(); } catch (e) {
-        if (!guard.contextGecersiz(e)) console.error("[arsa-ej] parse hatası (800ms):", e);
+      if (!detayMi()) {
+        console.log("[arsa-ej] detay değil, atlanıyor:", location.href);
+        return;
       }
-    }, 800);
 
-    // İkinci deneme — 2500ms (yavaş bağlantı / lazy load)
-    setTimeout(() => {
-      try { parseliCalistir(); } catch (e) {
-        if (!guard.contextGecersiz(e)) console.error("[arsa-ej] parse hatası (2500ms):", e);
-      }
-    }, 2500);
-  };
+      console.log("[arsa-ej] detay sayfası tespit, parse başlıyor:", location.href);
 
-  tarama();
-  guard.kaydet(setInterval(tarama, 2000));
+      // İlk deneme — 800ms (Next.js hydration tamamlanmış olur)
+      setTimeout(() => {
+        try { parseliCalistir(); } catch (e) {
+          if (!guard.contextGecersiz(e)) console.error("[arsa-ej] parse hatası (800ms):", e);
+        }
+      }, 800);
 
-  window.addEventListener("popstate", () => {
-    setTimeout(tarama, 0);
-  });
-})();
+      // İkinci deneme — 2500ms (yavaş bağlantı / lazy load)
+      setTimeout(() => {
+        try { parseliCalistir(); } catch (e) {
+          if (!guard.contextGecersiz(e)) console.error("[arsa-ej] parse hatası (2500ms):", e);
+        }
+      }, 2500);
+    };
+
+    tarama();
+    guard.kaydet(setInterval(tarama, 2000));
+
+    window.addEventListener("popstate", () => {
+      setTimeout(tarama, 0);
+    });
+  })();
+}
 
 function parseliCalistir(): void {
   const ilan = parselDOM();
@@ -107,7 +111,7 @@ function parseliCalistir(): void {
 
 /* ── DOM parse ─────────────────────────────────────────────────────────── */
 
-function parselDOM(): IlanBilgisi {
+export function parselDOM(): IlanBilgisi {
   // ── Başlık ──────────────────────────────────────────────────────────────
   const baslik = txt(
     'h1[class*="title"]',
@@ -359,9 +363,9 @@ function bilgiTablosuCikar(): Record<string, string> {
     }
   });
 
-  // [class*="feature"] veya [class*="detail"] li'ler içinde span çiftleri
+  // [class*="feature"] veya [class*="detail"] li'ler ve div satırları içinde span çiftleri
   const featureItems = document.querySelectorAll(
-    '[class*="feature"] li, [class*="Feature"] li, [class*="detail"] li, [class*="Detail"] li, [class*="spec"] li',
+    '[class*="feature"] li, [class*="Feature"] li, [class*="detail"] li, [class*="Detail"] li, [class*="spec"] li, [class*="featuresTable"] > div, [class*="FeaturesTable"] > div, [class*="feature"] [class*="row"], [class*="Feature"] [class*="Row"]',
   );
   featureItems.forEach((li) => {
     const spans = li.querySelectorAll("span, strong, b");

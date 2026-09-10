@@ -42,6 +42,7 @@ import { BildirimKurali } from "./BildirimKurali";
 import { DogalVeriKarti } from "./DogalVeriKarti";
 import { AltyapiMesafeKarti } from "./AltyapiMesafeKarti";
 import { MilliEmlakKarti } from "./MilliEmlakKarti";
+import { CevreDetayKarti } from "./CevreDetayKarti";
 import {
   katmanlarOlustur,
   type KatmanBilgi,
@@ -71,6 +72,7 @@ const ScorecardKarti    = lazy(() => import("./ScorecardKarti").then(m => ({ def
 const HavaFotoTimeline  = lazy(() => import("./HavaFotoTimeline").then(m => ({ default: m.HavaFotoTimeline })));
 const UyduAnaliz        = lazy(() => import("./UyduAnaliz").then(m => ({ default: m.UyduAnaliz })));
 const UyduAnalizKarti   = lazy(() => import("./UyduAnalizKarti").then(m => ({ default: m.UyduAnalizKarti })));
+import { MimariFizibiliteKarti } from "./MimariFizibiliteKarti";
 
 /** Hafif lazy fallback — büyük componentlerin yüklenmesi sırasında */
 function LazyFallback() {
@@ -494,93 +496,7 @@ export function AnalizPanel({ parsel, onYakinPoiler, onAltyapiPoiler }: Props) {
             </div>
           </Section>
 
-          <Section title="🛣 Yol Erişimi">
-            {(() => {
-              const yolTipleri = ["motorway", "trunk", "primary", "secondary", "tertiary"];
-              const yollar = cevre.enYakinlar.filter(p => yolTipleri.includes(p.tip));
-              if (yollar.length === 0) {
-                return <div className="text-[10px] text-slate-500 italic">30km içinde önemli yol bulunamadı</div>;
-              }
-              const tipAd: Record<string, string> = {
-                motorway: "Otoyol", trunk: "Devlet Yolu",
-                primary: "Anayol", secondary: "İkincil yol",
-                tertiary: "Üçüncü yol",
-              };
-              return (
-                <div className="space-y-1">
-                  {yollar.slice(0, 4).map((y, i) => {
-                    const km = y.mesafeM >= 1000 ? `${(y.mesafeM / 1000).toFixed(1)} km` : `${y.mesafeM} m`;
-                    return (
-                      <div key={i} className="flex items-center justify-between text-[11px]">
-                        <span className="flex items-center gap-1.5 text-slate-700">
-                          <span>{y.ikon ?? "🛣"}</span>
-                          <span>{tipAd[y.tip] ?? y.tip}</span>
-                          <span className="text-slate-500">· {y.ad}</span>
-                        </span>
-                        <span className="font-semibold text-tkgm-primary tabular-nums">{km}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </Section>
-
-          <Section title="🔌 Altyapı">
-            <KV
-              k="Elektrik hattı"
-              v={
-                cevre.altyapi.elektrikHattiM != null
-                  ? `${Math.round(cevre.altyapi.elektrikHattiM)} m`
-                  : "2km içinde yok"
-              }
-            />
-            <KV
-              k="Su hattı"
-              v={
-                cevre.altyapi.suBoruM != null
-                  ? `${Math.round(cevre.altyapi.suBoruM)} m`
-                  : "OSM'de işaretli yok"
-              }
-            />
-            <KV
-              k="Demiryolu"
-              v={
-                cevre.altyapi.demiryoluM != null
-                  ? `${Math.round(cevre.altyapi.demiryoluM)} m`
-                  : "2km içinde yok"
-              }
-            />
-          </Section>
-
-          {/tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(parsel.nitelik) && (
-            <Section title="🌾 Kırsal Analiz">
-              <KV
-                k="Kadastral Yol"
-                v={
-                  cevre.kirsal.yolaCepheM != null
-                    ? cevre.kirsal.yolaCepheM <= 15 ? "Yola cephe" : `${Math.round(cevre.kirsal.yolaCepheM)} m`
-                    : "OSM'de işaretli değil"
-                }
-              />
-              <KV
-                k="Su Kaynağı"
-                v={
-                  cevre.kirsal.suKaynagiM != null
-                    ? `${Math.round(cevre.kirsal.suKaynagiM)} m`
-                    : "1km içinde yok"
-                }
-              />
-              <KV
-                k="Köy Merkezi"
-                v={
-                  cevre.kirsal.koyMerkeziM != null
-                    ? `${Math.round(cevre.kirsal.koyMerkeziM)} m`
-                    : "3km içinde yok"
-                }
-              />
-            </Section>
-          )}
+          <CevreDetayKarti cevre={cevre} nitelik={parsel.nitelik} />
         </>
       )}
 
@@ -883,7 +799,7 @@ export function AnalizPanel({ parsel, onYakinPoiler, onAltyapiPoiler }: Props) {
         </Suspense>
       </AccordionSection>
 
-      {/* ── ARAÇLAR: Hava Fotoğrafı + Fizibilite + Eylemler ── */}
+      {/* ── ARAÇLAR: Hava Fotoğrafı + Fizibilite + Mimari Fizibilite + Eylemler ── */}
       <AccordionSection title="Araçlar" badge="hava foto · fizibilite · rapor" badgeTone="default" defaultOpen={false}>
         {parsel.koordinatlar && parsel.koordinatlar.length >= 3 && (
           <Suspense fallback={<LazyFallback />}>
@@ -891,6 +807,15 @@ export function AnalizPanel({ parsel, onYakinPoiler, onAltyapiPoiler }: Props) {
           </Suspense>
         )}
         <Fizibilite parsel={parsel} />
+        {/* Mimari fizibilite — İmar haklarına göre inşaat kütlesi ve müteahhit kârlılığı */}
+        {ePlanVerisi && (ePlanVerisi.taks != null || ePlanVerisi.emsal != null) && (
+          <MimariFizibiliteKarti
+            parselAlaniM2={parsel.alan ?? 0}
+            varsayilanTaks={ePlanVerisi.taks ?? undefined}
+            varsayilanKaks={ePlanVerisi.emsal ?? undefined}
+            varsayilanKat={ePlanVerisi.maksKat ?? undefined}
+          />
+        )}
         <PortfoyEkleButonu parsel={parsel} fiyat={hesaplananFiyat} ePlan={birlesikImar ?? ePlanVerisi ?? null} />
         <RaporExportButonu parsel={parsel} cevre={cevre} egim={egim} ePlan={birlesikImar ?? ePlanVerisi ?? null} />
       </AccordionSection>

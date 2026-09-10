@@ -26,8 +26,10 @@ const guard = createContextGuard("[arsa]");
 // içinden lastSentIlanNo'yu sıfırlarsa "Cannot access 'N' before initialization" atar.
 let lastSentIlanNo = "";
 
-(function init() {
-  let sonUrl = "";
+// Test ortamında otomatik DOM dinleyicilerini başlatma
+if (typeof import.meta !== "undefined" && import.meta.env?.MODE !== "test") {
+  (function init() {
+    let sonUrl = "";
   let aktifObserver: MutationObserver | null = null;
   let aktifTimeout: ReturnType<typeof setTimeout> | null = null;
   let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -98,6 +100,7 @@ let lastSentIlanNo = "";
     setTimeout(yeniSayfaIslem, 0);
   });
 })();
+}
 
 function parseliCalistir(_oncekiIlanNo: string): void {
   const ilan = parselDOM();
@@ -128,7 +131,7 @@ function parseliCalistir(_oncekiIlanNo: string): void {
   guard.mesajGonder({ tip: "ilan-tespit", ilan });
 }
 
-function parselDOM(debug = false): IlanBilgisi {
+export function parselDOM(debug = false): IlanBilgisi {
   const baslik = txt(
     "h1.classifiedTitle",
     'h1[class*="classifiedTitle"]',
@@ -242,7 +245,7 @@ function parselDOM(debug = false): IlanBilgisi {
     mahalle,
     adaNo,
     parselNo,
-    pafta: tablo["pafta"] ?? null,
+    pafta: tablo["pafta"] ?? tablo["paftano"] ?? null,
     imarDurumu:
       tablo["imardurumu"] ??
       tablo["imar"] ??
@@ -384,13 +387,13 @@ function bilgiTablosuCikar(): Record<string, string> {
       let deger: string | null = null;
 
       const sib = dugum.nextElementSibling;
-      if (sib instanceof HTMLElement) {
+      if (sib && "textContent" in sib) {
         const t = (sib.textContent ?? "").trim();
         if (t && t !== metin) deger = t;
       }
 
       if (!deger && dugum.parentElement) {
-        const kardesler = Array.from(dugum.parentElement.children) as HTMLElement[];
+        const kardesler = Array.from(dugum.parentElement.children);
         const idx = kardesler.indexOf(dugum);
         for (let i = idx + 1; i < kardesler.length; i++) {
           const t = (kardesler[i]?.textContent ?? "").trim();
@@ -831,5 +834,7 @@ function aciklamadanAdaParselCikar(
 }
 
 // Console'dan manuel debug için global hook
-(window as unknown as { __arsaTkgmDebug?: () => IlanBilgisi }).__arsaTkgmDebug = () =>
-  parselDOM(true);
+if (typeof window !== "undefined") {
+  (window as unknown as { __arsaTkgmDebug?: () => IlanBilgisi }).__arsaTkgmDebug = () =>
+    parselDOM(true);
+}

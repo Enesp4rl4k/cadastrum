@@ -103,7 +103,26 @@ export function guvenHesapla(params: {
   const veriKalitesiNotlari = [...baseline.veriKalitesiNotlari];
   let skor = 15;
 
-  if (baseline.kaynak === "spatial-radius") skor = 62;
+  /**
+   * P12 — ölçülmemiş katman, ölçülmüş katmanın ÜSTÜNE çıkamaz.
+   *
+   * `spatial-radius` burada 62 ile `ilanGozlem-mahalle`'nin (58) üstündeydi.
+   * O sıralamanın ölçümü yok. Ölçülen tek şey tersini söylüyordu: mahalle
+   * merkezi koordinatlarıyla çalışırken spatial, mahalle katmanını eziyor ve
+   * ±%20 isabetini arsa 26,7 → 20,3 / tarla 43,9 → 25,1'e düşürüyordu
+   * (`data/o1-spatial-katman-olcum.json`). Düzeltme olarak `spatial-emsal.ts`
+   * artık `koordKaynagi === "mahalle-merkez"` kayıtlarını eliyor.
+   *
+   * Filtreden SONRAKİ hâli — yani gerçek parsel koordinatıyla çalışan
+   * spatial — hâlâ ÖLÇÜLMEDİ: korpusta parsel koordinatlı ilan yok, üretimde
+   * oranı %4,4. Ölçülmemiş bir katmanı ölçülmüşün üstüne koymak, bu projede
+   * tekrar tekrar ayıkladığımız desenin ta kendisi.
+   *
+   * Bu yüzden EŞİT: gerçek koordinat mahalle havuzunun bir alt kümesi olduğu
+   * için "mahalle kadar iyi" savunulabilir; "daha iyi" savunulamaz. Ölçüm
+   * geldiğinde bu sayı ölçüme göre ayrılır.
+   */
+  if (baseline.kaynak === "spatial-radius") skor = 58;
   else if (baseline.kaynak === "ilanGozlem-mahalle") skor = 58;
   else if (baseline.kaynak === "ilanGozlem-ilce") skor = 44;
   else if (baseline.kaynak === "mahalle-baseline") skor = 42;
@@ -133,22 +152,22 @@ export function guvenHesapla(params: {
   if (cevreVar) {
     skor += 4;
   } else {
-    veriKalitesiNotlari.push("�evre/POI verisi yok; eri�im etkisi n�tr kabul edildi.");
+    veriKalitesiNotlari.push("Çevre/POI verisi yok; erişim etkisi nötr kabul edildi.");
   }
   if (egimVar) {
     skor += 4;
   } else {
-    veriKalitesiNotlari.push("E�im verisi yok; topo�rafya etkisi n�tr kabul edildi.");
+    veriKalitesiNotlari.push("Eğim verisi yok; topoğrafya etkisi nötr kabul edildi.");
   }
   if (resmiImarVar) {
     skor += 8;
     veriKalitesiNotlari.push("Resmi e-Plan imar verisi fiyat sinyaline dahil edildi.");
   } else {
-    veriKalitesiNotlari.push("Resmi e-Plan verisi yok; imar sinyali ilan/parsel heuristi�inden �retildi.");
+    veriKalitesiNotlari.push("Resmi e-Plan verisi yok; imar sinyali ilan/parsel heuristiğinden üretildi.");
   }
   if (multiplierClamped) {
     skor -= 6;
-    veriKalitesiNotlari.push("Heuristik �arpanlar ta�mas�n diye tahmin koruma band�na s�k��t�r�ld�.");
+    veriKalitesiNotlari.push("Heuristik çarpanlar taşmasın diye tahmin koruma bandına sıkıştırıldı.");
   }
 
   skor = clamp(Math.round(skor), 5, 95);
@@ -186,19 +205,21 @@ export function guvenHesapla(params: {
   }
 
   const guvenAciklama =
-    baseline.kaynak === "ilanGozlem-mahalle"
-      ? `${baseline.guvenAdet} a��rl�kl� emsal ile �retildi. G�ven skoru ${skor}/100.`
-      : baseline.kaynak === "ilanGozlem-ilce"
-        ? `${baseline.guvenAdet} a��rl�kl� il�e emsali ile �retildi. Mahalle emsali gelirse daha da daral�r. G�ven skoru ${skor}/100.`
+    baseline.kaynak === "spatial-radius"
+      ? `${baseline.guvenAdet} ağırlıklı spatial (yarıçap) emsali ile üretildi. Güven skoru ${skor}/100.`
+      : baseline.kaynak === "ilanGozlem-mahalle"
+        ? `${baseline.guvenAdet} ağırlıklı emsal ile üretildi. Güven skoru ${skor}/100.`
+        : baseline.kaynak === "ilanGozlem-ilce"
+        ? `${baseline.guvenAdet} ağırlıklı ilçe emsali ile üretildi. Mahalle emsali gelirse daha da daralır. Güven skoru ${skor}/100.`
         : baseline.kaynak === "mahalle-baseline"
-          ? `Mahalle bazl� baseline (AI/KNN, Bayesian shrinkage uygulanm��). Sahibinden'de gezinerek ger�ek emsallere ge�. G�ven skoru ${skor}/100.`
+          ? `Mahalle bazlı baseline (AI/KNN, Bayesian shrinkage uygulanmış). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
           : baseline.kaynak === "ilce-semt-baseline"
-            ? `B�lge ortalamas� (semt d�zeyi). Sahibinden'de gezinerek ger�ek emsallere ge�. G�ven skoru ${skor}/100.`
+            ? `Bölge ortalaması (semt düzeyi). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
             : baseline.kaynak === "ilce-baseline"
-              ? `B�lge ortalamas� (il�e d�zeyi). Sahibinden'de gezinerek ger�ek emsallere ge�. G�ven skoru ${skor}/100.`
+              ? `Bölge ortalaması (ilçe düzeyi). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
               : baseline.kaynak === "il-baseline"
-                ? `B�lge ortalamas� (il d�zeyi). Sahibinden'de gezinerek ger�ek emsallere ge�. G�ven skoru ${skor}/100.`
-                : `B�lgesel emsal bulunamad�; genel ortalama kullan�ld�. G�ven skoru ${skor}/100.`;
+                ? `Bölge ortalaması (il düzeyi). Sahibinden'de gezinerek gerçek emsallere geç. Güven skoru ${skor}/100.`
+                : `Bölgesel emsal bulunamadı; genel ortalama kullanıldı. Güven skoru ${skor}/100.`;
 
   return { guven, guvenSkoru: skor, guvenAciklama, altRange, ustRange, veriKalitesiNotlari };
 }
@@ -236,33 +257,37 @@ export function ekGuvenKatmani(params: {
   let ustRangeDelta = 0;
 
   const baselinePuani =
-    baseline.kaynak === "ilanGozlem-mahalle"
+    baseline.kaynak === "spatial-radius"
       ? 58
-      : baseline.kaynak === "ilanGozlem-ilce"
-        ? 44
-        : baseline.kaynak === "mahalle-baseline"
-          ? 42
-          : baseline.kaynak === "ilce-semt-baseline"
-            ? 36
-            : baseline.kaynak === "ilce-baseline"
-              ? 30
-              : baseline.kaynak === "il-baseline"
-                ? 24
-                : 12;
+      : baseline.kaynak === "ilanGozlem-mahalle"
+        ? 58
+        : baseline.kaynak === "ilanGozlem-ilce"
+          ? 44
+          : baseline.kaynak === "mahalle-baseline"
+            ? 42
+            : baseline.kaynak === "ilce-semt-baseline"
+              ? 36
+              : baseline.kaynak === "ilce-baseline"
+                ? 30
+                : baseline.kaynak === "il-baseline"
+                  ? 24
+                  : 12;
   guvenKirilimi.push({
     etiket:
-      baseline.kaynak === "ilanGozlem-mahalle"
-        ? "Mahalle emsali"
+      baseline.kaynak === "spatial-radius"
+        ? "Spatial radius emsali"
+        : baseline.kaynak === "ilanGozlem-mahalle"
+          ? "Mahalle emsali"
         : baseline.kaynak === "ilanGozlem-ilce"
-          ? "�l�e emsali"
+          ? "İlçe emsali"
           : baseline.kaynak === "mahalle-baseline"
             ? "Mahalle baseline"
             : baseline.kaynak === "ilce-semt-baseline"
               ? "Semt baseline"
               : baseline.kaynak === "ilce-baseline"
-                ? "�l�e baseline"
+                ? "İlçe baseline"
                 : baseline.kaynak === "il-baseline"
-                  ? "�l baseline"
+                  ? "İl baseline"
                   : "Genel fallback",
     puan: baselinePuani,
     durum: baselinePuani >= 40 ? "pozitif" : baselinePuani >= 30 ? "notr" : "uyari",
@@ -270,14 +295,14 @@ export function ekGuvenKatmani(params: {
 
   if (baseline.guvenAdet > 0) {
     guvenKirilimi.push({
-      etiket: "Canl� emsal adedi",
+      etiket: "Canlı emsal adedi",
       puan: Math.min(20, baseline.guvenAdet * 2),
       durum: "pozitif",
     });
   }
   if (baseline.emsalOzeti) {
     guvenKirilimi.push({
-      etiket: "Emsal benzerli�i",
+      etiket: "Emsal benzerliği",
       puan: Math.round(baseline.emsalOzeti.ortalamaBenzerlik * 12),
       durum: "pozitif",
     });
@@ -287,7 +312,7 @@ export function ekGuvenKatmani(params: {
     const puan = yas <= 30 ? 8 : yas <= 60 ? 4 : yas > 90 ? -4 : 0;
     if (puan !== 0) {
       guvenKirilimi.push({
-        etiket: "Veri tazeli�i",
+        etiket: "Veri tazeliği",
         puan,
         durum: puan > 0 ? "pozitif" : "uyari",
       });
@@ -298,7 +323,7 @@ export function ekGuvenKatmani(params: {
     ekSkor += 8;
     altRangeDelta += 0.02;
     ustRangeDelta -= 0.02;
-    guvenKirilimi.push({ etiket: "Resmi e-Plan imar�", puan: 8, durum: "pozitif" });
+    guvenKirilimi.push({ etiket: "Resmi e-Plan imarı", puan: 8, durum: "pozitif" });
     ekNotlar.push("Resmi e-Plan imar verisi fiyat sinyaline dahil edildi.");
   } else if (manuelImarVar) {
     const puan = manuelImarDetayAdet >= 3 ? 6 : manuelImarDetayAdet >= 1 ? 3 : 0;
@@ -307,11 +332,11 @@ export function ekGuvenKatmani(params: {
       altRangeDelta += 0.015;
       ustRangeDelta -= 0.015;
     }
-    guvenKirilimi.push({ etiket: "Manuel imar giri�i", puan, durum: puan > 0 ? "pozitif" : "notr" });
-    ekNotlar.push("�mar sinyali kullan�c� giri�i ile g��lendirildi.");
+    guvenKirilimi.push({ etiket: "Manuel imar girişi", puan, durum: puan > 0 ? "pozitif" : "notr" });
+    ekNotlar.push("İmar sinyali kullanıcı girişi ile güçlendirildi.");
   } else {
-    guvenKirilimi.push({ etiket: "�mar belirsizli�i", puan: -4, durum: "uyari" });
-    sonrakiHamleler.push("Kullan�m karar� ile TAKS/Emsal girersen fiyat sapmas� ciddi azal�r.");
+    guvenKirilimi.push({ etiket: "İmar belirsizliği", puan: -4, durum: "uyari" });
+    sonrakiHamleler.push("Kullanım kararı ile TAKS/Emsal girersen fiyat sapması ciddi azalır.");
   }
 
   if (manuelEmsalAdet > 0) {
@@ -319,11 +344,11 @@ export function ekGuvenKatmani(params: {
     ekSkor += puan;
     altRangeDelta += manuelEmsalAdet >= 2 ? 0.02 : 0.01;
     ustRangeDelta -= manuelEmsalAdet >= 2 ? 0.02 : 0.01;
-    guvenKirilimi.push({ etiket: "Manuel emsal deste�i", puan, durum: "pozitif" });
+    guvenKirilimi.push({ etiket: "Manuel emsal desteği", puan, durum: "pozitif" });
     ekNotlar.push(`${manuelEmsalAdet} manuel emsal fiyat havuzuna dahil edildi.`);
   } else {
     guvenKirilimi.push({ etiket: "Manuel emsal yok", puan: 0, durum: "notr" });
-    sonrakiHamleler.push("B�lgede bildi�in ger�ek sat��/ilan fiyat� varsa ekle (g�ven +%15).");
+    sonrakiHamleler.push("Bölgede bildiğin gerçek satış/ilan fiyatı varsa ekle (güven +%15).");
   }
 
   return {

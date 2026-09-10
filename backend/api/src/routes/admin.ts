@@ -499,6 +499,16 @@ admin.post("/cron-tetikle", async (c) => {
   return c.json({ basarili: true, sonuc });
 });
 
+// ── Retroaktif Zaman Serisi Doldurma ─────────────────────────────
+admin.post("/zaman-serisi-retroaktif", async (c) => {
+  const adminId = c.get("adminId" as any) as number;
+  const minIlan = Number(c.req.query("minIlan")) || 1;
+  const { zamanSerisiRetroaktifDoldur } = await import("../lib/zaman-serisi-retroaktif.js");
+  const sonuc = await zamanSerisiRetroaktifDoldur(c.env.DB, minIlan);
+  await logla(c.env, adminId, "zaman-serisi-retroaktif", null, sonuc, getIP(c));
+  return c.json({ basarili: true, sonuc });
+});
+
 // ── Newsletter Blast (Resend bulk) ───────────────────────────────
 // Tüm waitlist'e tek tıkla duyuru maili. Lansman, yeni feature vs için.
 admin.post("/newsletter-blast", async (c) => {

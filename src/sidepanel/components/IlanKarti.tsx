@@ -27,6 +27,7 @@ import { getMahalleMerkez } from "../../lib/data/mahalle-merkezleri";
 import { useAyarlar } from "../../lib/ayarlar";
 import { Card } from "../ui/Card";
 import { IlanFiyatKarsilastirma } from "./IlanFiyatKarsilastirma";
+import { IlanYerDuzeltme } from "./IlanYerDuzeltme";
 import { useToast } from "./Toast";
 
 interface Props {
@@ -88,13 +89,6 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
   const [kapatilanIlanNo, setKapatilanIlanNo] = useState<string | null>(null);
   /** Kullanıcı "yer yanlış" tıkladığında manuel düzeltme modu */
   const [yerDuzeltModu, setYerDuzeltModu] = useState(false);
-  /** Manuel girilen il/ilçe (mahalle dropdown'ı il+ilçe biliniyorsa otomatik) */
-  const [duzeltIl, setDuzeltIl] = useState("");
-  const [duzeltIlce, setDuzeltIlce] = useState("");
-  const [duzeltMahalle, setDuzeltMahalle] = useState("");
-  /** Manuel düzeltilen ada/parsel no — açıklamada farklı no varsa kullanıcı buradan girer */
-  const [duzeltAda, setDuzeltAda] = useState("");
-  const [duzeltParsel, setDuzeltParsel] = useState("");
   const [ayarlar] = useAyarlar();
 
   // İlan değişince storage'dan yükle + dinle.
@@ -244,8 +238,8 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
     setMahalleSecimGerekli(false);
     mahalleHazirlikRef.current = null;
 
-    const ilSorgu = yerDuzeltModu && duzeltIl ? duzeltIl : ilan?.il;
-    const ilceSorgu = yerDuzeltModu && duzeltIlce ? duzeltIlce : ilan?.ilce;
+    const ilSorgu = ilan?.il;
+    const ilceSorgu = ilan?.ilce;
     if (!ilan || !ilSorgu || !ilceSorgu) return;
 
     let iptal = false;
@@ -257,13 +251,13 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
       liste.sort((a, b) => a.mahalleAdi.localeCompare(b.mahalleAdi, "tr"));
       setHazirIlceKodu(ilceKodu);
       setHazirMahalleler(liste);
-      if (!ilan.mahalle || yerDuzeltModu) setMahallelerDropdown(liste);
+      if (!ilan.mahalle) setMahallelerDropdown(liste);
     })().catch(() => {});
     mahalleHazirlikRef.current = hazirlik;
     return () => {
       iptal = true;
     };
-  }, [ilan?.ilanNo, ilan?.il, ilan?.ilce, ilan?.mahalle, yerDuzeltModu, duzeltIl, duzeltIlce]);
+  }, [ilan?.ilanNo, ilan?.il, ilan?.ilce, ilan?.mahalle]);
 
   const aciklamaAdaParsel = ilan?.aciklamadaAdaParsel[0];
   const adaCandidate = ilan?.adaNo ?? aciklamaAdaParsel?.ada ?? null;
@@ -589,14 +583,7 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
           <div className="col-span-2 text-right">
             <button
               type="button"
-              onClick={() => {
-                  setYerDuzeltModu(true);
-                  setDuzeltIl(ilan.il ?? "");
-                  setDuzeltIlce(ilan.ilce ?? "");
-                  setDuzeltMahalle(ilan.mahalle ?? "");
-                  setDuzeltAda(ilan.adaNo != null ? String(ilan.adaNo) : "");
-                  setDuzeltParsel(ilan.parselNo != null ? String(ilan.parselNo) : "");
-                }}
+              onClick={() => setYerDuzeltModu(true)}
               className="text-3xs italic text-slate-500 hover:text-accent-ilan underline"
             >
               Yer yanlış mı? Düzelt →
@@ -604,122 +591,16 @@ function IlanKartiInternal({ acikParsel, onParselDogrula }: Props) {
           </div>
         )}
         {yerDuzeltModu && (
-          <div className="col-span-2 mt-1 space-y-1.5 rounded-md border border-orange-200 bg-orange-50/60 p-2">
-            <div className="text-3xs font-semibold text-slate-700">Yer bilgisini düzelt</div>
-            <input
-              type="text"
-              placeholder="İl (örn: Balıkesir)"
-              value={duzeltIl}
-              onChange={(e) => setDuzeltIl(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-            />
-            <input
-              type="text"
-              placeholder="İlçe (örn: Bandırma)"
-              value={duzeltIlce}
-              onChange={(e) => setDuzeltIlce(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-            />
-            {/* Mahalle: il+ilçe biliniyorsa dropdown (TKGM listesi), değilse text input */}
-            {duzeltIl && duzeltIlce && mahallelerDropdown.length > 0 ? (
-              <select
-                value={duzeltMahalle}
-                onChange={(e) => setDuzeltMahalle(e.target.value)}
-                className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-              >
-                <option value="">— Mahalle seç —</option>
-                {mahallelerDropdown.map((m) => (
-                  <option key={m.mahalleKodu} value={m.mahalleAdi}>
-                    {m.mahalleAdi}
-                  </option>
-                ))}
-              </select>
-            ) : duzeltIl && duzeltIlce ? (
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  placeholder="Mahalle (yükleniyor…)"
-                  value={duzeltMahalle}
-                  onChange={(e) => setDuzeltMahalle(e.target.value)}
-                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-                  readOnly
-                />
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-orange-300 border-t-orange-600 flex-shrink-0" />
-              </div>
-            ) : (
-              <input
-                type="text"
-                placeholder="Mahalle (örn: Yalı)"
-                value={duzeltMahalle}
-                onChange={(e) => setDuzeltMahalle(e.target.value)}
-                className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-              />
-            )}
-            {/* Ada / Parsel No — açıklamada farklı bilgi varsa veya ada eksikse */}
-            <div className="grid grid-cols-2 gap-1">
-              <label className="flex flex-col gap-0.5">
-                <span className="text-3xs text-slate-500">Ada No <span className="text-slate-400">(opsiyonel)</span></span>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="örn: 116"
-                  value={duzeltAda}
-                  onChange={(e) => setDuzeltAda(e.target.value)}
-                  className="rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-3xs text-slate-500">Parsel No</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="örn: 977"
-                  value={duzeltParsel}
-                  onChange={(e) => setDuzeltParsel(e.target.value)}
-                  className="rounded border border-slate-300 bg-white px-2 py-1 text-2xs"
-                />
-              </label>
-            </div>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!ilan) return;
-                  const adaDuzelt = duzeltAda.trim() ? Number(duzeltAda.trim()) : undefined;
-                  const parselDuzelt = duzeltParsel.trim() ? Number(duzeltParsel.trim()) : undefined;
-                  // İlan'ı override et
-                  const yeniIlan: IlanBilgisi = {
-                    ...ilan,
-                    il: duzeltIl.trim() || ilan.il,
-                    ilce: duzeltIlce.trim() || ilan.ilce,
-                    mahalle: duzeltMahalle.trim() || ilan.mahalle,
-                    ...(adaDuzelt != null && !isNaN(adaDuzelt) ? { adaNo: adaDuzelt } : {}),
-                    ...(parselDuzelt != null && !isNaN(parselDuzelt) ? { parselNo: parselDuzelt } : {}),
-                    manuelDuzeltildi: true,
-                  };
-                  setIlan(yeniIlan);
-                  // chrome storage'a yaz
-                  chrome.storage.session.set({ sonIlan: yeniIlan }).catch(() => {});
-                  setYerDuzeltModu(false);
-                  // Otomatik doğrulamayı yeniden tetikle
-                  otoDogrulamaTetiklenmisRef.current = null;
-                }}
-                className="flex-1 cursor-pointer rounded bg-accent-ilan px-2 py-1 text-2xs font-medium text-white hover:bg-orange-700"
-              >
-                Kaydet & yeniden sorgula
-              </button>
-              <button
-                type="button"
-                onClick={() => setYerDuzeltModu(false)}
-                className="cursor-pointer rounded bg-slate-200 px-2 py-1 text-2xs text-slate-700 hover:bg-slate-300"
-              >
-                İptal
-              </button>
-            </div>
-            <div className="text-3xs italic text-slate-500">
-              Mahalle TKGM'den seçilir. Ada boş bırakılırsa sadece parsel no ile sorgulanır.
-            </div>
-          </div>
+          <IlanYerDuzeltme
+            ilan={ilan}
+            onKaydet={(yeniIlan) => {
+              setIlan(yeniIlan);
+              chrome.storage.session.set({ sonIlan: yeniIlan }).catch(() => {});
+              setYerDuzeltModu(false);
+              otoDogrulamaTetiklenmisRef.current = null;
+            }}
+            onIptal={() => setYerDuzeltModu(false)}
+          />
         )}
         {adaCandidate != null && (
           <KV k="Ada" v={String(adaCandidate)} esler={adaEsler ?? undefined} className="field-reveal" />
