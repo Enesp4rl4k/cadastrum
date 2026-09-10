@@ -225,3 +225,81 @@ describe("pipeline-health sessiz bozulma kontrolleri", () => {
     expect(k.mesaj).toContain("Tablo yok");
   });
 });
+
+describe("okuma bütçesi kontrolü — 'bilinmiyor' YEŞİL değildir", () => {
+  const AD = "Günlük D1 satır okuma (üst sınır)";
+
+  it("bütçe kaydı YOKSA 'bilinmiyor' döner ve alarm sayılır", async () => {
+    /**
+     * GERÇEK OLAY — bu dosyadaki en pahalı vaka.
+     *
+     * `okuma_butcesi_gunluk` tablosu 2026-09-04 kesintisinden sonra kuruldu ama
+     * ona YAZAN KOD hiç yazılmadı. Kontrol boş tabloyu okuyup `okunanSatir = 0`
+     * yapıyor, `0 <= 3.500.000` doğru çıkıyor ve HER KOŞUMDA YEŞİL dönüyordu.
+     * 2026-09-09'da limit yine doldu, servis 500 vermeye başladı, pano yine
+     * yeşildi.
+     *
+     * MUTASYON: `pipeline-health.ts`'de `!butce` dalını
+     * `durum: "gecti"` yapın ya da eski `okunanSatir = okuma?.satir_okuma ?? 0`
+     * davranışına dönün → bu test kırılır.
+     */
+    const env = createMockEnv();
+    const s = await pipelineHealthKontrol(env.DB);
+    const k = s.kontroller.find((x) => x.ad === AD);
+    expect(k).toBeDefined();
+    expect(k!.durum).toBe("bilinmiyor");
+    // Eski `gecti` okuyucuları da artık yeşil GÖRMÜYOR.
+    expect(k!.gecti).toBe(false);
+    // "Bilinmiyor" alarm sayısına dahil — sistem sağlıklı ilan edilemez.
+    expect(s.alarmSayisi).toBeGreaterThan(0);
+  });
+
+  it("bütçe kaydı VARSA ve eşiğin altındaysa GEÇER — kaynak kırılımıyla", async () => {
+    const env = createMockEnv();
+    const bugun = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare(
+      `INSERT INTO okuma_butcesi_gunluk
+         (gun, kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet, guncellendi)
+       VALUES (?, 'cron-saatlik', 120000, 0, 40, 0, 0),
+              (?, 'cron-gunluk',   80000, 0, 12, 0, 0)`,
+    ).bind(bugun, bugun).run();
+
+    const s = await pipelineHealthKontrol(env.DB);
+    const k = s.kontroller.find((x) => x.ad === AD)!;
+    expect(k.durum).toBe("gecti");
+    expect(k.deger).toBe(200000);
+    // Kırılım mesaja giriyor: "kim yedi" cevabı olmadan sayı eyleme dönüşmüyor.
+    expect(k.mesaj).toContain("cron-saatlik");
+  });
+
+  it("bütçe eşiği aşılmışsa KALDI döner", async () => {
+    const env = createMockEnv();
+    const bugun = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare(
+      `INSERT INTO okuma_butcesi_gunluk
+         (gun, kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet, guncellendi)
+       VALUES (?, 'cron-saatlik', 4200000, 0, 40, 0, 0)`,
+    ).bind(bugun).run();
+
+    const s = await pipelineHealthKontrol(env.DB);
+    const k = s.kontroller.find((x) => x.ad === AD)!;
+    expect(k.durum).toBe("kaldi");
+    expect(k.gecti).toBe(false);
+  });
+
+  it("ölçülemeyen çağrılar varsa mesaj bunu SÖYLER — rapor olduğundan iyi görünmesin", async () => {
+    const env = createMockEnv();
+    const bugun = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare(
+      `INSERT INTO okuma_butcesi_gunluk
+         (gun, kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet, guncellendi)
+       VALUES (?, 'cron-gunluk', 1000, 0, 50, 37, 0)`,
+    ).bind(bugun).run();
+
+    const s = await pipelineHealthKontrol(env.DB);
+    const k = s.kontroller.find((x) => x.ad === AD)!;
+    // `first()` çağrıları D1'de meta döndürmüyor; maliyetleri bilinmiyor.
+    // Bunu gizlemek, sayacın önlemek için kurulduğu hatayı tekrarlamak olurdu.
+    expect(k.mesaj).toContain("ÖLÇÜLEMEDİ");
+  });
+});

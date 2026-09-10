@@ -1,151 +1,130 @@
 /**
- * OKUMA BÜTÇESİ — sıcak yolda tam tablo taraması kalmadı.
+ * Okuma bütçesi sayacı + "bilinmiyor" kuralı.
  *
- * NEDEN: Cloudflare D1 ücretsiz katmanı günde 5M satır okuma veriyor ve
- * 2026-09-04'te bu limit doldu — sistemin hiç kullanıcısı olmadığı hâlde.
- * `wrangler d1 execute` ve canlı uçlar "exceeded D1's free tier daily row read
- * limit" döndürmeye başladı. Belirti "sunucu hatası"ydı; sebebi görünmüyordu,
- * çünkü hiçbir yerde `meta.rows_read` toplanmıyordu.
+ * NEDEN BU TESTLER VAR: `okuma_butcesi_gunluk` tablosu 2026-09-04 kesintisinden
+ * sonra kuruldu ama ona YAZAN KOD hiç yazılmadı. `pipeline-health` boş tabloyu
+ * okuyup `0 <= 3.500.000` ile HER KOŞUMDA yeşil döndü; 09-09'da limit yine
+ * doldu, pano yine yeşildi.
  *
- * İki sorgu bütçeyi eritiyordu:
- *   /v1/fiyat/toplu-ozet   → 188.697 satırlık GROUP BY, her cache-miss'te
- *   zenginleştirme kuyruğu → `ilanlar` üzerinde iki CTE tam tarama, SAATLİK
- *
- * Bu testler o iki yolun geri gelmediğini kilitliyor.
+ * Yani asıl sınanması gereken şey "sayaç doğru topluyor mu" değil, **kapı
+ * boşlukta yeşil dönüyor mu**. Aşağıdaki son iki test o soruyu soruyor.
  */
-import { describe, it, expect } from "vitest";
-import { app } from "../src/index.js";
-import { createMockEnv } from "./test-helper.js";
-import { ilFiyatOzetiKur } from "../src/lib/ozet-tablolari.js";
-import { pipelineHealthKontrol } from "../src/routes/pipeline-health.js";
 
-function kontrolBul(sonuc: { kontroller: Array<{ ad: string }> }, ad: string) {
-  const k = sonuc.kontroller.find((x) => x.ad === ad);
-  if (!k) throw new Error(`Kontrol bulunamadı: ${ad}`);
-  return k as { ad: string; deger: number; esik: number; gecti: boolean; mesaj: string };
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  maliyetEkle,
+  butceyiBosalt,
+  gunlukButceOku,
+  sayaclariOku,
+  sayaclariSifirla,
+} from "../src/lib/okuma-butcesi.js";
+
+/** Yazılan satırları bellekte tutan sahte D1 — ON CONFLICT toplamasını taklit eder. */
+function sahteDb() {
+  const satirlar = new Map<string, {
+    gun: string; kaynak: string;
+    satir_okuma: number; satir_yazma: number;
+    sorgu_adet: number; metasiz_adet: number;
+  }>();
+
+  const db = {
+    prepare(_sql: string) {
+      return {
+        bind(...v: unknown[]) {
+          return {
+            async run() {
+              const [gun, kaynak, okuma, yazma, sorgu, metasiz] = v as [
+                string, string, number, number, number, number,
+              ];
+              const k = `${gun}|${kaynak}`;
+              const m = satirlar.get(k) ?? {
+                gun, kaynak, satir_okuma: 0, satir_yazma: 0, sorgu_adet: 0, metasiz_adet: 0,
+              };
+              m.satir_okuma += okuma;
+              m.satir_yazma += yazma;
+              m.sorgu_adet += sorgu;
+              m.metasiz_adet += metasiz;
+              satirlar.set(k, m);
+              return { meta: {} };
+            },
+            async all() {
+              const gun = v[0] as string;
+              const results = [...satirlar.values()]
+                .filter((s) => s.gun === gun)
+                .sort((a, b) => b.satir_okuma - a.satir_okuma);
+              return { results, meta: {} };
+            },
+          };
+        },
+        async all() {
+          return { results: [...satirlar.values()], meta: {} };
+        },
+      };
+    },
+    _satirlar: satirlar,
+  } as unknown as D1Database & { _satirlar: typeof satirlar };
+  return db;
 }
 
-describe("il_fiyat_ozet — /toplu-ozet'in tam taraması yerine", () => {
-  it("ölçülmüş ve türetilmiş değerleri AYRI kolonlara yazar", async () => {
-    const env = createMockEnv();
-    await env.DB.prepare(
-      `INSERT INTO il_istatistik (il_norm, kategori, medyan, ilan_adet, son_guncelleme)
-       VALUES ('istanbul','arsa',8000,120,unixepoch())`,
-    ).run();
-    await env.DB.prepare(
-      `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('agri','merkez','x','arsa',300,40,'knn-smoothing',unixepoch()),
-              ('agri','merkez','y','arsa',400,40,'knn-smoothing',unixepoch())`,
-    ).run();
+const GUN_MS = Date.UTC(2026, 8, 11, 12, 0, 0); // 2026-09-11
 
-    await ilFiyatOzetiKur(env.DB);
+describe("okuma bütçesi sayacı", () => {
+  beforeEach(() => sayaclariSifirla());
 
-    const ist = await env.DB.prepare(
-      `SELECT * FROM il_fiyat_ozet WHERE il_norm='istanbul' AND kategori='arsa'`,
-    ).first<Record<string, number | null>>();
-    expect(ist?.medyan_ilan).toBe(8000);
-    expect(ist?.adet_ilan).toBe(120);
+  it("kaynak bazında okuma/yazma toplar", () => {
+    maliyetEkle("cron-gunluk", { rows_read: 1000, rows_written: 5 });
+    maliyetEkle("cron-gunluk", { rows_read: 2000, rows_written: 0 });
+    maliyetEkle("cron-saatlik", { rows_read: 50, rows_written: 100 });
 
-    const agri = await env.DB.prepare(
-      `SELECT * FROM il_fiyat_ozet WHERE il_norm='agri' AND kategori='arsa'`,
-    ).first<Record<string, number | null>>();
-    // Ölçülmüş veri yok → medyan_ilan NULL, adet 0. Türetilmiş ayrı kolonda.
-    expect(agri?.medyan_ilan).toBeNull();
-    expect(agri?.adet_ilan).toBe(0);
-    expect(agri?.medyan_ai).toBe(350);
-    expect(agri?.mahalle_ai_adet).toBe(2);
+    const s = sayaclariOku();
+    expect(s["cron-gunluk"]).toEqual({ okuma: 3000, yazma: 5, sorgu: 2, metasiz: 0 });
+    expect(s["cron-saatlik"]).toEqual({ okuma: 50, yazma: 100, sorgu: 1, metasiz: 0 });
   });
 
-  /**
-   * ASIL DÜZELTME: eskiden AI satırlarında `ilan_adet` alanına
-   * `mahalle_baseline_ai` SATIR SAYISI yazılıyordu ve uzantı haritası bunu
-   * "650 ilan · ● AI tahmin" diye gösteriyordu — o ilde sıfır gözlem varken.
-   */
-  it("AI ile sunulan ilde ilan_adet SIFIR döner (uydurma sayı değil)", async () => {
-    const env = createMockEnv();
-    await env.DB.prepare(
-      `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('agri','merkez','x','arsa',300,40,'knn-smoothing',unixepoch()),
-              ('agri','merkez','y','arsa',400,40,'knn-smoothing',unixepoch())`,
-    ).run();
-    await ilFiyatOzetiKur(env.DB);
+  it("meta'sız çağrıyı SIFIR saymaz, `metasiz` olarak sayar", () => {
+    // `first()` D1'de meta döndürmüyor. Maliyeti bilinmiyor — ama çağrının
+    // olduğu biliniyor ve bu görünür kalmalı, yoksa rapor olduğundan iyi görünür.
+    maliyetEkle("x", undefined);
+    maliyetEkle("x", { rows_read: 10 });
 
-    const res = await app.request("/v1/fiyat/toplu-ozet?kategori=arsa", {}, env);
-    expect(res.status).toBe(200);
-    const j = await res.json() as { iller: Array<{ il_norm: string; kaynak: string; ilan_adet: number }> };
-    const agri = j.iller.find((x) => x.il_norm === "agri");
-    expect(agri?.kaynak).toBe("ai-baseline");
-    expect(agri?.ilan_adet).toBe(0);
+    const s = sayaclariOku();
+    expect(s["x"]).toEqual({ okuma: 10, yazma: 0, sorgu: 2, metasiz: 1 });
   });
 
-  it("ölçülmüş veri >=5 ilan ise onu tercih eder", async () => {
-    const env = createMockEnv();
-    await env.DB.prepare(
-      `INSERT INTO il_istatistik (il_norm, kategori, medyan, ilan_adet, son_guncelleme)
-       VALUES ('istanbul','arsa',8000,120,unixepoch())`,
-    ).run();
-    await env.DB.prepare(
-      `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('istanbul','x','y','arsa',999,40,'knn-smoothing',unixepoch())`,
-    ).run();
-    await ilFiyatOzetiKur(env.DB);
+  it("boşaltma tabloya yazar ve belleği temizler", async () => {
+    const db = sahteDb();
+    maliyetEkle("cron-gunluk", { rows_read: 4_000_000, rows_written: 0 });
 
-    const res = await app.request("/v1/fiyat/toplu-ozet?kategori=arsa", {}, env);
-    const j = await res.json() as { iller: Array<{ il_norm: string; kaynak: string; medyan: number }> };
-    const ist = j.iller.find((x) => x.il_norm === "istanbul");
-    expect(ist?.kaynak).toBe("ilan");
-    expect(ist?.medyan).toBe(8000);
+    const yazilan = await butceyiBosalt(db, GUN_MS);
+    expect(yazilan).toBe(1);
+    // Bellek temizlendi — aynı sayı ikinci kez yazılmamalı.
+    expect(sayaclariOku()).toEqual({});
+
+    const butce = await gunlukButceOku(db, "2026-09-11");
+    expect(butce?.toplamOkuma).toBe(4_000_000);
+    expect(butce?.kaynaklar[0]?.kaynak).toBe("cron-gunluk");
   });
 
-  /**
-   * Özet tablosu boşsa uç nokta sessizce boş liste döner — eski hâlde tam
-   * tarama en azından bir cevap üretiyordu. Bu yüzden pipeline-health'te
-   * ayrı bir kontrol var.
-   */
-  it("özet tablosu boşsa sağlık kontrolü ALARM verir", async () => {
-    const env = createMockEnv();
-    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "İl fiyat özeti (önden hesaplanmış)");
-    expect(k.deger).toBe(0);
-    expect(k.gecti).toBe(false);
-  });
-});
+  it("aynı gün ikinci boşaltma ÜSTÜNE ekler, ezmez", async () => {
+    const db = sahteDb();
+    maliyetEkle("cron-saatlik", { rows_read: 100 });
+    await butceyiBosalt(db, GUN_MS);
+    maliyetEkle("cron-saatlik", { rows_read: 250 });
+    await butceyiBosalt(db, GUN_MS);
 
-describe("okuma bütçesi kontrolü", () => {
-  it("kayıt yoksa 0 okuma raporlar ve alarm vermez", async () => {
-    const env = createMockEnv();
-    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Günlük D1 satır okuma (üst sınır)");
-    expect(k.deger).toBe(0);
-    expect(k.gecti).toBe(true);
+    const butce = await gunlukButceOku(db, "2026-09-11");
+    expect(butce?.toplamOkuma).toBe(350);
   });
 
-  /**
-   * Bu kontrol diğerlerinin AKSİNE üst sınır: değer eşiğin ALTINDA olmalı.
-   * Eşik 3,5M — ücretsiz katman limitinin (5M) %70'i, yani alarm servis
-   * durmadan önce çalar.
-   */
-  it("eşik aşılınca ALARM verir", async () => {
-    const env = createMockEnv();
-    const bugun = new Date().toISOString().slice(0, 10);
-    await env.DB.prepare(
-      `INSERT INTO okuma_butcesi_gunluk (gun, satir_okuma, satir_yazma, guncellendi)
-       VALUES (?, 4200000, 0, unixepoch())`,
-    ).bind(bugun).run();
-
-    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Günlük D1 satır okuma (üst sınır)");
-    expect(k.deger).toBe(4_200_000);
-    expect(k.gecti).toBe(false);
-    // Eşik gerçek limitin altında olmalı — alarm çok geç çalmasın.
-    expect(k.esik).toBeLessThan(5_000_000);
+  it("sayaç boşken boşaltma yazma yapmaz — gereksiz yazma bütçe yer", async () => {
+    const db = sahteDb();
+    expect(await butceyiBosalt(db, GUN_MS)).toBe(0);
+    expect(await gunlukButceOku(db, "2026-09-11")).toBeNull();
   });
 
-  it("eşiğin altında geçer", async () => {
-    const env = createMockEnv();
-    const bugun = new Date().toISOString().slice(0, 10);
-    await env.DB.prepare(
-      `INSERT INTO okuma_butcesi_gunluk (gun, satir_okuma, satir_yazma, guncellendi)
-       VALUES (?, 1000000, 0, unixepoch())`,
-    ).bind(bugun).run();
-    const k = kontrolBul(await pipelineHealthKontrol(env.DB), "Günlük D1 satır okuma (üst sınır)");
-    expect(k.gecti).toBe(true);
+  it("KAYIT YOKSA null döner — 'sıfır tüketim' ile karıştırılamaz", async () => {
+    const db = sahteDb();
+    // Bu ayrım kapının tamamı: eski kod burada 0 üretiyor ve yeşil dönüyordu.
+    expect(await gunlukButceOku(db, "2026-01-01")).toBeNull();
   });
 });

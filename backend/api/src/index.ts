@@ -38,6 +38,8 @@ import { hesapRoutes } from "./routes/hesap.js";
 import { lemonRoutes } from "./routes/lemon.js";
 import { aiFiyatRoutes } from "./routes/ai-fiyat.js";
 import { aiScorecardRoutes } from "./routes/ai-scorecard.js";
+import { wrapD1 } from "./lib/db-timing.js";
+import { butceyiBosalt } from "./lib/okuma-butcesi.js";
 import { adminRoutes } from "./routes/admin.js";
 import { milliEmlakRoutes } from "./routes/milli-emlak.js";
 import { newsletterRoutes } from "./routes/newsletter.js";
@@ -515,6 +517,22 @@ app.route("/v1/takip", takipRoutes);
 // /v1/istatistik/sayim GET  → D1 sayım raporu
 app.route("/v1", seedRoutes);
 
+/**
+ * Cron ifadesi → bütçe tablosundaki okunabilir kaynak adı.
+ *
+ * Ham cron string'i (`"0 3 * * *"`) tabloya yazılsa rapor okunmaz olurdu:
+ * "bugün limiti kim yedi" sorusunun cevabı bir zamanlama ifadesi değil, bir
+ * iş adı olmalı. Listede olmayan bir cron gelirse `cron:<ifade>` ile yine de
+ * kaydediliyor — sessizce kaybolmasın.
+ */
+const CRON_KAYNAK_ADI: Record<string, string> = {
+  "0 3 * * *": "cron-gunluk",
+  "0 * * * *": "cron-saatlik",
+  "0 2 1 * *": "cron-aylik-sahibinden-endeks",
+  "0 3 15 * *": "cron-aylik-emlakjet",
+  "0 5 * * 1": "cron-haftalik-polygon",
+};
+
 // Cloudflare Workers entry point
 export default {
   fetch: app.fetch,
@@ -532,8 +550,36 @@ export default {
   //                   bu artık yedek/yakalama turu)
   //   "0 5 * * 1"   → parsel polygon değişiklik takibi
   // event.cron string'i ile ayırıyoruz.
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+  async scheduled(event: ScheduledEvent, envHam: Env, ctxHam: ExecutionContext) {
     const cron = event.cron;
+
+    // ── OKUMA BÜTÇESİ ÖLÇÜMÜ ────────────────────────────────────────────────
+    //
+    // D1 ücretsiz katmanının 5M/gün okuma limiti iki kez doldu (2026-09-04 ve
+    // 09-09) ve ikisinde de sistem 500 vermeye başlayana kadar hiçbir uyarı
+    // olmadı. Üretimde günde 4 kullanıcı sorgusu var (`fiyat_katman_gunluk`),
+    // yani yükün TAMAMI buradan — cron'lardan — geliyor. Hangisinden olduğu
+    // bilinmiyordu.
+    //
+    // İki yerel gölgeleme, gövdedeki onlarca `env.DB` / `ctx.waitUntil`
+    // çağrısına dokunmadan ölçümü açıyor:
+    //
+    //   env → DB'si `wrapD1` ile sarılmış kopya; her sorgunun meta'sı sayılıyor
+    //   ctx → waitUntil'i, iş BİTTİKTEN SONRA sayacı tabloya boşaltan sarmalayıcı
+    //
+    // `butceyiBosalt` SARILMAMIŞ binding ile çağrılıyor (envHam.DB): sarılmış
+    // olanla çağrılsa flush'ın kendisi sayaca eklenir ve sayaç asla boşalmazdı.
+    const kaynak = CRON_KAYNAK_ADI[cron] ?? `cron:${cron}`;
+    const env: Env = { ...envHam, DB: wrapD1(envHam.DB, kaynak) };
+    const ctx: ExecutionContext = {
+      waitUntil: (p: Promise<unknown>) =>
+        ctxHam.waitUntil(
+          // `finally`: iş hata verse de ölçüm yazılmalı. Bütçeyi en çok yiyen
+          // koşum, yarıda patlayan koşum olabilir.
+          p.finally(() => butceyiBosalt(envHam.DB)),
+        ),
+      passThroughOnException: () => ctxHam.passThroughOnException(),
+    } as ExecutionContext;
     if (cron === "0 3 * * *") {
       ctx.waitUntil((async () => {
         // 1) İstatistik agregasyonu

@@ -22,6 +22,7 @@
 
 import type { Env } from "../index.js";
 import { katmanDagilimi } from "../lib/katman-telemetrisi.js";
+import { gunlukButceOku } from "../lib/okuma-butcesi.js";
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -38,12 +39,63 @@ export interface PipelineKontrolSonucu {
   emailGonderildi: boolean;
 }
 
+/**
+ * Bir kontrolün üç durumu — ve neden ikisi yetmedi.
+ *
+ * Kontroller `gecti: boolean` idi ve bu, üst sınırlı (`<= max`) kontrollerde
+ * SESSİZ BİR HATA üretiyordu: veri kaynağı boşsa `deger = 0` oluyor,
+ * `0 <= max` doğru çıkıyor ve kontrol YEŞİL dönüyordu.
+ *
+ * En pahalı örnek: "Günlük D1 satır okuma" kontrolü `okuma_butcesi_gunluk`
+ * tablosunu okuyor ama o tabloya YAZAN KOD HİÇ YAZILMAMIŞTI. Kontrol kurulduğu
+ * günden 2026-09-10'a kadar her koşumda yeşil döndü; bu arada limit iki kez
+ * doldu ve servis 500 vermeye başladı.
+ *
+ * Alt sınırlı (`>= min`) kontroller bu hatayı yapmıyordu — veri yoksa 0 < min
+ * olduğu için doğru şekilde kırmızı dönüyorlardı. Yani eksik olan tek şey
+ * üçüncü durumdu: **bilinmiyor.**
+ *
+ * `bilinmiyor` YEŞİL SAYILMAZ — alarm sayısına dahildir. "Ölçemedim" ile
+ * "sorun yok" aynı şey değil (P2).
+ */
+export type KontrolDurumu = "gecti" | "kaldi" | "bilinmiyor";
+
 export interface PipelineKontrol {
   ad: string;
   deger: number;
   esik: number;
+  durum: KontrolDurumu;
+  /**
+   * `durum === "gecti"` ile aynı — mevcut tüketiciler (e-posta şablonu, admin
+   * paneli) bozulmasın diye korunuyor. `bilinmiyor` durumunda FALSE, yani
+   * eski okuyucular da artık yeşil görmüyor.
+   */
   gecti: boolean;
   mesaj: string;
+}
+
+/**
+ * Kurulum aşamasındaki kontrol — `durum` opsiyonel.
+ *
+ * Mevcut kontrollerin çoğu alt sınırlı (`>= min`) ve orada `gecti` zaten doğru
+ * davranıyor (veri yoksa 0 < min → kırmızı). `durum`'u AÇIKÇA verenler, veri
+ * yokluğunu `bilinmiyor` diye işaretlemesi gerekenler: üst sınırlı kontroller.
+ * Sonda hepsi `PipelineKontrol`'e normalize ediliyor.
+ */
+export type KurulumKontrol = Omit<PipelineKontrol, "durum" | "gecti"> & {
+  durum?: KontrolDurumu;
+  gecti: boolean;
+};
+
+/** `durum`'dan türeyen `gecti` ile tutarlı bir kontrol nesnesi kurar. */
+function kontrol(
+  ad: string,
+  deger: number,
+  esik: number,
+  durum: KontrolDurumu,
+  mesaj: string,
+): PipelineKontrol {
+  return { ad, deger, esik, durum, gecti: durum === "gecti", mesaj };
 }
 
 // ─── Eşik değerleri ───────────────────────────────────────────────────────────
@@ -175,7 +227,13 @@ export async function pipelineHealthKontrol(
   db: D1Database,
 ): Promise<PipelineKontrolSonucu> {
   const ts = Date.now();
-  const kontroller: PipelineKontrol[] = [];
+  /**
+   * Kurulum sırasında `durum` opsiyonel: mevcut kontrollerin çoğu alt sınırlı
+   * (`>= min`) ve orada `gecti` zaten doğru davranıyor. Sonda normalize
+   * ediliyor. `durum`'u AÇIKÇA veren kontroller, veri yokluğunu `bilinmiyor`
+   * olarak işaretlemesi gerekenler.
+   */
+  const kontroller: KurulumKontrol[] = [];
 
   // 1. Toplam aktif ilan sayısı
   const toplamIlan = await db.prepare(
@@ -331,11 +389,17 @@ export async function pipelineHealthKontrol(
   const botEngel = await db.prepare(
     `SELECT COUNT(*) as n FROM tarama_durum WHERE son_durum = 'bot-engel'`,
   ).first<{ n: number }>().catch(() => null);
+  // ÜST SINIRLI: sorgu hata verirse `0 <= max` ile yeşil dönerdi. `bilinmiyor`
+  // (bkz. KontrolDurumu) — "tarama_durum okunamadı" ile "hiç engel yok" aynı
+  // şey değil ve ikincisi iyi haber gibi görünüyor.
   kontroller.push({
     ad: "Bot engelli hedef (üst sınır)",
     deger: botEngel?.n ?? 0,
     esik: KONTROL_ESLIKLERI.BOT_ENGEL_MAX,
-    gecti: (botEngel?.n ?? 0) <= KONTROL_ESLIKLERI.BOT_ENGEL_MAX,
+    durum: botEngel?.n == null
+      ? "bilinmiyor" as const
+      : botEngel.n <= KONTROL_ESLIKLERI.BOT_ENGEL_MAX ? "gecti" as const : "kaldi" as const,
+    gecti: botEngel?.n != null && botEngel.n <= KONTROL_ESLIKLERI.BOT_ENGEL_MAX,
     mesaj: botEngel?.n != null
       ? `${botEngel.n} hedef 'bot-engel' damgalı`
       : "tarama_durum erişim hatası",
@@ -377,19 +441,49 @@ export async function pipelineHealthKontrol(
   // "sunucu hatası" görünüyor; sebebi görünmüyor.
   //
   // Eşik limitin %70'i: alarm, servis durmadan ÖNCE çalmalı.
-  const bugun = new Date().toISOString().slice(0, 10);
-  const okuma = await db.prepare(
-    `SELECT satir_okuma FROM okuma_butcesi_gunluk WHERE gun = ?`,
-  ).bind(bugun).first<{ satir_okuma: number }>().catch(() => null);
-  const okunanSatir = okuma?.satir_okuma ?? 0;
-  kontroller.push({
-    ad: "Günlük D1 satır okuma (üst sınır)",
-    deger: okunanSatir,
-    esik: KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
-    gecti: okunanSatir <= KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
-    mesaj: `${okunanSatir.toLocaleString("tr-TR")} satır okundu ` +
-      `(ücretsiz katman limiti 5.000.000/gün, eşik %70)`,
-  });
+  //
+  // ── BU KONTROL 2026-09-10'A KADAR SAHTEYDİ ────────────────────────────────
+  //
+  // `okuma_butcesi_gunluk` tablosuna YAZAN KOD HİÇ YAZILMAMIŞTI. Satır
+  // bulunamayınca `okunanSatir = 0` oluyor, `0 <= 3.500.000` doğru çıkıyor ve
+  // kontrol HER KOŞUMDA YEŞİL dönüyordu. 2026-09-09'da limit yine doldu, pano
+  // yine yeşildi. Yani kesintiyi önlemek için kurulan alarm, kesintiyi
+  // önlemedi çünkü hiç ölçmüyordu.
+  //
+  // İki şey değişti: (1) `lib/okuma-butcesi.ts` artık gerçekten yazıyor,
+  // (2) kayıt YOKSA bu kontrol `bilinmiyor` dönüyor — sıfır saymıyor.
+  const butce = await gunlukButceOku(db).catch(() => null);
+
+  if (!butce) {
+    kontroller.push(kontrol(
+      "Günlük D1 satır okuma (üst sınır)",
+      0,
+      KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
+      "bilinmiyor",
+      "Bugün için bütçe kaydı YOK — tüketim ölçülemedi. Bu 'tüketim sıfır' " +
+      "DEĞİLDİR: sayaç yazamıyor olabilir (bkz. lib/okuma-butcesi.ts).",
+    ));
+  } else {
+    // Kaynak kırılımı mesaja giriyor: "4,7M okundu" tek başına eyleme
+    // dönüşmüyor, "bunun 4,2M'i cron-saatlik" dönüşüyor.
+    const enBuyuk = butce.kaynaklar.slice(0, 3)
+      .map((k) => `${k.kaynak} ${k.okuma.toLocaleString("tr-TR")}`)
+      .join(" · ");
+    // Ölçüm KAPSAMI da mesajda: `first()` çağrıları D1'de meta döndürmüyor,
+    // yani gerçek tüketim bundan BÜYÜK olabilir. Bunu gizlemek, sayacın
+    // önlemek için kurulduğu hatayı tekrarlamak olurdu.
+    const kapsamNotu = butce.metasizAdet > 0
+      ? ` · ${butce.metasizAdet} çağrının maliyeti ÖLÇÜLEMEDİ (first(), meta yok) — gerçek tüketim daha yüksek olabilir`
+      : "";
+    kontroller.push(kontrol(
+      "Günlük D1 satır okuma (üst sınır)",
+      butce.toplamOkuma,
+      KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
+      butce.toplamOkuma <= KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX ? "gecti" : "kaldi",
+      `${butce.toplamOkuma.toLocaleString("tr-TR")} satır okundu ` +
+      `(limit 5.000.000/gün, eşik %70) · en çok: ${enBuyuk || "—"}${kapsamNotu}`,
+    ));
+  }
 
   // Özet tabloları doluyor mu — bunlar boşsa sıcak yol eski tam taramalara
   // düşmez, DAHA KÖTÜSÜ olur: /toplu-ozet boş liste döner. Sessiz sıfır.
@@ -478,11 +572,16 @@ export async function pipelineHealthKontrol(
   const ilSayisi = await db.prepare(
     `SELECT COUNT(DISTINCT il_norm) AS n FROM ilanlar WHERE aktif = 1`,
   ).first<{ n: number }>().catch(() => null);
+  // ÜST SINIRLI — bot engeliyle aynı gerekçe: `ilanlar` okunamazsa 0 il
+  // görünür ve kontrol yeşil döner, oysa o an hiçbir şey bilinmiyordur.
   kontroller.push({
     ad: "Farklı il sayısı (üst sınır)",
     deger: ilSayisi?.n ?? 0,
     esik: KONTROL_ESLIKLERI.IL_SAYISI_MAX,
-    gecti: (ilSayisi?.n ?? 0) <= KONTROL_ESLIKLERI.IL_SAYISI_MAX,
+    durum: ilSayisi?.n == null
+      ? "bilinmiyor" as const
+      : ilSayisi.n <= KONTROL_ESLIKLERI.IL_SAYISI_MAX ? "gecti" as const : "kaldi" as const,
+    gecti: ilSayisi?.n != null && ilSayisi.n <= KONTROL_ESLIKLERI.IL_SAYISI_MAX,
     mesaj: ilSayisi?.n != null
       ? `${ilSayisi.n} farklı il_norm (Türkiye'de 81 il var)`
       : "ilanlar erişim hatası",
@@ -516,10 +615,18 @@ export async function pipelineHealthKontrol(
       : dagilim.map((d) => `${d.katman} %${d.oran}`).join(" · "),
   });
 
-  const alarmSayisi = kontroller.filter((k) => !k.gecti).length;
+  // `durum` verilmemiş kontroller için `gecti`'den türet — davranış değişmiyor.
+  const tamKontroller: PipelineKontrol[] = kontroller.map((k) => {
+    const durum: KontrolDurumu = k.durum ?? (k.gecti ? "gecti" : "kaldi");
+    return { ad: k.ad, deger: k.deger, esik: k.esik, durum, gecti: durum === "gecti", mesaj: k.mesaj };
+  });
+
+  // "bilinmiyor" ALARM SAYILIR. Ölçemediğin şeyi sağlıklı ilan etmek, bu
+  // dosyanın onarmaya çalıştığı hatanın ta kendisi.
+  const alarmSayisi = tamKontroller.filter((k) => k.durum !== "gecti").length;
   const saglikli = alarmSayisi === 0;
 
-  return { ts, saglikli, kontroller, alarmSayisi, emailGonderildi: false };
+  return { ts, saglikli, kontroller: tamKontroller, alarmSayisi, emailGonderildi: false };
 }
 
 /**
@@ -531,7 +638,7 @@ export async function pipelineHealthKontrol(
  */
 async function sayimKontrolEkle(
   db: D1Database,
-  kontroller: PipelineKontrol[],
+  kontroller: KurulumKontrol[],
   opt: { ad: string; sorgu: string; esik: number; birim: string },
 ): Promise<void> {
   const r = await db.prepare(opt.sorgu).first<{ n: number }>().catch(() => null);
