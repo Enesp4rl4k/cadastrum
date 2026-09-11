@@ -235,6 +235,27 @@ test kırılır. Test **düzeltmeden önce yazılıp kırmızı görülmeli.**
 tüketen kaynağı adıyla gösteriyor · `backtest:real` **birebir aynı** (bu faz
 motora dokunmuyor).
 
+**Kabul — sayacın kendisi doğrulanır (P4'ün ölçüm aletine uygulanması):**
+`Σ okuma_butcesi_gunluk.satir_okuma` ile Cloudflare'in bağımsız sayacı
+`wrangler d1 info` → `rows_read_24h` karşılaştırılır. **Kapsam oranı ≥ %80**
+olmalı. Altındaysa sayaç tüketimin önemli bir kısmını görmüyor demektir ve
+sağlık kontrolünün "geçti" hükmü desteklenemez.
+
+> **Uygulama notu (2026-09-11):** deploy sonrası `/v1/fiyat/*` uçları aralıklı
+> 500 döndü. `wrangler tail`: `D1_ERROR: … exceeded D1's free tier daily row
+> read limit`. `wrangler d1 info`: **rows_read_24h 6.699.173**, yalnızca
+> **1.285 sorgudan** — sorgu başına ortalama ~5.200 satır, yani tam taramalar.
+> Kesinti deploy'dan kaynaklanmıyor; limit üçüncü kez doldu.
+>
+> Aynı inceleme G2'nin ilk sürümünde bir boşluk gösterdi: `first()` çağrıları
+> "metasiz" sayılıp maliyeti yok sayılıyordu, oysa cron yolundaki COUNT(*) tam
+> taramalarının neredeyse tamamı `first()` kullanıyor. Düzeltildi — Cloudflare
+> belgesi `first()`'ün sorguyu değiştirmediğini söylüyor, yani `all()` üzerinden
+> çalıştırmak okuma maliyetini artırmıyor.
+>
+> pipeline-health'in kendi payı tahmini: ~5 tam tarama × 67k ≈ **~340k/gün**
+> (bütçenin ~%7'si) — ana tüketici değil. Asıl tüketici G2 ölçümüyle belli olacak.
+
 ---
 
 ### G3 — Gerçek satış döngüsü: projenin tek yeni bilgi kaynağı

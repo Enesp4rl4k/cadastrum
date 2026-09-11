@@ -19,12 +19,15 @@
  * Bu sayaç TAM DEĞİL ve olduğundan iyi görünmemesi için sınırları burada
  * yazılı:
  *
- * 1. **`first()` ölçülemiyor.** D1'in `prepare().first()` metodu satırı
- *    doğrudan döndürüyor, `meta` taşımıyor. `all()` ve `run()` taşıyor.
- *    `first()`'ü `all()`'a çevirmek meta kazandırırdı ama LIMIT'siz bir
- *    sorguda tüm satırları Worker belleğine materyalize ederdi — ölçmek için
- *    ölçtüğün şeyi bozmak. Bunun yerine `metasiz_adet` sayılıyor: kaç çağrının
- *    maliyeti bilinmiyor, tabloda görünüyor.
+ * 1. ~~`first()` ölçülemiyor~~ — DÜZELTİLDİ (2026-09-11). İlk sürüm `first()`
+ *    çağrılarını `metasiz` sayıp bırakıyordu; gerekçe "`all()`'a çevirmek
+ *    ölçtüğünü bozar" idi ve YANLIŞTI. Cloudflare belgesi: "first() does not
+ *    alter the SQL query" — sorgunun tamamı çalışıyor, `rows_read` aynı.
+ *    Bu boşluk küçük değildi: cron yolundaki COUNT(*) tam taramalarının
+ *    neredeyse tamamı `first()` kullanıyor. `wrapD1` artık `first()`'ü
+ *    `all()` üzerinden çalıştırıp meta'yı sayıyor (bkz. db-timing.ts).
+ *    `metasiz_adet` kolonu kalıyor: meta taşımayan bir yol çıkarsa (sürücü
+ *    değişikliği vb.) sıfır saymak yerine görünür olsun.
  *
  * 2. **Yalnızca `wrapD1` ile sarılmış yollar sayılıyor.** Sarılmamış bir
  *    `env.DB.prepare(...)` çağrısı görünmez.

@@ -116,11 +116,20 @@ async function runApiSmoke() {
     const res = await fetch(`${apiBase}/fiyat/il/istanbul?kategori=arsa`, { signal: controller.signal });
     clearTimeout(timeoutId);
 
-    if (res.status === 200) {
-      assert(true, "GET /fiyat/il/istanbul HTTP 200 döndü");
-    } else {
-      console.warn(`  ⚠ UYARI: GET /fiyat/il/istanbul HTTP ${res.status} döndü (Edge/D1 durumu)`);
-    }
+    // ESKİ HÂLİ 200 dışındaki her yanıtı `console.warn` ile geçiştiriyordu ve
+    // `basarili`'yi düşürmüyordu. 2026-09-11 deploy'unun ardından bu uç canlı
+    // olarak 500 döndü ve smoke test "17 / 17 kontrol başarılı ✅" dedi.
+    //
+    // Bir smoke test'in tek işi "deploy sonrası çekirdek uç çalışıyor mu"
+    // sorusuna cevap vermek. 500'ü uyarıya indiren smoke test, bu projede
+    // tekrar tekrar ayıkladığımız sınıfın bir örneği: var görünen ama
+    // ölçmeyen kontrol. Artık assert — 500 KIRMIZI.
+    //
+    // NOT: `?kategori=arsa` KASITLI. Parametresiz URL edge önbelleğinden
+    // dönebiliyor ve D1'e hiç dokunmadan 200 veriyor — aynı gün parametresiz
+    // hâli 200, parametreli hâli 500 döndü. Önbellekten gelen 200, canlı yolun
+    // çalıştığını kanıtlamaz.
+    assert(res.status === 200, `GET /fiyat/il/istanbul?kategori=arsa HTTP 200 döndü (Alınan: ${res.status})`);
   } catch (err) {
     console.warn(`  ⚠ UYARI: Fiyat endpoint'ine erişilemedi (${err.message})`);
   }

@@ -59,16 +59,39 @@ class TimedStatement {
     return new TimedStatement(this.stmt.bind(...values), this.sql, this.context);
   }
 
+  /**
+   * `first()` — ama `all()` üzerinden, maliyeti ÖLÇÜLEBİLSİN diye.
+   *
+   * D1'in yerel `first()` metodu `meta` DÖNDÜRMÜYOR, yani `rows_read`
+   * görünmüyor. İlk sürümde bu çağrılar `metasiz` sayılıp bırakılmıştı ve bu
+   * ciddi bir boşluktu: cron yolundaki `COUNT(*)` sorgularının neredeyse
+   * tamamı `first()` kullanıyor (pipeline-health'te 13 first / 1 all) ve tam
+   * taramaların çoğu tam da onlar. Yani bütçeyi en çok yiyen sorgu sınıfı
+   * sayaca GÖRÜNMEZ olacaktı — sayaç 1M gösterirken gerçek tüketim 6,7M olup
+   * kontrol "geçti" diyebilirdi. Dipnotlu sahte yeşil.
+   *
+   * `all()`'a yönlendirmek maliyeti ARTIRMIYOR — Cloudflare belgesi:
+   * "first() does not alter the SQL query" (LIMIT 1 eklemiyor, sorgunun
+   * tamamını çalıştırıp ilk satırı döndürüyor). `rows_read` ikisinde aynı.
+   * Tek fark Worker'a taşınan satır sayısı ve COUNT/agrega sorgularında o
+   * zaten 1. Birden fazla satır dönüyorsa aşağıda UYARI loglanıyor: o sorgu
+   * `first()` ile çağrılıp çok satır üretiyor demektir ve `LIMIT 1` eksik —
+   * israf artık görünür.
+   */
   async first<T = unknown>(): Promise<T | null> {
     const t0 = Date.now();
-    const result = await this.stmt.first<T>();
+    const result = await this.stmt.all<T>();
     this.kontrol(Date.now() - t0, "first");
-    // `first()` D1'de `meta` DÖNDÜRMÜYOR — maliyeti bilinmiyor, ama çağrının
-    // olduğu biliniyor. `metasiz` olarak sayılıyor ki bütçe raporu "eksik
-    // olabilir" diye okunabilsin. Sayılamayan maliyeti sıfır saymak, bu
-    // sayacın önlemek için kurulduğu hatanın ta kendisi.
-    maliyetEkle(this.context, undefined);
-    return result;
+    maliyetEkle(this.context, result.meta);
+    const satirlar = result.results ?? [];
+    if (satirlar.length > 1) {
+      log.warn("db.first.cok-satir", {
+        context: this.context,
+        satir: satirlar.length,
+        sql: this.sql.slice(0, 200).replace(/\s+/g, " ").trim(),
+      });
+    }
+    return (satirlar[0] as T | undefined) ?? null;
   }
 
   async all<T = unknown>(): Promise<D1Result<T>> {
