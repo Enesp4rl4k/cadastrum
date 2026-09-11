@@ -16,6 +16,14 @@
  */
 
 import { PUBLIC_API_BASE } from "../lib/config";
+import {
+  gorunumModu,
+  genelNoktalariKur,
+  istekHatasiMetni,
+  HaritaIstekHatasi,
+  type GorunumModu,
+  type IlceOzeti,
+} from "./harita-genel";
 
 const API_BASE: string = PUBLIC_API_BASE;
 
@@ -489,6 +497,8 @@ async function likiditToggle(kategori: "arsa" | "tarla" = "arsa") {
       likiditKatmanEkle(likiditVerisi);
     } catch (e) {
       console.warn("[likidite] veri alınamadı:", e);
+      // Görünür: eskiden yalnızca konsola gidiyordu, katman sessizce boş kalıyordu.
+      durumGuncelle("Likidite katmanı yüklenemedi — biraz sonra tekrar deneyin");
       return;
     }
   } else {
@@ -1033,6 +1043,14 @@ let aktifTip = 1;
 let yuklenenIlceler = new Set<string>();
 let tumNoktalar: HeatPoint[] = [];
 let yukleniyor = false;
+/**
+ * Görünüm modu ve genel görünüm noktaları — ayrıntı noktalarından AYRI.
+ * Isı ağırlığı "en büyük sayi"ya göre ölçekleniyor; ilçe toplamı ile parsel
+ * noktası aynı dizide olsa ölçek bozulurdu. Gerekçe: harita-genel.ts.
+ */
+let aktifMod: GorunumModu = "detay";
+let genelNoktalar: HeatPoint[] = [];
+let genelTip: number | null = null;
 let poiVeri: PoiVeri | null = null;
 
 // ─── Haversine mesafe (km) ────────────────────────────────────────────────────
@@ -1067,7 +1085,7 @@ async function ilceBirlesikCek(ilceKodu: number, tip: number): Promise<D1Nokta[]
 
   const url = `${API_BASE}/harita/analiz/birlesik?ilceKodu=${ilceKodu}&analizTip=${tip}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new HaritaIstekHatasi(res.status, Number(res.headers.get("Retry-After")) || null);
   const data = await res.json() as { noktalar?: D1Nokta[] };
   const noktalar = data.noktalar ?? [];
 
@@ -1123,7 +1141,7 @@ function sourceGuncelle() {
   if (!harita) return;
   const geojson: GeoJSON.FeatureCollection = {
     type: "FeatureCollection",
-    features: tumNoktalar,
+    features: aktifMod === "genel" ? genelNoktalar : tumNoktalar,
   };
   const src = harita.getSource("heat-src") as import("maplibre-gl").GeoJSONSource | undefined;
   if (src) {
@@ -1192,6 +1210,39 @@ function layerEkleVeyaGuncelle(maxSayi: number) {
 
 // ─── Görünen ilçeleri lazy yükle ─────────────────────────────────────────────
 
+/**
+ * Uzak görünüm — TEK /harita/ozet isteği, her ilçe merkezine bir nokta.
+ * Eskiden görünen her ilçe için ayrı istek atılıyordu; Türkiye görünümünde
+ * yüzlerce istek saatlik sınırı ilk açılışta dolduruyor, harita boş
+ * kalıyordu. Gerekçe: harita-genel.ts başı.
+ */
+async function genelGorunumGoster(ilceler: IlceBilgi[]) {
+  if (!harita) return;
+  aktifMod = "genel";
+  if (genelTip !== aktifTip || genelNoktalar.length === 0) {
+    yukleniyor = true;
+    try {
+      const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${aktifTip}&birlesik=1`);
+      if (!res.ok) {
+        durumGuncelle(istekHatasiMetni(res.status, Number(res.headers.get("Retry-After")) || null));
+        return;
+      }
+      const data = await res.json() as { ozet?: IlceOzeti[] };
+      genelNoktalar = genelNoktalariKur(data.ozet ?? [], ilceler).noktalar as HeatPoint[];
+      genelTip = aktifTip;
+    } catch (e) {
+      console.warn("[harita] genel görünüm alınamadı:", e);
+      durumGuncelle("Harita verisi alınamadı — bağlantınızı kontrol edin");
+      return;
+    } finally {
+      yukleniyor = false;
+    }
+  }
+  sourceGuncelle();
+  layerEkleVeyaGuncelle(genelNoktalar.reduce((m, p) => Math.max(m, (p.properties as { sayi: number }).sayi), 1));
+  durumGuncelle(`Genel görünüm — ${genelNoktalar.length.toLocaleString("tr-TR")} ilçe · ayrıntı için yakınlaştırın`);
+}
+
 async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
   if (!harita || yukleniyor) return;
 
@@ -1208,6 +1259,18 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
     ilce.lng >= sw.lng - lngPad && ilce.lng <= ne.lng + lngPad
   );
 
+  // UZAK GÖRÜNÜM: ilçe başına istek YOK — tek /harita/ozet.
+  if (gorunumModu(gorünenler.length) === "genel") {
+    await genelGorunumGoster(ilceler);
+    return;
+  }
+  if (aktifMod === "genel") {
+    // Genelden ayrıntıya geçiş: daha önce yüklenmiş ayrıntıyı hemen göster.
+    aktifMod = "detay";
+    sourceGuncelle();
+    layerEkleVeyaGuncelle(tumNoktalar.reduce((m, p) => Math.max(m, (p.properties as { sayi: number }).sayi), 1));
+  }
+
   const yuklenecekler = gorünenler.filter(
     (ilce) => !yuklenenIlceler.has(`${ilce.ilceKodu}:${aktifTip}`)
   );
@@ -1215,6 +1278,10 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
   if (yuklenecekler.length === 0) return;
 
   yukleniyor = true;
+  // `null as ...` KASITLI: atama Promise.allSettled içindeki async geri
+  // çağırmalarda yapılıyor ve TypeScript kapanış içi atamaları izlemiyor —
+  // düz `= null` ile tip döngüden sonra hâlâ `null`, `if` içinde `never` olurdu.
+  let sonHata = null as HaritaIstekHatasi | null;
   durumGuncelle(`${yuklenecekler.length} ilçe yükleniyor…`);
 
   const CONCURRENCY = 6; // D1 backend hızlı — daha yüksek concurrency
@@ -1223,9 +1290,11 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
     await Promise.allSettled(
       grup.map(async (ilce) => {
         const key = `${ilce.ilceKodu}:${aktifTip}`;
-        yuklenenIlceler.add(key);
         try {
           const noktalar = await ilceBirlesikCek(ilce.ilceKodu, aktifTip);
+          // Yalnızca BAŞARIDA işaretle. Eskiden istekten ÖNCE işaretleniyordu:
+          // 429 alan ilçe bir daha asla denenmiyordu.
+          yuklenenIlceler.add(key);
           tumNoktalar.push(
             ...noktalar.map((n): HeatPoint => ({
               type: "Feature",
@@ -1233,8 +1302,10 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
               properties: { sayi: n.sayi },
             }))
           );
-        } catch {
-          // sessiz fail — seed edilmemiş ilçe
+        } catch (e) {
+          // Eskiden HER hata "seed edilmemiş ilçe" diye yutuluyordu; sınıra
+          // takılan kullanıcı boş haritayı gerçek boşluk sanıyordu.
+          if (e instanceof HaritaIstekHatasi) sonHata = e;
         }
       })
     );
@@ -1246,7 +1317,11 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
   }
 
   const toplamNokta = tumNoktalar.length;
-  durumGuncelle(`${toplamNokta.toLocaleString("tr-TR")} işlem noktası (tüm yıllar birleşik)`);
+  if (sonHata) {
+    durumGuncelle(istekHatasiMetni(sonHata.durum, sonHata.retryAfter));
+  } else {
+    durumGuncelle(`${toplamNokta.toLocaleString("tr-TR")} işlem noktası (tüm yıllar birleşik)`);
+  }
   istatistikGuncelle(toplamNokta);
   yukleniyor = false;
 }

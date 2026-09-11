@@ -241,7 +241,29 @@ app.use("/v1/emsal/*", rateLimitMiddleware(60, "emsal"));
 app.use("/v1/sorgu/*", rateLimitMiddleware(100, "sorgu"));
 
 // Harita: GeoJSON ağır veri — saatte 30 istek/IP
-app.use("/v1/harita/*", rateLimitMiddleware(30, "harita"));
+// HARİTA SINIRI — 2026-09-12'de düzeltildi.
+//
+// Eskiden tüm /v1/harita/* uçları saatte 30 istek paylaşıyordu. Oysa harita
+// sayfası (site/src/scripts/harita-init.ts) GÖRÜNEN HER İLÇE İÇİN ayrı bir
+// /harita/analiz/birlesik isteği atıyordu ve Türkiye görünümünde yüzlerce ilçe
+// görünür. İlk açılışta ~30 istekten sonra her şey 429 alıyor, sayfa bunu
+// "seed edilmemiş ilçe" diye yutuyordu → kullanıcı BOŞ HARİTA görüyordu.
+// Fan-out 2026-07-10'da, 30/saat sınırı 2026-07-16'da geldi: sayfa yaklaşık
+// iki aydır ilk açılışta çalışmıyordu.
+//
+// İki değişiklik:
+//  1. /harita/likidite sınırdan MUAF — D1'e hiç dokunmuyor, statik tablo.
+//     Maliyetsiz bir isteği sınırlamak yalnızca sayfayı bozuyordu.
+//  2. D1 uçları 300/saat. Site artık uzak görünümde TEK /harita/ozet isteği
+//     atıyor, ayrıntıyı yalnızca ≤40 ilçe görünürken yüklüyor; bir gezinme
+//     oturumu bu sınırın rahatça altında kalıyor.
+const haritaSinir = rateLimitMiddleware(300, "harita");
+app.use("/v1/harita/*", async (c, next) => {
+  if (c.req.path === "/v1/harita/likidite") return next();
+  // Tip dönüşümü: uygulama Context'i AppVariables taşıyor, sınır ara katmanı
+  // yalnızca { Bindings: Env } bekliyor — davranış aynı, yalnızca tip.
+  return haritaSinir(c as unknown as Parameters<typeof haritaSinir>[0], next);
+});
 
 // Newsletter kayıt: spam önleme — saatte 5 istek/IP
 app.use("/v1/newsletter/*", rateLimitMiddleware(5, "newsletter"));
