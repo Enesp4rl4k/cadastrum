@@ -24,7 +24,7 @@ function sahteDb() {
   const satirlar = new Map<string, {
     gun: string; kaynak: string;
     satir_okuma: number; satir_yazma: number;
-    sorgu_adet: number; metasiz_adet: number;
+    sorgu_adet: number; metasiz_adet: number; hata_adet: number;
   }>();
 
   const db = {
@@ -33,17 +33,18 @@ function sahteDb() {
         bind(...v: unknown[]) {
           return {
             async run() {
-              const [gun, kaynak, okuma, yazma, sorgu, metasiz] = v as [
-                string, string, number, number, number, number,
+              const [gun, kaynak, okuma, yazma, sorgu, metasiz, hata] = v as [
+                string, string, number, number, number, number, number,
               ];
               const k = `${gun}|${kaynak}`;
               const m = satirlar.get(k) ?? {
-                gun, kaynak, satir_okuma: 0, satir_yazma: 0, sorgu_adet: 0, metasiz_adet: 0,
+                gun, kaynak, satir_okuma: 0, satir_yazma: 0, sorgu_adet: 0, metasiz_adet: 0, hata_adet: 0,
               };
               m.satir_okuma += okuma;
               m.satir_yazma += yazma;
               m.sorgu_adet += sorgu;
               m.metasiz_adet += metasiz;
+              m.hata_adet += hata;
               satirlar.set(k, m);
               return { meta: {} };
             },
@@ -77,8 +78,8 @@ describe("okuma bütçesi sayacı", () => {
     maliyetEkle("cron-saatlik", { rows_read: 50, rows_written: 100 });
 
     const s = sayaclariOku();
-    expect(s["cron-gunluk"]).toEqual({ okuma: 3000, yazma: 5, sorgu: 2, metasiz: 0 });
-    expect(s["cron-saatlik"]).toEqual({ okuma: 50, yazma: 100, sorgu: 1, metasiz: 0 });
+    expect(s["cron-gunluk"]).toEqual({ okuma: 3000, yazma: 5, sorgu: 2, metasiz: 0, hata: 0 });
+    expect(s["cron-saatlik"]).toEqual({ okuma: 50, yazma: 100, sorgu: 1, metasiz: 0, hata: 0 });
   });
 
   it("meta'sız çağrıyı SIFIR saymaz, `metasiz` olarak sayar", () => {
@@ -88,7 +89,7 @@ describe("okuma bütçesi sayacı", () => {
     maliyetEkle("x", { rows_read: 10 });
 
     const s = sayaclariOku();
-    expect(s["x"]).toEqual({ okuma: 10, yazma: 0, sorgu: 2, metasiz: 1 });
+    expect(s["x"]).toEqual({ okuma: 10, yazma: 0, sorgu: 2, metasiz: 1, hata: 0 });
   });
 
   it("boşaltma tabloya yazar ve belleği temizler", async () => {

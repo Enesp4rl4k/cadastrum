@@ -65,7 +65,7 @@ export function imarTahminEt(parsel: Parsel): ImarTahmini {
   const sahile_yakin = sahilKm > 0 && sahilKm <= 2;
 
   // Tarla / Bağ / Bahçe / Zeytinlik → tarımsal nitelik (yapı izni sınırlı)
-  if (/tarla|bağ\b|bag\b|bahç|bahce|zeytin|çayır|cayır|mer'a|mera/.test(nitelik)) {
+  if (/tarla|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])|bahç|bahce|zeytin|çayır|cayır|mer'a|mera/i.test(nitelik)) {
     return {
       taks: null,
       emsal: null,

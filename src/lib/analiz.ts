@@ -161,7 +161,7 @@ function nitelikAnalizi(nitelik: string): NitelikAnalizi {
       ikon: "🫒",
       not: "Zeytinlik — 3573 sayılı kanun uyarınca yapılaşma kısıtlamalı.",
     };
-  if (/bağ\b|bag\b/u.test(n))
+  if (/(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/ui.test(n))
     return {
       kategori: "bag",
       ikon: "🍇",

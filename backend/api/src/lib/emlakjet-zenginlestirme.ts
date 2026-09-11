@@ -258,6 +258,14 @@ export interface ZenginlestirmeSonuc {
   kaliciHata: number;
   /** 403/429/5xx/timeout — deneme sayaci artti, damgalanmadi. */
   geciciHata: number;
+  /**
+   * Geçici hataların HTTP koduna göre dağılımı ("0" = timeout/ağ).
+   *
+   * Her turda denemelerin ~%75'i geçici hatayla bitiyordu ve hangisi olduğu
+   * hiçbir yere yazılmıyordu. 403 bot engeli, 429 hız limiti, 0 timeout —
+   * üçü farklı çözüm ister; toplam sayı teşhise yetmez.
+   */
+  geciciDagilim: Record<string, number>;
   zenginlesen: number;
   imarBulunan: number;
   koordBulunan: number;
@@ -455,7 +463,7 @@ export async function emlakjetZenginlestirmeTuru(
   const sonuc: ZenginlestirmeSonuc = {
     denenen: 0, zenginlesen: 0, imarBulunan: 0,
     koordBulunan: 0, tapuBulunan: 0, baslikBulunan: 0, hata: 0,
-    kaliciHata: 0, geciciHata: 0, sure_ms: 0,
+    kaliciHata: 0, geciciHata: 0, geciciDagilim: {}, sure_ms: 0,
   };
 
   const kuyruk = kuyrukV2
@@ -489,6 +497,8 @@ export async function emlakjetZenginlestirmeTuru(
         // sonsuza kadar yanıyordu. Artık deneme sayacı artıyor ve ancak
         // MAKS_DENEME'den sonra vazgeçiliyor.
         sonuc.geciciHata++;
+        const kod = String(cekme.kod);
+        sonuc.geciciDagilim[kod] = (sonuc.geciciDagilim[kod] ?? 0) + 1;
         await db.prepare(
           `UPDATE ilanlar SET
              zenginlestirme_deneme = COALESCE(zenginlestirme_deneme, 0) + 1,
@@ -563,12 +573,14 @@ export async function emlakjetZenginlestirmeTuru(
     await db.prepare(
       `INSERT INTO zenginlestirme_log
          (calisti, denenen, zenginlesen, imar_bulunan, tapu_bulunan,
-          koord_bulunan, baslik_bulunan, kalici_hata, gecici_hata, sure_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          koord_bulunan, baslik_bulunan, kalici_hata, gecici_hata, sure_ms,
+          gecici_dagilim)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       Date.now(), sonuc.denenen, sonuc.zenginlesen, sonuc.imarBulunan,
       sonuc.tapuBulunan, sonuc.koordBulunan, sonuc.baslikBulunan,
       sonuc.kaliciHata, sonuc.geciciHata, sonuc.sure_ms,
+      JSON.stringify(sonuc.geciciDagilim),
     ).run();
   } catch (e) {
     console.error("[zenginlestirme] log yazilamadi:", e);

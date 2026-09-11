@@ -191,7 +191,7 @@ app.onError((err, c) => {
         method: c.req.method,
         path: c.req.path,
         requestId,
-      }),
+      }, c.env.RATE_LIMIT_KV),
     );
   } catch {
     // beklenen yokluk: executionCtx bazı bağlamlarda (ör. test, doğrudan

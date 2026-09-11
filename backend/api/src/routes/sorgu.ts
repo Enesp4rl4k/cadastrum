@@ -30,7 +30,9 @@ const VALID_KATEGORI = new Set(["arsa", "tarla", "konut"]);
 
 // Fallback il-bazlı baseline (TL/m²) — spatial + mahalle istatistik boşsa.
 // Son güncelleme: Temmuz 2026 — yüksek enflasyon ortamında sık güncellenmeli.
-// Kaynak: Endeksa, Hepsiemlak, REIDIN Temmuz 2026 ortalamaları.
+// KAYNAK: DOĞRULANAMADI (2026-09-11 denetimi): depoda bu tabloyu üreten veri dosyası, betik ya da içe aktarma yok; sayılar elle girilmiş ve ölçülmemiş.
+// Eski satır "Kaynak: Endeksa, Hepsiemlak, REIDIN Temmuz 2026" diyordu — ücretli
+// sağlayıcılara atıf, dayanağı yok (P6: atıf dürüstlüğü).
 const IL_FALLBACK_TL_M2: Record<string, { arsa: number; tarla: number; konut: number }> = {
   istanbul: { arsa: 85000,  tarla: 3000,  konut: 200000 },
   ankara:   { arsa: 28000,  tarla: 1500,  konut: 80000  },

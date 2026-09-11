@@ -304,7 +304,7 @@ export const NITELIK_RENKLERI: { pattern: RegExp; renk: string; ikon: string }[]
   { pattern: /arsa/i, renk: "#3b82f6", ikon: "🟦" },
   { pattern: /tarla/i, renk: "#a3e635", ikon: "🌾" },
   { pattern: /bahçe|bahce/i, renk: "#84cc16", ikon: "🌳" },
-  { pattern: /bağ\b|bag\b/iu, renk: "#a855f7", ikon: "🍇" },
+  { pattern: /(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/iu, renk: "#a855f7", ikon: "🍇" },
   { pattern: /zeytin/i, renk: "#65a30d", ikon: "🫒" },
   { pattern: /mesken|bina|işyeri|isyeri/i, renk: "#ef4444", ikon: "🏢" },
   { pattern: /yol/i, renk: "#737373", ikon: "🛣️" },

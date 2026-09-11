@@ -36,7 +36,7 @@ const RADIUS_SECENEKLERI = [
 function kategoriBul(nitelik: string): SpatialKategori {
   const t = nitelik.toLocaleLowerCase("tr");
   if (/mesken|bina|işyeri|isyeri|konut|daire/.test(t)) return "konut";
-  if (/tarla|bahçe|bahce|zeytin|bağ\b|bag\b|orman|mera/u.test(t)) return "tarla";
+  if (/tarla|bahçe|bahce|zeytin|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])|orman|mera/ui.test(t)) return "tarla";
   return "arsa";
 }
 

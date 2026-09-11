@@ -46,6 +46,13 @@ export interface KaynakSayaci {
   yazma: number;
   sorgu: number;
   metasiz: number;
+  /**
+   * BAŞARISIZ D1 çağrısı (fırlatan sorgu). 2026-09-11'de okuma limiti dolunca
+   * cron sorguları reddedildi; reddedilen sorgu meta döndürmeden fırlattığı
+   * için hiç sayılmıyordu ve kesinti tabloda "neredeyse hiçbir şey olmadı"
+   * gibi görünüyordu. Ölçme aracı en gerektiği anda körleşiyordu.
+   */
+  hata: number;
 }
 
 /**
@@ -70,11 +77,7 @@ interface D1Meta {
  *   bu durum `metasiz` olarak sayılır (bkz. kapsam sınırı 1).
  */
 export function maliyetEkle(kaynak: string, meta: D1Meta | undefined): void {
-  let s = sayaclar.get(kaynak);
-  if (!s) {
-    s = { okuma: 0, yazma: 0, sorgu: 0, metasiz: 0 };
-    sayaclar.set(kaynak, s);
-  }
+  const s = sayacAl(kaynak);
   s.sorgu++;
   if (!meta) {
     s.metasiz++;
@@ -82,6 +85,25 @@ export function maliyetEkle(kaynak: string, meta: D1Meta | undefined): void {
   }
   s.okuma += meta.rows_read ?? 0;
   s.yazma += meta.rows_written ?? 0;
+}
+
+function sayacAl(kaynak: string): KaynakSayaci {
+  let s = sayaclar.get(kaynak);
+  if (!s) {
+    s = { okuma: 0, yazma: 0, sorgu: 0, metasiz: 0, hata: 0 };
+    sayaclar.set(kaynak, s);
+  }
+  return s;
+}
+
+/**
+ * Başarısız bir D1 çağrısını sayar. Çağıran hatayı YUTMAZ — sayıp yeniden
+ * fırlatır; bu fonksiyon yalnızca "oldu" bilgisini kaydediyor.
+ */
+export function hataEkle(kaynak: string): void {
+  const s = sayacAl(kaynak);
+  s.sorgu++;
+  s.hata++;
 }
 
 /** Test ve teşhis için — biriken sayaçların anlık kopyası. */
@@ -116,16 +138,17 @@ export async function butceyiBosalt(db: D1Database, simdi?: number): Promise<num
       await db
         .prepare(
           `INSERT INTO okuma_butcesi_gunluk
-             (gun, kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet, guncellendi)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+             (gun, kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet, hata_adet, guncellendi)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(gun, kaynak) DO UPDATE SET
              satir_okuma  = satir_okuma  + excluded.satir_okuma,
              satir_yazma  = satir_yazma  + excluded.satir_yazma,
              sorgu_adet   = sorgu_adet   + excluded.sorgu_adet,
              metasiz_adet = metasiz_adet + excluded.metasiz_adet,
+             hata_adet    = hata_adet    + excluded.hata_adet,
              guncellendi  = excluded.guncellendi`,
         )
-        .bind(gun, kaynak, s.okuma, s.yazma, s.sorgu, s.metasiz, simdi ?? Date.now())
+        .bind(gun, kaynak, s.okuma, s.yazma, s.sorgu, s.metasiz, s.hata, simdi ?? Date.now())
         .run();
       yazilan++;
     } catch (e) {
@@ -142,7 +165,9 @@ export interface GunlukButce {
   toplamOkuma: number;
   toplamYazma: number;
   metasizAdet: number;
-  kaynaklar: Array<{ kaynak: string; okuma: number; yazma: number; sorgu: number }>;
+  /** Başarısız D1 çağrısı — kesinti sırasında sayacın körleşmediğinin kanıtı. */
+  hataAdet: number;
+  kaynaklar: Array<{ kaynak: string; okuma: number; yazma: number; sorgu: number; hata: number }>;
 }
 
 /**
@@ -160,7 +185,7 @@ export async function gunlukButceOku(
   const hedefGun = gun ?? new Date(simdi ?? Date.now()).toISOString().slice(0, 10);
   const r = await db
     .prepare(
-      `SELECT kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet
+      `SELECT kaynak, satir_okuma, satir_yazma, sorgu_adet, metasiz_adet, hata_adet
        FROM okuma_butcesi_gunluk WHERE gun = ? ORDER BY satir_okuma DESC`,
     )
     .bind(hedefGun)
@@ -170,6 +195,7 @@ export async function gunlukButceOku(
       satir_yazma: number;
       sorgu_adet: number;
       metasiz_adet: number;
+      hata_adet: number;
     }>();
 
   const satirlar = r.results ?? [];
@@ -180,11 +206,13 @@ export async function gunlukButceOku(
     toplamOkuma: satirlar.reduce((t, s) => t + (s.satir_okuma ?? 0), 0),
     toplamYazma: satirlar.reduce((t, s) => t + (s.satir_yazma ?? 0), 0),
     metasizAdet: satirlar.reduce((t, s) => t + (s.metasiz_adet ?? 0), 0),
+    hataAdet: satirlar.reduce((t, s) => t + (s.hata_adet ?? 0), 0),
     kaynaklar: satirlar.map((s) => ({
       kaynak: s.kaynak,
       okuma: s.satir_okuma ?? 0,
       yazma: s.satir_yazma ?? 0,
       sorgu: s.sorgu_adet ?? 0,
+      hata: s.hata_adet ?? 0,
     })),
   };
 }

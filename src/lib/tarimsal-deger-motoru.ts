@@ -260,5 +260,5 @@ export function tarimselDegerHesapla(girdi: TarimselDegerGirdisi): TarimselDeger
  * fiyat-tahmin.ts'deki tarımsalMi() ile aynı mantık.
  */
 export function tarımAraziMi(nitelik: string): boolean {
-  return /tarla|bahçe|bahce|bağ\b|bag\b|zeytinlik|mera/iu.test(nitelik);
+  return /tarla|bahçe|bahce|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])|zeytinlik|mera/iu.test(nitelik);
 }

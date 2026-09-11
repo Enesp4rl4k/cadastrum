@@ -14,7 +14,7 @@
  * de bu yüzden ÖLÜ — hiçbir kod yolu onları üretmiyor.
  *
  * Gerçek katmanlar:
- *   1. Statik il tablosu — 2026 Q1 Endeksa/Hepsiemlak ortalamaları
+ *   1. Statik il tablosu — elle girilmiş, kaynağı DOĞRULANAMADI (aşağıya bkz.)
  *   2. Fallback — Türkiye ortalaması
  *
  * Sadece konut kategori için anlam taşır; arsa/tarla için null.
@@ -27,7 +27,8 @@ import { normalizeYerAdi } from "./tkgm-api";
 
 /**
  * İl bazlı konut kira ortalaması (TL/m²/ay).
- * Kaynak: Endeksa, Hepsiemlak, REIDIN Temmuz 2026.
+ * KAYNAK: DOĞRULANAMADI (2026-09-11 denetimi): depoda bu tabloyu üreten veri dosyası, betik ya da içe aktarma yok; sayılar elle girilmiş ve ölçülmemiş.
+ * (Eski satır "Endeksa, Hepsiemlak, REIDIN Temmuz 2026" diyordu — P6.)
  * İstanbul: Şişli/Beyoğlu ~800-1200, ortalama 700-850 TL/m²/ay.
  * Not: Yüksek enflasyon — 6 ayda %30-50 artış olası. Backend scrape öncelikli.
  */

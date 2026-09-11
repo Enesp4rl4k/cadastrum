@@ -54,7 +54,7 @@ function parselToVeri(
   // Nitelik kategori tespiti — tarla/bahçe/zeytinlik/bağ vb. tarımsal
   const nitelikNorm = parsel.nitelik?.toLowerCase() ?? "";
   const kategori =
-    /tarla|bağ\b|bag\b|bahçe|bahce|zeytinlik|mera/i.test(nitelikNorm) ? "tarla"
+    /tarla|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])|bahçe|bahce|zeytinlik|mera/i.test(nitelikNorm) ? "tarla"
     : /arsa/i.test(nitelikNorm) ? "arsa"
     : "arsa";
 

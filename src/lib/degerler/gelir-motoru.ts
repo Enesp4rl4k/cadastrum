@@ -172,7 +172,8 @@ const VARSAYILAN_KAPITALIZASYON: Record<GelirKategorisi, number> = {
 /**
  * Bölgesel kira değerleri — TL/m² inşaat alanı/ay.
  * Brüt kira, tüm giderler dahil (yönetim, bakım hariç — kiracı öder varsayımı).
- * Kaynak: Sahibinden kira ilanları analizi, Endeksa 2025.
+ * KAYNAK: DOĞRULANAMADI (2026-09-11 denetimi): depoda bu tabloyu üreten veri dosyası, betik ya da içe aktarma yok; sayılar elle girilmiş ve ölçülmemiş.
+ * (Eski satır "Sahibinden kira ilanları analizi, Endeksa 2025" diyordu — P6.)
  */
 const PIYASA_KIRA_TLM2_AY: Record<string, Record<GelirKategorisi, number>> = {
   "istanbul": {

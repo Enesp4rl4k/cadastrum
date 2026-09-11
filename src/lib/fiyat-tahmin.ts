@@ -240,7 +240,7 @@ export async function fiyatTahminEt(
       nitelik = { ad: "Zeytinlik", carpan: 1.4, not: "Zeytinlik primi (3573 sayılı kanun)" };
     } else if (/bahçe|bahce/i.test(parsel.nitelik)) {
       nitelik = { ad: "Bahçe", carpan: 1.3, not: "Bahçe primi (sulu/yetiştirme)" };
-    } else if (/bağ\b|bag\b/iu.test(parsel.nitelik)) {
+    } else if (/(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/iu.test(parsel.nitelik)) {
       nitelik = { ad: "Bağ", carpan: 1.1, not: "Bağ niteliği" };
     }
     // Buradaki "Arsa 4,0" ve "Mesken 8,0" dalları SİLİNDİ — ERİŞİLEMEZDİ.
@@ -262,7 +262,7 @@ export async function fiyatTahminEt(
       nitelik = { ad: nitelik.ad, carpan: 0.5, not: `${nitelik.not} (imar ${imar.sinif} ile yukarı çekildi)` };
     } else if (/bahçe|bahce/i.test(parsel.nitelik) && nitelik.carpan < 0.85) {
       nitelik = { ad: nitelik.ad, carpan: 0.85, not: `${nitelik.not} (imar ${imar.sinif} ile yukarı çekildi)` };
-    } else if (/bağ\b|bag\b/iu.test(parsel.nitelik) && nitelik.carpan < 0.7) {
+    } else if (/(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/iu.test(parsel.nitelik) && nitelik.carpan < 0.7) {
       nitelik = { ad: nitelik.ad, carpan: 0.7, not: `${nitelik.not} (imar ${imar.sinif} ile yukarı çekildi)` };
     } else if (/zeytin/i.test(parsel.nitelik) && nitelik.carpan < 0.6) {
       nitelik = { ad: nitelik.ad, carpan: 0.6, not: `${nitelik.not} (imar ${imar.sinif} ile yukarı çekildi)` };

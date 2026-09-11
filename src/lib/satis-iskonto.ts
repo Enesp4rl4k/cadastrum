@@ -7,7 +7,8 @@
  *
  * Metodoloji:
  *   - Milli Emlak ihale sonuçları (gerçek satış) vs ilan fiyatları karşılaştırması
- *   - Literatür: REIDIN, Endeksa, Colliers Türkiye raporları 2022-2025
+ *   - (Eski metin burada REIDIN/Endeksa/Colliers raporlarına atıf yapıyordu;
+ *     depoda bu raporlardan türetilmiş hiçbir veri yok — DOĞRULANAMADI, P6.)
  *   - Kategori ve bölge bazlı farklılaşma (arsa vs tarla, büyükşehir vs kırsal)
  *   - Piyasa ısısı: Soğuk piyasada iskonto artıyor, sıcak piyasada azalıyor
  *
@@ -40,7 +41,8 @@ export interface IskontoSonucu {
 }
 
 // ─── Bölgesel iskonto tablosu ─────────────────────────────────────────────────
-// Kaynak: Milli Emlak ihale analizi + Colliers TR 2023-2025 + REIDIN
+// KAYNAK: DOĞRULANAMADI (2026-09-11 denetimi): depoda bu tabloyu üreten veri dosyası, betik ya da içe aktarma yok; sayılar elle girilmiş ve ölçülmemiş.
+// Eski satır "Milli Emlak ihale analizi + Colliers TR 2023-2025 + REIDIN" diyordu.
 // Format: ilNorm → { arsa: oran, tarla: oran }
 
 interface BolgeIskonto {
@@ -157,7 +159,10 @@ export function iskontoGetir(
     bolgeIskonto,
     piyasaDuzeltme,
     aciklama: `${ilAdi} ${kategori} satış iskontosu: %${Math.round(oran * 100)} (${tablodaMi}, piyasa: ${piyasa})`,
-    metodoloji: "Milli Emlak ihale analizi + Colliers TR 2023-2025 + REIDIN",
+    // KULLANICIYA GÖRÜNEN metin. Eskiden "Milli Emlak ihale analizi + Colliers TR
+    // 2023-2025 + REIDIN" diyordu — kullanıcıya olmayan bir veri kaynağını
+    // metodoloji diye sunuyordu. Doğrusu yazıldı (P6).
+    metodoloji: "Elle girilmiş bölgesel iskonto tablosu — kaynağı doğrulanamadı, gerçek satışlarla ölçülmedi",
   };
 }
 

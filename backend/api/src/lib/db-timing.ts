@@ -28,7 +28,7 @@
  */
 
 import { log } from "./logger.js";
-import { maliyetEkle } from "./okuma-butcesi.js";
+import { maliyetEkle, hataEkle } from "./okuma-butcesi.js";
 
 /** Yavaş sorgu eşiği (ms) */
 const SLOW_QUERY_MS = 500;
@@ -80,7 +80,7 @@ class TimedStatement {
    */
   async first<T = unknown>(): Promise<T | null> {
     const t0 = Date.now();
-    const result = await this.stmt.all<T>();
+    const result = await this.sayarak(() => this.stmt.all<T>());
     this.kontrol(Date.now() - t0, "first");
     maliyetEkle(this.context, result.meta);
     const satirlar = result.results ?? [];
@@ -96,7 +96,7 @@ class TimedStatement {
 
   async all<T = unknown>(): Promise<D1Result<T>> {
     const t0 = Date.now();
-    const result = await this.stmt.all<T>();
+    const result = await this.sayarak(() => this.stmt.all<T>());
     this.kontrol(Date.now() - t0, "all");
     maliyetEkle(this.context, result.meta);
     return result;
@@ -104,10 +104,26 @@ class TimedStatement {
 
   async run(): Promise<D1Result> {
     const t0 = Date.now();
-    const result = await this.stmt.run();
+    const result = await this.sayarak(() => this.stmt.run());
     this.kontrol(Date.now() - t0, "run");
     maliyetEkle(this.context, result.meta);
     return result;
+  }
+
+  /**
+   * Başarısız çağrıyı SAYAR ve YENİDEN FIRLATIR — yutmaz.
+   *
+   * Reddedilen sorgu (ör. D1 günlük okuma limiti) meta döndürmeden fırlıyor;
+   * bu sarmalayıcı olmadan sayaç ona hiç dokunmuyordu ve kesinti bütçe
+   * tablosunda "neredeyse hiç sorgu yok" diye görünüyordu (2026-09-11).
+   */
+  private async sayarak<R>(fn: () => Promise<R>): Promise<R> {
+    try {
+      return await fn();
+    } catch (e) {
+      hataEkle(this.context);
+      throw e;
+    }
   }
 
   private kontrol(ms: number, op: string): void {
@@ -142,7 +158,14 @@ export function wrapD1(db: D1Database, context: string): D1Database {
           const gercek = statements.map((s) =>
             s instanceof TimedStatement ? s.icStatement() : s,
           );
-          const result = await target.batch(gercek);
+          let result: D1Result[];
+          try {
+            result = await target.batch(gercek);
+          } catch (e) {
+            // Tek çağrı, tek hata — batch'teki ifade sayısı kadar değil.
+            hataEkle(context);
+            throw e;
+          }
           const ms = Date.now() - t0;
           if (ms >= SLOW_QUERY_MS) {
             log.warn("db.yavassorgus.batch", { ms, context, adet: statements.length });

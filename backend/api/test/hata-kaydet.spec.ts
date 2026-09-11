@@ -32,7 +32,9 @@ describe("sunucuHatasiKaydet", () => {
       path: "/v1/test",
       requestId: "req-1",
     });
-    expect(ok).toBe(true);
+    // Dönüş tipi 2026-09-11'de boolean'dan "d1" | "kv" | false'a değişti:
+    // D1 yazamazsa KV yedeğine düşüyor ve çağıran nereye yazıldığını görüyor.
+    expect(ok).toBe("d1");
     const [mesaj, stack, meta, , requestId] = bindler[0]!;
     expect(mesaj).toBe("patladi");
     expect(String(stack)).toContain("Error");
@@ -42,7 +44,7 @@ describe("sunucuHatasiKaydet", () => {
 
   it("Error olmayan fırlatmayı da kaydeder", async () => {
     const { db, bindler } = sahteDb();
-    expect(await sunucuHatasiKaydet(db, "duz string hata")).toBe(true);
+    expect(await sunucuHatasiKaydet(db, "duz string hata")).toBe("d1");
     expect(bindler[0]![0]).toBe("duz string hata");
   });
 

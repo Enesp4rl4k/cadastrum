@@ -94,7 +94,7 @@ export const NITELIK_CARPANI_TABLOSU: {
   // `yapiliParselNotu` başında.
   { ad: "Mesken / Bina", pattern: /mesken|bina|işyeri|isyeri/i,     carpan: 1.0,  not: "Yapılı parsel — yalnızca arazi değeri (yapı değeri dahil değil)" },
   { ad: "Bahçe",         pattern: /bahçe|bahce/i,                   carpan: 0.7,  not: "Yarı tarımsal, -%30" },
-  { ad: "Bağ",           pattern: /bağ\b|bag\b/iu,                  carpan: 0.55, not: "Bağ niteliği, -%45" },
+  { ad: "Bağ",           pattern: /(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/iu,                  carpan: 0.55, not: "Bağ niteliği, -%45" },
   { ad: "Tarla",         pattern: /tarla/i,                         carpan: 0.25, not: "Tarımsal, -%75 (imar değişikliği zor)" },
   { ad: "Zeytinlik",     pattern: /zeytin/i,                        carpan: 0.4,  not: "3573 sayılı kanun kısıtlaması" },
   { ad: "Yol",           pattern: /^yol/i,                          carpan: 0,    not: "Kamu yolu — özel mülk değil" },
@@ -138,8 +138,25 @@ export function yapiliParselNotu(nitelik: string): string | null {
   );
 }
 
+/**
+ * Motorun kategori kararı: parsel tarımsal mı (→ "tarla" baseline'ı)?
+ *
+ * ── bağ\b HATASI (2026-09-11) ────────────────────────────────────────────────
+ *
+ * Eski desen `bağ\b` içeriyordu. JS'te `\b` ASCII'dir ve "ğ" kelime karakteri
+ * DEĞİL: `/bağ\b/` tek başına "Bağ"ı ASLA eşleştirmiyor, "Bağlık"ı ise
+ * eşleştiriyordu — niyetin tersi. Saf "Bağ" niteliği motor tarafından ARSA
+ * sayılıyor, "Bilinmeyen nitelik" 0,5× alıyordu. Aynı hata 10 dosyada 15
+ * satırdaydı; hepsinde yalnızca bozuk parça düzeltildi
+ * (data/tarimsal-mi-ayrisma-olcum.json).
+ *
+ * Türkçe büyük harf: `/i` "İ"yi katlamıyor ("ZEYTİNLİK" eşleşmiyordu) — girdi
+ * hem olduğu gibi hem Türkçe küçük harfle deneniyor (bkz. nitelikCarpani).
+ */
 export function tarımsalMi(nitelik: string): boolean {
-  return /tarla|bahçe|bahce|bağ\b|bag\b|zeytin/iu.test(nitelik);
+  const n = nitelik ?? "";
+  const d = /tarla|bahçe|bahce|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])|zeytin/iu;
+  return d.test(n) || d.test(n.toLocaleLowerCase("tr"));;
 }
 
 export function alanBandi(alan: number): AlanBand {
@@ -155,7 +172,7 @@ export function segmentBul(metin: string | null | undefined): EmsalSegment {
   if (/\barsa\b/.test(text))   return "arsa";
   if (/tarla/.test(text))      return "tarla";
   if (/bahçe|bahce/.test(text))return "bahce";
-  if (/\bbağ\b|\bbag\b/.test(text)) return "bag";
+  if (/(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/i.test(text)) return "bag";
   if (/zeytin/.test(text))     return "zeytinlik";
   if (/mesken|bina|daire|dükkan/.test(text)) return "built";
   if (/^yol/.test(text))       return "road";
@@ -359,7 +376,7 @@ export function kirsalCarpani(
   nitelik: string,
   kirsal: CevreAnalizi["kirsal"] | null,
 ): CarpanSonucu {
-  if (!/tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(nitelik)) {
+  if (!/tarla|bahçe|bahce|zeytinlik|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/i.test(nitelik)) {
     return { carpan: 1.0, not: "Uygulanmaz (kentsel parsel)" };
   }
   if (!kirsal) return { carpan: 1.0, not: "Kırsal veri alınamadı" };

@@ -1,0 +1,241 @@
+{
+  "olculdu": "2026-09-11",
+  "soru": "bağ\\b hatası: repodaki 'tarımsal mı?' sınıflandırıcıları gerçekçi TKGM niteliklerinde ne kadar ayrışıyor?",
+  "neden": "JS \\b ASCII; 'ğ' kelime karakteri değil. /bağ\\b/ tek başına 'Bağ'ı eşleştirmiyor, 'Bağlık'ı eşleştiriyor.",
+  "beklenen_kaynagi": "Elle — Bağ/Bağlık/Bağlar tarımsal; Bağımsız Bölüm tarımsal DEĞİL. Mera ve Fındıklık için motorun niyeti belirsiz (null) — sayılmadı.",
+  "onerilen_desen": "/(?<![\\p{L}\\p{N}])ba[ğg](?:l[ıi]k|lar)?(?![\\p{L}\\p{N}])/iu",
+  "sapmalar": {
+    "motor tarımsalMi (carpan-zinciri:104)": [
+      "Bağ",
+      "BAĞ",
+      "Kargir Ev ve Bağ",
+      "ZEYTİNLİK"
+    ],
+    "YatirimSkoruKarti:103": [
+      "Bağ",
+      "BAĞ",
+      "Kargir Ev ve Bağ",
+      "ZEYTİNLİK"
+    ],
+    "ScorecardKarti:57": [
+      "Bağ",
+      "BAĞ",
+      "Kargir Ev ve Bağ",
+      "ZEYTİNLİK"
+    ],
+    "EmsalRadiusSlider:39": [
+      "Bağ",
+      "BAĞ",
+      "Kargir Ev ve Bağ"
+    ],
+    "tarimsal-deger-motoru:263": [
+      "Bağ",
+      "BAĞ",
+      "Kargir Ev ve Bağ",
+      "ZEYTİNLİK"
+    ],
+    "ÖNERİLEN": []
+  },
+  "tablo": [
+    {
+      "nitelik": "Tarla",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Arsa",
+      "beklenen": false,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": false
+    },
+    {
+      "nitelik": "Mesken",
+      "beklenen": false,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": false
+    },
+    {
+      "nitelik": "Zeytinlik",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Bahçe",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Bağ",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "BAĞ",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Bağ ve Tarla",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Bağlık",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Bağlar",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Kargir Ev ve Bağ",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Kargir Ev ve Bahçesi",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Bağımsız Bölüm",
+      "beklenen": false,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": false
+    },
+    {
+      "nitelik": "Mesken ve Bağımsız Bölüm",
+      "beklenen": false,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": false
+    },
+    {
+      "nitelik": "ZEYTİNLİK",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "TARLA",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Hisseli Arsa",
+      "beklenen": false,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": false
+    },
+    {
+      "nitelik": "Bag",
+      "beklenen": true,
+      "motor tarımsalMi (carpan-zinciri:104)": true,
+      "YatirimSkoruKarti:103": true,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": true
+    },
+    {
+      "nitelik": "Mera",
+      "beklenen": null,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": true,
+      "EmsalRadiusSlider:39": true,
+      "tarimsal-deger-motoru:263": true,
+      "ÖNERİLEN": false
+    },
+    {
+      "nitelik": "Fındıklık",
+      "beklenen": null,
+      "motor tarımsalMi (carpan-zinciri:104)": false,
+      "YatirimSkoruKarti:103": false,
+      "ScorecardKarti:57": false,
+      "EmsalRadiusSlider:39": false,
+      "tarimsal-deger-motoru:263": false,
+      "ÖNERİLEN": false
+    }
+  ]
+}

@@ -473,7 +473,12 @@ export async function pipelineHealthKontrol(
     // yani gerçek tüketim bundan BÜYÜK olabilir. Bunu gizlemek, sayacın
     // önlemek için kurulduğu hatayı tekrarlamak olurdu.
     const kapsamNotu = butce.metasizAdet > 0
-      ? ` · ${butce.metasizAdet} çağrının maliyeti ÖLÇÜLEMEDİ (first(), meta yok) — gerçek tüketim daha yüksek olabilir`
+      ? ` · ${butce.metasizAdet} çağrının maliyeti ÖLÇÜLEMEDİ (meta yok) — gerçek tüketim daha yüksek olabilir`
+      : "";
+    // Başarısız çağrılar: D1 reddediyorsa (ör. limit dolu) toplam okuma düşük
+    // görünür ama bu iyi haber DEĞİLDİR — iş yapılamıyor demektir.
+    const hataNotu = butce.hataAdet > 0
+      ? ` · ${butce.hataAdet} D1 çağrısı BAŞARISIZ oldu — düşük okuma sayısı kesintiyi gizliyor olabilir`
       : "";
     kontroller.push(kontrol(
       "Günlük D1 satır okuma (üst sınır)",
@@ -481,7 +486,7 @@ export async function pipelineHealthKontrol(
       KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX,
       butce.toplamOkuma <= KONTROL_ESLIKLERI.GUNLUK_OKUMA_MAX ? "gecti" : "kaldi",
       `${butce.toplamOkuma.toLocaleString("tr-TR")} satır okundu ` +
-      `(limit 5.000.000/gün, eşik %70) · en çok: ${enBuyuk || "—"}${kapsamNotu}`,
+      `(limit 5.000.000/gün, eşik %70) · en çok: ${enBuyuk || "—"}${kapsamNotu}${hataNotu}`,
     ));
   }
 

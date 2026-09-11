@@ -74,7 +74,7 @@ export function YatirimSkoruKarti({ parsel, fiyat: fiyatProp, cevre, ePlan }: Pr
       parsel.ilceAd,
       parsel.mahalleAd,
       // Tarla/arsa tipine göre kategori
-      /tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(parsel.nitelik) ? "tarla" : "arsa",
+      /tarla|bahçe|bahce|zeytinlik|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/i.test(parsel.nitelik) ? "tarla" : "arsa",
     )
       .then((sonuc) => {
         if (!iptal && sonuc) setTrendYillikDegisim(sonuc.yillikDegisimYuzde);
@@ -100,7 +100,7 @@ export function YatirimSkoruKarti({ parsel, fiyat: fiyatProp, cevre, ePlan }: Pr
     ? fiyatProp.beklenenPerM2 * parsel.alan
     : null;
 
-  const tarımsalMi = /tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(parsel.nitelik);
+  const tarımsalMi = /tarla|bahçe|bahce|zeytinlik|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/i.test(parsel.nitelik);
   const roi = useMemo(() => {
     if (fiyatTutari == null || fiyatTutari <= 0) return null;
     return roiHesapla({

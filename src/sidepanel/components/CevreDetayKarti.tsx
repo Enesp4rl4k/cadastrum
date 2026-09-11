@@ -17,7 +17,7 @@ const tipAd: Record<string, string> = {
 
 export function CevreDetayKarti({ cevre, nitelik }: Props) {
   const yollar = cevre.enYakinlar.filter((p) => yolTipleri.includes(p.tip));
-  const isKirsal = nitelik && /tarla|bahçe|bahce|zeytinlik|bağ\b|bag\b/i.test(nitelik);
+  const isKirsal = nitelik && /tarla|bahçe|bahce|zeytinlik|(?<![a-zçğıöşüâîû0-9])ba[ğg](?:l[ıi]k|lar)?(?![a-zçğıöşüâîû0-9])/i.test(nitelik);
 
   return (
     <>
