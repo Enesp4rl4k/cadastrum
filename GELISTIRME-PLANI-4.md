@@ -100,6 +100,16 @@ Bu turda **83 commit** hiç push edilmemişti; site ancak push ile deploy
 edilebildi (yerel ağ Cloudflare'e paralel yüklemeyi kesiyor). Kural: her
 faz sonunda push. CI (`ci.yml`) push'ta koşuyor — kırmızıysa deploy yok.
 
+> **Uygulama notu (2026-09-11):** push sonrası CI'ın site işi KIRMIZI çıktı —
+> son yeşil koşu 08-29'daydı ve arada hiçbir şey push edilmediği için CI
+> 13 gündür hiç koşmamıştı. Sebep: `site/test/veri-rotalari.spec.ts`
+> `node:fs`/`process` kullanıyor ama `@types/node` sitenin bağımlılığı
+> değildi. Yerelde geçiyordu çünkü TypeScript üst dizinlere de bakıyor ve
+> depo kökündeki `node_modules/@types/node`'u **örtük olarak ödünç alıyordu**;
+> CI yalnızca `site/`'ı kuruyor. İzlenen dosyalardan temiz kurulumla
+> yeniden üretildi, `@types/node` eklendi. Ders: push etmemek CI'ı da
+> susturuyor — kırık 13 gün görünmez kaldı.
+
 ---
 
 ## H4 — Ölçüm kapsamı · bağımsız
