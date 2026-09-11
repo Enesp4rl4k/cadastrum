@@ -16,6 +16,7 @@ import { baselineBandGenisletme } from "./baseline-engine";
 import { ilLikiditeCarpani } from "./data/il-likidite";
 import { kalibreAralik } from "./fiyat/aralik-kalibrasyon";
 import { hukukKisitlariniBul, hukukNotlari } from "./fiyat/hukuk-kisitlari";
+import { yapiliParselNotu } from "./carpan-zinciri";
 import { biasCarpani } from "./bias-kalibrasyon";
 import { depremRiskiGetir } from "./data/deprem-zonlari";
 import { pgaCarpani } from "./deprem-tdth";
@@ -241,11 +242,12 @@ export async function fiyatTahminEt(
       nitelik = { ad: "Bahçe", carpan: 1.3, not: "Bahçe primi (sulu/yetiştirme)" };
     } else if (/bağ\b|bag\b/iu.test(parsel.nitelik)) {
       nitelik = { ad: "Bağ", carpan: 1.1, not: "Bağ niteliği" };
-    } else if (/arsa/i.test(parsel.nitelik)) {
-      nitelik = { ad: "Arsa", carpan: 4.0, not: "Tarımsal baseline'dan arsa kategorisine upgrade" };
-    } else if (/mesken|bina/i.test(parsel.nitelik)) {
-      nitelik = { ad: "Yapılı", carpan: 8.0, not: "Yapı + arsa kombo, tarımsal baseline üzeri" };
     }
+    // Buradaki "Arsa 4,0" ve "Mesken 8,0" dalları SİLİNDİ — ERİŞİLEMEZDİ.
+    // Bu blok yalnızca `kategori === "tarla"` iken çalışıyor; o da ancak
+    // `tarımsalMi` tarla/bahçe/bağ/zeytin gördüyse oluyor ve yukarıdaki
+    // dallar tam o kelimeleri ÖNCE yakalıyor. Ölü kod zararsız görünüyordu ama
+    // 8× gibi bir sayıyı "motor bunu yapıyor" diye okutuyordu.
   }
   const imar = fiyatIcinImarSec(parsel, resmiImar);
   const imarC = imarCarpani(imar, baseline.kategori);
@@ -534,6 +536,10 @@ export async function fiyatTahminEt(
     resmiImar?.kullanimKarari ?? resmiImar?.planKarari ?? null,
   );
   if (hukuk) veriKalitesiNotlari.push(...hukukNotlari(hukuk));
+
+  // G4 — yapılı parsel bilgisi FİYATA değil NOTA gidiyor (bkz. yapiliParselNotu).
+  const yapiNotu = yapiliParselNotu(parsel.nitelik);
+  if (yapiNotu) veriKalitesiNotlari.push(yapiNotu);
 
   if (ilNorm && likidite.aciklama) {
     veriKalitesiNotlari.push(`Likidite: ${likidite.aciklama}.`);

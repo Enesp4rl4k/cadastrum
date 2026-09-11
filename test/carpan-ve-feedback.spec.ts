@@ -60,8 +60,12 @@ describe("nitelikCarpani", () => {
     expect(nitelikCarpani("Tarla").carpan).toBeCloseTo(0.25);
   });
 
-  it("Mesken/Bina → 2.5 (yapı mevcut)", () => {
-    expect(nitelikCarpani("Mesken").carpan).toBeCloseTo(2.5);
+  // G4 (2026-09-11): 2,5× ÖLÇÜLMEDEN uygulanıyordu; hold-out kurulamadığı için
+  // önceden yazılmış kurala göre 1,0'a çekildi. Bu test eski, ölçülmemiş değeri
+  // KİLİTLİYORDU. Gerekçe: test/mesken-carpani.spec.ts, carpan-zinciri.ts
+  // `yapiliParselNotu`.
+  it("Mesken/Bina → 1.0 (yapı primi yok — ölçülmedi, bilgi nota gidiyor)", () => {
+    expect(nitelikCarpani("Mesken").carpan).toBeCloseTo(1.0);
   });
 
   it("Zeytinlik → 0.4 (yasal kısıt)", () => {

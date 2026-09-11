@@ -85,9 +85,10 @@ describe("nitelikCarpani", () => {
     const r = nitelikCarpani("Arsa");
     expect(r.carpan).toBe(1.0);
   });
-  it("Mesken → 2.5 (yapı primi)", () => {
+  // G4 (2026-09-11): eski 2,5 ölçülmemişti — bkz. test/mesken-carpani.spec.ts.
+  it("Mesken → 1.0 (yapı primi yok — ölçülmedi)", () => {
     const r = nitelikCarpani("Mesken");
-    expect(r.carpan).toBe(2.5);
+    expect(r.carpan).toBe(1.0);
   });
   it("Tarla → 0.25 (tarımsal düşüş)", () => {
     const r = nitelikCarpani("Tarla");

@@ -90,7 +90,9 @@ export const NITELIK_CARPANI_TABLOSU: {
   not: string;
 }[] = [
   { ad: "Arsa",          pattern: /arsa/i,                          carpan: 1.0,  not: "İmara açık (baseline)" },
-  { ad: "Mesken / Bina", pattern: /mesken|bina|işyeri|isyeri/i,     carpan: 2.5,  not: "Yapı var, +%150" },
+  // G4 — 2,5× ÖLÇÜLMEDEN uygulanıyordu ve 1,0'a çekildi. Gerekçe aşağıda
+  // `yapiliParselNotu` başında.
+  { ad: "Mesken / Bina", pattern: /mesken|bina|işyeri|isyeri/i,     carpan: 1.0,  not: "Yapılı parsel — yalnızca arazi değeri (yapı değeri dahil değil)" },
   { ad: "Bahçe",         pattern: /bahçe|bahce/i,                   carpan: 0.7,  not: "Yarı tarımsal, -%30" },
   { ad: "Bağ",           pattern: /bağ\b|bag\b/iu,                  carpan: 0.55, not: "Bağ niteliği, -%45" },
   { ad: "Tarla",         pattern: /tarla/i,                         carpan: 0.25, not: "Tarımsal, -%75 (imar değişikliği zor)" },
@@ -99,6 +101,42 @@ export const NITELIK_CARPANI_TABLOSU: {
 ];
 
 // ─── Yardımcı fonksiyonlar ────────────────────────────────────────────────────
+
+/**
+ * Yapılı parsel (mesken/bina/işyeri) için kullanıcıya gösterilecek not.
+ *
+ * ── NEDEN ÇARPAN DEĞİL NOT ──────────────────────────────────────────────────
+ *
+ * Bu nitelik 2,5× çarpan alıyordu ("Yapı var, +%150") ve bu zincir HİÇ
+ * ÖLÇÜLMEDİ: backtest parselleri yalnızca "Tarla"/"Arsa" niteliği taşıyor
+ * (`minimalParsel`), korpusta mesken ilanı 0 (tarayıcı konut toplamıyor —
+ * data/o2-konut-kategorisi-olcum.json). Hold-out kurulamıyor.
+ *
+ * GELISTIRME-PLANI-3 §G4 karar kuralı ÖLÇÜMDEN ÖNCE yazıldı: "hold-out
+ * kurulamıyorsa çarpan 1,0'a çekilir ve nitelik bilgisi fiyata değil nota
+ * yazılır" — A2'de hukuk ajanı için konan kuralın aynısı.
+ *
+ * Ayrıca kavramsal bir sorun vardı: bu motor ARAZİ fiyatı üretiyor. Üzerindeki
+ * binanın değeri arazinin m² fiyatı değil; 2,5× ikisini karıştırıyordu.
+ *
+ * AYNI NİTELİĞİN İKİ ADI 5 KAT FARK ÜRETİYORDU: tablo ilk eşleşmeyi alıyor ve
+ * "ev" desende yok — "Kargir Bina" 2,5×, "Kargir Ev" "Bilinmeyen nitelik" 0,5×
+ * alıyordu. Bu düzeltmeden sonra fark 2× (1,0 vs 0,5); "Bilinmeyen" 0,5 da
+ * ölçülmemiş ama bu maddenin kapsamı dışında — ayrıca raporlandı.
+ */
+export function yapiliParselNotu(nitelik: string): string | null {
+  // Türkçe küçük harf: "İşyeri", "KARGİR BİNA" — bkz. nitelikCarpani notu.
+  if (!nitelik) return null;
+  const trKucuk = nitelik.toLocaleLowerCase("tr");
+  if (!/mesken|bina|işyeri|isyeri/i.test(nitelik) && !/mesken|bina|işyeri|isyeri/.test(trKucuk)) {
+    return null;
+  }
+  return (
+    `Parsel yapılı ("${nitelik}"). Gösterilen fiyat yalnızca ARAZİ değeri — ` +
+    `üzerindeki yapının değeri dahil değil ve yapılı parseller için motorun ` +
+    `isabeti ölçülmedi.`
+  );
+}
 
 export function tarımsalMi(nitelik: string): boolean {
   return /tarla|bahçe|bahce|bağ\b|bag\b|zeytin/iu.test(nitelik);
@@ -126,9 +164,32 @@ export function segmentBul(metin: string | null | undefined): EmsalSegment {
 
 // ─── Nitelik çarpanı ─────────────────────────────────────────────────────────
 
+/**
+ * Nitelik çarpanı — tablo sırasıyla İLK eşleşme.
+ *
+ * TÜRKÇE BÜYÜK HARF TUZAĞI: JS `/i` bayrağı büyük `İ`yi (U+0130) `i`ye
+ * katlamıyor — `/u` ile de katlamıyor. Ölçüldü (2026-09-11): "İşyeri",
+ * "KARGİR BİNA", "ZEYTİNLİK" hiçbir satırla eşleşmiyor ve "Bilinmeyen
+ * nitelik" 0,5× alıyordu. TKGM'nin kanonik yazımı "İşyeri".
+ *
+ * Girdi hem OLDUĞU GİBİ hem Türkçe küçük harfle deneniyor. Ekleyici: eskiden
+ * eşleşen hiçbir şey artık eşleşmemezlik yapamaz — yalnızca İ yüzünden düşen
+ * girdiler kurtuluyor. Tek başına `toLocaleLowerCase("tr")` yetmezdi: ASCII
+ * "ISYERI" onunla "ısyerı" olur ve "isyeri" alternatifini kaybeder.
+ *
+ * Backtest parselleri yalnızca "Tarla"/"Arsa" taşıyor ve ikisi de ilk denemede
+ * eşleşiyor — yani backtest sayıları DEĞİŞMEMELİ.
+ */
 export function nitelikCarpani(nitelik: string): CarpanSonucu {
+  // `?? ""` ŞART: tip `string` diyor ama nitelik'i olmayan parseller (ajanlar,
+  // eksik TKGM yanıtı) `undefined` geçiriyor. Eski kod `pattern.test(undefined)`
+  // yapıyordu — "undefined" dizesine çevirip varsayılana düşüyordu, fırlatmıyordu.
+  // Türkçe küçültme eklenince `undefined.toLocaleLowerCase` TypeError fırlattı
+  // ve üç ajan testi zaman aşımına düştü. Üretimde nitelik'siz her parsel fiyat
+  // tahminini çökertirdi; backtest her kayda nitelik verdiği için göremedi.
+  const trKucuk = (nitelik ?? "").toLocaleLowerCase("tr");
   for (const n of NITELIK_CARPANI_TABLOSU) {
-    if (n.pattern.test(nitelik)) {
+    if (n.pattern.test(nitelik) || n.pattern.test(trKucuk)) {
       return { carpan: n.carpan, not: n.not, ad: n.ad };
     }
   }

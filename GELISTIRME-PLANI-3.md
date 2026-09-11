@@ -335,6 +335,25 @@ MESKEN/BİNA parseline 2,5× uyguluyor, hiç ölçülmedi. Ölçülemiyorsa **1,
 
 ---
 
+> **Uygulama notu (2026-09-11) — G4b uygulandı, G4a karar bekliyor.**
+>
+> - **Mesken 2,5× → 1,0 + not.** Kural önceden yazılmıştı; hold-out kurulamadığı
+>   için ikinci dal. Backtest sayısal çıktısı HEAD ile **birebir aynı**.
+> - **Kapsam bulgusu:** backtest yalnızca `Arsa 1,0` ve `Tarla 0,25` yollarını
+>   çalıştırıyor. Diğer beş çarpan + tarla dalındaki altı geçersiz kılma
+>   ölçülmemiş. Tarla dalındaki `Arsa 4,0` ve `Mesken 8,0` **erişilemezdi** — silindi.
+> - **İki Türkçe karakter hatası:** (1) `/bağ\b/` saf "Bağ"ı hiç eşleştirmiyor →
+>   bağlar arsa sayılıyor (15 satır, 10 dosya — ayrı iş kalemi); (2) `/i` büyük
+>   `İ`yi katlamıyor → "İşyeri" mesken kuralına girmiyordu (düzeltildi).
+> - **Kendi regresyonum:** Türkçe küçültme `nitelikCarpani(undefined)`'ı
+>   fırlatır yaptı; üç ajan testi zaman aşımına düştü (HEAD'de geçiyordu).
+>   Düzeltildi, mutasyonla kilitlendi.
+> - **Konut (G4a):** kapatma beş kamu site sayfasını etkiliyor — kullanıcı kararı.
+>
+> Ayrıntı: `data/g4-nitelik-carpani-olcum.json`
+
+---
+
 ### G5 — SLO'yu dürüst ölçüye taşı
 
 `bias_mutlak_max: 10` hedefi **çarpık metrik** üzerinden konmuştu. Medyan
