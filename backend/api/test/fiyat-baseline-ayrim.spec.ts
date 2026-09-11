@@ -1,3 +1,11 @@
+/**
+ * NOT (G4a, 2026-09-11): bu testler ilk hâlinde `kategori=konut` kullanıyordu.
+ * Konut artık ölçülemeyen kategori olarak 422 + gerekçe dönüyor
+ * (lib/kategori-olcum.ts) — AI fallback'e hiç ulaşılmıyor. F0.4 sözleşmesi
+ * (AI satırlarında `ilan_adet: 0`, türetilmiş sayı `baseline_satir_sayisi`'nda)
+ * arsa/tarla için AYNEN geçerli; testler tarlaya taşındı. Konut sözleşmesi:
+ * test/kategori-olcum.spec.ts.
+ */
 import { describe, it, expect } from "vitest";
 import { app } from "../src/index.js";
 import { createMockEnv } from "./test-helper.js";
@@ -7,10 +15,10 @@ describe("Fiyat Endpoint'leri — ilan_adet ↔ baseline_satir_sayisi Ayrımı (
     const env = createMockEnv();
     await env.DB.prepare(
       `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('ankara', 'cankaya', 'ayranci', 'konut', 45000, 75, 'knn-smoothing', ?)`
+       VALUES ('ankara', 'cankaya', 'ayranci', 'tarla', 45000, 75, 'knn-smoothing', ?)`
     ).bind(Date.now()).run();
 
-    const res = await app.request("/v1/fiyat/mahalle/ankara/cankaya/ayranci?kategori=konut", {}, env);
+    const res = await app.request("/v1/fiyat/mahalle/ankara/cankaya/ayranci?kategori=tarla", {}, env);
     expect(res.status).toBe(200);
 
     const j = await res.json() as { medyan: number; ilan_adet: number; baseline_satir_sayisi: number; kaynak: string };
@@ -25,14 +33,14 @@ describe("Fiyat Endpoint'leri — ilan_adet ↔ baseline_satir_sayisi Ayrımı (
     const simdi = Date.now();
     await env.DB.prepare(
       `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('izmir', 'bornova', 'kazimdirik', 'konut', 38000, 70, 'knn-smoothing', ?)`
+       VALUES ('izmir', 'bornova', 'kazimdirik', 'tarla', 38000, 70, 'knn-smoothing', ?)`
     ).bind(simdi).run();
     await env.DB.prepare(
       `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('izmir', 'bornova', 'erzene', 'konut', 34000, 70, 'knn-smoothing', ?)`
+       VALUES ('izmir', 'bornova', 'erzene', 'tarla', 34000, 70, 'knn-smoothing', ?)`
     ).bind(simdi).run();
 
-    const res = await app.request("/v1/fiyat/ilce/izmir/bornova?kategori=konut", {}, env);
+    const res = await app.request("/v1/fiyat/ilce/izmir/bornova?kategori=tarla", {}, env);
     expect(res.status).toBe(200);
 
     const j = await res.json() as {
@@ -56,10 +64,10 @@ describe("Fiyat Endpoint'leri — ilan_adet ↔ baseline_satir_sayisi Ayrımı (
     const simdi = Date.now();
     await env.DB.prepare(
       `INSERT INTO mahalle_baseline_ai (il_norm, ilce_norm, mahalle_norm, kategori, tlm2, guven, kaynak, yakalandi)
-       VALUES ('bursa', 'nilufer', 'ozluce', 'konut', 32000, 68, 'knn-smoothing', ?)`
+       VALUES ('bursa', 'nilufer', 'ozluce', 'tarla', 32000, 68, 'knn-smoothing', ?)`
     ).bind(simdi).run();
 
-    const res = await app.request("/v1/fiyat/il/bursa?kategori=konut", {}, env);
+    const res = await app.request("/v1/fiyat/il/bursa?kategori=tarla", {}, env);
     expect(res.status).toBe(200);
 
     const j = await res.json() as {

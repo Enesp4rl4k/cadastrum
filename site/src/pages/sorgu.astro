@@ -510,6 +510,12 @@ import Base from "../layouts/Base.astro";
         submitBtn.disabled = false;
 
         if (!res.ok) {
+          // G4a — ölçülemeyen kategori bir HATA değil, bir açıklama: kırmızı ❌
+          // kullanıcıya "bir şey bozuldu" derdi. Amber bilgi kutusu.
+          if (data?.kod === "kategori-olculmedi") {
+            sonuc.innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm">${data.gerekce ?? data.error}</div>`;
+            return;
+          }
           sonuc.innerHTML = `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">❌ ${data.error ?? "Sorgu hatası"}</div>`;
           return;
         }

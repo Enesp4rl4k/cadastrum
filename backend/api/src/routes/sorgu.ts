@@ -12,6 +12,7 @@
  * göre yüksek limit.
  */
 import { Hono } from "hono";
+import { olculmeyenKategoriYaniti } from "../lib/kategori-olcum.js";
 import type { Env } from "../index.js";
 import { haversineM, turkiyeBboxIcinde, kmToDegrees } from "../lib/geo.js";
 import { rateLimitMiddleware } from "../lib/rate-limit.js";
@@ -84,6 +85,10 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
   }
 
   const kategori = body.kategori ?? "arsa";
+  // G4a — konut için sabit il tablosu (kaynağı doğrulanamayan) ya da
+  // türetilmiş sayı dönüyordu. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
   const parselM2 = typeof body.m2 === "number" && body.m2 > 0 && body.m2 < 10_000_000 ? body.m2 : null;
 
   // Spatial sorgu — adaptif radius (5 → 10 → 20 km) emsal sayısına göre

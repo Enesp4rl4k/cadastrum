@@ -348,7 +348,12 @@ MESKEN/BİNA parseline 2,5× uyguluyor, hiç ölçülmedi. Ölçülemiyorsa **1,
 > - **Kendi regresyonum:** Türkçe küçültme `nitelikCarpani(undefined)`'ı
 >   fırlatır yaptı; üç ajan testi zaman aşımına düştü (HEAD'de geçiyordu).
 >   Düzeltildi, mutasyonla kilitlendi.
-> - **Konut (G4a):** kapatma beş kamu site sayfasını etkiliyor — kullanıcı kararı.
+> - **Konut (G4a) — KAPATILDI**, kullanıcı kararıyla. `/v1/fiyat/*` (6 rota) ve
+>   `/v1/sorgu` konut için sayı değil 422 + gerekçe dönüyor; site gerekçeyi
+>   gösteriyor. **Bilinçli istisna:** `/v1/api/endeks` ve `/v1/emsal/spatial`
+>   açık — ikisi de motor tahmini değil, GERÇEK ilan verisi. Karar sorulurken
+>   endeksin kaynağı yanlış anlatılmıştı (türetilmiş tablo dendi, gerçek ilan
+>   medyanı); bu yüzden endeks kapatılmadı ve kullanıcıya bildirildi.
 >
 > Ayrıntı: `data/g4-nitelik-carpani-olcum.json`
 

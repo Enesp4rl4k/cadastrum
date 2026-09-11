@@ -302,7 +302,16 @@ const icerik = IL_ICERIK[il!] ?? null;
     try {
       const res = await fetch(`${API}/fiyat/il/${il}?kategori=${kategori}`);
       if (!res.ok) {
-        ozetEl.innerHTML = `<div class="text-amber-800">Bu il için henüz yeterli veri toplanmadı.</div>`;
+        // G4a — konut gibi ÖLÇÜLEMEYEN kategoride backend 422 + gerekçe dönüyor.
+        // "Henüz yeterli veri toplanmadı" demek yanlış olurdu: sorun verinin
+        // azlığı değil, bu kategoride doğruluğun ölçülememesi. Gerekçe aynen
+        // gösteriliyor.
+        let mesaj = "Bu il için henüz yeterli veri toplanmadı.";
+        if (res.status === 422) {
+          const h = await res.json().catch(() => null);
+          if (h?.kod === "kategori-olculmedi" && h.gerekce) mesaj = h.gerekce;
+        }
+        ozetEl.innerHTML = `<div class="text-amber-800">${mesaj}</div>`;
         gridEl.innerHTML = "";
         return;
       }

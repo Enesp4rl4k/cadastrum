@@ -7,6 +7,7 @@
  */
 import { Hono } from "hono";
 import type { Env } from "../index.js";
+import { olculmeyenKategoriYaniti } from "../lib/kategori-olcum.js";
 import { normalizeYerAdi } from "../lib/normalize.js";
 import { d1WithTimeout, isD1Timeout } from "../lib/db-timeout.js";
 
@@ -32,6 +33,10 @@ fiyatRoutes.get("/mahalle/:il/:ilce/:mahalle", async (c) => {
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
+  // G4a — ölçülemeyen kategori (konut) sayı değil gerekçe döner; D1'e
+  // dokunmadan önce. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
 
   // Gerçek istatistik + trend paralel. AI fallback BURADA DEĞİL.
   //
@@ -95,6 +100,10 @@ fiyatRoutes.get("/ilce/:il/:ilce", async (c) => {
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
+  // G4a — ölçülemeyen kategori (konut) sayı değil gerekçe döner; D1'e
+  // dokunmadan önce. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
 
   // Paralel — sequential await yerine
   const ilceSonuc = await d1WithTimeout(Promise.all([
@@ -171,6 +180,10 @@ fiyatRoutes.get("/il/:il", async (c) => {
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
+  // G4a — ölçülemeyen kategori (konut) sayı değil gerekçe döner; D1'e
+  // dokunmadan önce. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
 
   // Paralel
   const ilSonuc = await d1WithTimeout(Promise.all([
@@ -245,6 +258,10 @@ fiyatRoutes.get("/toplu-ozet", async (c) => {
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
+  // G4a — ölçülemeyen kategori (konut) sayı değil gerekçe döner; D1'e
+  // dokunmadan önce. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
 
   // Tek sorgu, ~162 satırlık önden hesaplanmış tablo.
   //
@@ -327,6 +344,10 @@ fiyatRoutes.get("/toplu-ilce-ozet/:il", async (c) => {
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
+  // G4a — ölçülemeyen kategori (konut) sayı değil gerekçe döner; D1'e
+  // dokunmadan önce. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
 
   // İlçe istatistik tablosundan çek
   const ilceRows = await c.env.DB.prepare(
@@ -425,6 +446,10 @@ fiyatRoutes.get("/trend/:il/:ilce/:mahalle", async (c) => {
   if (!VALID_KATEGORI.has(kategori)) {
     return c.json({ error: "Geçersiz kategori" }, 400);
   }
+  // G4a — ölçülemeyen kategori (konut) sayı değil gerekçe döner; D1'e
+  // dokunmadan önce. Gerekçe: lib/kategori-olcum.ts
+  const olcumsuz = olculmeyenKategoriYaniti(c, kategori);
+  if (olcumsuz) return olcumsuz;
 
   // Son 18 ay — mahalle seviyesi
   let rows = await c.env.DB.prepare(

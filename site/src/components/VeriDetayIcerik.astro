@@ -225,6 +225,19 @@ import PaywallOverlay from "./PaywallOverlay.astro";
     try {
       const res = await fetch(url);
       if (!res.ok) {
+        // G4a — ölçülemeyen kategori (konut): backend 422 + gerekçe dönüyor.
+        // "Veri yok" boş durumu yanlış sebep söylerdi; gerekçe aynen gösteriliyor.
+        if (res.status === 422) {
+          const h = await res.json().catch(() => null);
+          if (h?.kod === "kategori-olculmedi" && h.gerekce) {
+            document.getElementById("hero-stat").innerHTML =
+              `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-800">${h.gerekce}</div>`;
+            document.getElementById("trend-public").innerHTML = "";
+            document.getElementById("pro-content").innerHTML = "";
+            document.getElementById("liste-block").innerHTML = "";
+            return;
+          }
+        }
         document.getElementById("hero-stat").innerHTML = renderEmpty(!!mahalle);
         document.getElementById("trend-public").innerHTML = "";
         document.getElementById("pro-content").innerHTML = "";
