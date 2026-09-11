@@ -1275,7 +1275,17 @@ async function gorunenIlceleriYukle(ilceler: IlceBilgi[]) {
     (ilce) => !yuklenenIlceler.has(`${ilce.ilceKodu}:${aktifTip}`)
   );
 
-  if (yuklenecekler.length === 0) return;
+  if (yuklenecekler.length === 0) {
+    // Durum metni burada da güncellenmeli. Genelden ayrıntıya geçip yüklenecek
+    // bir şey kalmayınca eski "Genel görünüm — … yakınlaştırın" yazısı ekranda
+    // kalıyordu: harita doğruydu, mesaj yanlıştı (2026-09-12, canlıda görüldü).
+    durumGuncelle(
+      gorünenler.length === 0
+        ? "Bu görünümde TKGM verisi olan ilçe yok — haritayı kaydırın"
+        : `${tumNoktalar.length.toLocaleString("tr-TR")} işlem noktası (tüm yıllar birleşik)`,
+    );
+    return;
+  }
 
   yukleniyor = true;
   // `null as ...` KASITLI: atama Promise.allSettled içindeki async geri
