@@ -371,10 +371,14 @@ import Base from "../layouts/Base.astro";
 
 <!-- ─── STİL ──────────────────────────────────────────────────────────────── -->
 <style>
-  /* MapLibre z-index düzeltmesi */
+  /* Harita kutusu AKIŞTA kalmalı. MapLibre `.maplibregl-map` sınıfını
+     konteynerin KENDİSİNE ekliyor; burada `position:absolute; inset:0`
+     vardı ve konteynerin konumlandırılmış atası olmadığından harita sayfanın
+     en üstüne yapışıp başlığı, kontrol şeridini ve katman düğmelerini
+     kaplıyordu (canlıda görüldü, 2026-09-12). Kapsamlı stil
+     (data-astro-cid) MapLibre'nin kendi `position:relative`ını da eziyordu. */
   .maplibregl-map {
-    position: absolute;
-    inset: 0;
+    position: relative;
   }
   .maplibregl-ctrl-bottom-right,
   .maplibregl-ctrl-bottom-left {

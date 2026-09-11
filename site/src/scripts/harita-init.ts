@@ -1107,6 +1107,9 @@ const ILCE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // hiç dokunmadan alınabiliyor (bkz. backend/api/src/routes/harita.ts
 // GET /ilceler — header yorumu "Site buradan okur; TKGM'ye doğrudan hiç
 // istek atmaz" zaten bu route'un tasarım niyetiydi).
+/** Son ilçe listesi isteğinin hatası — boş liste "veri yok" diye okunmasın. */
+let ilceListesiHata: string | null = null;
+
 async function tumIlceleriCek(): Promise<IlceBilgi[]> {
   const cacheKey = "d1-ilce-listesi-v1";
   try {
@@ -1118,6 +1121,7 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
   } catch {}
 
   let ilceler: IlceBilgi[] = [];
+  ilceListesiHata = null;
   try {
     const res = await fetch(`${API_BASE}/harita/ilceler`);
     if (res.ok) {
@@ -1125,8 +1129,15 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
       ilceler = (data.ilceler ?? [])
         .filter((x) => x.ilce_kodu > 0 && Number.isFinite(x.lat) && Number.isFinite(x.lng))
         .map((x) => ({ ilceKodu: x.ilce_kodu, lat: x.lat, lng: x.lng }));
+    } else {
+      // Eskiden yutuluyordu: canlıda 500 (D1 limiti) → boş liste → sayfa
+      // "bu görünümde TKGM verisi olan ilçe yok" diyordu. Gözlendi 2026-09-12.
+      ilceListesiHata = istekHatasiMetni(res.status, Number(res.headers.get("Retry-After")) || null);
     }
-  } catch {}
+  } catch (e) {
+    console.warn("[harita] ilçe listesi alınamadı:", e);
+    ilceListesiHata = "Harita verisi alınamadı — bağlantınızı kontrol edin";
+  }
   if (ilceler.length === 0) return ilceler; // erişilemedi — boş dön, çağıran cache'lemez
 
   try {
@@ -1153,14 +1164,24 @@ function sourceGuncelle() {
 
 // ─── Layer ────────────────────────────────────────────────────────────────────
 
+/**
+ * Isı ağırlığı. Genel görünümde KAREKÖK ölçek: ilçe toplamları çok çarpık
+ * (büyükşehir ilçeleri diğerlerinin onlarca katı) ve doğrusal ölçekte
+ * ülke görünümünde yalnızca birkaç soluk leke kalıyordu. Ayrıntıda parsel
+ * noktaları zaten yoğunlukla toplanıyor — orada doğrusal kalıyor.
+ */
+function isiAgirligi(max: number): maplibregl.ExpressionSpecification {
+  return aktifMod === "genel"
+    ? ["min", 1, ["/", ["sqrt", ["max", 0, ["get", "sayi"]]], Math.sqrt(max)]]
+    : ["interpolate", ["linear"], ["get", "sayi"], 0, 0, max, 1];
+}
+
 function layerEkleVeyaGuncelle(maxSayi: number) {
   if (!harita) return;
   const max = Math.max(maxSayi, 1);
 
   if (harita.getLayer("heat-cloud")) {
-    harita.setPaintProperty("heat-cloud", "heatmap-weight", [
-      "interpolate", ["linear"], ["get", "sayi"], 0, 0, max, 1,
-    ]);
+    harita.setPaintProperty("heat-cloud", "heatmap-weight", isiAgirligi(max));
     return;
   }
 
@@ -1170,7 +1191,7 @@ function layerEkleVeyaGuncelle(maxSayi: number) {
     source: "heat-src",
     maxzoom: 16,
     paint: {
-      "heatmap-weight": ["interpolate", ["linear"], ["get", "sayi"], 0, 0, max, 1],
+      "heatmap-weight": isiAgirligi(max),
       "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 10, 1.2, 15, 2],
       "heatmap-color": [
         "interpolate", ["linear"], ["heatmap-density"],
@@ -1972,10 +1993,22 @@ export async function initHarita() {
   const ilceler = await tumIlceleriCek();
   document.getElementById("stat-ilce")!.textContent = String(ilceler.length);
 
-  harita.on("load", async () => {
+  if (ilceler.length === 0) {
+    // Liste alınamadıysa "bu görünümde veri yok" DEMEYİZ — boşluk veri
+    // yokluğu değil, erişim hatası (ör. D1 günlük okuma limiti → 500).
+    durumGuncelle(ilceListesiHata ?? "İlçe listesi alınamadı — sayfayı yenileyin");
+  }
+
+  // YARIŞ: harita yukarıda oluşturuldu, ilçe listesi ise await edildi. Liste
+  // altlıktan yavaş gelirse "load" olayı dinleyici eklenmeden ateşleniyor ve
+  // MapLibre onu geri oynatmıyor — harita kullanıcı kaydırana kadar boş
+  // kalıyordu. Yüklendiyse hemen çalıştır, değilse olayı bekle.
+  const ilkYukleme = async () => {
     sourceGuncelle();
-    await gorunenIlceleriYukle(ilceler);
-  });
+    if (ilceler.length > 0) await gorunenIlceleriYukle(ilceler);
+  };
+  if (harita.loaded()) void ilkYukleme();
+  else harita.once("load", () => void ilkYukleme());
 
   harita.on("moveend", () => {
     void gorunenIlceleriYukle(ilceler);
