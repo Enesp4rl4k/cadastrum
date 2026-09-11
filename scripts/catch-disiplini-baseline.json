@@ -1,14 +1,14 @@
 {
   "_aciklama": "Sprint B.1 catch disiplini — dosya başına DEVRALINAN ihlal sayısı. Bu sayılar artamaz. Yeni kod yazarken catch bloğu ya görünür bir fallback'e geçmeli, ya hataKaydet() çağırmalı, ya da `// beklenen yokluk: <sebep>` ile işaretlenmeli.",
   "_uretim": "node scripts/catch-disiplini.mjs --guncelle",
-  "toplam": 116,
+  "toplam": 115,
   "dosyalar": {
     "packages/nexus-mcp/src/core/healing/type-coercer.ts": 1,
     "packages/nexus-mcp/src/telemetry/persistent-store.ts": 1,
     "scripts/aylik-scrape-hepsiemlak.mjs": 1,
     "scripts/aylik-scrape.mjs": 1,
     "scripts/zingat-scrape.mjs": 1,
-    "site/src/scripts/harita-init.ts": 14,
+    "site/src/scripts/harita-init.ts": 13,
     "src/background/scheduler.ts": 6,
     "src/background/scraping-runtime.ts": 3,
     "src/background/service-worker.ts": 1,
