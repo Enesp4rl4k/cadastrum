@@ -22,6 +22,13 @@ interface Props {
   parsel: Parsel;
   /** Heuristic motor tahmini TL/m² (varsa, karşılaştırma için) */
   heuristicTahminPerM2: number | null;
+  /** Tahminin geldiği katman — gerçek fiyatın hangi katmanla kıyaslanacağı */
+  baselineKaynak?: string | null;
+  /**
+   * Tahmine uygulanan asking→kapanış iskontosu. `heuristicTahminPerM2` zaten
+   * iskontolu (kapanış hedefli); bu olmadan kıyasın hedefi bilinemez.
+   */
+  uygulananIndirim?: number | null;
   onKaydet?: (gercekPerM2: number) => void;
   onIptal?: () => void;
 }
@@ -41,6 +48,8 @@ function fmtTL(n: number): string {
 export function GercekFiyatGirisKarti({
   parsel,
   heuristicTahminPerM2,
+  baselineKaynak,
+  uygulananIndirim,
   onKaydet,
   onIptal,
 }: Props) {
@@ -87,6 +96,8 @@ export function GercekFiyatGirisKarti({
         tip,
         tahminGorulduMu: heuristicTahminPerM2 != null,
         heuristicTahminPerM2,
+        baselineKaynak: baselineKaynak ?? null,
+        uygulananIndirim: uygulananIndirim ?? null,
         not: not.trim() || undefined,
         backendGonder,
       });

@@ -210,6 +210,28 @@ export interface GercekFiyatKaydi {
   backendSenkronlandi: boolean;
   /** Opsiyonel not */
   not?: string | null;
+  /**
+   * Motorun kullandığı kategori — `tarımsalMi(parsel.nitelik)`, motorla AYNI
+   * fonksiyon. Ayrı bir sınıflandırma, gerçek fiyatı yanlış segmentin
+   * tahminiyle kıyaslardı.
+   *
+   * Opsiyonel çünkü bu alan 2026-09-11'de eklendi; daha önce kaydedilmiş
+   * yerel kayıtlarda yok ve geriye dönük türetilemez (nitelik saklanmamıştı).
+   */
+  kategori?: "arsa" | "tarla";
+  /** Tahminin geldiği katman (`FiyatTahmini.baselineKaynak`) */
+  baselineKaynak?: string | null;
+  /**
+   * Tahmine uygulanan asking→kapanış iskontosu (0-1). Motorun `beklenenPerM2`
+   * değeri KAPANIŞ hedefli; ilan eşdeğeri `beklenen / (1 − indirim)`. Bu
+   * olmadan gerçek fiyatla kıyasın hangi hedefe göre yapıldığı bilinemez.
+   */
+  uygulananIndirim?: number | null;
+  /**
+   * Kayıt başına rastgele UUID — kişiyi değil KAYDI tanımlıyor. Tek işi, yeniden
+   * denenen gönderimin sunucuda iki kez sayılmasını önlemek.
+   */
+  istemciKimligi?: string;
 }
 
 export interface TaskinRiskCache {

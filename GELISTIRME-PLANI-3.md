@@ -283,6 +283,36 @@ sonucun ortak açıklaması olabilir.
 **Gizlilik:** tabloda parsel no ve koordinat yok, alan **bant** olarak
 tutuluyor. Bu doğru kurulmuş; korunur.
 
+> **Uygulama notu (2026-09-11) — G3.1 ve G3.3 kodu tamam, veri toplanmıyor.**
+>
+> "Doğru fikir" diye devralınan altyapı çalışmıyordu ve çalışsaydı ölçülemez
+> veri toplayacaktı:
+>
+> - **Tablo üretimde YOKTU.** Migration 0037 hiç uygulanmamıştı; route deploy
+>   edilmişti ve her POST'a 503 dönüyordu. Uzantı kayıtları yerelde tuttuğu
+>   için veri kaybı yok — ama özellik üretimde hiç çalışmamıştı. Uygulanmamış
+>   migration yerinde düzeltildi.
+> - **500 TL/m² alt sınırı ölçümü bozacaktı.** Korpusta tarla ilanlarının
+>   **%36,2'si** (5.734/15.820) bu sınırın altında — tam da motorun en çok
+>   yanıldığı ucuz kırsal bant. Hold-out motoru olduğundan iyi gösterirdi.
+>   Sınır 1 TL/m²'ye çekildi (korpus minimumu).
+> - **Kategori, katman ve iskonto yoktu** — gerçek satış hiçbir segmentle ve
+>   hiçbir katmanla kıyaslanamazdı.
+> - **Yer adları `.toLowerCase()` ile yazılıyordu** ("çatalca" vs korpus
+>   "catalca") — hiçbir satır motorun anahtarıyla eşleşmezdi.
+> - **`/ozet` "admin gerektirir" diyordu ama yetki kontrolü YOKTU.** Ayrıca
+>   ortalama ve asimetrik bias kullanıyordu; medyana çevrildi.
+>
+> **Yeni bulgu — iskonto modeli hiç ölçülmemiş.** Motorun `beklenenPerM2`
+> değeri kapanış hedefli ve `dinamikIndirimOrani` ile %6-24 iskontolu. Backtest
+> iskontoyu geri ekleyip ilanla kıyaslıyor; iskontonun kendisi hiç sınanmadı.
+> Ölçüm betiği bunu **ikincil** ölçüm olarak raporluyor (aynı kayıtlarda
+> iskontolu vs ilan eşdeğeri). Önceden yazılmış karar kuralını etkilemiyor.
+>
+> **Ölçüm betiği:** `npm run olcum:gercek-satis`. n < 200 iken karar üretmez.
+> Karar kuralını koruyan test ilk yazımda mutasyona duyarsızdı (girdisini
+> korumaya çalıştığı sabitten türetiyordu) — düzeltildi.
+
 ---
 
 ### G4 — Konut: ölç ya da kapat (üçüncü seçenek yok)

@@ -24,7 +24,10 @@ const admin = new Hono<{ Bindings: Env }>();
 // ── Admin role middleware ────────────────────────────────────────
 // JWT payload'a `adm: 1` claim'i konursa DB hit'siz kontrol.
 // Yoksa fallback: DB'den oku (legacy token desteği).
-const adminMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+// Dışa açık: `gercek-satis.ts` /ozet ucu da aynı kontrolü kullanıyor. Kopya
+// yerine tek kaynak — iki ayrı yetki kontrolü zamanla ayrışır ve biri
+// gevşediğinde fark edilmez.
+export const adminMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
   const kullaniciId = c.get("kullaniciId" as any) as number | undefined;
   const payload = c.get("jwtPayload" as any) as any;
   if (!kullaniciId) return c.json({ hata: "Yetkisiz" }, 401);

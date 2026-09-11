@@ -544,6 +544,8 @@ export function FiyatTahminKarti({
         <GercekFiyatGirisKarti
           parsel={parsel}
           heuristicTahminPerM2={tahmin.beklenenPerM2}
+          baselineKaynak={tahmin.baselineKaynak}
+          uygulananIndirim={tahmin.uygulananIndirim ?? null}
         />
 
         {/* AI bölümü — cold start'ta daha vurgulu CTA */}

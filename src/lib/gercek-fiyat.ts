@@ -26,6 +26,7 @@
 import { db, type GercekFiyatKaydi } from "./db";
 import type { Parsel } from "../types/tkgm";
 import { BACKEND_API } from "./api-constants";
+import { tarımsalMi } from "./carpan-zinciri";
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,10 @@ export interface GercekFiyatGiris {
   not?: string;
   /** Backend'e gönderilsin mi? */
   backendGonder?: boolean;
+  /** Tahminin geldiği katman — ölçümde katman bazında kıyas için */
+  baselineKaynak?: string | null;
+  /** Tahmine uygulanan asking→kapanış iskontosu (0-1) */
+  uygulananIndirim?: number | null;
 }
 
 export interface GercekFiyatOzeti {
@@ -93,6 +98,13 @@ export async function gercekFiyatKaydet(
     girisTarihi: Date.now(),
     backendSenkronlandi: false,
     not: giris.not ?? null,
+    // Motorla AYNI fonksiyon (bolge-baseline.ts da bunu kullanıyor). Bileşenlerde
+    // ayrı regex'lerle yazılmış kopyalar var ve birbirinden farklılar — onlardan
+    // biri kullanılsaydı gerçek fiyat yanlış segmentin tahminiyle kıyaslanırdı.
+    kategori: tarımsalMi(parsel.nitelik) ? "tarla" : "arsa",
+    baselineKaynak: giris.baselineKaynak ?? null,
+    uygulananIndirim: giris.uygulananIndirim ?? null,
+    istemciKimligi: crypto.randomUUID(),
   };
 
   const id = await db.gercekFiyatlar.add(kayit as GercekFiyatKaydi);
@@ -140,8 +152,27 @@ export async function gercekFiyatBackendGonder(
   if (!kayit) return { basarili: false, mesaj: "Kayıt bulunamadı" };
   if (kayit.backendSenkronlandi) return { basarili: true, mesaj: "Zaten gönderildi" };
 
+  // Kategori 2026-09-11'den önceki kayıtlarda yok ve geriye dönük türetilemez
+  // (nitelik saklanmamıştı). Sunucu kategorisiz kaydı reddeder; göndermeyi
+  // denemek her senkronda aynı 422'yi üretirdi. Açıkça söyle, sessizce atlama.
+  if (!kayit.kategori) {
+    return { basarili: false, mesaj: "Eski kayıt: kategori bilgisi yok, gönderilemez" };
+  }
+
+  // Kimliği olmayan eski kayda bir kez üret ve SAKLA — yeniden denemeler aynı
+  // kimliği taşımalı, yoksa tekrar koruması işe yaramaz.
+  let istemciKimligi = kayit.istemciKimligi;
+  if (!istemciKimligi) {
+    istemciKimligi = crypto.randomUUID();
+    await db.gercekFiyatlar.update(kayitId, { istemciKimligi });
+  }
+
   // Anonim payload — parsel no yok, koordinat yok
   const payload = {
+    istemciKimligi,
+    kategori: kayit.kategori,
+    baselineKaynak: kayit.baselineKaynak ?? null,
+    uygulananIndirim: kayit.uygulananIndirim ?? null,
     ilAd: kayit.ilAd,
     ilceAd: kayit.ilceAd,
     mahalleAd: kayit.mahalleAd,
@@ -183,14 +214,19 @@ export async function gercekFiyatBackendGonder(
 export async function bekleyenGercekFiyatlariSenkronla(
   backendUrl: string,
   jwtToken: string,
-): Promise<{ gonderilen: number; basarisiz: number }> {
+): Promise<{ gonderilen: number; basarisiz: number; atlanan: number }> {
   // IndexedDB BOOLEAN İNDEKSLEMEZ. Kayıt `backendSenkronlandi: false` olarak
   // yazılıyor (yukarıda `gercekFiyatKaydet`), `.equals(0)` ise sayı arıyor —
   // bu sorgu HER ZAMAN boş dönüyordu, yani "bekleyen yok" ile "sorgu hiç
   // eşleşmiyor" ayırt edilemiyordu. Boolean alanlarda indeks yerine filtre.
-  const bekleyenler = await db.gercekFiyatlar
+  const tumBekleyenler = await db.gercekFiyatlar
     .filter((k) => k.backendSenkronlandi !== true)
     .toArray();
+  // Kategorisiz eski kayıtlar gönderilemez (bkz. gercekFiyatBackendGonder).
+  // Denemek her senkronda aynı reddi üretirdi; ama SAYILIYORLAR — sessizce
+  // kaybolan kayıt, kullanıcının girdiği verinin nereye gittiğini gizlerdi.
+  const bekleyenler = tumBekleyenler.filter((k) => k.kategori);
+  const atlanan = tumBekleyenler.length - bekleyenler.length;
 
   let gonderilen = 0;
   let basarisiz = 0;
@@ -202,7 +238,7 @@ export async function bekleyenGercekFiyatlariSenkronla(
     else basarisiz++;
   }
 
-  return { gonderilen, basarisiz };
+  return { gonderilen, basarisiz, atlanan };
 }
 
 // ─── Analiz ──────────────────────────────────────────────────────────────────
