@@ -296,11 +296,25 @@ function guvenliYaz(yol, icerik, maksDeneme = 5) {
   throw new Error(`${maksDeneme} denemede yazılamadı: ${yol} — ${sonHata?.message ?? sonHata}`);
 }
 
+/**
+ * ── TARİH KORUNUR (2026-09-11) ─────────────────────────────────────────────
+ *
+ * Eskiden her satıra `${now}` basılıyordu ve `sqlKayitlariYukle` tarihi hiç
+ * okumuyordu: her yazış TÜM ilanların yakalanma tarihini "şimdi" yapıyordu.
+ * Ölçüldü — korpusun her sürümünde TEK bir tarih vardı (HEAD: 66.621 ilan,
+ * tek tarih). Sonuçları:
+ *   - Motorun tazelik ağırlığı (30/60/90/120 gün kovaları, 90+ gün 0,3)
+ *     backtest'te HİÇ çalışmadı: herkes "1 gün önce görülmüş".
+ *   - Aylık iş akışı kaynak engellese bile aynı ilanları taze tarihle yazıp
+ *     "tazeleme" diye commit ediyordu (2026-09-01: 0 yeni ilan).
+ * Artık her kayıt kendi `yakalanma` değerini taşıyor; yalnızca İLK KEZ
+ * görülen ilan yazıldığı anı alıyor.
+ */
 export function sqlYaz(kayitlar, ciktiPath, baslik = "Emlakjet") {
   const now = Date.now();
   const satirlar = kayitlar.map(
     (k) =>
-      `('emlakjet','ej_${sqlEsc(k.id)}','${sqlEsc(k.ilN)}','${sqlEsc(k.ilceN)}',${k.mahN ? `'${sqlEsc(k.mahN)}'` : "NULL"},${k.tlm2},${k.m2},'${k.kategori}','TL',${now},${k.lat ?? "NULL"},${k.lng ?? "NULL"},${k.lat ? "'mahalle-merkez'" : "NULL"},${k.baslik ? `'${sqlEsc(k.baslik)}'` : "NULL"},1)`,
+      `('emlakjet','ej_${sqlEsc(k.id)}','${sqlEsc(k.ilN)}','${sqlEsc(k.ilceN)}',${k.mahN ? `'${sqlEsc(k.mahN)}'` : "NULL"},${k.tlm2},${k.m2},'${k.kategori}','TL',${k.yakalanma ?? now},${k.lat ?? "NULL"},${k.lng ?? "NULL"},${k.lat ? "'mahalle-merkez'" : "NULL"},${k.baslik ? `'${sqlEsc(k.baslik)}'` : "NULL"},1)`,
   );
   let sql = `-- ${baslik} — ${kayitlar.length} ilan — ${new Date().toISOString()}\n\n`;
   for (let i = 0; i < satirlar.length; i += 400) {
@@ -368,15 +382,18 @@ export function sqlKayitlariYukle(...dosyalar) {
   // Regex ESKI ve YENI bicimi birlikte tanir: baslik kolonu opsiyonel, cunku
   // mevcut 65.911 satir onsuz yazilmis durumda.
   const re =
-    /'(?:emlakjet|extension)','ej_([^']+)','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)','[^']*',\d+,([^,]+),([^,]+),(NULL|'[^']*'),(?:(NULL|'(?:[^']|'')*'),)?1\)/g;
+    /'(?:emlakjet|extension)','ej_([^']+)','([^']*)','([^']*)',([^,]+),(\d+),(\d+),'([^']+)','[^']*',(\d+),([^,]+),([^,]+),(NULL|'[^']*'),(?:(NULL|'(?:[^']|'')*'),)?1\)/g;
   for (const p of dosyalar) {
     if (!existsSync(p)) continue;
     const metin = readFileSync(p, "utf8");
     let m;
     while ((m = re.exec(metin)) !== null) {
       const mahRaw = m[4].trim();
-      const lat = m[8] === "NULL" ? null : parseFloat(m[8]);
-      const lng = m[9] === "NULL" ? null : parseFloat(m[9]);
+      // Grup 8 = yakalanma_tarihi. Eskiden YAKALANMIYORDU (`\d+` gruplanmamıştı)
+      // ve sqlYaz her yazışta "şimdi" basıyordu — bkz. sqlYaz başı.
+      const yakalanma = parseInt(m[8], 10);
+      const lat = m[9] === "NULL" ? null : parseFloat(m[9]);
+      const lng = m[10] === "NULL" ? null : parseFloat(m[10]);
       // AYNI ID BIRDEN COK DOSYADA: koordinati OLAN kayit kazanir.
       //
       // Cagrilar `sqlKayitlariYukle(CIKTI, FULL_SQL)` seklinde; eskiden son
@@ -387,12 +404,16 @@ export function sqlKayitlariYukle(...dosyalar) {
       //
       // Bu, dosya silinse bile dogru davranis: ikinci bir kaynak eklendiginde
       // ayni tuzak tekrar kurulmasin.
-      const baslikRaw = m[11];
+      const baslikRaw = m[12];
       const baslik =
         !baslikRaw || baslikRaw === "NULL"
           ? null
           : baslikRaw.slice(1, -1).replace(/''/g, "'");
       const mevcut = byId.get(m[1]);
+      // AYNI ID BİRDEN ÇOK DOSYADA: EN ESKİ tarih kazanır — "ilk görülme".
+      // Diğer alanlar hangi kaydın kazandığına göre değişse de tarih her
+      // durumda en erkenidir; aksi hâlde ikinci dosya ilanı gençleştirirdi.
+      if (mevcut) mevcut.yakalanma = Math.min(mevcut.yakalanma ?? yakalanma, yakalanma);
       if (mevcut && mevcut.lat != null && lat == null) continue;
       if (mevcut && mevcut.baslik && !baslik) continue;
       byId.set(m[1], {
@@ -406,6 +427,7 @@ export function sqlKayitlariYukle(...dosyalar) {
         lat,
         lng,
         baslik,
+        yakalanma: mevcut ? Math.min(mevcut.yakalanma ?? yakalanma, yakalanma) : yakalanma,
       });
     }
   }

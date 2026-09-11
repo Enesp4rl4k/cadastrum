@@ -252,3 +252,11 @@ if (hedefHatalari.length > 0) {
 console.log(`\n✅ ${kayitlar.length} ilan → ${CIKTI}`);
 console.log(`   ${progress.stats?.uniqueMahalle ?? "?"} mahalle eşleşmeli`);
 console.log(`   D1: SEED-EMLAKJET-TURKIYE.bat`);
+
+// ÇIKIŞ KODU — bot engeliyle durduysa 3.
+//
+// Eskiden koşu engellense bile 0 ile çıkıyordu; iş akışı sonucu "tazeleme"
+// diye commit ediyordu. 2026-09-01 koşusu tam olarak buydu: 33.445 ilanın
+// HİÇBİRİ yeni değildi, değişen tek şey her satırın tarihiydi. Dosya yine de
+// yazılıyor (toplanan yeni ilan varsa kaybolmasın) — ama durum görünür.
+if (botEngelleri.length >= MAX_BOT_ENGEL) process.exitCode = 3;

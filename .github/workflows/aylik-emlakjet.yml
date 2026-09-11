@@ -45,15 +45,25 @@ jobs:
       # esbuild/puppeteer lock sorunlarından bağımsız ve çok hızlı.
 
       - name: Emlakjet scrape (resume — mevcut SQL üzerine yeni ilanlar)
+        id: tarama
         env:
           EMLAKJET_ILCE_MAX_SAYFA: ${{ github.event.inputs.max_sayfa || '2' }}
         run: |
+          # Tarayıcı bot engeliyle durursa 3 döner. Adımı düşürmüyoruz — o ana
+          # kadar toplanan yeni ilanlar kaybolmasın — ama kodu sonraki adıma
+          # taşıyoruz ki durum görünür kalsın.
+          set +e
           ARGS=""
           if [ -n "${{ github.event.inputs.il }}" ]; then ARGS="$ARGS --il=${{ github.event.inputs.il }}"; fi
           if [ -n "${{ github.event.inputs.maks_ilce }}" ]; then ARGS="$ARGS --maks-ilce=${{ github.event.inputs.maks_ilce }}"; fi
           node scripts/emlakjet-scrape-turkiye.mjs $ARGS
+          KOD=$?
+          echo "kod=$KOD" >> "$GITHUB_OUTPUT"
+          if [ "$KOD" -eq 3 ]; then echo "::warning::Tarama BOT ENGELİYLE durdu — kaynak GitHub runner IP'lerini kısıtlıyor olabilir"; fi
+          if [ "$KOD" -ne 0 ] && [ "$KOD" -ne 3 ]; then exit "$KOD"; fi
 
       - name: Upload SQL artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: emlakjet-data-turkiye-sql
@@ -62,13 +72,26 @@ jobs:
 
       - name: Commit fresh data
         run: |
+          # KAPI — 2026-09-11'de bulundu: 2026-09-01 koşusu 0 yeni ilan
+          # getirdi (33.445 → 33.445, aynı kimlikler) ama dosyanın her satırı
+          # değişti, çünkü sqlYaz her yazışta TÜM ilanlara "şimdi" tarihi
+          # basıyordu. Sonuç "aylık tazeleme" diye commit edildi. Bu adım artık
+          # İLAN KİMLİĞİ sayıyor, satır değil.
+          ONCE=$(git show HEAD:scripts/emlakjet-data-turkiye.sql | grep -oE "'ej_[0-9]+'" | sort -u | wc -l)
+          SONRA=$(grep -oE "'ej_[0-9]+'" scripts/emlakjet-data-turkiye.sql | sort -u | wc -l)
+          YENI=$((SONRA - ONCE))
+          echo "### Emlakjet aylık tarama" >> "$GITHUB_STEP_SUMMARY"
+          echo "ilan kimliği: $ONCE → $SONRA · yeni: $YENI · tarayıcı çıkış kodu: ${{ steps.tarama.outputs.kod }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SONRA" -lt "$ONCE" ]; then
+            echo "::error::Korpus KÜÇÜLDÜ ($ONCE → $SONRA) — commit edilmedi"
+            exit 1
+          fi
+          if [ "$YENI" -le 0 ]; then
+            echo "::error::Bir ayda 0 yeni ilan — büyük olasılıkla kaynak engelledi. Commit EDİLMEDİ: dosya yalnızca tarih değiştirmiş olurdu."
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add scripts/emlakjet-data-turkiye.sql
-          if git diff --staged --quiet; then
-            echo "Değişiklik yok — yeni ilan bulunamadı."
-          else
-            ADET=$(grep -ac "ej_" scripts/emlakjet-data-turkiye.sql)
-            git commit -m "data: aylık emlakjet tazeleme (~${ADET} ilan) [skip ci]"
-            git push
-          fi
+          git commit -m "data: aylık emlakjet tazeleme (+${YENI} yeni, toplam ${SONRA}) [skip ci]"
+          git push

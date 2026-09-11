@@ -70,19 +70,46 @@ Tek başına açıklamıyor; asıl tüketici H1'le belli olacak.
 
 ## H3 — Veri hattını koru · bağımsız, hemen başlanabilir
 
-### H3.1 Aylık iş akışı zenginleştirilmiş korpusu eziyor — ÖNCELİKLİ
+### H3.1 Korpus yakalanma tarihi her yazışta siliniyordu — ÖNCELİKLİ
 
-`.github/workflows/aylik-emlakjet.yml` her ayın 1'inde korpusu **yeniden
-yazıyor**. Bu turda görüldü: 1 Eylül'deki otomatik commit korpusu **33.445**
-ilana indirmişti, yereldeki güncel korpus **66.621** ilan ve başlık kolonu
-taşıyor. Birleştirmede yerel sürüm korundu — ama 1 Ekim'de iş aynı şeyi
-tekrar yapacak ve korpus yarıya inecek. Ayrıştırıcı bütünlük kapısı kaybı
-yakalar ama **bozulmayı önlemez**.
+> **DÜZELTME (2026-09-11, uygulama sırasında):** bu madde ilk yazıldığında
+> "aylık iş akışı korpusu yarıya indiriyor" diyordu. **YANLIŞTI.** Ölçüldü:
+> 1 Eylül commit'inden önce de sonra da korpus **33.445** ilandı — iş hiçbir
+> şey küçültmedi. 66.621 ilan yalnızca bu makinedeydi çünkü hiç push
+> edilmemişti. Aynı ölçüm daha büyük bir hatayı gösterdi:
 
-| iş | kabul |
-|---|---|
-| İş akışı korpusu **birleştirsin** (yeni ilanları ekle, mevcutları güncelle), üzerine yazmasın | iş akışı sonrası ilan sayısı **azalmıyor**; azalırsa iş BAŞARISIZ |
-| Başlık/koordinat gibi zenginleştirilmiş kolonlar korunur | kolon doluluk oranı düşmüyor |
+**Bulgu:** 1 Eylül koşusu **0 yeni ilan** getirdi (aynı 33.445 kimlik), ama
+dosyanın her satırı değişti — değişen tek şey tarihti. Sebep `emlakjet-lib.mjs`:
+`sqlYaz` her satıra `Date.now()` basıyordu, `sqlKayitlariYukle` tarihi hiç
+okumuyordu. **Korpusun git geçmişindeki 35 sürümün HER BİRİNDE tek bir tarih
+var** — HEAD'de 66.621 ilanın hepsi aynı anda "görülmüş". Sonuçları:
+
+- Motorun tazelik ağırlığı (30/60/90/120 gün, 90+ gün 0,3) backtest'te **hiç
+  çalışmadı**: backtest saati "en yeni kayıt + 1 gün"e kuruyor, herkes 1 günlük.
+- Kaynak GitHub runner'larını engellese bile iş akışı aynı ilanları taze
+  tarihle yazıp "aylık tazeleme" diye commit ediyordu.
+
+**Yapılan:**
+- (a) `sqlYaz`/`sqlKayitlariYukle` her kaydın kendi tarihini taşıyor; yalnızca
+  ilk kez görülen ilan yazıldığı anı alıyor. Aynı ilan iki dosyadaysa en eski
+  tarih kazanıyor. Mevcut veride etkisiz → backtest birebir aynı.
+- (b) Tarayıcı bot engeliyle durursa 3 dönüyor; iş akışı İLAN KİMLİĞİ sayıyor
+  (satır değil), korpus küçülürse ya da 0 yeni ilan varsa commit ETMİYOR ve
+  kırmızı dönüyor; özet `GITHUB_STEP_SUMMARY`'de.
+- (c) Gerçek tarihler git geçmişinden kurtarıldı: her kimliğin ilk göründüğü
+  sürümün gömülü yazım tarihi. 66.621'in hepsi — 02 Haziran (20.242) ile
+  07 Eylül arası, yani gerçek yaşlar 0–~98 gün.
+
+**KARAR KURALI — (c)'nin ölçümünden ÖNCE yazıldı:**
+1. Kurtarılan tarihler **doğru veri** — sonuç ne çıkarsa çıksın korpusa
+   yazılır. Yanlış tarihi, sayılar iyi göründüğü için tutmak P6 ihlali olur.
+2. Ölçülen soru ayrı: **tazelik ağırlığı doğruluğa yardım ediyor mu?**
+   Gerçek tarihlerle `backtest:real` koşulur, mevcut sayılarla kıyaslanır.
+3. ±%20 isabeti bir segmentte **≥ 1 puan düşerse**, tazelik ağırlığı nötre
+   çekilerek (tüm yaşlar eşit ağırlık) ayrı bir kol koşulur; tazelik
+   bileşeni o kola göre ya ölçüme bağlanır ya kapatılır. Sonuç `data/`
+   altına yazılır.
+4. Düşüş < 1 puansa yeni eşik (`backtest:real:yaz`) gerçek tarihlerle yazılır.
 
 ### H3.2 Zenginleştirmede %75 geçici hata
 
@@ -175,7 +202,8 @@ kaynağı kullanıcı.
 ## Sıra
 
 ```
-H3.1 aylık iş akışı ──── HEMEN (1 Ekim'de korpus yarıya iner)
+H3.1 korpus tarihleri ─── HEMEN (tazelik bileşeni hiç ölçülmemiş; aylık iş
+                           akışı engellenmiş koşuyu "tazeleme" diye commit ediyor)
 H1   yarın doğrula ───── 12 Eylül 03:00 UTC sonrası
 H2   bütçe ────────────── H1'e bağlı
 H3.2 zenginleştirme ─── 3 günlük dağılım verisine bağlı
