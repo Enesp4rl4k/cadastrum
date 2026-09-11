@@ -15,6 +15,10 @@
  *   İlçe bazında OSB yakınlığı + havalimanı yakınlığı + tapu yoğunluğu birleşimi
  */
 
+// CSS artık jsDelivr'dan DEĞİL, paketten geliyor. Üçüncü taraf kaynak her
+// ziyarette ayrı DNS+TLS demekti (ölçüm: 79 ms) ve harita stili bizim
+// dağıtımımızın dışındaki bir servisin ayakta olmasına bağlıydı.
+import "maplibre-gl/dist/maplibre-gl.css";
 import { PUBLIC_API_BASE } from "../lib/config";
 import {
   gorunumModu,
@@ -1038,6 +1042,14 @@ function otoyolGorunurluk(gorünür: boolean) {
   }
 }
 
+/**
+ * MapLibre indirmesi MODÜL YÜKLENİRKEN başlar — init'i beklemez.
+ * Paket 784 KB; ölçümde indirme 983. milisaniyede, ilk döşeme 5,6. saniyede
+ * başlıyordu. Statik import DEĞİL: o zaman paket sayfa script'ine gömülür ve
+ * ilk boyamayı geciktirir; istediğimiz sadece indirmenin erken başlaması.
+ */
+const maplibreYukleme = import("maplibre-gl");
+
 let harita: import("maplibre-gl").Map | null = null;
 let aktifTip = 1;
 let yuklenenIlceler = new Set<string>();
@@ -1146,6 +1158,60 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
   return ilceler;
 }
 
+/**
+ * Genel görünüm özeti — ÖN YÜKLEME + tarayıcı önbelleği.
+ *
+ * ÖLÇÜM (canlı, 2026-09-12): sayfa 1. saniyede hazırdı ama /harita/ozet
+ * isteği 7,6. saniyede başlıyordu; çünkü istek haritanın "load" olayını
+ * bekliyordu. MapLibre (784 KB) indirilip harita kurulurken ağ boş duruyordu.
+ * Artık istek init'in ilk satırında başlıyor, harita ile YARIŞIYOR.
+ *
+ * Önbellek: özet yıllık toplam — saatlik değişmiyor. 6 saat tutmak tekrar
+ * ziyarette hem anında çizim hem de D1 okuması TASARRUFU demek (günlük 5M
+ * okuma limiti zaten doluyor).
+ */
+const OZET_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+let ozetOnYukleme: { tip: number; istek: Promise<IlceOzeti[]> } | null = null;
+
+async function ozetGetir(tip: number): Promise<IlceOzeti[]> {
+  const anahtar = `d1-harita-ozet-v1:${tip}`;
+  try {
+    const c = localStorage.getItem(anahtar);
+    if (c) {
+      const { veri, zaman } = JSON.parse(c) as { veri: IlceOzeti[]; zaman: number };
+      if (Date.now() - zaman < OZET_CACHE_TTL_MS) return veri;
+    }
+  } catch {
+    // beklenen yokluk: localStorage kapalı/dolu ya da kayıt bozuk olabilir —
+    // önbellek yoksa aşağıdaki istek zaten veriyi çekiyor, kullanıcı fark etmez.
+  }
+
+  const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${tip}&birlesik=1`);
+  if (!res.ok) throw new HaritaIstekHatasi(res.status, Number(res.headers.get("Retry-After")) || null);
+  const data = await res.json() as { ozet?: IlceOzeti[] };
+  const ozet = data.ozet ?? [];
+  try {
+    localStorage.setItem(anahtar, JSON.stringify({ veri: ozet, zaman: Date.now() }));
+  } catch {
+    // beklenen yokluk: kota dolu ya da gizli sekmede yazma kapalı — veri
+    // elimizde, yalnızca sonraki ziyaret için saklayamıyoruz.
+  }
+  return ozet;
+}
+
+function ozetOnYukle(tip: number): Promise<IlceOzeti[]> {
+  if (!ozetOnYukleme || ozetOnYukleme.tip !== tip) {
+    ozetOnYukleme = { tip, istek: ozetGetir(tip) };
+    // Henüz kimse await etmediği için reddi burada KARŞILA — yoksa tarayıcı
+    // "unhandled rejection" basar. Yutmuyoruz: gerçek hata yine de await
+    // edildiğinde çağırana gidiyor, burada yalnızca log'lanıyor.
+    void ozetOnYukleme.istek.then(undefined, (e: unknown) => {
+      console.warn("[harita] özet ön yüklemesi başarısız:", e);
+    });
+  }
+  return ozetOnYukleme.istek;
+}
+
 // ─── GeoJSON source ───────────────────────────────────────────────────────────
 
 function sourceGuncelle() {
@@ -1243,17 +1309,15 @@ async function genelGorunumGoster(ilceler: IlceBilgi[]) {
   if (genelTip !== aktifTip || genelNoktalar.length === 0) {
     yukleniyor = true;
     try {
-      const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${aktifTip}&birlesik=1`);
-      if (!res.ok) {
-        durumGuncelle(istekHatasiMetni(res.status, Number(res.headers.get("Retry-After")) || null));
-        return;
-      }
-      const data = await res.json() as { ozet?: IlceOzeti[] };
-      genelNoktalar = genelNoktalariKur(data.ozet ?? [], ilceler).noktalar as HeatPoint[];
+      // init'te başlatılmış ön yükleme varsa onu bekler — yeni istek atmaz.
+      const ozet = await ozetOnYukle(aktifTip);
+      genelNoktalar = genelNoktalariKur(ozet, ilceler).noktalar as HeatPoint[];
       genelTip = aktifTip;
     } catch (e) {
       console.warn("[harita] genel görünüm alınamadı:", e);
-      durumGuncelle("Harita verisi alınamadı — bağlantınızı kontrol edin");
+      durumGuncelle(e instanceof HaritaIstekHatasi
+        ? istekHatasiMetni(e.durum, e.retryAfter)
+        : "Harita verisi alınamadı — bağlantınızı kontrol edin");
       return;
     } finally {
       yukleniyor = false;
@@ -1924,18 +1988,13 @@ export async function initHarita() {
   const konteyner = document.getElementById("turkiye-harita");
   if (!konteyner) return;
 
-  if (!document.getElementById("maplibre-css")) {
-    const link = document.createElement("link");
-    link.id = "maplibre-css";
-    link.rel = "stylesheet";
-    // jsDelivr daha kararlı — unpkg zaman zaman yavaş
-    link.href = "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css";
-    document.head.appendChild(link);
-  }
+  // İLK İŞ: veri isteğini başlat. Harita kurulumu ile PARALEL gitsin diye
+  // burada await EDİLMİYOR — ölçümde istek 7,6. saniyeye kaymıştı.
+  void ozetOnYukle(aktifTip);
 
   document.getElementById("harita-yukleniyor")?.remove();
 
-  const { Map: MLMap, NavigationControl, AttributionControl, Popup } = await import("maplibre-gl");
+  const { Map: MLMap, NavigationControl, AttributionControl, Popup } = await maplibreYukleme;
   MLPopup = Popup;
 
   harita = new MLMap({

@@ -49,8 +49,12 @@ import Base from "../layouts/Base.astro";
           </div>
           <div class="w-px bg-white/20" aria-hidden="true"></div>
           <div class="text-center">
-            <div class="font-display text-3xl font-bold text-white" id="stat-ilce">957</div>
-            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">İlçe</div>
+            <!-- Bu sayı TKGM analizi OLAN ilçeleri sayıyor (canlıda ~170),
+                 Türkiye'deki toplam ilçeyi değil. Etiket "İlçe" deyince 973
+                 ilçenin hepsinde veri varmış gibi okunuyordu. Statik 957 de
+                 JS gelene kadar aynı yalanı gösteriyordu — artık "—". -->
+            <div class="font-display text-3xl font-bold text-white" id="stat-ilce">—</div>
+            <div class="text-imperial-100 text-xs uppercase tracking-wider mt-0.5">Verili İlçe</div>
           </div>
           <div class="w-px bg-white/20" aria-hidden="true"></div>
           <div class="text-center">
@@ -91,14 +95,22 @@ import Base from "../layouts/Base.astro";
         </div>
       </div>
 
-      <!-- POI Katman Paneli -->
-      <div
-        id="poi-katman-panel"
-        class="flex flex-wrap items-center gap-2 mb-4"
-        role="group"
-        aria-label="Harita katmanları"
-      >
-        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider pr-1">Katmanlar:</span>
+      <!-- POI Katman Paneli.
+           MOBİLDE KATLANIR: 13 düğme dar ekranda 6-7 satıra yayılıyor ve
+           haritayı ekranın çok aşağısına itiyordu (375px ölçümü). Masaüstünde
+           açık başlar — aşağıdaki script geniş ekranda `open` veriyor. -->
+      <details id="katman-katla" class="mb-4 md:mb-4">
+        <summary class="md:hidden cursor-pointer list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 text-xs font-medium">
+          <span aria-hidden="true">🗂️</span> Katmanlar
+          <span class="text-slate-500">(13)</span>
+        </summary>
+        <div
+          id="poi-katman-panel"
+          class="flex flex-wrap items-center gap-2 mt-2 md:mt-0"
+          role="group"
+          aria-label="Harita katmanları"
+        >
+        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider pr-1 hidden md:inline">Katmanlar:</span>
 
         <!-- Otoyollar.
              ETİKET NOTU: eskiden "Otoyol & D-yol" yazıyordu ama veri setinde
@@ -260,13 +272,18 @@ import Base from "../layouts/Base.astro";
           <span id="cdp-bilgi" class="text-xs text-violet-400 hidden sm:block"></span>
           <span class="text-xs text-slate-600 hidden sm:block">Tıkla → katmanı aç/kapat</span>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <!-- Harita -->
+      <!-- Harita.
+           YÜKSEKLİK: sabit 600px her cihazda aynıydı — mobilde harita ekranın
+           küçük bir şeridi, büyük ekranda gereksiz dar kalıyordu. Ekran
+           yüksekliğine bağlı; alt sınır 420px (kontroller sığsın), üst sınır
+           760px (masaüstünde sayfanın tamamını yutmasın). -->
       <div
         id="turkiye-harita"
         class="w-full rounded-2xl border border-slate-700 overflow-hidden bg-slate-800"
-        style="height: 600px;"
+        style="height: clamp(420px, 68vh, 760px);"
         aria-label="Türkiye tapu işlem yoğunluğu haritası"
         role="application"
       >
@@ -301,6 +318,23 @@ import Base from "../layouts/Base.astro";
           <span class="w-3 h-3 rounded-full bg-[#22d3ee] inline-block"></span>-5%↓ Soğuyor
         </span>
         <span class="text-xs text-slate-500 ml-auto">Soluk daire = veri yok</span>
+      </div>
+
+      <!-- Isı rengi açıklaması.
+           NEDEN: sarıdan kırmızıya giden ısının ne ölçtüğünü söyleyen hiçbir
+           şey yoktu; kullanıcı rengin "fiyat" mı "işlem sayısı" mı olduğunu
+           bilemiyordu. Ölçek GÖRELİ — en yoğun noktaya göre normalize ediliyor,
+           mutlak bir eşik yok; metin bunu açıkça söylüyor. -->
+      <div class="mt-2 flex flex-wrap items-center gap-2 p-2 bg-slate-800/80 rounded-lg border border-slate-700">
+        <span class="text-xs text-slate-400 font-medium">İşlem yoğunluğu:</span>
+        <span class="text-xs text-slate-500">az</span>
+        <span
+          class="rounded-full shrink-0"
+          style="width: 7rem; height: 0.625rem; background: linear-gradient(90deg, rgba(255,254,179,0.55), rgba(253,174,97,0.78), rgba(240,59,32,0.88), rgba(189,0,38,0.96));"
+          aria-hidden="true"
+        ></span>
+        <span class="text-xs text-slate-500">çok</span>
+        <span class="text-xs text-slate-500 ml-1">· görünen alandaki en yoğun noktaya göre</span>
       </div>
 
       <!-- Alt bilgi -->
@@ -393,5 +427,21 @@ import Base from "../layouts/Base.astro";
 <!-- ─── HARİTA JS ─────────────────────────────────────────────────────────── -->
 <script>
   import { initHarita } from "../scripts/harita-init";
-  document.addEventListener("astro:page-load", () => initHarita());
+
+  /**
+   * Katman paneli geniş ekranda AÇIK başlar, dar ekranda kapalı.
+   * `<details>` varsayılanı tek durum tutuyor; ekran genişliğine göre burada
+   * ayarlanıyor. Kullanıcı kendisi açıp kapattıktan sonra karışmıyoruz.
+   */
+  function katmanPaneliKur() {
+    const d = document.getElementById("katman-katla") as HTMLDetailsElement | null;
+    if (!d || d.dataset["kuruldu"]) return;
+    d.dataset["kuruldu"] = "1";
+    d.open = window.matchMedia("(min-width: 768px)").matches;
+  }
+
+  document.addEventListener("astro:page-load", () => {
+    katmanPaneliKur();
+    void initHarita();
+  });
 </script>
