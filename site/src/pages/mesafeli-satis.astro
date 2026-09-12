@@ -12,10 +12,16 @@ import Yasal from "../layouts/YasalLayout.astro";
 >
   <h2>1. Taraflar</h2>
   <h3>1.1. Satıcı</h3>
+  <!-- Eskiden burada [İşletme Adı] / [Açık Adres] / [Numara] şablon yer
+       tutucuları yayındaydı. Henüz satıcı bir şirket yok ve ödeme kapalı —
+       uydurma bilgi yerine durumun kendisi yazıyor. Satış açılmadan önce
+       doldurulmalı; site/test/yasal-tutarlilik.spec.ts yer tutucuyu yakalar. -->
+  <div class="uyari">
+    Ücretli planlar <strong>henüz satışa açık değildir</strong>. Satış başlamadan önce
+    satıcının unvanı, açık adresi ve MERSİS / vergi numarası, 6502 sayılı Kanun gereği bu
+    bölüme eklenecektir. Bu bilgiler yer almadan satış yapılmaz.
+  </div>
   <ul>
-    <li>Ünvan: <strong>[İşletme Adı]</strong></li>
-    <li>Adres: <strong>[Açık Adres]</strong></li>
-    <li>Mersis / Vergi No: <strong>[Numara]</strong></li>
     <li>Email: <a href="mailto:iletisim@cadastrum.com.tr">iletisim@cadastrum.com.tr</a></li>
     <li>Web: <a href="https://cadastrum.com.tr">cadastrum.com.tr</a></li>
   </ul>
@@ -100,7 +106,7 @@ import Yasal from "../layouts/YasalLayout.astro";
     <li>Ödeme şekli ve fatura bilgisi</li>
     <li>Hizmetin elektronik ortamda anında ifa edilen bir hizmet olduğu</li>
     <li>İfaya başlanmasıyla yasal cayma hakkının sona ereceği (Madde 15/ğ)</li>
-    <li>Cadastrum'un gönüllü olarak tanıdığı 7 günlük iade hakkı koşulları</li>
+    <li>7 günlük ücretsiz deneme koşulları ve ücretli döneme geçildikten sonra iade yapılmayacağı (<a href="/iade-iptal">İade ve İptal Politikası</a>)</li>
     <li>Bu Mesafeli Satış Sözleşmesi ve <a href="/kullanim-kosullari">Kullanım Koşulları</a></li>
   </ol>
 

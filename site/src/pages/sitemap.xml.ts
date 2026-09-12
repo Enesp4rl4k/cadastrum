@@ -69,7 +69,10 @@ export const GET: APIRoute = () => {
   entries.push({ loc: `${SITE}/harita`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
   entries.push({ loc: `${SITE}/sss`, changefreq: "monthly", priority: 0.5, lastmod: TODAY });
   entries.push({ loc: `${SITE}/gizlilik`, changefreq: "monthly", priority: 0.3 });
-  entries.push({ loc: `${SITE}/kullanim-sartlari`, changefreq: "monthly", priority: 0.3 });
+  // Kullanıcının kayıtta kabul ettiği metin bu. Eskiden sitemap farklı içerikli
+  // /kullanim-sartlari'nı bildiriyordu (iade modeli bile çelişiyordu); o sayfa
+  // kaldırıldı ve buraya 301 ile yönleniyor (public/_redirects).
+  entries.push({ loc: `${SITE}/kullanim-kosullari`, changefreq: "monthly", priority: 0.3 });
   entries.push({ loc: `${SITE}/veri`, changefreq: "weekly", priority: 0.9, lastmod: TODAY });
   entries.push({ loc: `${SITE}/blog`, changefreq: "weekly", priority: 0.8, lastmod: TODAY });
 

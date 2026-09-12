@@ -13,3 +13,9 @@ https://www.cadastrum.com.tr/* https://cadastrum.com.tr/:splat 301!
 #   src/pages/veri/[il]/[ilce].astro            (973 ilçe)
 #   src/pages/veri/[il]/[ilce]/[mahalle].astro  (curated mahalleler)
 # Kapsam site/test/veri-rotalari.spec.ts ile sabitlendi.
+
+# İki ayrı kullanım sözleşmesi yayındaydı: kayıt formu /kullanim-kosullari'nı,
+# sitemap /kullanim-sartlari'nı gösteriyordu ve iade modelleri çelişiyordu
+# ("7 gün koşulsuz iade" ↔ "7 gün ücretsiz deneme, iade yok"). Tek metin kaldı.
+/kullanim-sartlari   /kullanim-kosullari   301
+/kullanim-sartlari/  /kullanim-kosullari/  301
