@@ -1,0 +1,17 @@
+-- 0040 — tkgm_analiz_noktalari'daki gereksiz indeksi kaldır.
+--
+-- NEDEN: idx_tkgm_analiz_ilce_tip_yil (ilce_kodu, analiz_tip, yil), benzersiz
+-- idx_tkgm_analiz_unique (ilce_kodu, analiz_tip, yil, parsel_id) indeksinin
+-- birebir ÖNEKİ. SQLite önek eşleşmesinde benzersiz indeksi kullanıyor, yani
+-- okuma tarafında hiçbir sorgu bu indekse muhtaç değil:
+--   /harita/analiz          WHERE ilce_kodu=? AND analiz_tip=? AND yil=?
+--   /harita/analiz/birlesik WHERE ilce_kodu=? AND analiz_tip=? GROUP BY parsel_id
+--
+-- ÖLÇÜM (2026-09-12, canlı D1): 400 demetlik INSERT → 234 yeni satır,
+-- rows_written=700 → satır başına 3,0 yazma (tablo + 2 indeks). D1 ücretsiz
+-- katman günlük 100.000 yazma; eksik 540 ilçenin yüklenmesi bu indeks yüzünden
+-- %50 daha uzun sürüyordu. Kaldırınca beklenen: satır başına 2 yazma.
+--
+-- GERİ ALMA: CREATE INDEX idx_tkgm_analiz_ilce_tip_yil
+--              ON tkgm_analiz_noktalari (ilce_kodu, analiz_tip, yil);
+DROP INDEX IF EXISTS idx_tkgm_analiz_ilce_tip_yil;

@@ -1123,7 +1123,10 @@ const ILCE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 let ilceListesiHata: string | null = null;
 
 async function tumIlceleriCek(): Promise<IlceBilgi[]> {
-  const cacheKey = "d1-ilce-listesi-v1";
+  // v2 (2026-09-12): liste 170 → 548 ilçe oldu (merkezler ayrı tablodan).
+  // v1 30 gün saklanıyordu — anahtar değişmezse mevcut ziyaretçiler yeni
+  // ilçeleri bir ay boyunca görmezdi.
+  const cacheKey = "d1-ilce-listesi-v2";
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -1135,7 +1138,9 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
   let ilceler: IlceBilgi[] = [];
   ilceListesiHata = null;
   try {
-    const res = await fetch(`${API_BASE}/harita/ilceler`);
+    // `?v=2`: uç 30 günlük Cache-Control dönüyor; eski 170'lik yanıt tarayıcı
+    // ve ara önbelleklerde kalmasın diye adres değişti.
+    const res = await fetch(`${API_BASE}/harita/ilceler?v=2`);
     if (res.ok) {
       const data = await res.json() as { ilceler?: Array<{ ilce_kodu: number; lat: number; lng: number }> };
       ilceler = (data.ilceler ?? [])
@@ -1174,7 +1179,8 @@ const OZET_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 let ozetOnYukleme: { tip: number; istek: Promise<IlceOzeti[]> } | null = null;
 
 async function ozetGetir(tip: number): Promise<IlceOzeti[]> {
-  const anahtar = `d1-harita-ozet-v1:${tip}`;
+  // v2: anlam değişti (birleşik → tek yıl), eski önbellek okunmasın.
+  const anahtar = `d1-harita-ozet-v2:${tip}`;
   try {
     const c = localStorage.getItem(anahtar);
     if (c) {
@@ -1186,7 +1192,11 @@ async function ozetGetir(tip: number): Promise<IlceOzeti[]> {
     // önbellek yoksa aşağıdaki istek zaten veriyi çekiyor, kullanıcı fark etmez.
   }
 
-  const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${tip}&birlesik=1`);
+  // TEK YIL, birleşik DEĞİL. `birlesik=1` yılları topluyor; D1'de 170 ilçenin
+  // 2024+2025'i, 378 ilçenin yalnızca 2025'i var (ölçüm 2026-09-12). Toplam,
+  // eski ilçeleri ~2 kat ağır gösterip ısıyı onlara yığıyordu. Yıl verilmeyince
+  // uç en son seed edilmiş yılı seçiyor — tüm ilçeler aynı yıla göre kıyaslanır.
+  const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${tip}`);
   if (!res.ok) throw new HaritaIstekHatasi(res.status, Number(res.headers.get("Retry-After")) || null);
   const data = await res.json() as { ozet?: IlceOzeti[] };
   const ozet = data.ozet ?? [];

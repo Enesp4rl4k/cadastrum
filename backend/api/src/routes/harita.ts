@@ -202,15 +202,13 @@ haritaRoutes.get("/ozet", async (c) => {
 // ── İlçe kodu + yaklaşık merkez (TKGM'ye hiç istek atmadan, D1'den) ──────────
 
 haritaRoutes.get("/ilceler", async (c) => {
-  // Sabit bir yıl/tipe filtrelemiyoruz — amaç sadece "hangi ilçe kodları var
-  // + yaklaşık merkezi" bulmak, hangi yılın seed edildiği zamanla değişebilir
-  // (bkz. /ozet'in YIL_MAX-1 varsayımı: seed verisi 2024'te kalmışken bugünün
-  // yılı ilerledikçe sessizce boş sonuç dönerdi). Tablo ~250k satır — filtresiz
-  // GROUP BY bu boyutta ucuz, 30 günlük cache zaten tekrar sorgulanmasını önlüyor.
+  // Merkezler AYRI tablodan (0041). Eskiden nokta tablosunun tamamı her çağrıda
+  // GROUP BY ile taranıyordu: 2026-09-12'de 264.475 satır okuma, eksik ilçeler
+  // yüklenince ~990.000 — ve liste nokta tablosundan türediği için özeti olup
+  // noktası henüz yüklenmemiş 378 ilçe haritada çizilemiyordu. "~250k satır
+  // ucuz" varsayımı ölçülmemişti; D1 günlük okuma limiti düzenli doluyor.
   const rows = await c.env.DB.prepare(
-    `SELECT ilce_kodu, AVG(enlem) AS lat, AVG(boylam) AS lng
-     FROM tkgm_analiz_noktalari
-     GROUP BY ilce_kodu`
+    `SELECT ilce_kodu, lat, lng FROM tkgm_ilce_merkez`
   ).all<{ ilce_kodu: number; lat: number; lng: number }>();
 
   return c.json(
