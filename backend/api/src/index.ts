@@ -61,6 +61,7 @@ import { pipelineHealthKontrol, pipelineAlarmEmailGonder } from "./routes/pipeli
 import { sentryMiddleware } from "./lib/sentry.js";
 import { requestIdMiddleware } from "./lib/request-id.js";
 import { sunucuHatasiKaydet } from "./lib/hata-kaydet.js";
+import { d1KotaHatasiMi, kotaSifirlanmasinaSaniye, kotaGunlugeYazilsinMi } from "./lib/d1-kota.js";
 
 export interface Env {
   DB: D1Database;
@@ -180,6 +181,29 @@ app.notFound((c) => {
 
 app.onError((err, c) => {
   const requestId = c.get("requestId" as never) as string | undefined;
+
+  // D1 GÜNLÜK KOTASI — beklenen, süresi belli durum; "sunucu hatası" değil.
+  // Hata kaydı YAZILMIYOR: kilitli D1'e yazılamaz, KV'ye düşüş ise yoğun
+  // trafikte günlük 1.000 KV yazmasını dakikalar içinde bitirirdi.
+  // Gerekçe: lib/d1-kota.ts başı.
+  if (d1KotaHatasiMi(err)) {
+    const saniye = kotaSifirlanmasinaSaniye();
+    if (kotaGunlugeYazilsinMi()) {
+      console.error(`[d1-kota-doldu] ${c.req.method} ${c.req.path} — sıfırlanmaya ${saniye} sn`);
+    }
+    c.header("Retry-After", String(saniye));
+    c.header("Cache-Control", "no-store");
+    return c.json({
+      success: false,
+      error: {
+        code: "GUNLUK_KOTA_DOLDU",
+        message: `Veri servisi bugünlük kullanım sınırına ulaştı; yaklaşık ${Math.ceil(saniye / 3600)} saat içinde yeniden açılacak.`,
+        retry_after_saniye: saniye,
+        requestId,
+      },
+    }, 503);
+  }
+
   console.error(`[unhandled-error] ${c.req.method} ${c.req.path} (requestId=${requestId ?? "?"}):`, err);
 
   // Kalıcı kayıt — console.error yalnızca `wrangler tail` açıkken görülüyor,
