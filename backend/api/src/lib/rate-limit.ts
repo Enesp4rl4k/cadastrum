@@ -1,25 +1,41 @@
 /**
- * Global IP-based rate limit middleware — Cloudflare Workers + KV (+ D1 fallback)
+ * IP tabanlı istek sınırı — Cloudflare Workers Rate Limiting binding'i.
  *
- * P1: KV rate limit — D1 UPSERT yerine KV (10x daha hızlı write, Workers KV kota
- * D1 write kotasından çok daha yüksek).
+ * ── NEDEN DEĞİŞTİ (2026-09-13) ──────────────────────────────────────────────
  *
- * Strateji:
- *   - KV varsa (RATE_LIMIT_KV binding aktif): KV atomik increment
- *   - KV yoksa (binding tanımsız): D1 UPSERT fallback (eski davranış)
+ * Eski sınırlayıcı her istekte KV `get` + `put` yapıyordu. Ücretsiz katmanda
+ * KV günde 1.000 YAZMA. Yazma sayısı IP başına sınırla değil TOPLAM istekle
+ * büyüyor: 1.000 farklı ziyaretçi birer sorgu atsa kota biter. Bitince
+ * `put` hatası yutulduğu için sınırlayıcı sessizce devre dışı kalıyor, aynı
+ * KV'yi kullanan önbellekler (doğrulama raporu, statik paket) de yazamıyordu.
+ * Yüksek trafik tam da sınırlayıcının gerektiği an onu kapatıyordu.
  *
- * KV key formatı: `rl:{prefix}:{ip}:{saat}`
- * TTL: 2 saat (bir saat öncesini de kapsar, paranoyak marj)
+ * Cloudflare'in yerleşik sınırlayıcısı KV/D1 kullanmıyor ve ücretsiz. İki
+ * kısıtı var:
+ *   - pencere yalnızca 10 ya da 60 saniye (saatlik yok)
+ *   - sınır binding başına sabit, anahtar başına değil
  *
- * Not: KV namespace oluşturma:
- *   wrangler kv:namespace create "RATE_LIMIT_KV"
- *   → id'yi wrangler.toml [[kv_namespaces]] alanına yaz
+ * Bu yüzden 35 ayrı saatlik kural 4 dakikalık SINIFA eşleniyor
+ * (`sinifSec`). Çağrı yerleri değişmedi; saatlik sayı sınıf seçimine girdi
+ * olarak kalıyor ve kuralın niyetini belgeliyor.
+ *
+ * ── BİLİNÇLİ TAKAS ──────────────────────────────────────────────────────────
+ *
+ * Saatlik garanti dakikalığa dönünce pahalı uçlarda IP başına saatlik tavan
+ * yükseliyor (ör. 5/saat → 2/dk = 120/saat). Karşılığında sınırlayıcı trafik
+ * ne olursa olsun ÇALIŞIYOR. Eski saatlik garanti zaten kota dolunca yok
+ * oluyordu. Pahalı AI uçları (ai-ajan, takip, v2) ayrıca kimlik doğrulaması
+ * istiyor. Kötüye kullanım görülürse sonraki adım Turnstile.
+ *
+ * Cloudflare sınırlayıcısı konum (colo) başına ve nihai tutarlı; sayım kesin
+ * değil. Kalan hak bilgisi dönmüyor, bu yüzden X-RateLimit-Remaining artık
+ * YOK. Site (sorgu.astro) başlık yoksa satırı gizliyor.
  */
 import type { MiddlewareHandler } from "hono";
 import type { Env } from "../index.js";
 
-/** IP'yi standart biçimde çıkar. CF-Connecting-IP en güvenilir. */
-function getClientIp(req: Request): string {
+/** CF-Connecting-IP en güvenilir; yoksa X-Forwarded-For'un ilki. */
+function istemciIp(req: Request): string {
   return (
     req.headers.get("CF-Connecting-IP") ??
     req.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ??
@@ -27,89 +43,108 @@ function getClientIp(req: Request): string {
   );
 }
 
-/**
- * KV tabanlı rate limit — atomik increment.
- * KV'de key yoksa 1, varsa +1 döner.
- * TTL: 7200 saniye (2 saat).
- */
-async function kvRateLimit(
-  kv: KVNamespace,
-  key: string,
-): Promise<number> {
-  // KV atomic increment: get → parse → increment → put
-  // Not: KV'de native atomic increment yok, ama Workers tek-threaded olduğu için
-  // tek instance'da race condition olmaz. Multi-instance için bu hafif race var
-  // ama rate limit için ±1 toleransı kabul edilebilir.
-  const val = await kv.get(key, "text");
-  const current = val != null ? parseInt(val, 10) : 0;
-  const next = current + 1;
-  // waitUntil yerine fire-and-forget (response'u bloklamasın)
-  kv.put(key, String(next), { expirationTtl: 7200 }).catch(() => {});
-  return next;
-}
+export type SinirSinifi = "SINIR_YOGUN" | "SINIR_GENEL" | "SINIR_DAR" | "SINIR_PAHALI";
 
 /**
- * D1 tabanlı rate limit — eski davranış, fallback.
+ * Dakikalık sınıf limitleri — wrangler.toml [[ratelimits]] ile AYNI olmalı.
+ * Binding limiti koddan okunamıyor; başlıkta göstermek için burada tekrar
+ * ediliyor. Ayrışırsa test/rate-limit.spec.ts wrangler.toml'u okuyup kırılır.
  */
-async function d1RateLimit(
-  db: D1Database,
-  key: string,
-  saat: number,
-): Promise<number> {
-  const row = await db.prepare(
-    `INSERT INTO rate_limit (ip, saat, istek_sayisi) VALUES (?, ?, 1)
-     ON CONFLICT(ip, saat) DO UPDATE SET istek_sayisi = istek_sayisi + 1
-     RETURNING istek_sayisi`,
-  )
-    .bind(key, saat)
-    .first<{ istek_sayisi: number }>();
-  return row?.istek_sayisi ?? 1;
-}
+export const SINIF_DAKIKA_LIMIT: Record<SinirSinifi, number> = {
+  SINIR_YOGUN: 120,
+  SINIR_GENEL: 30,
+  SINIR_DAR: 10,
+  SINIR_PAHALI: 2,
+};
 
 /**
- * rateLimitMiddleware(limitPerHour, prefix?)
+ * Saatlik niyet → dakikalık sınıf.
  *
- * @param limitPerHour  - Saatte izin verilen maksimum istek sayısı
- * @param prefix        - Aynı IP'yi farklı endpoint grupları için ayrı saymak için
+ * Eşikler mevcut kuralların doğal kümeleri (ölçüm: 35 kuralın dağılımı):
+ *   ≥300  harita, TUCBS döşeme, TKGM idari — tek sayfa açılışı onlarca istek
+ *   60-299  fiyat, sorgu, emsal, proxy'ler, telemetri, ilan, portföy
+ *   20-59   endeks, rapor, takip, uydu görsel, web sorgu, bölge analizi
+ *   <20     newsletter, AI fırsat/portföy, uydu analizi, rapor üretimi, v2 batch
+ * Dakikalık limit ≈ saatlik/6–10 → kısa patlamaya izin, sürekli yüke değil.
+ */
+export function sinifSec(saatlikNiyet: number): SinirSinifi {
+  if (saatlikNiyet >= 300) return "SINIR_YOGUN";
+  if (saatlikNiyet >= 60) return "SINIR_GENEL";
+  if (saatlikNiyet >= 20) return "SINIR_DAR";
+  return "SINIR_PAHALI";
+}
+
+/**
+ * Aynı istekte aynı önek İKİ KEZ sayılmasın. Eskiden bazı uçlarda hem index'te
+ * hem route'ta aynı önekli sınırlayıcı vardı (takip, api-v2-degerle,
+ * uydu-analiz) ve her istek iki kez sayılıyordu → gerçek sınır yazılanın yarısı.
+ * Farklı önekler (ör. "rapor" + "rapor-post") bilinçli katmanlama, ikisi de sayılır.
+ */
+const sayilanOnekler = new WeakMap<Request, Set<string>>();
+
+/** Binding eksik/bozuk uyarısı isolate başına saatte bir — istek başına değil. */
+const sonUyari = new Map<string, number>();
+function uyariBas(tur: string, mesaj: string, hata?: unknown) {
+  const simdi = Date.now();
+  if (simdi - (sonUyari.get(tur) ?? 0) < 60 * 60 * 1000) return;
+  sonUyari.set(tur, simdi);
+  console.warn(`[rate-limit] ${mesaj}`, hata ?? "");
+}
+
+/**
+ * @param saatlikNiyet kuralın saatlik niyeti — sınıfı seçer (bkz. sinifSec)
+ * @param onek aynı IP'yi farklı uç grupları için ayrı saymak için
  */
 export function rateLimitMiddleware(
-  limitPerHour: number,
-  prefix = "global",
+  saatlikNiyet: number,
+  onek = "global",
 ): MiddlewareHandler<{ Bindings: Env }> {
-  return async (c, next) => {
-    const ip = getClientIp(c.req.raw);
-    const saat = Math.floor(Date.now() / 3_600_000);
-    const key = `rl:${prefix}:${ip}:${saat}`;
+  const sinif = sinifSec(saatlikNiyet);
+  const dakikaLimit = SINIF_DAKIKA_LIMIT[sinif];
 
-    let mevcut: number;
-    try {
-      if (c.env.RATE_LIMIT_KV) {
-        // P1: KV — hızlı path
-        mevcut = await kvRateLimit(c.env.RATE_LIMIT_KV, key);
-      } else {
-        // Fallback: D1 (KV binding henüz aktif değilse)
-        const d1Key = `${prefix}:${ip}`;
-        mevcut = await d1RateLimit(c.env.DB, d1Key, saat);
-      }
-    } catch {
-      // Rate limit hatası → geç, engelleme (availability > security burada)
+  return async (c, next) => {
+    const istek = c.req.raw;
+    let sayilan = sayilanOnekler.get(istek);
+    if (!sayilan) {
+      sayilan = new Set();
+      sayilanOnekler.set(istek, sayilan);
+    }
+    if (sayilan.has(onek)) {
+      await next();
+      return;
+    }
+    sayilan.add(onek);
+
+    const binding = c.env[sinif];
+    if (!binding) {
+      // Yerel geliştirme ve testler binding'siz koşuyor. Üretimde binding
+      // eksikse bu uyarı görünür; istek engellenmez (erişilebilirlik > sınır).
+      uyariBas(`yok:${sinif}`, `${sinif} binding'i yok — sınır uygulanmıyor (${onek})`);
       await next();
       return;
     }
 
-    // Rate limit headers — her zaman ekle
-    c.header("X-RateLimit-Limit", String(limitPerHour));
-    c.header("X-RateLimit-Remaining", String(Math.max(0, limitPerHour - mevcut)));
-    c.header("X-RateLimit-Reset", String((saat + 1) * 3600));
+    let basarili: boolean;
+    try {
+      ({ success: basarili } = await binding.limit({ key: `${onek}:${istemciIp(istek)}` }));
+    } catch (e) {
+      // Sınırlayıcı arızası isteği düşürmez — ama görünür.
+      uyariBas(`hata:${sinif}`, `${sinif} limit() hatası — istek sınırsız geçti (${onek})`, e);
+      await next();
+      return;
+    }
 
-    if (mevcut > limitPerHour) {
-      const retryAfter = ((saat + 1) * 3_600_000 - Date.now()) / 1000;
-      c.header("Retry-After", String(Math.ceil(retryAfter)));
+    c.header("X-RateLimit-Limit", String(dakikaLimit));
+    c.header("X-RateLimit-Policy", `${dakikaLimit};w=60`);
+
+    if (!basarili) {
+      c.header("Retry-After", "60");
       return c.json(
         {
-          error: "Rate limit aşıldı. Bir saat sonra tekrar deneyin.",
-          limit: limitPerHour,
-          retry_after_saniye: Math.ceil(retryAfter),
+          error: "İstek sınırı aşıldı. Bir dakika sonra tekrar deneyin.",
+          limit: dakikaLimit,
+          pencere_saniye: 60,
+          retry_after_saniye: 60,
         },
         429,
       );
@@ -120,8 +155,8 @@ export function rateLimitMiddleware(
 }
 
 /**
- * Eski rate_limit D1 kayıtlarını temizler.
- * KV kendi TTL'ine göre temizlenir — D1 cleanup devam eder (backward compat).
+ * Eski D1 `rate_limit` tablosunu temizler. Yeni sınırlayıcı bu tabloya
+ * yazmıyor; tablo boşalana kadar günlük cron'da kalıyor.
  */
 export async function rateLimitTemizle(db: D1Database): Promise<{ silinen: number }> {
   const eskiSaatSiniri = Math.floor(Date.now() / 3_600_000) - 48;

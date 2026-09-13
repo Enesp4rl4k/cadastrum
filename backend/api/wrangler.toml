@@ -26,6 +26,33 @@ bucket_name = "cadastrum-tucbs-tiles"
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "e1e2bcac79554997a99fd3bd4b9bfc27"
+
+# İstek sınırı — Cloudflare Rate Limiting binding'leri (2026-09-13).
+# Eski sınırlayıcı istek başına KV'ye yazıyordu; ücretsiz KV günde 1.000 yazma,
+# yüksek trafikte sınırlayıcı sessizce kapanıyordu. Bunlar KV/D1 kullanmıyor.
+# Sınır binding başına sabit, pencere 60 sn. 35 saatlik kural 4 sınıfa eşleniyor:
+# src/lib/rate-limit.ts sinifSec. LİMİTLER SINIF_DAKIKA_LIMIT ile AYNI olmalı
+# (test/rate-limit.spec.ts bu dosyayı okuyup karşılaştırıyor).
+# namespace_id hesap içinde benzersiz, keyfi sayı.
+[[ratelimits]]
+name = "SINIR_YOGUN"
+namespace_id = "1301"
+simple = { limit = 120, period = 60 }
+
+[[ratelimits]]
+name = "SINIR_GENEL"
+namespace_id = "1302"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "SINIR_DAR"
+namespace_id = "1303"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "SINIR_PAHALI"
+namespace_id = "1304"
+simple = { limit = 2, period = 60 }
 # Cron Triggers — Workers Free plan hesap başına 5 trigger ile sınırlı, bu yüzden
 # yeni işler (endeks, api_jobs reaper) ayrı trigger yerine mevcut 5 slot'a gömülü:
 #   "0 3 * * *"   — günde bir, istatistik refresh + rate_limit/giris_denemesi cleanup

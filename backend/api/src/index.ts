@@ -68,8 +68,17 @@ export interface Env {
   DB: D1Database;
   /** TUCBS ÇDP tile kalıcı cache'i — write-through, TUCBS'e canlı bağımlılığı azaltır */
   TUCBS_TILES: R2Bucket;
-  /** Rate limit sayaçları — D1 yerine KV (10x daha hızlı write, aylık kota D1'den çok düşük) */
+  /**
+   * Adı tarihsel: artık istek SINIRI için kullanılmıyor (bkz. SINIR_*). Kalan
+   * kullanımlar düşük yazmalı önbellekler — doğrulama raporu, statik paket,
+   * uydu analizi, D1 düşünce hata kaydı.
+   */
   RATE_LIMIT_KV?: KVNamespace;
+  /** İstek sınırı sınıfları — Cloudflare Rate Limiting (wrangler.toml [[ratelimits]], lib/rate-limit.ts). */
+  SINIR_YOGUN?: RateLimit;
+  SINIR_GENEL?: RateLimit;
+  SINIR_DAR?: RateLimit;
+  SINIR_PAHALI?: RateLimit;
   /** Scraper ingest auth — sadece /v1/ilan ve /v1/scraper için */
   SCRAPER_API_SECRET: string;
   /** Baseline seed auth — sadece /v1/baseline/seed için (SCRAPER_API_SECRET'tan ayrı) */

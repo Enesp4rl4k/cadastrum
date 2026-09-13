@@ -7,56 +7,63 @@
  * /harita/likidite D1'e hiç dokunmuyor — sınırlanması yalnızca sayfayı
  * bozuyordu.
  *
- * ── SAYAN KV ŞART ──────────────────────────────────────────────────────────
- *
- * test-helper'ın varsayılan KV'si `get` için hep null döndürüyor, `put` hiçbir
- * şey yapmıyor — yani sınırlayıcı testlerde HİÇ SAYMIYOR. Bu dosyanın ilk
- * sürümü onunla yazıldı: "40 istek → hepsi 200" testi, muafiyet olmasa BİLE
- * geçiyordu (tautoloji), "301. istek 429" testi ise hiç 429 görmedi. Burada
- * gerçekten sayan, bellekte bir KV veriliyor.
+ * 2026-09-13: sınırlayıcı KV'den Cloudflare Rate Limiting'e taşındı
+ * (lib/rate-limit.ts). Harita saatlik 300 niyetiyle SINIR_YOGUN sınıfında:
+ * dakikada 120. Test gerçekten SAYAN sahte binding kullanıyor — sayım
+ * yapmayan sahte ile "hepsi 200" testi muafiyet olmasa bile geçerdi.
  *
  * MUTASYON: index.ts'deki `if (c.req.path === "/v1/harita/likidite") return next();`
- * satırını kaldır → ilk test kırılır (31. istekte 429 değil 301. istekte;
- * sınır 300 olduğundan 40 istek yetmez — bu yüzden test 310 istek atıyor).
+ * satırını kaldır → ilk test kırılır (121. istekte 429).
  */
 import { describe, it, expect } from "vitest";
 import { app } from "../src/index.js";
 import { createMockEnv } from "./test-helper.js";
+import { SINIF_DAKIKA_LIMIT } from "../src/lib/rate-limit.js";
 
-/** Gerçekten sayan bellek içi KV — sınırlayıcının get → +1 → put döngüsü için. */
-function sayanKv(): KVNamespace {
-  const m = new Map<string, string>();
+const LIMIT = SINIF_DAKIKA_LIMIT.SINIR_YOGUN;
+
+function sayanBinding(limit: number) {
+  const sayim = new Map<string, number>();
   return {
-    get: async (k: string) => m.get(k) ?? null,
-    put: async (k: string, v: string) => { m.set(k, v); },
-  } as unknown as KVNamespace;
+    sayim,
+    binding: {
+      limit: async ({ key }: { key: string }) => {
+        const n = (sayim.get(key) ?? 0) + 1;
+        sayim.set(key, n);
+        return { success: n <= limit };
+      },
+    } as unknown as RateLimit,
+  };
 }
 
 describe("harita istek sınırı", () => {
-  it("statik /harita/likidite sınırlanmaz — D1 sınırının (300) üstünde bile", async () => {
-    const env = createMockEnv({ RATE_LIMIT_KV: sayanKv() });
-    for (let i = 0; i < 310; i++) {
+  it("statik /harita/likidite sınırlanmaz — sınıf limitinin üstünde bile", async () => {
+    const { binding } = sayanBinding(LIMIT);
+    const env = createMockEnv({ SINIR_YOGUN: binding });
+    for (let i = 0; i < LIMIT + 10; i++) {
       const r = await app.request("/v1/harita/likidite?kategori=arsa", { method: "GET" }, env);
       expect(r.status, `${i + 1}. istek`).toBe(200);
     }
   });
 
-  it("D1 uçları hâlâ sınırlı — 301. istek 429 (koruma kalkmadı, yalnızca yükseldi)", async () => {
-    const env = createMockEnv({ RATE_LIMIT_KV: sayanKv() });
+  it("D1 uçları hâlâ sınırlı — limit+1. istek 429 (koruma kalkmadı)", async () => {
+    const { binding } = sayanBinding(LIMIT);
+    const env = createMockEnv({ SINIR_YOGUN: binding });
     let ilk429 = -1;
-    for (let i = 0; i < 310; i++) {
+    for (let i = 0; i < LIMIT + 10; i++) {
       const r = await app.request("/v1/harita/ozet?analizTip=1&birlesik=1", { method: "GET" }, env);
       if (r.status === 429) { ilk429 = i + 1; break; }
     }
-    expect(ilk429).toBe(301);
+    expect(ilk429).toBe(LIMIT + 1);
   });
 
   it("likidite istekleri D1 uçlarının sayacını TÜKETMEZ", async () => {
-    const env = createMockEnv({ RATE_LIMIT_KV: sayanKv() });
+    const { binding, sayim } = sayanBinding(LIMIT);
+    const env = createMockEnv({ SINIR_YOGUN: binding });
     for (let i = 0; i < 50; i++) {
       await app.request("/v1/harita/likidite?kategori=arsa", { method: "GET" }, env);
     }
-    const r = await app.request("/v1/harita/ozet?analizTip=1&birlesik=1", { method: "GET" }, env);
-    expect(r.headers.get("X-RateLimit-Remaining")).toBe("299");
+    await app.request("/v1/harita/ozet?analizTip=1&birlesik=1", { method: "GET" }, env);
+    expect([...sayim.values()]).toEqual([1]);
   });
 });
