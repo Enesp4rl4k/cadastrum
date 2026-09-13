@@ -171,6 +171,55 @@ async function calculateBiasReport(db: D1Database): Promise<{
   };
 }
 
+/**
+ * Rapor ÖNBELLEĞİ — KV'de, günlük cron tazeler.
+ *
+ * ── NEDEN (2026-09-13 ölçümü, `wrangler d1 insights`, son 24 saat) ────────
+ *
+ * `calculateBiasReport` 90 günlük tüm aktif ilanları okuyor: çağrı başına
+ * 47.164 satır. /public ve /bias uçları KİMLİK İSTEMİYOR ve Chrome eklentisi
+ * her kurulumda bunları periyodik çağırıyor (src/background/scheduler.ts).
+ *   4.574.903 okuma / 97 çağrı = hesabın günlük 5.000.000 limitinin %91'i.
+ * Limit sıfırlandıktan ~13 saat sonra doluyor, sitenin tüm veri uçları gün
+ * boyu 500 dönüyordu (4, 9, 11, 12, 13 Eylül).
+ *
+ * Yanıttaki `Cache-Control: s-maxage` bunu ÖNLEMİYORDU: Cloudflare, Worker
+ * yanıtlarını bu başlığa bakıp kendiliğinden önbelleğe almıyor — başlık
+ * yalnızca "önbellekleniyor" izlenimi veriyordu.
+ *
+ * Aynı zamanda bir DoS açığıydı: kimliksiz ~106 istek tüm siteyi gün boyu
+ * düşürmeye yetiyordu.
+ *
+ * Şimdi: rapor KV'de tek anahtarda. Anahtar istekten türemediği için
+ * saldırgan ıskalama ÜRETEMEZ. Iskalamada bir kez hesaplanıp yazılıyor
+ * (deploy sonrası boşluk kalmasın); KV'nin ~60 sn'lik tutarlılık gecikmesi en
+ * kötü ihtimalle birkaç ek hesaplama demek — 97 değil.
+ */
+const RAPOR_KV_ANAHTAR = "validation:rapor:v1";
+/** Günlük cron tazeler; 26 saat, cron bir kez kaçarsa boşluk olmasın diye. */
+const RAPOR_TTL_SN = 26 * 60 * 60;
+
+type BiasRaporu = Awaited<ReturnType<typeof calculateBiasReport>>;
+
+/** Raporu hesaplar ve KV'ye yazar. Günlük cron ve yetkili /rapor çağırır. */
+export async function biasRaporuYenile(env: Pick<Env, "DB" | "RATE_LIMIT_KV">): Promise<BiasRaporu> {
+  const rapor = await calculateBiasReport(env.DB);
+  if (env.RATE_LIMIT_KV) {
+    await env.RATE_LIMIT_KV.put(RAPOR_KV_ANAHTAR, JSON.stringify(rapor), {
+      expirationTtl: RAPOR_TTL_SN,
+    });
+  }
+  return rapor;
+}
+
+async function biasRaporuGetir(env: Pick<Env, "DB" | "RATE_LIMIT_KV">): Promise<BiasRaporu> {
+  if (env.RATE_LIMIT_KV) {
+    const kayit = await env.RATE_LIMIT_KV.get(RAPOR_KV_ANAHTAR, "text");
+    if (kayit) return JSON.parse(kayit) as BiasRaporu;
+  }
+  return biasRaporuYenile(env);
+}
+
 // S1+S3: URL query param → Authorization header + timing-safe compare
 validationRoutes.get("/rapor", async (c) => {
   const { bearerYetkilendir } = await import("../lib/security.js");
@@ -178,13 +227,14 @@ validationRoutes.get("/rapor", async (c) => {
   if (!yetki) {
     return c.json({ error: "Unauthorized" }, 401);
   }
-  const rapor = await calculateBiasReport(c.env.DB);
+  // Yetkili uç TAZE hesaplar ve önbelleği de günceller.
+  const rapor = await biasRaporuYenile(c.env);
   return c.json(rapor);
 });
 
 // Public özet — extension/dashboard için (auth yok, sadece global metrikler)
 validationRoutes.get("/public", async (c) => {
-  const rapor = await calculateBiasReport(c.env.DB);
+  const rapor = await biasRaporuGetir(c.env);
   c.header("Cache-Control", "public, s-maxage=3600");
   return c.json({
     olusturuldu: rapor.olusturuldu,
@@ -214,7 +264,7 @@ validationRoutes.get("/public", async (c) => {
 
 // Bias tablosu — extension fetch (her ilçe için kalibrasyon çarpanı)
 validationRoutes.get("/bias", async (c) => {
-  const rapor = await calculateBiasReport(c.env.DB);
+  const rapor = await biasRaporuGetir(c.env);
   // Sadece n >= 5 ve |MAPE| < 50% olan ilçeleri al (gürültü filtresi)
   const tablo: Record<string, number> = {};
   for (const x of rapor.ilceler) {

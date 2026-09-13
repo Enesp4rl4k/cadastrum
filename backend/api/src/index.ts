@@ -32,7 +32,7 @@ import { scraperRoutes, scraperRunBaslat, emlakjetCronBaslat } from "./routes/sc
 import { emailGonder } from "./routes/auth.js";
 import { istatistikRefresh, ilanArchiveEt } from "./routes/istatistik.js";
 import { ilFiyatOzetiKur, zenginlestirmeKuyruguKur } from "./lib/ozet-tablolari.js";
-import { validationRoutes } from "./routes/validation.js";
+import { validationRoutes, biasRaporuYenile } from "./routes/validation.js";
 import { authRoutes } from "./routes/auth.js";
 import { hesapRoutes } from "./routes/hesap.js";
 import { lemonRoutes } from "./routes/lemon.js";
@@ -619,6 +619,15 @@ export default {
           console.log("[cron-daily] il_fiyat_ozet:", ozet.yazilan, "satır,", ozet.sure_ms, "ms");
         } catch (e) {
           console.error("[cron-daily] il_fiyat_ozet hatası:", e);
+        }
+        // 1c) Doğrulama (bias) raporu — KV'ye. Eskiden kimliksiz /validation/public
+        // ve /bias her çağrıda 47k satır tarıyordu; 24 saatte 4,57M okuma (limitin
+        // %91'i). Ayrıntı: routes/validation.ts biasRaporuYenile üstü.
+        try {
+          const rapor = await biasRaporuYenile(env);
+          console.log("[cron-daily] bias raporu KV'ye yazıldı:", rapor.toplamIlan, "ilan");
+        } catch (e) {
+          console.error("[cron-daily] bias raporu hatası:", e);
         }
         try {
           const kuyruk = await zenginlestirmeKuyruguKur(env.DB);
