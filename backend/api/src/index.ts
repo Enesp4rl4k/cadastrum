@@ -20,6 +20,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 import { fiyatRoutes } from "./routes/fiyat.js";
+import { statikRoutes } from "./routes/statik.js";
 import { ilanRoutes } from "./routes/ilan.js";
 import { emsalSpatialRoutes } from "./routes/emsal-spatial.js";
 import { sorguRoutes } from "./routes/sorgu.js";
@@ -243,6 +244,9 @@ app.get("/v1/health", (c) => c.json({
 // ── Public endpoint rate limitleri ───────────────────────────────────────────
 // Fiyat sorguları: saatte 120 istek/IP (CDN cache sayesinde çoğu buraya ulaşmaz)
 app.use("/v1/fiyat/*", rateLimitMiddleware(120, "fiyat"));
+// Statik paket — site build'i il×kategori başına bir kez çağırıyor (162 istek/build).
+// Ziyaretçi trafiği bu uca gelmiyor; sınır yalnızca kötüye kullanıma karşı.
+app.use("/v1/statik/*", rateLimitMiddleware(400, "statik"));
 
 // Proxy — alt route'lara göre farklı limit:
 //   tkgm-idari: harita sayfası tek yüklemede 81 il için ayrı istek atıyor (30 gün
@@ -297,6 +301,7 @@ app.use("/v1/telemetri/*", rateLimitMiddleware(200, "telemetri"));
 
 // Fiyat sorgu endpoint'leri (public, cache-friendly)
 app.route("/v1/fiyat", fiyatRoutes);
+app.route("/v1/statik", statikRoutes);
 
 // İlan ingest endpoint'i (extension/scraper'dan POST)
 app.route("/v1/ilan", ilanRoutes);
