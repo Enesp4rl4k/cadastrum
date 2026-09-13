@@ -33,6 +33,7 @@
 import { Hono } from "hono";
 import type { Env } from "../index.js";
 import { normalizeYerAdi } from "../lib/normalize.js";
+import { gecerliIl } from "../data/iller.js";
 import {
   type Yanit,
   type MahalleIstatistik,
@@ -250,13 +251,59 @@ export async function ilPaketiKur(db: D1Database, il: string, kategori: string, 
   };
 }
 
+/**
+ * Paket GÜNÜ — 03:30 UTC'de döner.
+ *
+ * Gecelik cron istatistikleri 03:00 UTC'de tazeliyor; sınır ondan sonra ki
+ * cron öncesi bir build dünkü paketi kullansın, taze veriyi kaçırmasın.
+ * Date.now() gövdede: Workers'ta modül düzeyi saat tuzağına düşmesin.
+ */
+export function paketGunu(zaman?: number): string {
+  const t = (zaman ?? Date.now()) - 3.5 * 60 * 60 * 1000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+/** 36 saat: bir günlük anahtar + cron/build gecikmesi payı. */
+const STATIK_TTL_SN = 36 * 60 * 60;
+
+/**
+ * ── GÜNDE BİR HESAP ─────────────────────────────────────────────────────────
+ *
+ * Paket hesabı (il, kategori) başına D1'de birkaç bin satır okuyor; 162 paket
+ * ≈ 200-300k okuma. Site her push'ta yeniden build ediliyor (bu depoda günde
+ * 10-15 push görüldü) → önbelleksiz günde 3-4,5M okuma, bütçenin tamamı.
+ * Paket KV'de GÜNLÜK anahtarla tutuluyor: günün ilk build'i hesaplar, sonraki
+ * build'ler KV'den okur ve D1'e dokunmaz.
+ *
+ * İl, sabit 81 il listesine karşı doğrulanıyor: anahtar uzayı 81 × 2 ile
+ * sınırlı, kötü niyetli istek bile günde en fazla 162 hesap tetikleyebilir.
+ * Bu yüzden bu uçta KV tabanlı istek sınırlayıcı YOK (index.ts notu) — o her
+ * istekte KV'ye yazıyor ve build başına 162 yazma, günlük 1.000 KV yazmasının
+ * önemli bir kısmını yerdi.
+ */
 statikRoutes.get("/il/:il", async (c) => {
   const il = normalizeYerAdi(c.req.param("il"));
   const kategori = c.req.query("kategori") ?? "arsa";
-  if (!il || !STATIK_KATEGORILER.has(kategori)) {
-    return c.json({ error: "il ve kategori (arsa|tarla) zorunlu" }, 400);
+  if (!gecerliIl(il) || !STATIK_KATEGORILER.has(kategori)) {
+    return c.json({ error: "il (81 ilden biri) ve kategori (arsa|tarla) zorunlu" }, 400);
   }
-  const paket = await ilPaketiKur(c.env.DB, il, kategori, Date.now());
-  c.header("Cache-Control", "no-store");
-  return c.json(paket);
+
+  const anahtar = `statik:v${STATIK_PAKET_SURUMU}:${paketGunu()}:${kategori}:${il}`;
+  const kv = c.env.RATE_LIMIT_KV;
+  if (kv) {
+    const kayit = await kv.get(anahtar, "text");
+    if (kayit) {
+      return new Response(kayit, {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Statik-Onbellek": "HIT" },
+      });
+    }
+  }
+
+  const govde = JSON.stringify(await ilPaketiKur(c.env.DB, il, kategori, Date.now()));
+  if (kv) await kv.put(anahtar, govde, { expirationTtl: STATIK_TTL_SN });
+  return new Response(govde, {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Statik-Onbellek": "MISS" },
+  });
 });

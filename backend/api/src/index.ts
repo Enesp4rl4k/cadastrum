@@ -244,9 +244,9 @@ app.get("/v1/health", (c) => c.json({
 // ── Public endpoint rate limitleri ───────────────────────────────────────────
 // Fiyat sorguları: saatte 120 istek/IP (CDN cache sayesinde çoğu buraya ulaşmaz)
 app.use("/v1/fiyat/*", rateLimitMiddleware(120, "fiyat"));
-// Statik paket — site build'i il×kategori başına bir kez çağırıyor (162 istek/build).
-// Ziyaretçi trafiği bu uca gelmiyor; sınır yalnızca kötüye kullanıma karşı.
-app.use("/v1/statik/*", rateLimitMiddleware(400, "statik"));
+// /v1/statik/* bilerek SINIRSIZ: KV tabanlı sınırlayıcı istek başına KV'ye yazıyor
+// (build başına 162 yazma). Kötüye kullanım yine sınırlı — anahtar uzayı 81 il × 2
+// kategori ve paket günde bir hesaplanıp KV'den sunuluyor. Bkz. routes/statik.ts.
 
 // Proxy — alt route'lara göre farklı limit:
 //   tkgm-idari: harita sayfası tek yüklemede 81 il için ayrı istek atıyor (30 gün
