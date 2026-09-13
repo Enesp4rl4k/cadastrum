@@ -1,0 +1,45 @@
+{
+  "calisma": "D1 okuma/yazma bütçesini ekonomik kullanma",
+  "tarih": "2026-09-13",
+  "neden": "Ücretsiz katman: günlük 5.000.000 satır okuma, 100.000 satır yazma. Okuma limiti 4, 9, 11, 12, 13 Eylül'de doldu; dolunca sitenin tüm veri uçları gün sonuna kadar 500 dönüyor.",
+  "olcum_yontemi": "npx wrangler d1 insights cadastrum-db --sort-type=sum --sort-by=reads|writes --timePeriod=7d --limit=30 --json. Tek günlük tablo gürültülü; karar 7 günlük ortalamaya dayanıyor.",
+
+  "baslangic_7_gun": {
+    "gunluk_okuma_ort": 5327481,
+    "gunluk_yazma_ort_ilk15_sorgu": 66155,
+    "okuma_limitine_orani": 1.07,
+    "yazma_limitine_orani": 0.66,
+    "okuma_tuketicileri": [
+      { "pay": 0.49, "okuma_7g": 18101481, "cagri": 638, "satir_per_sorgu": 28372, "kaynak": "routes/validation.ts calculateBiasReport — kimliksiz /validation/public ve /bias, eklenti periyodik çağırıyor", "durum": "düzeltildi 362f0f3 — KV önbelleği" },
+      { "pay": 0.25, "okuma_7g": 9213932, "cagri": 369, "satir_per_sorgu": 24970, "kaynak": "lib/emlakjet-zenginlestirme.ts bekleyen ilan seçimi — (kaynak,aktif,tarih) indeksiyle 25k satır süzüyordu", "durum": "düzeltildi — 0042 idx_ilanlar_zeng_bekleyen (kısmi)" },
+      { "pay": 0.05, "okuma_7g": 1968667, "cagri": 2267, "satir_per_sorgu": 868, "kaynak": "koordinatlı ilan (spatial) — kullanıcı isteği", "durum": "açık — orta öncelik" },
+      { "pay": 0.05, "okuma_7g": 1741583, "cagri": 61, "satir_per_sorgu": 28551, "kaynak": "zenginleştirme kuyruğu önceliği — TEMP B-TREE", "durum": "düzeltildi — 0042 idx_zenginlestirme_kuyruk_toplam" },
+      { "pay": 0.04, "okuma_7g": 1630660, "cagri": 1367, "satir_per_sorgu": 1193, "kaynak": "/harita/analiz/birlesik — kullanıcı isteği", "durum": "açık — düşük öncelik" },
+      { "pay": 0.04, "okuma_7g": 1586850, "cagri": 7, "satir_per_sorgu": 226693, "kaynak": "/harita/ilceler GROUP BY", "durum": "düzeltildi b7500e1 — tkgm_ilce_merkez" },
+      { "pay": 0.06, "okuma_7g": 2189187, "cagri": 4, "satir_per_sorgu": 547297, "kaynak": "elle çalıştırılan teşhis sorguları (COUNT DISTINCT / GROUP BY tam tarama)", "durum": "ders — teşhis sorguları indeksli ya da LIMIT'li olmalı" }
+    ],
+    "yazma_tuketicileri": [
+      { "pay": 0.68, "yazma_7g": 315156, "kaynak": "lib/ozet-tablolari.ts zenginlestirmeKuyruguKur — her gün DELETE + tüm satırlar INSERT", "durum": "düzeltildi — fark bazlı yazım" },
+      { "pay": 0.24, "yazma_7g": 106089, "kaynak": "routes/istatistik.ts mahalle_istatistik + mahalle_zaman_serisi upsert — değişmeyen satır da yazılıyor", "durum": "açık — son_guncelleme kullanıcıya 'Güncelleme: tarih' olarak gösteriliyor; değişmeyeni yazmamak bu alanın anlamını değiştirir, ürün kararı gerekiyor" }
+    ]
+  },
+
+  "tek_seferlik_maliyet": {
+    "0042_indeks_kurulumu": { "okuma": 159598, "yazma": 75627, "not": "Kısmi indeksin her girdisi yazma sayıldı; beklenenden yüksek. 2026-09-13 yazma limitini doldurmuş olabilir." }
+  },
+
+  "on_kayitli_hedefler": {
+    "not": "Sonuç görülmeden yazıldı. Ölçüm: değişikliklerden sonraki ilk TAM 7 gün (2026-09-14..20), aynı insights komutu.",
+    "gunluk_okuma_ort_ust": 1500000,
+    "gunluk_yazma_ort_ust": 30000,
+    "validation_sorgu_basina_okuma": "günde ≤ 3 tam tarama (cron + KV tutarlılık ıskalamaları)",
+    "zenginlestirme_bekleyen_satir_per_sorgu_ust": 500,
+    "kuyruk_oncelik_satir_per_sorgu_ust": 500,
+    "kuyruk_kurulum_gunluk_yazma_ust": 5000,
+    "karar_kurali": "Bir hedef tutmazsa değişiklik geri alınmaz; sapma bu dosyaya 'sonuc' altında yazılır ve sebebi ölçülür. Okuma ortalaması 5M'yi yine aşarsa yeni en büyük tüketici aynı yöntemle bulunur."
+  },
+
+  "baglantili": {
+    "tkgm_nokta_yuklemesi": "Günlük 80k yazmalık parçalar, 66k/gün taban yazmayla sığmıyordu. Kuyruk yazımı düşerse (hedef ≤5k) parça boyutu yeniden hesaplanmalı — memory: tkgm-nokta-yukleme-bekliyor."
+  }
+}

@@ -20,6 +20,10 @@ const KATEGORILER = ["arsa", "tarla", "konut"] as const;
 export interface OzetKurulumSonucu {
   yazilan: number;
   sure_ms: number;
+  /** Fark bazlı kurulumlarda: kaynağı kalmadığı için silinen satır. */
+  silinen?: number;
+  /** Fark bazlı kurulumlarda: aynı kaldığı için YAZILMAYAN satır. */
+  degismeyen?: number;
 }
 
 /**
@@ -115,24 +119,61 @@ export async function zenginlestirmeKuyruguKur(db: D1Database): Promise<OzetKuru
   ).all<{ il_norm: string; ilce_norm: string; mahalle_norm: string; toplam: number; islenen: number }>();
 
   const liste = satirlar.results ?? [];
-  // Eski satırlar silinir: mahalle tamamen boşalmışsa kuyrukta kalmamalı.
-  await db.prepare(`DELETE FROM zenginlestirme_kuyruk`).run();
 
-  let yazilan = 0;
-  const PARTI = 100;
-  for (let i = 0; i < liste.length; i += PARTI) {
-    const dilim = liste.slice(i, i + PARTI);
-    await db.batch(
-      dilim.map((r) =>
-        db.prepare(
-          `INSERT OR REPLACE INTO zenginlestirme_kuyruk
-             (il_norm, ilce_norm, mahalle_norm, toplam, islenen, guncellendi)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        ).bind(r.il_norm, r.ilce_norm, r.mahalle_norm, r.toplam, r.islenen ?? 0, simdi),
-      ),
+  // ── FARK BAZLI YAZIM ──────────────────────────────────────────────────────
+  //
+  // Eskiden tablo her gün `DELETE` edilip TÜM satırlar yeniden yazılıyordu.
+  // Ölçüm (wrangler d1 insights, 7 gün, 2026-09-13): 105.052 INSERT →
+  // 315.156 satır yazma = hesabın TÜM yazmalarının %68'i, günde ~45k —
+  // ücretsiz katman günlük yazma limiti 100k. Oysa kuyruk gün içinde saatlik
+  // turla zaten güncel tutuluyor; gece değişen satır sayısı çok küçük.
+  //
+  // Takas: mevcut kuyruğu OKUMAK (tablo boyu kadar okuma) yazmaktan çok
+  // ucuz — okuma bütçesi 5M, yazma 100k. Yalnızca değişen satır yazılıyor,
+  // artık kaynağı olmayan satır siliniyor.
+  const mevcut = await db.prepare(
+    `SELECT il_norm, ilce_norm, mahalle_norm, toplam, islenen FROM zenginlestirme_kuyruk`,
+  ).all<{ il_norm: string; ilce_norm: string; mahalle_norm: string; toplam: number; islenen: number }>();
+
+  const anahtar = (r: { il_norm: string; ilce_norm: string; mahalle_norm: string }) =>
+    `${r.il_norm}|${r.ilce_norm}|${r.mahalle_norm}`;
+  const eski = new Map((mevcut.results ?? []).map((r) => [anahtar(r), r]));
+
+  const ifadeler: D1PreparedStatement[] = [];
+  let degismeyen = 0;
+  for (const r of liste) {
+    const k = anahtar(r);
+    const e = eski.get(k);
+    eski.delete(k);
+    const islenen = r.islenen ?? 0;
+    if (e && e.toplam === r.toplam && e.islenen === islenen) {
+      degismeyen++;
+      continue;
+    }
+    ifadeler.push(
+      db.prepare(
+        `INSERT OR REPLACE INTO zenginlestirme_kuyruk
+           (il_norm, ilce_norm, mahalle_norm, toplam, islenen, guncellendi)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      ).bind(r.il_norm, r.ilce_norm, r.mahalle_norm, r.toplam, islenen, simdi),
     );
-    yazilan += dilim.length;
+  }
+  const yazilan = ifadeler.length;
+
+  // Mahalle tamamen boşalmışsa kuyrukta kalmamalı.
+  for (const e of eski.values()) {
+    ifadeler.push(
+      db.prepare(
+        `DELETE FROM zenginlestirme_kuyruk WHERE il_norm = ? AND ilce_norm = ? AND mahalle_norm = ?`,
+      ).bind(e.il_norm, e.ilce_norm, e.mahalle_norm),
+    );
+  }
+  const silinen = eski.size;
+
+  const PARTI = 100;
+  for (let i = 0; i < ifadeler.length; i += PARTI) {
+    await db.batch(ifadeler.slice(i, i + PARTI));
   }
 
-  return { yazilan, sure_ms: Date.now() - t0 };
+  return { yazilan, silinen, degismeyen, sure_ms: Date.now() - t0 };
 }
