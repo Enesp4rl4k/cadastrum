@@ -100,6 +100,7 @@ import PaywallOverlay from "./PaywallOverlay.astro";
 <script>
   // @ts-nocheck
   import { PUBLIC_API_BASE } from "../lib/config";
+  import { veriFetch } from "../lib/statik-veri";
   const API = PUBLIC_API_BASE;
   // Auth tabanlı Pro kontrolü
   function _kullanici() {
@@ -223,7 +224,8 @@ import PaywallOverlay from "./PaywallOverlay.astro";
       : `${API}/fiyat/ilce/${il}/${ilce}?kategori=${kategori}`;
 
     try {
-      const res = await fetch(url);
+      // Önce statik dosya (Pages, sınırsız), yoksa canlı API — gerekçe: lib/statik-veri.ts
+      const res = await veriFetch(url);
       if (!res.ok) {
         // G4a — ölçülemeyen kategori (konut): backend 422 + gerekçe dönüyor.
         // "Veri yok" boş durumu yanlış sebep söylerdi; gerekçe aynen gösteriliyor.

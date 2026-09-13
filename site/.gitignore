@@ -6,3 +6,6 @@ dist/
 .env.production
 .DS_Store
 *.log
+
+# Build sırasında üretilen statik fiyat verisi (scripts/statik-veri-indir.mjs)
+public/veri-statik/

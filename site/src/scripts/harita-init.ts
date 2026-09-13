@@ -20,6 +20,7 @@
 // dağıtımımızın dışındaki bir servisin ayakta olmasına bağlıydı.
 import "maplibre-gl/dist/maplibre-gl.css";
 import { PUBLIC_API_BASE } from "../lib/config";
+import { veriFetch } from "../lib/statik-veri";
 import {
   gorunumModu,
   genelNoktalariKur,
@@ -261,7 +262,8 @@ function fiyatKatmanEkle(veri: IlFiyatOzet[]) {
           // hiçbir route'a düşmüyor ve 404 dönüyordu. Sonuç: haritada bir ile her
           // tıklayışta "İlçe verisi alınamadı". İl bazlı ilçe özeti için doğru
           // endpoint bu:
-          const res = await fetch(`${API_BASE}/fiyat/toplu-ilce-ozet/${ilNorm}?kategori=${fiyatKategori}`);
+          // Önce statik dosya (Pages, sınırsız), yoksa canlı API — gerekçe: lib/statik-veri.ts
+          const res = await veriFetch(`${API_BASE}/fiyat/toplu-ilce-ozet/${ilNorm}?kategori=${fiyatKategori}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           // Zarf alanı da farklı: `ilceler`, `mahalleler` değil. İkisi birlikte
           // düzeltilmezse `ilce.ilce_norm` undefined olur ve aynı catch'e düşer.

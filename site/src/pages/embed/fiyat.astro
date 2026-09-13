@@ -271,6 +271,7 @@ export const prerender = true;
 
   <script>
     import { PUBLIC_API_BASE } from "../../lib/config";
+    import { veriFetch } from "../../lib/statik-veri";
 
     // ── Query parametreleri ──
     const params    = new URLSearchParams(location.search);
@@ -412,7 +413,8 @@ export const prerender = true;
           apiUrl = `${PUBLIC_API_BASE}/fiyat/ilce/${encodeURIComponent(il)}/${encodeURIComponent(ilce)}?kategori=${encodeURIComponent(kategori)}`;
         }
 
-        const res = await fetch(apiUrl, { signal: AbortSignal.timeout(8_000) });
+        // Önce statik dosya (Pages, sınırsız), yoksa canlı API — gerekçe: lib/statik-veri.ts
+        const res = await veriFetch(apiUrl, { signal: AbortSignal.timeout(8_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json() as {
