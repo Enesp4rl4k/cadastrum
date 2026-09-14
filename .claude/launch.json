@@ -12,6 +12,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "site"],
       "port": 4321
+    },
+    {
+      "name": "cadastrum-site-build",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--prefix", "site"],
+      "port": 4322
+    },
+    {
+      "name": "cadastrum-api-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "backend/api", "--", "--local", "--port", "8787"],
+      "port": 8787
     }
   ]
 }

@@ -163,12 +163,19 @@ import Base from "../layouts/Base.astro";
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Enlem</label>
-            <input type="number" id="lat" step="0.0001" placeholder="41.0082" required
+            <!-- step="any": harita tıklaması .toFixed(5), GPS ("Bulunduğum konum") ~15
+                 basamak, adres arama sağlayıcının kendi hassasiyeti veriyor — hiçbiri
+                 0.0001'in katı değil. Eski step="0.0001" ile tarayıcının doğal doğrulaması
+                 (steps mismatch) bu ÜÇ otomatik-gönder yolunun HEPSİNİ sessizce
+                 engelliyordu: form.requestSubmit() hata fırlatmadan reddediliyor, fetch
+                 hiç atılmıyordu. Yalnızca elle 4 ondalıklı bir değer yazan kullanıcı
+                 (benim ilk testimdeki gibi) sorunu hiç görmüyordu. -->
+            <input type="number" id="lat" step="any" placeholder="41.0082" required
               class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50 focus:bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Boylam</label>
-            <input type="number" id="lng" step="0.0001" placeholder="28.9784" required
+            <input type="number" id="lng" step="any" placeholder="28.9784" required
               class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50 focus:bg-white focus:border-imperial focus:ring-1 focus:ring-imperial/20 focus:outline-none transition-colors" />
           </div>
         </div>

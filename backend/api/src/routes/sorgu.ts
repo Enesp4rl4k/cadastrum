@@ -201,14 +201,35 @@ sorguRoutes.post("/", rateLimitMiddleware(20, "sorgu-web"), async (c) => {
   let kaynak: "spatial-radius" | "mahalle-istatistik" | "il-fallback" = "spatial-radius";
 
   // Fallback 1: spatial yetersiz → en yakın ilan'dan mahalle bul, mahalle_istatistik'e bak
+  //
+  // MESAFE SINIRI — canlı doğrulamada yakalandı (2026-09-13): bu sorgu ÖNCEDEN
+  // mesafe sınırı olmadan "en yakın ilan"ı buluyordu. Ülkenin seyrek noktalarında
+  // (kırsal, D1'de az ilan olan bölge) "en yakın" satır yüzlerce km uzakta
+  // olabiliyor — ve kod onu bulduğu mahallenin istatistiğini, o mahalleyle
+  // hiçbir coğrafi ilgisi olmayan bir konum için, sabit %65 güvenle
+  // döndürüyordu. Kullanıcı gözlemi: Kayseri kırsalına tıklayınca 700 km
+  // uzaktaki İstanbul/Çatalca verisi "%65 güven" ile geldi.
+  //
+  // Sınır MAHALLE_FALLBACK_MAX_KM: spatial döngünün en geniş yarıçapından
+  // (20 km) biraz fazla — bu bir "civarındaki bilinen mahalle" eşleşmesi,
+  // katı bir yarıçap araması değil, ama SINIRSIZ da olamaz. Aşılırsa
+  // aşağıdaki il-fallback'e (kaynak: "il-fallback", güven: 30 — açıkça kaba
+  // olduğunu söylüyor) düşülüyor; bu, ölçülmemiş bir eşleşmeyi ölçülmüş gibi
+  // sunmaktan daha dürüst.
+  const MAHALLE_FALLBACK_MAX_KM = 30;
   if (medyan == null || filtered.length < 5) {
+    const { latDelta: fLatDelta, lngDelta: fLngDelta } = kmToDegrees(MAHALLE_FALLBACK_MAX_KM, body.lat);
     const enYakin = await c.env.DB.prepare(
       `SELECT il_norm, ilce_norm, mahalle_norm,
               ((lat - ?) * (lat - ?) + (lng - ?) * (lng - ?)) AS d2
        FROM ilanlar
        WHERE lat IS NOT NULL AND lng IS NOT NULL AND mahalle_norm IS NOT NULL
+         AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
        ORDER BY d2 ASC LIMIT 1`,
-    ).bind(body.lat, body.lat, body.lng, body.lng).first<{ il_norm: string; ilce_norm: string; mahalle_norm: string }>();
+    ).bind(
+      body.lat, body.lat, body.lng, body.lng,
+      body.lat - fLatDelta, body.lat + fLatDelta, body.lng - fLngDelta, body.lng + fLngDelta,
+    ).first<{ il_norm: string; ilce_norm: string; mahalle_norm: string }>();
 
     if (enYakin) {
       const ist = await c.env.DB.prepare(
