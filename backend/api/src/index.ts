@@ -21,6 +21,7 @@ import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 import { fiyatRoutes } from "./routes/fiyat.js";
 import { statikRoutes } from "./routes/statik.js";
+import { statikHaritaRoutes } from "./routes/statik-harita.js";
 import { ilanRoutes } from "./routes/ilan.js";
 import { emsalSpatialRoutes } from "./routes/emsal-spatial.js";
 import { sorguRoutes } from "./routes/sorgu.js";
@@ -311,6 +312,7 @@ app.use("/v1/telemetri/*", rateLimitMiddleware(200, "telemetri"));
 // Fiyat sorgu endpoint'leri (public, cache-friendly)
 app.route("/v1/fiyat", fiyatRoutes);
 app.route("/v1/statik", statikRoutes);
+app.route("/v1/statik/harita", statikHaritaRoutes);
 
 // İlan ingest endpoint'i (extension/scraper'dan POST)
 app.route("/v1/ilan", ilanRoutes);

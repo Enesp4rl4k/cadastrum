@@ -21,6 +21,7 @@
  *   <kategori>/ilce/<il>.json                  { <ilce_norm>: govde }
  *   <kategori>/harita-ilce/<il>.json           govde
  *   <kategori>/mahalle/<il>/<ilce>.json        { mahalleler: {…}, trend: {mahalle, varsayilan} | null }
+ *   harita.json                                /v1/statik/harita paketinin aynısı (il/kategoriden bağımsız)
  * Dosya adında boşluk → tire (normalize adda tire yok, geri çevrilebilir).
  */
 import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
@@ -122,6 +123,27 @@ async function main() {
   }
   await Promise.all(Array.from({ length: ES_ZAMANLI }, isci));
 
+  // ── Harita paketi — il/kategoriden bağımsız, TEK dosya ─────────────────────
+  //
+  // /harita/ozet + /harita/ilceler harita sayfasının HER ziyarette zorunlu ilk
+  // yükü; Worker'ın günlük 100.000 istek tavanı D1 bütçesinden AYRI bir
+  // platform sınırı, kod optimizasyonuyla kaldırılamaz. Fiyat paketleriyle
+  // aynı hata toleransı: başarısız olursa dosya yazılmaz, site harita.json'u
+  // bulamayınca canlı API'ye düşer (src/lib/statik-harita.ts).
+  let haritaDurumu = "atlandi";
+  try {
+    const r = await fetch(`${API}/statik/harita`, { signal: AbortSignal.timeout(60_000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const paket = await r.json();
+    if (paket.surum !== PAKET_SURUMU) throw new Error(`paket sürümü ${paket.surum}, beklenen ${PAKET_SURUMU}`);
+    yaz("harita.json", paket);
+    dosyaSayisi++;
+    haritaDurumu = r.headers.get("x-statik-onbellek") === "HIT" ? "HIT" : "MISS";
+  } catch (e) {
+    haritaDurumu = `HATA: ${e instanceof Error ? e.message : e}`;
+    console.warn(`[statik-veri] harita paketi alınamadı, site canlı API kullanacak: ${haritaDurumu}`);
+  }
+
   for (const k of KATEGORILER) basarili[k].sort();
   const ozet = {
     istenen: isler.length,
@@ -130,11 +152,12 @@ async function main() {
     kv_onbellek_hit: hit,
     dosya: dosyaSayisi + 1,
     erisilemeyen_ad: erisilemeyen,
+    harita: haritaDurumu,
     sure_sn: Math.round((Date.now() - t0) / 1000),
   };
   yaz("manifest.json", { surum: PAKET_SURUMU, uretildi: Date.now(), iller: basarili, ozet });
 
-  console.log(`[statik-veri] ${ozet.basarili}/${ozet.istenen} paket · ${ozet.dosya} dosya · KV HIT ${hit} · ulaşılamayan ad ${erisilemeyen} · ${ozet.sure_sn} sn`);
+  console.log(`[statik-veri] ${ozet.basarili}/${ozet.istenen} paket · ${ozet.dosya} dosya · harita: ${haritaDurumu} · KV HIT ${hit} · ulaşılamayan ad ${erisilemeyen} · ${ozet.sure_sn} sn`);
   if (hatalar.length) {
     // Görünür ama build'i kırmıyor: bu iller manifestte yok → canlı API'ye düşer.
     console.warn(`[statik-veri] ${hatalar.length} paket alınamadı, bu iller canlı API kullanacak:`);

@@ -21,6 +21,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { PUBLIC_API_BASE } from "../lib/config";
 import { veriFetch } from "../lib/statik-veri";
+import { haritaPaketiGetir } from "../lib/statik-harita";
 import {
   gorunumModu,
   genelNoktalariKur,
@@ -557,10 +558,18 @@ async function trendVerisiCek(kategori: "arsa" | "tarla"): Promise<IlTrendSonuc[
       if (Date.now() - ts < 3_600_000) return veri; // 1 saat cache
     }
   } catch {}
-  const res = await fetch(`${API_BASE}/harita/trend?kategori=${kategori}`);
-  if (!res.ok) throw new Error(`trend HTTP ${res.status}`);
-  const data = await res.json() as { iller: IlTrendSonuc[] };
-  const veri = data.iller ?? [];
+
+  // Önce statik paket (build'de bir kez indirilmiş) — gerekçe: lib/statik-harita.ts
+  const paket = await haritaPaketiGetir();
+  let veri: IlTrendSonuc[];
+  if (paket) {
+    veri = (paket.trend[kategori] as { iller: IlTrendSonuc[] } | undefined)?.iller ?? [];
+  } else {
+    const res = await fetch(`${API_BASE}/harita/trend?kategori=${kategori}`);
+    if (!res.ok) throw new Error(`trend HTTP ${res.status}`);
+    const data = await res.json() as { iller: IlTrendSonuc[] };
+    veri = data.iller ?? [];
+  }
   try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
   return veri;
 }
@@ -726,9 +735,17 @@ async function gelVerisiCek(): Promise<GelIlSonuc[]> {
       if (Date.now() - ts < 86_400_000) return veri; // 24 saat
     }
   } catch {}
-  const res = await fetch(`${API_BASE}/harita/gelisen-bolgeler`);
-  if (!res.ok) throw new Error(`gelisen-bolgeler HTTP ${res.status}`);
-  const data = await res.json() as { iller: GelIlSonuc[] };
+
+  // Önce statik paket — gerekçe: lib/statik-harita.ts
+  const paket = await haritaPaketiGetir();
+  let data: { iller: GelIlSonuc[] };
+  if (paket) {
+    data = paket.gelisenBolgeler as { iller: GelIlSonuc[] };
+  } else {
+    const res = await fetch(`${API_BASE}/harita/gelisen-bolgeler`);
+    if (!res.ok) throw new Error(`gelisen-bolgeler HTTP ${res.status}`);
+    data = await res.json() as { iller: GelIlSonuc[] };
+  }
   const veri = data.iller ?? [];
   try { sessionStorage.setItem(cacheKey, JSON.stringify({ veri, ts: Date.now() })); } catch {}
   return veri;
@@ -1139,6 +1156,26 @@ async function tumIlceleriCek(): Promise<IlceBilgi[]> {
 
   let ilceler: IlceBilgi[] = [];
   ilceListesiHata = null;
+
+  // Önce statik paket (yeni ziyaretçide localStorage boş — bu yüzden bu adım
+  // özellikle önemli). Gerekçe: lib/statik-harita.ts
+  const oncedenPaket = await haritaPaketiGetir();
+  if (oncedenPaket) {
+    const veri = oncedenPaket.ilceler as { ilceler?: Array<{ ilce_kodu: number; lat: number; lng: number }> };
+    ilceler = (veri.ilceler ?? [])
+      .filter((x) => x.ilce_kodu > 0 && Number.isFinite(x.lat) && Number.isFinite(x.lng))
+      .map((x) => ({ ilceKodu: x.ilce_kodu, lat: x.lat, lng: x.lng }));
+    if (ilceler.length > 0) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ veri: ilceler, zaman: Date.now() }));
+      } catch {
+        // beklenen yokluk: kota dolu ya da gizli sekmede yazma kapalı — veri
+        // elimizde, yalnızca sonraki ziyaret için saklayamıyoruz.
+      }
+      return ilceler;
+    }
+  }
+
   try {
     // `?v=2`: uç 30 günlük Cache-Control dönüyor; eski 170'lik yanıt tarayıcı
     // ve ara önbelleklerde kalmasın diye adres değişti.
@@ -1194,14 +1231,22 @@ async function ozetGetir(tip: number): Promise<IlceOzeti[]> {
     // önbellek yoksa aşağıdaki istek zaten veriyi çekiyor, kullanıcı fark etmez.
   }
 
-  // TEK YIL, birleşik DEĞİL. `birlesik=1` yılları topluyor; D1'de 170 ilçenin
-  // 2024+2025'i, 378 ilçenin yalnızca 2025'i var (ölçüm 2026-09-12). Toplam,
-  // eski ilçeleri ~2 kat ağır gösterip ısıyı onlara yığıyordu. Yıl verilmeyince
-  // uç en son seed edilmiş yılı seçiyor — tüm ilçeler aynı yıla göre kıyaslanır.
-  const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${tip}`);
-  if (!res.ok) throw new HaritaIstekHatasi(res.status, Number(res.headers.get("Retry-After")) || null);
-  const data = await res.json() as { ozet?: IlceOzeti[] };
-  const ozet = data.ozet ?? [];
+  // Önce statik paket — gerekçe: lib/statik-harita.ts. Paket de TEK YIL
+  // semantiğiyle üretiliyor (aynı /ozet?analizTip=N, birlesik YOK).
+  const oncedenPaket = await haritaPaketiGetir();
+  let ozet: IlceOzeti[];
+  if (oncedenPaket) {
+    ozet = (oncedenPaket.ozet[tip] as { ozet?: IlceOzeti[] } | undefined)?.ozet ?? [];
+  } else {
+    // TEK YIL, birleşik DEĞİL. `birlesik=1` yılları topluyor; D1'de 170 ilçenin
+    // 2024+2025'i, 378 ilçenin yalnızca 2025'i var (ölçüm 2026-09-12). Toplam,
+    // eski ilçeleri ~2 kat ağır gösterip ısıyı onlara yığıyordu. Yıl verilmeyince
+    // uç en son seed edilmiş yılı seçiyor — tüm ilçeler aynı yıla göre kıyaslanır.
+    const res = await fetch(`${API_BASE}/harita/ozet?analizTip=${tip}`);
+    if (!res.ok) throw new HaritaIstekHatasi(res.status, Number(res.headers.get("Retry-After")) || null);
+    const data = await res.json() as { ozet?: IlceOzeti[] };
+    ozet = data.ozet ?? [];
+  }
   try {
     localStorage.setItem(anahtar, JSON.stringify({ veri: ozet, zaman: Date.now() }));
   } catch {
